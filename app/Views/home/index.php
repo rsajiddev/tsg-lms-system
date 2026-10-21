@@ -29,11 +29,23 @@ $reasons = [
     ['🌍', 'Global standards', 'Clean code, security and performance are baked into every lesson, so you learn to international standards.'],
 ];
 
-$testimonials = [
-    ['MZ', 'Muhammad J. Zafar', 'Website Development Client', 'Exceptional services by Tech SG Studio. Love their work and especially the commitment to time and quality was outstanding.'],
-    ['F', 'Fatima', 'Website Development Client', 'We took web development services from Tech SG Studio and were amazed by the professional services received. They have a good engagement strategy and the response time is very quick.'],
-    ['SK', 'Sarah Khan', 'Online Store Owner', 'They built my e-commerce store with a complete admin panel. The team was very cooperative and delivered right on time.'],
+$reviews = isset($reviews) && is_array($reviews) ? $reviews : [];
+$reviewValues = isset($reviewValues) && is_array($reviewValues) ? $reviewValues : [];
+$reviewMessage = isset($reviewMessage) && is_string($reviewMessage) ? $reviewMessage : null;
+$reviewSubmitted = !empty($reviewSubmitted);
+
+// Fallback keeps the section populated before the 004_reviews migration is applied.
+$fallbackReviews = [
+    ['client', 'Muhammad J. Zafar', 'Website Development Client', 5, 'Exceptional services by Tech SG Studio. Love their work and especially the commitment to time and quality was outstanding.'],
+    ['client', 'Fatima', 'Website Development Client', 5, 'We took web development services from Tech SG Studio and were amazed by the professional services received. They have a good engagement strategy and the response time is very quick.'],
+    ['client', 'Sarah Khan', 'Online Store Owner', 5, 'They built my e-commerce store with a complete admin panel. The team was very cooperative and delivered right on time.'],
 ];
+if ($reviews === []) {
+    $reviews = $fallbackReviews;
+}
+
+$reviewType = in_array($reviewValues['reviewer_type'] ?? '', ['student', 'client'], true) ? $reviewValues['reviewer_type'] : 'student';
+$oldReview = static fn(string $key): string => Security::escape((string) ($reviewValues[$key] ?? ''));
 
 $checkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>';
 $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -64,10 +76,59 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         <?php foreach ($motivation as $motiveIndex => $motive): ?><article class="motive-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($motiveIndex * 0.08, 2)) ?>s"><span class="motive-spark" aria-hidden="true">✦</span><span class="motive-emoji" aria-hidden="true"><?= $motive[0] ?></span><h3><?= Security::escape($motive[1]) ?></h3><p><?= Security::escape($motive[2]) ?></p></article><?php endforeach; ?>
     </div>
 </section>
-<section class="testi-section" data-reveal>
-    <div class="section-heading"><div><p class="eyebrow">TRUST &amp; PROOF</p><h2>Trusted by clients, loved by learners</h2></div></div>
-    <div class="testi-grid">
-        <?php foreach ($testimonials as $testiIndex => $testi): ?><article class="testi-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($testiIndex * 0.08, 2)) ?>s"><span class="testi-stars" aria-label="Rated 5 out of 5">★★★★★</span><blockquote>“<?= Security::escape($testi[3]) ?>”</blockquote><div class="testi-who"><span class="testi-ava" aria-hidden="true"><?= Security::escape($testi[0]) ?></span><span><span class="testi-name"><?= Security::escape($testi[1]) ?></span><span class="testi-role"><?= Security::escape($testi[2]) ?></span></span><span class="testi-verified"><?= $checkIcon ?>Verified</span></div></article><?php endforeach; ?>
+<section class="testi-section" id="reviews">
+    <div class="section-heading"><div><p class="eyebrow">STUDENT &amp; CLIENT REVIEWS</p><h2>What our students and clients say</h2></div></div>
+    <div class="review-marquee" data-reveal aria-label="Reviews from our students and clients">
+        <div class="review-track">
+            <?php // Cards render twice so the marquee loops seamlessly.
+            $renderReviewCards = static function (bool $clone) use ($reviews, $checkIcon): void {
+                foreach ($reviews as $review) {
+                    $reviewRating = max(1, min(5, (int) $review['rating']));
+                    $reviewWords = preg_split('/\s+/', trim((string) $review['full_name'])) ?: [];
+                    $reviewInitials = strtoupper(mb_substr((string) ($reviewWords[0] ?? 'T'), 0, 1) . mb_substr((string) ($reviewWords[1] ?? ''), 0, 1));
+                    ?><article class="testi-card"<?= $clone ? ' aria-hidden="true"' : '' ?>><div class="testi-top"><span class="testi-stars" aria-label="Rated <?= Security::escape((string) $reviewRating) ?> out of 5"><?= Security::escape(str_repeat('★', $reviewRating) . str_repeat('☆', 5 - $reviewRating)) ?></span><span class="testi-type type-<?= Security::escape((string) $review['reviewer_type']) ?>"><?= $review['reviewer_type'] === 'client' ? 'Client' : 'Student' ?></span></div><blockquote>“<?= Security::escape((string) $review['content']) ?>”</blockquote><div class="testi-who"><span class="testi-ava" aria-hidden="true"><?= Security::escape($reviewInitials) ?></span><span><span class="testi-name"><?= Security::escape((string) $review['full_name']) ?></span><span class="testi-role"><?= Security::escape((string) ($review['context_label'] ?: ($review['reviewer_type'] === 'client' ? 'Client' : 'Student'))) ?></span></span><span class="testi-verified"><?= $checkIcon ?>Verified</span></div></article><?php
+                }
+            };
+            $renderReviewCards(false);
+            $renderReviewCards(true);
+            ?>
+        </div>
+    </div>
+    <div class="review-lower" data-reveal>
+        <div class="review-intro">
+            <p class="eyebrow">WHY YOUR REVIEW MATTERS</p>
+            <h3>Real feedback keeps the Academy honest</h3>
+            <p>Reviews on this page are not marketing copy. Every line comes from someone who sat through our classes or trusted Tech SG Studio with a live project, and nothing is polished beyond a typo fix. When you share your experience — the good and the frustrating — you help the next student pick the right course and help us fix what we get wrong.</p>
+            <p class="review-sign">Submitted reviews go live after a quick moderation check, usually within a day.<br>— Team Tech SG Academy</p>
+        </div>
+        <div class="review-box" id="review-form">
+        <div class="review-box-head">
+            <h3>Share your experience</h3>
+            <p>Took a course or worked with our team? Students and clients are both welcome to leave a review — it appears here after a quick check by our team.</p>
+        </div>
+        <?php if ($reviewSubmitted): ?><p class="review-banner review-success" role="status">Thank you! Your review was received and will appear on this page once our team approves it.</p><?php endif; ?>
+        <?php if ($reviewMessage !== null): ?><p class="review-banner review-error" role="alert"><?= Security::escape($reviewMessage) ?></p><?php endif; ?>
+        <form method="post" action="<?= Security::escape($baseUrl) ?>/reviews" class="review-form">
+            <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+            <div class="reviewer-type" role="radiogroup" aria-label="I am a">
+                <label class="review-type"><input type="radio" name="reviewer_type" value="student" data-context-placeholder="e.g. Web Development student"<?= $reviewType === 'student' ? ' checked' : '' ?>><span>🎓 I'm a student</span></label>
+                <label class="review-type"><input type="radio" name="reviewer_type" value="client" data-context-placeholder="e.g. Founder, Tech SG Studio"<?= $reviewType === 'client' ? ' checked' : '' ?>><span>💼 I'm a client</span></label>
+            </div>
+            <div class="review-fields">
+                <label class="field">Your name<input class="review-input" name="full_name" required minlength="2" maxlength="150" value="<?= $oldReview('full_name') ?>"></label>
+                <label class="field">Course or project <small>(optional)</small><input class="review-input" id="review-context" name="context_label" maxlength="120" placeholder="e.g. Web Development student" value="<?= $oldReview('context_label') ?>"></label>
+            </div>
+            <fieldset class="review-rating">
+                <legend>Your rating</legend>
+                <div class="star-rating">
+                    <?php $oldRating = (int) ($reviewValues['rating'] ?? 5); for ($star = 5; $star >= 1; $star--): ?><input type="radio" id="rating-<?= $star ?>" name="rating" value="<?= $star ?>"<?= $oldRating === $star ? ' checked' : '' ?>><label for="rating-<?= $star ?>" aria-label="<?= $star ?> star<?= $star > 1 ? 's' : '' ?>">★</label><?php endfor; ?>
+                </div>
+            </fieldset>
+            <label class="field">Your review<textarea class="review-input" name="content" rows="4" required minlength="15" maxlength="1500" placeholder="What did you learn, or what did we build for you?"><?= $oldReview('content') ?></textarea></label>
+            <button class="button review-submit" type="submit">Submit review</button>
+            <p class="review-note">Honest feedback only — reviews are moderated before publishing.</p>
+        </form>
+        </div>
     </div>
 </section>
 <section class="faq-section" data-reveal>

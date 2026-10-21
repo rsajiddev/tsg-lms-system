@@ -4,22 +4,24 @@ declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
 
-foreach ([
-    '/app/Core/Env.php',
-    '/app/Core/Router.php',
-    '/app/Core/View.php',
-    '/app/Core/Security.php',
-    '/app/Core/Database.php',
-    '/app/Core/RateLimiter.php',
-    '/app/Core/AuthMiddleware.php',
-    '/app/Services/MailService.php',
-    '/app/Services/AuthService.php',
-    '/app/Controllers/HomeController.php',
-    '/app/Controllers/PublicPageController.php',
-    '/app/Controllers/HealthController.php',
-    '/app/Controllers/AuthController.php',
-    '/app/Controllers/DashboardController.php',
-] as $file) {
+foreach (
+    [
+        '/app/Core/Env.php',
+        '/app/Core/Router.php',
+        '/app/Core/View.php',
+        '/app/Core/Security.php',
+        '/app/Core/Database.php',
+        '/app/Core/RateLimiter.php',
+        '/app/Core/AuthMiddleware.php',
+        '/app/Services/MailService.php',
+        '/app/Services/AuthService.php',
+        '/app/Controllers/HomeController.php',
+        '/app/Controllers/PublicPageController.php',
+        '/app/Controllers/HealthController.php',
+        '/app/Controllers/AuthController.php',
+        '/app/Controllers/DashboardController.php',
+    ] as $file
+) {
     require BASE_PATH . $file;
 }
 
@@ -60,9 +62,13 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 
 $router = new \App\Core\Router();
 $router->get('/', [\App\Controllers\HomeController::class, 'index']);
+$router->post('/reviews', [\App\Controllers\HomeController::class, 'storeReview']);
 $router->get('/about', [\App\Controllers\PublicPageController::class, 'about']);
 $router->get('/courses', [\App\Controllers\PublicPageController::class, 'courses']);
 $router->get('/contact', [\App\Controllers\PublicPageController::class, 'contact']);
+$router->get('/terms', [\App\Controllers\PublicPageController::class, 'terms']);
+$router->get('/privacy', [\App\Controllers\PublicPageController::class, 'privacy']);
+$router->get('/refund-policy', [\App\Controllers\PublicPageController::class, 'refundPolicy']);
 $router->get('/health', [\App\Controllers\HealthController::class, 'show']);
 
 $auth = \App\Controllers\AuthController::class;

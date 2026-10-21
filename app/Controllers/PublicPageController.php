@@ -20,6 +20,21 @@ final class PublicPageController
         View::render('pages/contact', ['title' => 'Contact Tech SG Academy']);
     }
 
+    public function terms(): void
+    {
+        View::render('pages/terms', ['title' => 'Terms & Conditions']);
+    }
+
+    public function privacy(): void
+    {
+        View::render('pages/privacy', ['title' => 'Privacy Policy']);
+    }
+
+    public function refundPolicy(): void
+    {
+        View::render('pages/refund-policy', ['title' => 'Refund Policy']);
+    }
+
     public function courses(): void
     {
         $courses = [];

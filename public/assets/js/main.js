@@ -81,32 +81,16 @@
         });
     });
 
-    /* Auth card appearance toggle */
-    const authPanel = document.querySelector('[data-auth-panel]');
-    const applyTheme = (theme) => {
-        if (authPanel) authPanel.dataset.theme = theme;
-        document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
-            button.setAttribute('aria-pressed', String(theme === 'dark'));
-        });
-    };
-    if (authPanel) {
-        let stored = 'light';
-        try {
-            stored = localStorage.getItem('tsg-auth-theme') === 'dark' ? 'dark' : 'light';
-        } catch {
-            /* localStorage unavailable – keep light theme */
-        }
-        applyTheme(stored);
-        document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const next = authPanel.dataset.theme === 'dark' ? 'light' : 'dark';
-                applyTheme(next);
-                try {
-                    localStorage.setItem('tsg-auth-theme', next);
-                } catch {
-                    /* ignore persistence errors */
-                }
-            });
-        });
+    /* Review form: swap context placeholder between student and client modes */
+    const reviewContext = document.getElementById('review-context');
+    const reviewerTypeInputs = document.querySelectorAll('input[name="reviewer_type"]');
+    if (reviewContext && reviewerTypeInputs.length) {
+        const applyContext = () => {
+            const checked = document.querySelector('input[name="reviewer_type"]:checked');
+            if (checked) reviewContext.placeholder = checked.dataset.contextPlaceholder || '';
+        };
+        reviewerTypeInputs.forEach((input) => input.addEventListener('change', applyContext));
+        applyContext();
     }
+
 })();
