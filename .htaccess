@@ -1,0 +1,16 @@
+Options -Indexes
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+RewriteEngine On
+# The root folder is used as the XAMPP project directory in local development.
+# Block internal source, configuration, migrations, logs, private uploads and reference copy.
+RewriteRule ^(app|bin|config|database|docs|storage|tests|legacy-site)(/|$) - [F,L,NC]
+
+# Existing public assets and the front controller can be served normally.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+RewriteRule ^ index.php [QSA,L]

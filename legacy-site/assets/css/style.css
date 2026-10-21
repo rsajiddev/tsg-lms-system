@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --primary-blue: #2563eb;
+    --primary-hover: #1d4ed8;
+    --navy-dark: #0f172a;
+    --slate-text: #475569;
+    --bg-light: #f8fafc;
+    --border-light: #e2e8f0;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #ffffff;
+    color: var(--slate-text);
+    overflow-x: hidden;
+}
+
+/* Subtle Dotted Pattern Background matching the screenshots */
+.bg-dot-pattern {
+    background-image: radial-gradient(rgba(37, 99, 235, 0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+/* Hero Canvas styling strictly bounded inside Hero */
+#hero-particles-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Floating animation for hero preview cards */
+@keyframes floatSlow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+}
+
+@keyframes floatReverse {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(8px); }
+}
+
+.animate-float-1 {
+    animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-float-2 {
+    animation: floatReverse 6s ease-in-out infinite;
+}
+
+/* Pulse animation for live badge */
+@keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.15); }
+}
+
+.pulse-dot {
+    animation: pulseGlow 1.8s infinite ease-in-out;
+}
+
+/* Glass & Card effects */
+.card-hover-effect {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover-effect:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
