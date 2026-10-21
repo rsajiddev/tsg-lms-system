@@ -11,7 +11,7 @@
 2. Start Apache and MySQL in the XAMPP Control Panel.
 3. In phpMyAdmin, create `tsg_academy_lms` using `utf8mb4_unicode_ci`.
 4. Import `database/migrations/001_initial_schema.sql` into that empty database. Do not import it over existing production data.
-5. Apply each later versioned migration in order. For this checkout, apply `database/migrations/002_auth_rate_limits.sql` after migration 001.
+5. Apply each later versioned migration in order: `002_auth_rate_limits.sql`, then `003_published_course_catalogue.sql`. Migration 003 adds course categories/levels and separate Recorded Only / Live + Recorded prices, then imports the three courses shown on the supplied Academy site screenshot. Imported public catalogue rows have no admin creator; future admin-created courses remain linked to the creating admin.
 6. Copy `.env.example` to `.env`; configure `APP_URL`, `APP_TIMEZONE`, database values, and an approved mail sender/transport for this machine. Keep `.env` private.
 7. Open `http://localhost/TSG-Academy-LMS/`.
 8. Check `http://localhost/TSG-Academy-LMS/health`. `{"status":"ok","database":"ok"}` confirms that PHP can connect and execute a basic query. An unavailable response contains no credentials; check the XAMPP PHP error log and local `.env` values.

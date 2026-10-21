@@ -1,7 +1,7 @@
 # Initial Test Plan
 
 ## Foundation smoke tests
-- GET `/` returns 200 and shows the foundation page.
+- GET `/` returns 200 and shows the public Academy homepage with published course records from the database.
 - GET `/this-route-does-not-exist` returns 404.
 - GET `/health` returns a generic 200/503 dependency status without revealing DSN, credentials, or exception details.
 - The router strips only an exact configured application base path (including a path boundary).
@@ -19,6 +19,9 @@
 - HTTP `GET /health` after import — 200 with `{"status":"ok","database":"ok"}`.
 - Subdirectory smoke check with `APP_URL` set to `/TSG-Academy-LMS`: home — 200, unknown path — 404, session cookie path — `/TSG-Academy-LMS/`.
 - `.env`/credentials disclosure check on health response — no credentials or DB error details returned.
+- Applied migration `003_published_course_catalogue.sql` locally; verified all three published courses and both price options per course through the same aggregate query used by the public pages.
+- PHP syntax checks passed for the updated router, catalogue controllers, and course/home templates.
+- Browser review of the local `/courses` and homepage showed the three live database courses, both price modes, responsive cards, and no CTA text/background collision.
 
 ## Authentication smoke checks
 - Apply `database/migrations/002_auth_rate_limits.sql` — passed locally; migration creates the rate-limit table.

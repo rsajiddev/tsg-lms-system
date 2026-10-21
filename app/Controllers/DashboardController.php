@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
@@ -14,7 +16,7 @@ final class DashboardController
             header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/login');
             return;
         }
-        $user = AuthMiddleware::requireRole($user['role']);
+        AuthMiddleware::requireRole($user['role']);
         View::render('dashboard/index', ['title' => ucfirst($user['role']) . ' Dashboard', 'user' => $user]);
     }
 }

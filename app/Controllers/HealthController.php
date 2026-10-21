@@ -1,8 +1,11 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Core\Database;
+
 final class HealthController
 {
     public function show(): void

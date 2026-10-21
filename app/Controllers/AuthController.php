@@ -1,5 +1,7 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Core\Database;
@@ -18,7 +20,10 @@ final class AuthController
         $this->auth = new AuthService(Database::connection(), new MailService());
     }
 
-    public function registerPage(): void { $this->page('register'); }
+    public function registerPage(): void
+    {
+        $this->page('register');
+    }
 
     public function register(): void
     {
@@ -38,7 +43,10 @@ final class AuthController
         }
     }
 
-    public function verifyPage(): void { $this->page('verify'); }
+    public function verifyPage(): void
+    {
+        $this->page('verify');
+    }
 
     public function verify(): void
     {
@@ -62,7 +70,10 @@ final class AuthController
         }
     }
 
-    public function loginPage(): void { $this->page('login'); }
+    public function loginPage(): void
+    {
+        $this->page('login');
+    }
 
     public function login(): void
     {
@@ -90,7 +101,10 @@ final class AuthController
         $this->redirect('/login');
     }
 
-    public function forgotPage(): void { $this->page('forgot'); }
+    public function forgotPage(): void
+    {
+        $this->page('forgot');
+    }
 
     public function forgot(): void
     {
@@ -103,7 +117,10 @@ final class AuthController
         }
     }
 
-    public function resetPage(): void { $this->page('reset'); }
+    public function resetPage(): void
+    {
+        $this->page('reset');
+    }
 
     public function reset(): void
     {
@@ -138,8 +155,12 @@ final class AuthController
     private function title(string $mode): string
     {
         return match ($mode) {
-            'register' => 'Create Student Account', 'verify' => 'Verify Email', 'login' => 'Sign In',
-            'forgot' => 'Reset Password', 'reset' => 'Choose New Password', default => 'Request Error',
+            'register' => 'Create Student Account',
+            'verify' => 'Verify Email',
+            'login' => 'Sign In',
+            'forgot' => 'Reset Password',
+            'reset' => 'Choose New Password',
+            default => 'Request Error',
         };
     }
 

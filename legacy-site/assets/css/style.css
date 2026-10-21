@@ -35,13 +35,27 @@ body {
 
 /* Floating animation for hero preview cards */
 @keyframes floatSlow {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
 }
 
 @keyframes floatReverse {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(8px); }
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(8px);
+    }
 }
 
 .animate-float-1 {
@@ -54,8 +68,17 @@ body {
 
 /* Pulse animation for live badge */
 @keyframes pulseGlow {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.15); }
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.15);
+    }
 }
 
 .pulse-dot {
@@ -66,6 +89,7 @@ body {
 .card-hover-effect {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .card-hover-effect:hover {
     transform: translateY(-4px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);

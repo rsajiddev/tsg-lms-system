@@ -1,9 +1,18 @@
 <?php
+
 use App\Core\Security;
+
+$title = isset($title) && is_string($title) ? $title : 'TSG Academy';
+$mode = isset($mode) && is_string($mode) ? $mode : 'error';
+$message = isset($message) && is_string($message) ? $message : null;
+$values = isset($values) && is_array($values) ? $values : [];
+$user = isset($user) && is_array($user) ? $user : [];
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $value = static fn(string $name): string => Security::escape((string) ($values[$name] ?? ''));
 ?>
-<section class="auth-card">
+<section class="auth-layout">
+ <aside class="auth-story"><div class="story-orbit orbit-one"></div><div class="story-orbit orbit-two"></div><a class="story-brand" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark">TSG</span> Tech SG Studio</a><div class="story-copy"><p class="eyebrow">TECH SG ACADEMY</p><h2>Build skills.<br><span>Shape your future.</span></h2><p>Learn practical skills, turn ideas into real work, and keep moving toward what you want to achieve.</p></div><p class="story-caption">Learning is the first step to what comes next.</p></aside>
+ <section class="auth-card">
   <p class="eyebrow">TSG ACADEMY LMS</p>
   <h1><?= Security::escape($title) ?></h1>
   <?php if ($message): ?><p class="form-message" role="status"><?= Security::escape($message) ?></p><?php endif; ?>
@@ -55,4 +64,5 @@ $value = static fn(string $name): string => Security::escape((string) ($values[$
       <button class="button" type="submit">Update password</button>
     </form>
   <?php endif; ?>
+ </section>
 </section>

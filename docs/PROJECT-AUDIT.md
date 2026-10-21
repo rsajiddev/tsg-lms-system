@@ -7,7 +7,7 @@
 
 - A minimal PHP 8.1 MVC entry point, exact-path router, home controller/view, shared layout, environment loader, PDO singleton, output escaping, and CSRF token helpers.
 - One MySQL 8 initial schema with 19 tables covering users, email OTPs, courses/content/access, payments, quizzes/attempts/answers, assignments, progress, announcements/recipients/replies, and audit logs.
-- The original public-site PHP pages, CSS, and JavaScript are preserved under `legacy-site/`. The root Apache rules block serving that directory; it is reference material, not an integrated public site.
+- The original public-site PHP pages, CSS, and JavaScript remain preserved under `legacy-site/`; the root Apache rules block direct access. MVC routes now provide the public Home, Courses, About, and Contact pages. Published course cards and both learning-mode prices are read from the LMS database.
 - XAMPP `.env.example`, storage deny rule, and Week 1/2 documentation.
 
 ## What actually works
@@ -25,7 +25,7 @@
 - Session cookies lacked strict mode and were scoped to `/`; base-path routing accepted partial prefix matches. Both were corrected during this phase.
 - No diagnostic route or top-level safe exception response existed. A minimal health check and centralized exception handling are now present.
 - The schema has the right broad entities, but workflow constraints still need migration-level review. In particular, 4-option/one-correct-answer rules, selected-option/question consistency, and attempt finalization need transactional application enforcement. The proposal's invoice, payment-method/settings, email-delivery-log, and certificate entities are not present; topics are represented only indirectly through modules/lessons.
-- The original public website contains placeholder links and a nonfunctional contact form; the MVC app does not yet use those pages or assets.
+- The original static website remains reference material; its old contact form, course filters, and many student-dashboard mockups are not wired into the LMS. The current public Contact page uses the official email link, and course listings come from published database records.
 - `.env.example` defaults to local debug mode. Production deployment must explicitly disable debug and configure HTTPS, SMTP, storage, and database credentials.
 - This workspace has no `.git` metadata, so a tracked/untracked diff could not be checked.
 
@@ -43,6 +43,7 @@
 - Added a centralized exception handler that logs details and returns a generic production error response.
 - Added student authentication and password recovery with single-use hashed OTP challenges, per-account/IP request throttles, live account/role checks for the dashboard, and a CLI-only generated-password admin provisioner.
 - Added and applied versioned migration `002_auth_rate_limits.sql` locally. No real email provider is configured; actual OTP delivery still depends on approved mail transport configuration.
+- Added and applied `003_published_course_catalogue.sql` locally. It records course categories/levels, separate Recorded Only and Live + Recorded prices, and the three published courses and six prices supplied in the company-site screenshot. No placeholder admin account was created; imported course rows have a null creator.
 
 ## Verification
 

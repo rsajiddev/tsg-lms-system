@@ -1,11 +1,17 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Core;
+
 use PDO;
 use PDOException;
-final class Database {
+
+final class Database
+{
     private static ?PDO $connection = null;
-    public static function connection(): PDO {
+    public static function connection(): PDO
+    {
         if (self::$connection instanceof PDO) return self::$connection;
         $cfg = require BASE_PATH . '/config/database.php';
         $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $cfg['host'], $cfg['port'], $cfg['name']);

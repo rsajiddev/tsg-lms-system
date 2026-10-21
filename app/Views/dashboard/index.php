@@ -1,3 +1,4 @@
+<?php $user = isset($user) && is_array($user) ? $user : ['role' => 'student', 'name' => 'Student']; ?>
 <section class="hero">
   <p class="eyebrow"><?= App\Core\Security::escape(strtoupper($user['role'])) ?> DASHBOARD</p>
   <h1>Welcome, <?= App\Core\Security::escape($user['name']) ?></h1>
