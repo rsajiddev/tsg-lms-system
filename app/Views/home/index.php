@@ -41,8 +41,73 @@ $checkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke
 $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 ?>
 <section class="home-hero" data-reveal>
-    <div class="home-copy"><p class="eyebrow">TECH SG ACADEMY · BY TECH SG STUDIO (SMC-PVT.) LTD.</p><h1>Learn practical skills.<br><span>Build what’s next.</span></h1><p class="lead">Project-based training from a SECP-registered software company — learn from developers who build for clients in Pakistan, the UK, the USA, the UAE and Europe.</p><div class="hero-actions"><a class="button" href="<?= Security::escape($baseUrl) ?>/courses">Explore courses <span aria-hidden="true">→</span></a><a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">About the Academy</a></div><div class="hero-trust"><span class="trust-chip"><?= $checkIcon ?>SECP Registered Company</span><span class="trust-chip"><?= $checkIcon ?>Project-Based Learning</span><span class="trust-chip"><?= $checkIcon ?>Certificate on Completion</span></div></div>
-    <div class="hero-art" aria-hidden="true"><div class="art-glow"></div><div class="art-card art-card-main"><span class="art-mark">TSG</span><span class="art-lines"><i></i><i></i><i></i></span><span class="art-label">Learning that moves you forward</span></div><div class="art-card art-card-small"><span class="art-spark">✦</span><span>Ideas into practice</span></div><span class="art-orbit"></span></div>
+    <div class="home-copy">
+        <p class="eyebrow">TECH SG ACADEMY · BY TECH SG STUDIO (SMC-PVT.) LTD.</p>
+        <h1>Learn practical skills.<br><span>Build what’s next.</span></h1>
+        <p class="lead">Project-based training from a SECP-registered software company — learn from developers who build for clients in Pakistan, the UK, the USA, the UAE and Europe.</p>
+        <div class="hero-actions">
+            <a class="button" href="<?= Security::escape($baseUrl) ?>/courses">Explore courses <span aria-hidden="true">→</span></a>
+            <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">About the Academy</a>
+        </div>
+        <div class="hero-trust">
+            <div class="trust-pill">
+                <span class="trust-num">01</span>
+                <span class="trust-text">SECP Registered Company</span>
+            </div>
+            <div class="trust-pill">
+                <span class="trust-num">02</span>
+                <span class="trust-text">Project-Based Learning</span>
+            </div>
+            <div class="trust-pill">
+                <span class="trust-num">03</span>
+                <span class="trust-text">Certificate on Completion</span>
+            </div>
+        </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+        <div class="art-glow"></div>
+
+        <!-- Floating Abstract & Coding Shapes -->
+        <div class="art-floating-shape shape-code">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span>&lt;code /&gt;</span>
+        </div>
+
+        <div class="art-floating-shape shape-book">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Curriculum</span>
+        </div>
+
+        <div class="art-floating-shape shape-brackets">
+            <span class="brackets-symbol">{ ; }</span>
+            <span>Logic</span>
+        </div>
+
+        <div class="art-floating-shape shape-cert">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+            <span>Certified</span>
+        </div>
+
+        <div class="art-card art-card-main">
+            <span class="art-mark">TSG</span>
+            <span class="art-lines"><i></i><i></i><i></i></span>
+            <span class="art-label">Learning that moves you forward</span>
+        </div>
+        <div class="art-card art-card-small">
+            <span class="art-spark">✦</span>
+            <span>Ideas into practice</span>
+        </div>
+        <span class="art-orbit"></span>
+    </div>
 </section>
 <section class="stats-band" data-reveal aria-label="Academy highlights">
     <div class="stat-card"><span class="stat-num" data-count="13" data-suffix="+">13+</span><span class="stat-label">Projects delivered by our team</span></div>

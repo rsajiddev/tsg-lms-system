@@ -230,12 +230,12 @@
   gap: 48px;
   min-height: 560px;
   padding: 80px 0 68px;
-  overflow: hidden
+  overflow: visible;
 }
 
 .home-copy {
   position: relative;
-  z-index: 1
+  z-index: 1;
 }
 
 .home-copy h1,
@@ -244,22 +244,82 @@
   color: var(--navy);
   font-size: clamp(42px, 6vw, 70px);
   line-height: 1.03;
-  letter-spacing: -.055em
+  letter-spacing: -.055em;
 }
 
 .home-copy h1 span {
-  color: var(--blue)
+  color: var(--blue);
 }
 
 .home-copy .lead {
   max-width: 580px;
-  margin: 24px 0 28px
+  margin: 24px 0 28px;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  overflow: visible;
+}
+
+.hero-actions .button {
+  transform-origin: center center;
+}
+
+.hero-actions .button:first-child {
+  transform-origin: center center;
+}
+
+/* === Hero Trust Pills === */
+.hero-trust {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px 7px 10px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(37,99,235,0.15);
+  background: rgba(239,246,255,0.7);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.trust-pill:hover {
+  border-color: rgba(37,99,235,0.35);
+  background: rgba(219,234,254,0.6);
+}
+
+.trust-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2463eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+.trust-text {
+  color: #1e3a5f;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
 }
 
 .button,
@@ -452,6 +512,114 @@ button.button-secondary:active {
 .art-spark {
   color: #4f46e5;
   font-size: 25px
+}
+
+/* ===== Hero Art Floating Abstract & Coding Shapes ===== */
+.art-card-main {
+  z-index: 2;
+}
+
+.art-card-small {
+  z-index: 3;
+}
+
+.art-floating-shape {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 24px -3px rgba(37, 99, 235, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.art-floating-shape svg {
+  flex-shrink: 0;
+  color: #2463eb;
+}
+
+.shape-code {
+  top: 15px;
+  left: 10px;
+  animation: float-shape-1 7s ease-in-out infinite;
+}
+
+.shape-book {
+  bottom: 25px;
+  left: -10px;
+  animation: float-shape-2 8s ease-in-out -2s infinite;
+}
+
+.shape-book svg {
+  color: #059669;
+}
+
+.shape-brackets {
+  top: 40px;
+  right: -15px;
+  animation: float-shape-3 6.5s ease-in-out -1s infinite;
+}
+
+.brackets-symbol {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #7c3aed;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.shape-cert {
+  bottom: 30px;
+  right: 15px;
+  animation: float-shape-4 7.5s ease-in-out -3s infinite;
+}
+
+.shape-cert svg {
+  color: #d97706;
+}
+
+@keyframes float-shape-1 {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-13px) rotate(4deg);
+  }
+}
+
+@keyframes float-shape-2 {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(12px) rotate(-4deg);
+  }
+}
+
+@keyframes float-shape-3 {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(-5deg);
+  }
+}
+
+@keyframes float-shape-4 {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(11px) rotate(5deg);
+  }
 }
 
 .home-courses {
@@ -1299,6 +1467,11 @@ button.button-secondary:active {
 
   .hero-actions {
     justify-content: center
+  }
+
+  .hero-trust {
+    justify-content: center;
+    flex-wrap: wrap
   }
 
   .hero-art {
