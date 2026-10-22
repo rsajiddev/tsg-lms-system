@@ -359,7 +359,7 @@ $totalStudents = count($students);
         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/access" class="admin-form">
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
 
-            <div class="admin-form-row-3">
+            <div class="admin-form-row-4">
                 <div class="admin-field">
                     <label class="admin-label" for="access-student">
                         Verified student <span class="req">*</span>
@@ -368,13 +368,28 @@ $totalStudents = count($students);
                         <?php if (empty($students)): ?>
                             <option value="" disabled selected>No active verified students</option>
                         <?php else: ?>
-                            <?php foreach ($students as $student): ?>
-                                <option value="<?= (int) $student['id'] ?>">
-                                    <?= $escape($student['full_name'] . ' · ' . $student['email']) ?>
+                            <?php foreach ($students as $index => $student): ?>
+                                <option value="<?= (int) $student['id'] ?>" data-email="<?= $escape($student['email']) ?>" <?= $index === 0 ? 'selected' : '' ?>>
+                                    <?= $escape($student['full_name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </select>
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="access-student-email">
+                        Student email <span class="req">*</span>
+                    </label>
+                    <div class="input-with-icon">
+                        <span class="field-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                        </span>
+                        <input class="admin-input icon-padded" id="access-student-email" type="email" readonly placeholder="student@example.com" value="<?= !empty($students) ? $escape($students[0]['email']) : '' ?>">
+                    </div>
                 </div>
 
                 <div class="admin-field">
@@ -426,4 +441,23 @@ $totalStudents = count($students);
             </div>
         </form>
     </section>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var studentSelect = document.getElementById('access-student');
+        var emailInput = document.getElementById('access-student-email');
+        if (studentSelect && emailInput) {
+            var syncStudentEmail = function () {
+                var selected = studentSelect.options[studentSelect.selectedIndex];
+                if (selected && selected.getAttribute('data-email')) {
+                    emailInput.value = selected.getAttribute('data-email');
+                } else {
+                    emailInput.value = '';
+                }
+            };
+            studentSelect.addEventListener('change', syncStudentEmail);
+            syncStudentEmail();
+        }
+    });
+    </script>
 </section>
