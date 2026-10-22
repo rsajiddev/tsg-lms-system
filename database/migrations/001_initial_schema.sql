@@ -18,10 +18,19 @@ CREATE TABLE IF NOT EXISTS email_otps (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS courses (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(200) NOT NULL, slug VARCHAR(220) NOT NULL UNIQUE,
- short_description VARCHAR(500) NULL, description TEXT NULL, duration_label VARCHAR(100) NULL, price DECIMAL(10,2) NOT NULL DEFAULT 0,
+ category VARCHAR(100) NULL, short_description VARCHAR(500) NULL, description TEXT NULL, duration_label VARCHAR(100) NULL,
+ level_label VARCHAR(50) NULL, price DECIMAL(10,2) NOT NULL DEFAULT 0,
  currency CHAR(3) NOT NULL DEFAULT 'PKR', visibility ENUM('draft','published','hidden','archived') NOT NULL DEFAULT 'draft',
- created_by BIGINT UNSIGNED NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ created_by BIGINT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  CONSTRAINT fk_courses_creator FOREIGN KEY(created_by) REFERENCES users(id), INDEX idx_courses_visibility(visibility)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS course_pricing_options (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, course_id BIGINT UNSIGNED NOT NULL,
+ option_code ENUM('recorded_only','live_recorded') NOT NULL, display_label VARCHAR(100) NOT NULL,
+ price DECIMAL(10,2) NOT NULL, currency CHAR(3) NOT NULL DEFAULT 'PKR',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ CONSTRAINT fk_course_pricing_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ UNIQUE KEY uq_course_pricing_option(course_id,option_code), INDEX idx_course_pricing_course(course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS course_modules (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, course_id BIGINT UNSIGNED NOT NULL, title VARCHAR(200) NOT NULL, sort_order INT UNSIGNED NOT NULL DEFAULT 0,
@@ -122,4 +131,55 @@ CREATE TABLE IF NOT EXISTS audit_logs (
  metadata JSON NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT fk_audit_actor FOREIGN KEY(actor_user_id) REFERENCES users(id), INDEX idx_audit_action(action,created_at), INDEX idx_audit_entity(entity_type,entity_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS auth_rate_limits (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, action VARCHAR(40) NOT NULL,
+ subject_hash CHAR(64) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_rate_limit_lookup(action,subject_hash,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS reviews (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ reviewer_type ENUM('student','client') NOT NULL, full_name VARCHAR(150) NOT NULL,
+ context_label VARCHAR(120) NULL, rating TINYINT UNSIGNED NOT NULL,
+ content TEXT NOT NULL, status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+ ip_address VARCHAR(45) NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT chk_reviews_rating CHECK(rating BETWEEN 1 AND 5),
+ INDEX idx_reviews_listing(status,created_at), INDEX idx_reviews_recent_ip(ip_address,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seed the published Academy catalogue and its two delivery-mode prices.
+INSERT INTO courses (title,slug,category,short_description,duration_label,level_label,price,currency,visibility,created_by)
+SELECT seed.title,seed.slug,seed.category,seed.short_description,seed.duration_label,seed.level_label,seed.recorded_price,'PKR','published',NULL
+FROM (
+ SELECT 'Full Stack Web Development' AS title,'full-stack-web-development' AS slug,'Web Development' AS category,
+        'Learn to build real projects using HTML, CSS, JavaScript, PHP, and MySQL.' AS short_description,
+        '3 Months' AS duration_label,'Beginner' AS level_label,5000.00 AS recorded_price
+ UNION ALL SELECT 'Digital Marketing Essentials','digital-marketing-essentials','Digital Marketing',
+        'Practical training in SEO, social media, and advertising campaigns.','2 Months','Beginner',3000.00
+ UNION ALL SELECT 'Graphic Design Basics','graphic-design-basics','Graphic Design',
+        'Learn to create professional designs using Canva and Photoshop.','6 Weeks','Beginner',2500.00
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM courses existing WHERE existing.slug=seed.slug);
+INSERT INTO course_pricing_options (course_id,option_code,display_label,price,currency)
+SELECT c.id,p.option_code,p.display_label,p.price,'PKR' FROM (
+ SELECT 'full-stack-web-development' AS slug,'recorded_only' AS option_code,'Recorded Only' AS display_label,5000.00 AS price
+ UNION ALL SELECT 'full-stack-web-development','live_recorded','Live + Recorded',10000.00
+ UNION ALL SELECT 'digital-marketing-essentials','recorded_only','Recorded Only',3000.00
+ UNION ALL SELECT 'digital-marketing-essentials','live_recorded','Live + Recorded',7000.00
+ UNION ALL SELECT 'graphic-design-basics','recorded_only','Recorded Only',2500.00
+ UNION ALL SELECT 'graphic-design-basics','live_recorded','Live + Recorded',6000.00
+) AS p JOIN courses c ON c.slug=p.slug
+WHERE NOT EXISTS (SELECT 1 FROM course_pricing_options existing WHERE existing.course_id=c.id AND existing.option_code=p.option_code);
+
+-- Import the three client reviews recorded as already published in docs/CHANGELOG.md.
+INSERT INTO reviews (reviewer_type,full_name,context_label,rating,content,status)
+SELECT seed.reviewer_type,seed.full_name,seed.context_label,seed.rating,seed.content,'approved'
+FROM (
+ SELECT 'client' AS reviewer_type,'Muhammad J. Zafar' AS full_name,'Website Development Client' AS context_label,5 AS rating,
+        'Exceptional services by Tech SG Studio. Love their work and especially the commitment to time and quality was outstanding.' AS content
+ UNION ALL SELECT 'client','Fatima','Website Development Client',5,
+        'We took web development services from Tech SG Studio and were amazed by the professional services received. They have a good engagement strategy and the response time is very quick.'
+ UNION ALL SELECT 'client','Sarah Khan','Online Store Owner',5,
+        'They built my e-commerce store with a complete admin panel. The team was very cooperative and delivered right on time.'
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM reviews existing WHERE existing.full_name=seed.full_name);
 SET FOREIGN_KEY_CHECKS = 1;

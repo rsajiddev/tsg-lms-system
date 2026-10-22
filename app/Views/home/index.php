@@ -34,16 +34,6 @@ $reviewValues = isset($reviewValues) && is_array($reviewValues) ? $reviewValues 
 $reviewMessage = isset($reviewMessage) && is_string($reviewMessage) ? $reviewMessage : null;
 $reviewSubmitted = !empty($reviewSubmitted);
 
-// Fallback keeps the section populated before the 004_reviews migration is applied.
-$fallbackReviews = [
-    ['client', 'Muhammad J. Zafar', 'Website Development Client', 5, 'Exceptional services by Tech SG Studio. Love their work and especially the commitment to time and quality was outstanding.'],
-    ['client', 'Fatima', 'Website Development Client', 5, 'We took web development services from Tech SG Studio and were amazed by the professional services received. They have a good engagement strategy and the response time is very quick.'],
-    ['client', 'Sarah Khan', 'Online Store Owner', 5, 'They built my e-commerce store with a complete admin panel. The team was very cooperative and delivered right on time.'],
-];
-if ($reviews === []) {
-    $reviews = $fallbackReviews;
-}
-
 $reviewType = in_array($reviewValues['reviewer_type'] ?? '', ['student', 'client'], true) ? $reviewValues['reviewer_type'] : 'student';
 $oldReview = static fn(string $key): string => Security::escape((string) ($reviewValues[$key] ?? ''));
 
@@ -78,6 +68,9 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
 </section>
 <section class="testi-section" id="reviews">
     <div class="section-heading"><div><p class="eyebrow">STUDENT &amp; CLIENT REVIEWS</p><h2>What our students and clients say</h2></div></div>
+    <?php if ($reviews === []): ?>
+    <div class="empty-state" data-reveal><div><h3>No approved reviews yet</h3><p>Student and client reviews will appear here after they are approved.</p></div></div>
+    <?php else: ?>
     <div class="review-marquee" data-reveal aria-label="Reviews from our students and clients">
         <div class="review-track">
             <?php // Cards render twice so the marquee loops seamlessly.
@@ -94,6 +87,7 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
             ?>
         </div>
     </div>
+    <?php endif; ?>
     <div class="review-lower" data-reveal>
         <div class="review-intro">
             <p class="eyebrow">WHY YOUR REVIEW MATTERS</p>

@@ -47,11 +47,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
         <label class="field">Email<span class="input-wrap"><input name="email" type="email" autocomplete="email" required value="<?= $value('email') ?>"></span></label>
         <label class="field">Six-digit code<span class="input-wrap"><input class="field-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required value="<?= $value('code') ?>"></span></label>
         <button class="button auth-submit" type="submit">Verify email</button>
-      </form>
-      <form method="post" action="<?= Security::escape($baseUrl) ?>/verify-email/resend" class="secondary-form">
-        <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
-        <input type="hidden" name="email" value="<?= $value('email') ?>">
-        <button class="text-button" type="submit">Resend verification code</button>
+        <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/verify-email/resend" formnovalidate>Resend verification code</button>
       </form>
       <p class="auth-links"><a href="<?= Security::escape($baseUrl) ?>/login">Back to log in</a></p>
     <?php elseif ($mode === 'login'): ?>
@@ -65,7 +61,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
         </div>
         <button class="button auth-submit" type="submit">Log in</button>
       </form>
-      <p class="auth-links">New here? <a href="<?= Security::escape($baseUrl) ?>/register">Create an account</a></p>
+      <p class="auth-links">New here? <a href="<?= Security::escape($baseUrl) ?>/register">Create an account</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify your email</a></p>
     <?php elseif ($mode === 'forgot'): ?>
       <form method="post" action="<?= Security::escape($baseUrl) ?>/forgot-password">
         <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">

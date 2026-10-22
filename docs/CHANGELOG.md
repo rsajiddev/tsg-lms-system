@@ -4,13 +4,30 @@ All notable UI and feature changes made to the TSG Academy LMS public site, newe
 
 ## Unreleased — 2026-10-22 (reviews, legal pages, auth redesign v2, header/footer polish)
 
+### Role-specific dashboard overview
+- Replaced the shared dashboard placeholder with database-backed Student and Admin overviews.
+- Student overview is scoped to the signed-in account and shows its active course grants, lesson
+  progress, own payments, released course quizzes, quiz history, and unread recipient notifications.
+- Admin overview shows live student/course/payment/quiz counts and recent payment and quiz activity.
+- Added responsive cards, status labels, progress indicators, and empty states; later phases will
+  add course editing, payment decisions, access grants, and quiz administration.
+- Login and registration guidance now makes the required email-verification step clearer. Local
+  XAMPP OTP delivery still requires mail sender/transport configuration.
+- Added authenticated SMTP delivery for verification and password-reset OTPs with TLS/SSL,
+  credential-backed authentication, delivery-result feedback, and secret-safe failure logs.
+- A successful new student registration also sends an alert to `MAIL_ADMIN_NOTIFICATION_ADDRESS`; failure of
+  this admin alert does not block account verification or expose SMTP secrets.
+- Added `.env.example` with database and SMTP configuration keys; real OTP delivery requires
+  replacing its SMTP placeholders with approved provider settings in the private `.env`.
+- Removed the hard-coded home-page review fallback; only approved database reviews render.
+
 ### Database-backed reviews (home page)
-- New migration `database/migrations/004_reviews.sql` creating the `reviews` table:
+- The consolidated `database/migrations/001_initial_schema.sql` creates the `reviews` table:
   `reviewer_type` (student/client), `full_name`, `context_label`, `rating` (1–5, CHECK constraint),
   `content`, `status` (pending/approved/rejected, default `pending`), `ip_address`, `created_at`.
   Seeded with the 3 real approved client testimonials already published on the site.
-- `HomeController::index()` now loads up to 6 approved reviews (newest first); the view falls back
-  to hardcoded testimonials if the table is unavailable, so the section is never empty.
+- `HomeController::index()` loads up to 6 approved reviews (newest first); when there are no
+  approved database reviews, the page shows an empty state instead of substitute review data.
 - New route `POST /reviews` → `HomeController::storeReview()`:
   - CSRF protected (`Security::verifyCsrf`), same pattern as auth forms.
   - Server-side validation: reviewer type, name 2–150 chars, optional context ≤120 chars,
@@ -74,8 +91,8 @@ All notable UI and feature changes made to the TSG Academy LMS public site, newe
   (superseded by the v2 redesign above).
 - Responsive hamburger menu and mobile navigation.
 - "Get started" hover contrast fix.
-- Home page: trust chips, animated stats band, why-cards, motivational cards, real
-  testimonials, sticky-heading FAQ accordion, CTA banner.
+- Home page: trust chips, animated stats band, why-cards, motivational cards, testimonials,
+  sticky-heading FAQ accordion, CTA banner.
 - About/Contact/Courses enriched with real Tech SG Studio data (SECP registration, contact
   channels, process, most-popular course badge).
 - Added `public/assets/js/main.js` (nav toggle, scroll reveal, counters, password toggles).

@@ -36,8 +36,11 @@ final class AuthController
             return;
         }
         try {
-            $this->auth->register($name, $email, $password);
-            $this->page('register', ['email' => $email], 'If this address can be registered, verification instructions will be sent.');
+            $sent = $this->auth->register($name, $email, $password);
+            $message = $sent
+                ? 'A verification code was sent. Enter it on the verification page before signing in.'
+                : 'Registration could not confirm email delivery. Check the address, configure SMTP, then request a code from the verification page. Email verification is required before sign in.';
+            $this->page('register', ['email' => $email], $message);
         } catch (RuntimeException $exception) {
             $this->page('register', ['full_name' => $name, 'email' => $email], $exception->getMessage());
         }
@@ -63,8 +66,11 @@ final class AuthController
     {
         if (!$this->csrfValid()) return;
         try {
-            $this->auth->resendVerification((string) ($_POST['email'] ?? ''));
-            $this->page('verify', ['email' => (string) ($_POST['email'] ?? '')], 'If a pending account exists, a new code will be sent.');
+            $sent = $this->auth->resendVerification((string) ($_POST['email'] ?? ''));
+            $message = $sent
+                ? 'A new verification code was sent. It is valid for 10 minutes.'
+                : 'A code could not be delivered. Confirm the account email and SMTP settings, then try again.';
+            $this->page('verify', ['email' => (string) ($_POST['email'] ?? '')], $message);
         } catch (RuntimeException $exception) {
             $this->page('verify', ['email' => (string) ($_POST['email'] ?? '')], $exception->getMessage());
         }
@@ -110,8 +116,11 @@ final class AuthController
     {
         if (!$this->csrfValid()) return;
         try {
-            $this->auth->requestPasswordReset((string) ($_POST['email'] ?? ''));
-            $this->page('forgot', [], 'If an eligible account exists, password reset instructions will be sent.');
+            $sent = $this->auth->requestPasswordReset((string) ($_POST['email'] ?? ''));
+            $message = $sent
+                ? 'If the account is eligible, a password reset code was sent.'
+                : 'If the account is eligible, a code may be sent. Check the address and SMTP settings if it does not arrive.';
+            $this->page('forgot', [], $message);
         } catch (RuntimeException $exception) {
             $this->page('forgot', ['email' => (string) ($_POST['email'] ?? '')], $exception->getMessage());
         }

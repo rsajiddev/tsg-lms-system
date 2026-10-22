@@ -21,7 +21,7 @@
 - `.env`/credentials disclosure check on health response — no credentials or DB error details returned.
 
 ## Authentication smoke checks
-- Apply `database/migrations/002_auth_rate_limits.sql` — passed locally; migration creates the rate-limit table.
+- The auth rate-limit table is included in `database/migrations/001_initial_schema.sql`.
 - XAMPP PHP syntax check for all application and test PHP files — passed.
 - `tests/auth-flow-smoke.php` against local MySQL with a test-only mail stub — passed: pending student registration, OTP activation and replay rejection, successful and failed login, password reset, duplicate registration behavior, and request throttling. Test user and associated rows were removed afterward.
 - HTTP `GET /register` — 200 with CSRF token and escaped form fields.

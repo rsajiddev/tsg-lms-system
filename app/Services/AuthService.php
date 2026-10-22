@@ -18,7 +18,7 @@ final class AuthService
         $this->limiter = new RateLimiter($db);
     }
 
-    public function register(string $name, string $email, string $password): void
+    public function register(string $name, string $email, string $password): bool
     {
         $this->validateIdentity($name, $email);
         if (strlen($password) < 12 || strlen($password) > 4096) {
@@ -37,13 +37,15 @@ final class AuthService
             $this->db->commit();
         } catch (PDOException $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            if ((string) $exception->getCode() === '23000') return;
+            if ((string) $exception->getCode() === '23000') return false;
             throw new RuntimeException('Registration could not be completed. Please try again later.');
         } catch (\Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $exception;
         }
-        $this->mail->sendOtp(strtolower($email), $code, 'verify_email');
+        $studentEmailSent = $this->mail->sendOtp(strtolower($email), $code, 'verify_email');
+        $this->mail->sendNewStudentAlert($name, strtolower($email));
+        return $studentEmailSent;
     }
 
     public function verifyEmail(string $email, string $code): void
@@ -51,7 +53,7 @@ final class AuthService
         $this->verifyOtp($email, $code, 'verify_email', true);
     }
 
-    public function resendVerification(string $email): void
+    public function resendVerification(string $email): bool
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
@@ -60,10 +62,10 @@ final class AuthService
         $query = $this->db->prepare("SELECT id FROM users WHERE email = ? AND role = 'student' AND status = 'pending' LIMIT 1");
         $query->execute([$email]);
         $userId = $query->fetchColumn();
-        if (!$userId) return;
+        if (!$userId) return false;
         $this->assertOtpCooldown((int) $userId, 'verify_email');
         $code = $this->issueOtp((int) $userId, 'verify_email');
-        $this->mail->sendOtp($email, $code, 'verify_email');
+        return $this->mail->sendOtp($email, $code, 'verify_email');
     }
 
     public function login(string $email, string $password): array
@@ -86,7 +88,7 @@ final class AuthService
         return $user;
     }
 
-    public function requestPasswordReset(string $email): void
+    public function requestPasswordReset(string $email): bool
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
@@ -95,10 +97,10 @@ final class AuthService
         $query = $this->db->prepare("SELECT id FROM users WHERE email = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
         $query->execute([$email]);
         $userId = $query->fetchColumn();
-        if (!$userId) return;
+        if (!$userId) return false;
         $this->assertOtpCooldown((int) $userId, 'reset_password');
         $code = $this->issueOtp((int) $userId, 'reset_password');
-        $this->mail->sendOtp($email, $code, 'reset_password');
+        return $this->mail->sendOtp($email, $code, 'reset_password');
     }
 
     public function resetPassword(string $email, string $code, string $password): void
