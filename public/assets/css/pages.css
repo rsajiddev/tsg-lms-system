@@ -3544,13 +3544,62 @@ html.js [data-reveal].is-visible {
   padding-left: 10px;
 }
 
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-with-icon .field-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-with-icon .field-icon svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+  display: block;
+}
+
+.admin-input.icon-padded {
+  padding-left: 38px !important;
+}
+
+.admin-input[readonly] {
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: default;
+}
+
 .form-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end !important;
+  text-align: right;
   gap: 12px;
-  margin-top: 6px;
-  padding-top: 14px;
+  margin-top: auto;
+  padding-top: 18px;
+  width: 100%;
+}
+
+.form-actions .button,
+.form-actions button {
+  margin-left: auto;
 }
 
 .admin-table-wrapper {
