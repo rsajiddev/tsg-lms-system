@@ -25,6 +25,8 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         </div>
         <?php if ($user['role'] === 'student'): ?>
             <a class="button" href="<?= $escape($baseUrl) ?>/courses">Browse courses <span aria-hidden="true">→</span></a>
+        <?php else: ?>
+            <a class="button" href="<?= $escape($baseUrl) ?>/admin/courses">Manage courses <span aria-hidden="true">→</span></a>
         <?php endif; ?>
     </div>
 

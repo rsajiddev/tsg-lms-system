@@ -192,14 +192,22 @@ body {
     background: #fff
 }
 
-.button {
-    display: inline-block;
+.button,
+button.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     background: var(--blue);
     color: #fff;
-    padding: 10px 15px;
-    border-radius: 10px;
+    padding: 10px 16px;
+    border-radius: 9px;
+    border: none;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
-    font-weight: 700
+    cursor: pointer
 }
 
 @media(max-width:760px) {
