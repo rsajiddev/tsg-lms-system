@@ -198,16 +198,28 @@ button.button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: var(--blue);
+    background: #2463eb;
     color: #fff;
-    padding: 10px 16px;
-    border-radius: 9px;
+    padding: 10px 18px;
+    border-radius: 11px;
     border: none;
     font: inherit;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
-    cursor: pointer
+    cursor: pointer;
+    box-shadow: 0 8px 20px #2463eb26;
+    transition: transform 0.18s ease
+}
+
+.button:hover,
+button.button:hover {
+    transform: scale(1.03)
+}
+
+.button:active,
+button.button:active {
+    transform: scale(0.99)
 }
 
 @media(max-width:760px) {
