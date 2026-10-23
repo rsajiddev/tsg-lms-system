@@ -8,7 +8,7 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 <footer class="site-footer">
     <div class="footer-inner">
         <div class="footer-brand"><a class="brand" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark">TSG</span><span>Tech SG <small>Academy</small></span></a>
-            <p>Practical learning from Tech SG Studio (SMC-PVT.) LTD.</p>
+            <p>Live and recorded IT training in web development, digital marketing and design, from a registered software and digital agency.</p>
             <div class="footer-social">
                 <a class="social-icon si-facebook" href="https://facebook.com/techsgstudio" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
                         <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" />

@@ -45,11 +45,20 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     <div class="hero-decor" aria-hidden="true">
         <span class="decor-blob decor-blob-1"></span>
         <span class="decor-blob decor-blob-2"></span>
+        <span class="decor-blob decor-blob-3"></span>
+        <span class="decor-shape decor-star decor-star-1"></span>
+        <span class="decor-shape decor-star decor-star-2"></span>
+        <span class="decor-shape decor-star decor-star-3"></span>
         <span class="decor-shape decor-sparkle decor-sparkle-1">✦</span>
         <span class="decor-shape decor-sparkle decor-sparkle-2">✦</span>
         <span class="decor-shape decor-plus">+</span>
         <span class="decor-shape decor-ring"></span>
+        <span class="decor-shape decor-ring decor-ring-2"></span>
+        <span class="decor-shape decor-square"></span>
+        <span class="decor-shape decor-triangle"></span>
         <span class="decor-shape decor-dot"></span>
+        <span class="decor-shape decor-dot decor-dot-2"></span>
+        <span class="decor-shape decor-dot decor-dot-3"></span>
         <span class="decor-shape decor-cross">×</span>
     </div>
     <div class="home-copy">
@@ -77,27 +86,7 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     <div class="hero-art" aria-hidden="true">
         <div class="art-glow"></div>
 
-        <!-- Floating achievement badges -->
-        <span class="art-badge art-badge-1">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 10 12 5 2 10l10 5 10-5Z"></path>
-                <path d="M6 12v5c0 1.65 2.69 3 6 3s6-1.35 6-3v-5"></path>
-            </svg>
-        </span>
-        <span class="art-badge art-badge-2">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="9"></circle>
-                <path d="m8.5 12 2.4 2.4 4.6-4.8"></path>
-            </svg>
-        </span>
-        <span class="art-badge art-badge-3">✦</span>
-
         <div class="art-card art-card-main">
-            <span class="art-seal">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4.5 12.5l5 5 10-11"></path>
-                </svg>
-            </span>
             <div class="art-card-top">
                 <span class="art-mark">TSG</span>
                 <span class="art-chip"><i></i>Live + Recorded</span>
@@ -179,6 +168,46 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
                 <h3><?= Security::escape($motive[1]) ?></h3>
                 <p><?= Security::escape($motive[2]) ?></p>
             </article><?php endforeach; ?>
+    </div>
+</section>
+<section class="dashboard-section" data-reveal>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">YOUR LEARNING SPACE</p>
+            <h2>One dashboard for everything</h2>
+            <p class="dashboard-lead">Your classes, lessons, results and receipts, organised in one place.</p>
+        </div>
+    </div>
+    <div class="dashboard-grid">
+        <article class="dash-card dash-progress" data-reveal>
+            <h3>Progress tracking</h3>
+            <p>See lessons completed and your overall percentage, per course.</p>
+            <div class="dash-bars">
+                <div class="dash-bar"><span>Web Development</span><strong>68%</strong><span class="dash-track"><i style="--fill: 68%"></i></span></div>
+                <div class="dash-bar"><span>Digital Marketing</span><strong>42%</strong><span class="dash-track"><i style="--fill: 42%"></i></span></div>
+                <div class="dash-bar"><span>Graphic Design</span><strong>15%</strong><span class="dash-track"><i style="--fill: 15%"></i></span></div>
+            </div>
+        </article>
+        <article class="dash-card dash-schedule" data-reveal style="--reveal-delay: .06s">
+            <h3>Class schedule</h3>
+            <p>Upcoming live classes with date, time and a one-click Zoom join.</p>
+        </article>
+        <article class="dash-card" data-reveal style="--reveal-delay: .12s">
+            <h3>Assignments</h3>
+            <p>Submit files and read teacher feedback.</p>
+        </article>
+        <article class="dash-card" data-reveal style="--reveal-delay: .18s">
+            <h3>Timed quizzes</h3>
+            <p>Instant results after you submit.</p>
+        </article>
+        <article class="dash-card dash-wide" data-reveal style="--reveal-delay: .24s">
+            <h3>Payments and receipts</h3>
+            <p>Transaction history and receipts whenever you need them.</p>
+        </article>
+        <article class="dash-card dash-wide" data-reveal style="--reveal-delay: .3s">
+            <h3>Support tickets</h3>
+            <p>Ask your teacher or the admin team and track the reply.</p>
+        </article>
     </div>
 </section>
 <section class="testi-section" id="reviews">

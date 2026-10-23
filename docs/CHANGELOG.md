@@ -67,6 +67,33 @@ Fixed the bugs introduced by the home-page hero / WHY-section redesign, without 
   three course-fact rows (Recorded lessons 24 · Hands-on projects 06 · Quizzes & tasks 12), each an
   icon chip plus an accent value on a soft gradient pill, entering once with a staggered fade
   (one-shot, and disabled under `prefers-reduced-motion`).
+- **Hero card de-cluttered, decoration moved to the background**: the three floating glass badges
+  (graduation cap, verified circle, sparkle) and the green seal tick were removed from the TSG card,
+  together with all `.art-badge` / `.art-seal` styles and the `art-seal-pop` keyframe, so the card now
+  carries only real content. The background layer took over the decoration: a third drifting blob,
+  three CSS-drawn 4-point stars (`clip-path`, no icon payload), a second larger ring, a rotating
+  outlined square, a bobbing triangle and two extra dots, each on its own slow loop. The heavier shapes
+  are dropped below 580px and every new animation is covered by `prefers-reduced-motion`.
+
+### Dashboard section + footer polish (same day)
+- **New home section "One dashboard for everything"**, inserted directly above the Student & Client
+  Reviews section. A four-column bento grid: the Progress tracking card spans 2x2 and carries three
+  course bars (Web Development 68%, Digital Marketing 42%, Graphic Design 15%) that fill once on reveal,
+  then Class schedule, Assignments, Timed quizzes, Payments and receipts and Support tickets. It uses the
+  standard `54px 0 8px` section rhythm.
+- **Dashboard responsiveness**: 4 columns → 2 columns at ≤900px (progress and schedule full
+  width, the rest paired so no card is orphaned) → a single column at ≤580px. A scoped
+  `html.js [data-reveal].is-visible.dash-card:hover` rule keeps the hover lift working even though the
+  reveal system owns the element's transform.
+- **Review card stray mark removed**: the oversized decorative `”` glyph (`.testi-card::after`) sat
+  behind the Student/Client pill in the top-right corner and read as a leftover semicolon. The rule is
+  deleted; the quote characters around the review text itself are untouched.
+- **Footer brand contrast**: `Tech SG`, the `ACADEMY` sub-line and the TSG mark text are now pure white
+  on the dark footer instead of inheriting the muted grey.
+- **Footer link spacing made consistent**: the column headings carried an 18px bottom margin on top of
+  the 12px flex gap, so the jump from Explore / Student access / Get in touch to their first link was
+  two and a half times the gap between links. The heading margin is now `0`, so every row in all three
+  columns shares the same 12px rhythm.
 
 ## Unreleased — 2026-10-22 (reviews, legal pages, auth redesign v2, header/footer polish)
 
