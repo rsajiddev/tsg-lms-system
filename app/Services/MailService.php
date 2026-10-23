@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class MailService
 {
-    public function sendOtp(string $email, string $code, string $purpose): bool
+    public function sendOtp(string $email, string $code, string $purpose, int $validForSeconds = 600): bool
     {
         $host = trim((string) (getenv('MAIL_HOST') ?: ''));
         $port = (int) (getenv('MAIL_PORT') ?: 587);
@@ -34,7 +34,7 @@ final class MailService
         $intro = $purpose === 'verify_email'
             ? 'Use this code to verify your TSG Academy account:'
             : 'Use this code to reset your TSG Academy password:';
-        $body = $intro . "\r\n\r\n{$code}\r\n\r\nThis code expires in 10 minutes and can be used once. If you did not request this, you can ignore this message.";
+        $body = $intro . "\r\n\r\n{$code}\r\n\r\nThis code expires in {$validForSeconds} seconds and can be used once. If you did not request this, you can ignore this message.";
 
         try {
             $this->deliver($host, $port, $username, $password, $encryption, $from, $fromName, $email, $subject, $body);
@@ -85,6 +85,68 @@ final class MailService
             error_log('[MAIL] New-student alert delivery failed (' . $exception::class . '). Check MAIL_* settings.');
             return false;
         }
+    }
+
+    public function sendPaymentSubmitted(string $studentEmail, string $studentName, string $courseTitle, string $amount, string $currency, string $reference): bool
+    {
+        $name = $this->mailSafeText($studentName);
+        $course = $this->mailSafeText($courseTitle);
+        $reference = $this->mailSafeText($reference);
+        $summary = "Student: {$name}\r\nCourse: {$course}\r\nAmount: {$currency} {$amount}\r\nTransaction reference: {$reference}";
+        $studentSent = $this->sendConfiguredEmail($studentEmail, 'Payment submission received', "Hello {$name},\r\n\r\nYour payment details for {$course} have been received and are awaiting verification. We will notify you when the review is complete.");
+        $adminAddress = trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: ''));
+        $adminSent = $this->sendConfiguredEmail($adminAddress, 'Course payment awaiting review', "A student submitted a course payment for manual verification.\r\n\r\n{$summary}");
+        return $studentSent && $adminSent;
+    }
+
+    public function sendPaymentDecision(string $studentEmail, string $studentName, string $courseTitle, string $amount, string $currency, bool $approved, string $note = ''): bool
+    {
+        $name = $this->mailSafeText($studentName);
+        $course = $this->mailSafeText($courseTitle);
+        $note = $this->mailSafeText($note);
+        if ($approved) {
+            $studentBody = "Hello {$name},\r\n\r\nYour payment of {$currency} {$amount} for {$course} has been verified. Course access is now active in your student dashboard.";
+            $studentSubject = 'Payment verified — course access is active';
+        } else {
+            $studentBody = "Hello {$name},\r\n\r\nYour payment for {$course} could not be verified. You may submit corrected payment details from the course catalogue.";
+            if ($note !== '') $studentBody .= "\r\n\r\nReview note: {$note}";
+            $studentSubject = 'Update about your course payment';
+        }
+        $studentSent = $this->sendConfiguredEmail($studentEmail, $studentSubject, $studentBody);
+        if (!$approved) return $studentSent;
+        $responsibleAddress = trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: ''));
+        $adminBody = "A student course payment has been verified and course access granted.\r\n\r\nStudent: {$name}\r\nEmail: " . $this->mailSafeText($studentEmail) . "\r\nCourse: {$course}\r\nVerified amount: {$currency} {$amount}";
+        $responsibleSent = $this->sendConfiguredEmail($responsibleAddress, 'Course payment verified and enrollment activated', $adminBody);
+        return $studentSent && $responsibleSent;
+    }
+
+    private function sendConfiguredEmail(string $to, string $subject, string $body): bool
+    {
+        $host = trim((string) (getenv('MAIL_HOST') ?: ''));
+        $port = (int) (getenv('MAIL_PORT') ?: 587);
+        $username = (string) (getenv('MAIL_USERNAME') ?: '');
+        $password = (string) (getenv('MAIL_PASSWORD') ?: '');
+        $encryption = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
+        $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
+        $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL) || $host === '' || $username === '' || $password === ''
+            || !filter_var($from, FILTER_VALIDATE_EMAIL) || !in_array($encryption, ['tls','ssl'], true)
+            || $port < 1 || $port > 65535) {
+            error_log('[MAIL] Transactional email is unavailable; check recipient and MAIL_* configuration.');
+            return false;
+        }
+        try {
+            $this->deliver($host, $port, $username, $password, $encryption, $from, $fromName, $to, $subject, $body);
+            return true;
+        } catch (\Throwable $exception) {
+            error_log('[MAIL] Transactional email delivery failed (' . $exception::class . '). Check SMTP configuration.');
+            return false;
+        }
+    }
+
+    private function mailSafeText(string $value): string
+    {
+        return trim(str_replace(["\r", "\n", "\0"], ' ', $value));
     }
 
     private function deliver(

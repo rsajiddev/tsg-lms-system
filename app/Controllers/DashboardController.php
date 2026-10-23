@@ -39,6 +39,7 @@ final class DashboardController
             'publishedCourseCount' => $this->count($db, "SELECT COUNT(*) FROM courses WHERE visibility = 'published'"),
             'pendingPaymentCount' => $this->count($db, "SELECT COUNT(*) FROM payments WHERE status = 'pending'"),
             'awaitingQuizCount' => $this->count($db, "SELECT COUNT(*) FROM quizzes WHERE status IN ('draft', 'scheduled')"),
+            'pendingReviewCount' => $this->count($db, "SELECT COUNT(*) FROM reviews WHERE status='pending'"),
             'recentPayments' => $db->query(
                 'SELECT p.id, p.amount, p.currency, p.status, p.transaction_reference, p.created_at,
                         u.full_name AS student_name, c.title AS course_title
@@ -76,7 +77,7 @@ final class DashboardController
         $courses->execute([$studentId]);
 
         $payments = $db->prepare(
-            'SELECT p.id, p.amount, p.currency, p.status, p.created_at, c.title AS course_title
+            'SELECT p.id, p.amount, p.currency, p.status, p.created_at, p.receipt_path, p.review_note, c.title AS course_title
              FROM payments p JOIN courses c ON c.id = p.course_id
              WHERE p.student_id = ? ORDER BY p.created_at DESC, p.id DESC LIMIT 5'
         );

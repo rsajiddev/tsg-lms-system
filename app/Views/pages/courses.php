@@ -24,7 +24,8 @@ $baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim
   <p><?= Security::escape((string) ($course['short_description'] ?: $course['description'] ?: 'Course details will be shared by the Academy.')) ?></p>
   <div class="course-meta"><?php if (!empty($course['duration_label'])): ?><span><?= Security::escape((string) $course['duration_label']) ?></span><?php endif; ?></div>
   <div class="price-options"><?php if ($course['recorded_price'] !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?><?php if ($course['live_price'] !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?></div>
-  <a class="button course-cta" href="<?= Security::escape($baseUrl) ?>/register">Create student account</a>
+  <?php $signedInUser = isset($_SESSION['user']) && is_array($_SESSION['user']) ? $_SESSION['user'] : []; ?>
+  <a class="button course-cta" href="<?= Security::escape($baseUrl) ?><?= ($signedInUser['role'] ?? '') === 'student' ? '/payments/new?course_id=' . (int) $course['id'] : '/register' ?>"><?= ($signedInUser['role'] ?? '') === 'student' ? 'Enroll / submit payment' : 'Create student account' ?></a>
 </article>
 <?php $courseIndex++; endforeach; ?></section>
 <?php endif; ?>

@@ -15,6 +15,11 @@ $dateLabel = static function (?string $value): string {
 $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $currency . ' ' . number_format((float) $amount, 2));
 ?>
 <section class="dashboard-page" data-reveal>
+    <div class="dashboard-topbar">
+        <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
+        <div class="dashboard-breadcrumb"><span>Workspace</span><i>/</i><strong><?= $user['role'] === 'admin' ? 'Admin dashboard' : 'Student dashboard' ?></strong></div>
+        <label class="dashboard-search"><span aria-hidden="true">⌕</span><input type="search" data-dashboard-search placeholder="Search dashboard..." aria-label="Search dashboard content"></label>
+    </div>
     <div class="dashboard-heading">
         <div>
             <p class="eyebrow"><?= $user['role'] === 'admin' ? 'ADMIN WORKSPACE' : 'YOUR LEARNING SPACE' ?></p>
@@ -23,11 +28,6 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                 ? 'A live overview of students, courses, payments, and learning activity.'
                 : 'Your courses, payment updates, quizzes, and learning progress in one place.' ?></p>
         </div>
-        <?php if ($user['role'] === 'student'): ?>
-            <a class="button" href="<?= $escape($baseUrl) ?>/courses">Browse courses <span aria-hidden="true">→</span></a>
-        <?php else: ?>
-            <a class="button" href="<?= $escape($baseUrl) ?>/admin/courses">Manage courses <span aria-hidden="true">→</span></a>
-        <?php endif; ?>
     </div>
 
     <?php if ($user['role'] === 'admin'): ?>
@@ -39,7 +39,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         </div>
 
         <div class="dashboard-columns">
-            <section class="dashboard-panel">
+            <section class="dashboard-panel dashboard-searchable" id="payments">
                 <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT ACTIVITY</p><h2>Recent payments</h2></div><span class="dashboard-live-label"><i></i> Live data</span></div>
                 <?php if (($admin['recentPayments'] ?? []) === []): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">₨</span><div><h3>No payments yet</h3><p>Student payment submissions will appear here when they are recorded.</p></div></div>
@@ -52,7 +52,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                 <?php endif; ?>
             </section>
 
-            <section class="dashboard-panel">
+            <section class="dashboard-panel dashboard-searchable" id="quizzes">
                 <div class="dashboard-panel-heading"><div><p class="eyebrow">ASSESSMENT ACTIVITY</p><h2>Recent quiz attempts</h2></div></div>
                 <?php if (($admin['recentAttempts'] ?? []) === []): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span><div><h3>No quiz attempts yet</h3><p>Student attempts and results will show here after quizzes are available.</p></div></div>
@@ -65,7 +65,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                 <?php endif; ?>
             </section>
         </div>
-        <div class="dashboard-note"><strong>Admin controls are being added in planned modules.</strong><span>Course editing, payment decisions, access grants, quizzes, and reporting will appear as their workflows are completed. This overview reflects records already stored in the database.</span></div>
+        <div class="dashboard-note"><strong>Workspace overview</strong><span>Use the sidebar to manage courses, review submitted payments, moderate reviews, and configure security. Quizzes and reporting will be added in their planned phases. This dashboard reflects records already stored in the database.</span></div>
 
     <?php else: ?>
         <div class="dashboard-metrics" aria-label="Your learning summary">
@@ -76,7 +76,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         </div>
 
         <div class="dashboard-columns">
-            <section class="dashboard-panel">
+            <section class="dashboard-panel dashboard-searchable" id="my-courses">
                 <div class="dashboard-panel-heading"><div><p class="eyebrow">YOUR ENROLMENT</p><h2>My courses</h2></div><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a></div>
                 <?php if (($student['courses'] ?? []) === []): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span><div><h3>Your learning starts here</h3><p>You do not have a course access grant yet. Browse the catalogue to explore available courses.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Explore published courses →</a></div></div>
@@ -95,6 +95,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                                 <div class="dashboard-progress-label"><span>Lesson progress</span><strong><?= $lessons > 0 ? $progress . '%' : 'Not started' ?></strong></div>
                                 <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
                                 <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?></small>
+                                <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $course['id'] ?>">Open course →</a>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -102,20 +103,20 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
             </section>
 
             <div class="dashboard-side-stack">
-                <section class="dashboard-panel">
+                <section class="dashboard-panel dashboard-searchable" id="payments">
                     <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT HISTORY</p><h2>Recent payments</h2></div></div>
                     <?php if (($student['payments'] ?? []) === []): ?>
                         <div class="dashboard-compact-empty"><p>No payment submissions have been recorded.</p><a href="<?= $escape($baseUrl) ?>/courses">View courses →</a></div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['payments'] as $payment): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">₨</span><div class="dashboard-list-copy"><strong><?= $escape($payment['course_title']) ?></strong><small><?= $money($payment['amount'], $payment['currency']) ?> · <?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></div><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">₨</span><div class="dashboard-list-copy"><strong><?= $escape($payment['course_title']) ?></strong><small><?= $money($payment['amount'], $payment['currency']) ?> · <?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?><?php if (!empty($payment['receipt_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download receipt</a><?php endif; ?></div><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </section>
 
-                <section class="dashboard-panel">
+                <section class="dashboard-panel dashboard-searchable" id="quizzes">
                     <div class="dashboard-panel-heading"><div><p class="eyebrow">COURSE ASSESSMENTS</p><h2>Available quizzes</h2></div></div>
                     <?php if (($student['quizzes'] ?? []) === []): ?>
                         <div class="dashboard-compact-empty"><p>No released quizzes are available for your courses right now.</p></div>
@@ -128,7 +129,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php endif; ?>
                 </section>
 
-                <section class="dashboard-panel">
+                <section class="dashboard-panel dashboard-searchable" id="results">
                     <div class="dashboard-panel-heading"><div><p class="eyebrow">YOUR RESULTS</p><h2>Quiz history</h2></div></div>
                     <?php if (($student['attempts'] ?? []) === []): ?>
                         <div class="dashboard-compact-empty"><p>Your quiz attempts and results will appear here.</p></div>
@@ -141,7 +142,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php endif; ?>
                 </section>
 
-                <section class="dashboard-panel">
+                <section class="dashboard-panel dashboard-searchable" id="notifications">
                     <div class="dashboard-panel-heading"><div><p class="eyebrow">FROM THE ACADEMY</p><h2>Notifications</h2></div></div>
                     <?php if (($student['notifications'] ?? []) === []): ?>
                         <div class="dashboard-compact-empty"><p>You are all caught up. New account and course updates will appear here.</p></div>
@@ -157,8 +158,4 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         </div>
     <?php endif; ?>
 
-    <form class="dashboard-signout" method="post" action="<?= $escape($baseUrl) ?>/logout">
-        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-        <button class="button button-secondary" type="submit">Sign out</button>
-    </form>
 </section>

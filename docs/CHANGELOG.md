@@ -2,6 +2,22 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-23 (manual course payments)
+
+- Students can submit a selected course pricing option, transaction reference, and PDF/JPG/PNG/WebP receipt (maximum 5 MB). The amount and currency are read from the database, not accepted from the browser.
+- Receipts are stored outside the public directory and downloaded through an authenticated owner/admin route.
+- Added an admin payment-review queue. Approval and course-access grant happen in one database transaction; rejection stores an optional note and does not grant access. Both decisions are audited.
+- Student receipts and review notes appear in payment history. Payment submission/decision emails use the configured SMTP transport; successful approvals notify the student and `MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS`.
+- The course catalogue links signed-in students to payment submission. Payment destination/account details are not hard-coded; students are directed to confirm current instructions with the Academy.
+
+## Unreleased — 2026-10-23 (student course learning flow)
+
+- Added protected student course and lesson pages. A course is visible only to a signed-in student with an active course grant; lessons must be published.
+- Students can mark an accessible lesson complete. Progress is stored against the authenticated student and lesson, and repeat submissions do not reset the completion timestamp.
+- Admins can now create lessons as drafts or published, edit existing lesson text, and change publication status. Updates validate course/module/lesson ownership and write audit events.
+- Added an Open course link to each granted course on the student overview and kept the dashboard sidebar available on learning pages.
+- Removed only the now-unused dashboard-heading action and dashboard sign-out CSS selectors after their markup moved to the sidebar. Shared buttons, review moderation actions, and unrelated styles remain.
+
 ## Unreleased — 2026-10-23 (home hero + WHY orbit bug fixes after redesign)
 
 Fixed the bugs introduced by the home-page hero / WHY-section redesign, without adding new behaviour.

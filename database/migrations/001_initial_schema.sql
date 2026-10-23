@@ -136,6 +136,23 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
  subject_hash CHAR(64) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX idx_rate_limit_lookup(action,subject_hash,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS app_settings (
+ setting_key VARCHAR(100) PRIMARY KEY, setting_value VARCHAR(255) NOT NULL,
+ updated_by BIGINT UNSIGNED NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ CONSTRAINT fk_app_settings_updater FOREIGN KEY(updated_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO app_settings(setting_key,setting_value) VALUES
+ ('otp_lifetime_seconds','600'),
+ ('otp_max_attempts','5'),
+ ('login_max_attempts','5'),
+ ('login_lockout_minutes','15'),
+ ('register_max_attempts','5'),
+ ('register_window_minutes','60'),
+ ('password_reset_max_attempts','3'),
+ ('password_reset_window_minutes','15'),
+ ('otp_resends_per_window','3'),
+ ('otp_resend_window_minutes','15')
+ON DUPLICATE KEY UPDATE setting_key=VALUES(setting_key);
 CREATE TABLE IF NOT EXISTS reviews (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
  reviewer_type ENUM('student','client') NOT NULL, full_name VARCHAR(150) NOT NULL,

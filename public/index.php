@@ -21,6 +21,8 @@ foreach (
         '/app/Controllers/AuthController.php',
         '/app/Controllers/DashboardController.php',
         '/app/Controllers/CourseAdminController.php',
+        '/app/Controllers/AdminManagementController.php',
+        '/app/Controllers/PaymentController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -86,10 +88,22 @@ $router->post('/forgot-password', [$auth, 'forgot']);
 $router->get('/reset-password', [$auth, 'resetPage']);
 $router->post('/reset-password', [$auth, 'reset']);
 $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']);
+$router->get('/learning', [\App\Controllers\LearningController::class, 'course']);
+$router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
+$router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);
 $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::class, 'access']);
+$router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);
+$router->post('/admin/settings', [\App\Controllers\AdminManagementController::class, 'saveSettings']);
+$router->get('/admin/reviews', [\App\Controllers\AdminManagementController::class, 'reviews']);
+$router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
+$router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
+$router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
+$router->get('/payments/new', [\App\Controllers\PaymentController::class, 'newPage']);
+$router->post('/payments', [\App\Controllers\PaymentController::class, 'submit']);
+$router->get('/payments/receipt', [\App\Controllers\PaymentController::class, 'receipt']);
 
 $requestMethod = is_string($_SERVER['REQUEST_METHOD'] ?? null) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 $requestUri = is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '/';

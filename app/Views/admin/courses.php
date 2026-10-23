@@ -17,17 +17,11 @@ $totalStudents = count($students);
 <section class="dashboard-page admin-workspace" data-reveal>
     <header class="admin-header">
         <div class="admin-header-main">
+            <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Course management</h1>
             <p>Create course records, build curriculum modules and draft lessons, and manage verified student access.</p>
         </div>
-        <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/dashboard">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            Back to dashboard
-        </a>
     </header>
 
     <?php if ($message): ?>
@@ -158,6 +152,21 @@ $totalStudents = count($students);
                     </div>
                 </div>
 
+                <div class="admin-form-row">
+                    <div class="admin-field"><label class="admin-label" for="course-duration">Duration</label><input class="admin-input" id="course-duration" name="duration_label" maxlength="100" placeholder="e.g. 3 Months"></div>
+                    <div class="admin-field"><label class="admin-label" for="course-level">Level</label><input class="admin-input" id="course-level" name="level_label" maxlength="50" placeholder="e.g. Beginner"></div>
+                </div>
+
+                <div class="admin-form-row">
+                    <div class="admin-field"><label class="admin-label" for="course-recorded-price">Recorded Only price (PKR) <span class="req">*</span></label><input class="admin-input" id="course-recorded-price" name="recorded_price" type="number" min="0" step="0.01" required value="0"></div>
+                    <div class="admin-field"><label class="admin-label" for="course-live-price">Live + Recorded price (PKR) <span class="req">*</span></label><input class="admin-input" id="course-live-price" name="live_price" type="number" min="0" step="0.01" required value="0"></div>
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="course-short-description">Card summary</label>
+                    <textarea class="admin-textarea" id="course-short-description" name="short_description" rows="2" maxlength="500" placeholder="Short description shown on home and course cards..."></textarea>
+                </div>
+
                 <div class="admin-field">
                     <label class="admin-label" for="course-description">
                         Description
@@ -238,6 +247,14 @@ $totalStudents = count($students);
                     <textarea class="admin-textarea" id="lesson-body" name="body" rows="4" placeholder="Draft lecture summary, reading materials, code snippets, or video links..."></textarea>
                 </div>
 
+                <div class="admin-field">
+                    <label class="admin-label" for="lesson-status">Publishing status</label>
+                    <select class="admin-select" id="lesson-status" name="status">
+                        <option value="draft" selected>Draft — visible to admins only</option>
+                        <option value="published">Published — available to students with course access</option>
+                    </select>
+                </div>
+
                 <div class="form-actions">
                     <button class="button" type="submit">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -245,12 +262,45 @@ $totalStudents = count($students);
                             <polyline points="17 21 17 13 7 13 7 21"></polyline>
                             <polyline points="7 3 7 8 15 8"></polyline>
                         </svg>
-                        Save lesson draft
+                        Save lesson
                     </button>
                 </div>
             </form>
         </section>
     </div>
+
+    <!-- Lesson editing and publishing -->
+    <section class="admin-card lesson-library">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon violet"><span aria-hidden="true">▤</span></div>
+                <div class="admin-card-titles"><h2>Lessons &amp; publishing</h2><p>Edit lesson content or change whether students can access it.</p></div>
+            </div>
+            <span class="count-pill"><?= count($lessons) ?> <?= count($lessons) === 1 ? 'lesson' : 'lessons' ?></span>
+        </div>
+        <?php if ($lessons === []): ?>
+            <div class="admin-empty-state"><h3>No lessons yet</h3><p>Create a lesson above to start building course content.</p></div>
+        <?php else: ?>
+            <div class="lesson-library-list">
+                <?php foreach ($lessons as $lesson): ?>
+                    <details class="lesson-editor">
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst($lesson['status'])) ?></span></summary>
+                        <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
+                            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                            <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
+                            <input type="hidden" name="course_id" value="<?= (int) $lesson['course_id'] ?>">
+                            <input type="hidden" name="module_id" value="<?= (int) $lesson['module_id'] ?>">
+                            <input type="hidden" name="module_title" value="<?= $escape($lesson['module_title']) ?>">
+                            <label class="admin-label">Lesson title<input class="admin-input" name="lesson_title" required maxlength="200" value="<?= $escape($lesson['title']) ?>"></label>
+                            <label class="admin-label">Lesson content<textarea class="admin-textarea" name="body" rows="5" maxlength="500000"><?= $escape($lesson['body'] ?? '') ?></textarea></label>
+                            <label class="admin-label">Publishing status<select class="admin-select" name="status"><option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option><option value="published" <?= $lesson['status'] === 'published' ? 'selected' : '' ?>>Published</option></select></label>
+                            <button class="button" type="submit">Save lesson changes</button>
+                        </form>
+                    </details>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </section>
 
     <!-- Courses Table Section -->
     <section class="admin-card">
@@ -295,6 +345,7 @@ $totalStudents = count($students);
                             <th scope="col">Visibility</th>
                             <th scope="col">Modules</th>
                             <th scope="col">Lessons</th>
+                            <th scope="col">Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -332,6 +383,7 @@ $totalStudents = count($students);
                                         <?= (int) $course['lesson_count'] ?> <?= (int) $course['lesson_count'] === 1 ? 'lesson' : 'lessons' ?>
                                     </span>
                                 </td>
+                                <td><details><summary>Edit course</summary><form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="id" value="<?= (int)$course['id'] ?>"><label class="admin-label">Title<input class="admin-input" name="title" required value="<?= $escape($course['title']) ?>"></label><label class="admin-label">Slug<input class="admin-input" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="<?= $escape($course['slug']) ?>"></label><label class="admin-label">Category<input class="admin-input" name="category" value="<?= $escape($course['category']??'') ?>"></label><label class="admin-label">Card summary<textarea class="admin-textarea" name="short_description" maxlength="500"><?= $escape($course['short_description']??'') ?></textarea></label><label class="admin-label">Full description<textarea class="admin-textarea" name="description"><?= $escape($course['description']??'') ?></textarea></label><label class="admin-label">Duration<input class="admin-input" name="duration_label" value="<?= $escape($course['duration_label']??'') ?>"></label><label class="admin-label">Level<input class="admin-input" name="level_label" value="<?= $escape($course['level_label']??'') ?>"></label><label class="admin-label">Recorded Only (PKR)<input class="admin-input" name="recorded_price" type="number" min="0" step="0.01" required value="<?= $escape($course['recorded_price']??'0') ?>"></label><label class="admin-label">Live + Recorded (PKR)<input class="admin-input" name="live_price" type="number" min="0" step="0.01" required value="<?= $escape($course['live_price']??'0') ?>"></label><label class="admin-label">Visibility<select class="admin-select" name="visibility"><option value="draft" <?= $vis==='draft'?'selected':'' ?>>Draft</option><option value="published" <?= $vis==='published'?'selected':'' ?>>Published</option><option value="hidden" <?= $vis==='hidden'?'selected':'' ?>>Hidden</option><option value="archived" <?= $vis==='archived'?'selected':'' ?>>Archived</option></select></label><button class="button" type="submit">Save course details</button></form></details></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

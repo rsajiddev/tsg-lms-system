@@ -5,6 +5,7 @@ use App\Core\Security;
 $mode = isset($mode) && is_string($mode) ? $mode : 'error';
 $message = isset($message) && is_string($message) ? $message : null;
 $values = isset($values) && is_array($values) ? $values : [];
+$resendSeconds = isset($resendSeconds) && is_int($resendSeconds) ? max(0, $resendSeconds) : 0;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $value = static fn(string $name): string => Security::escape((string) ($values[$name] ?? ''));
 
@@ -40,14 +41,14 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
         <label class="field">Confirm password<span class="input-wrap"><input name="password_confirmation" type="password" autocomplete="new-password" required minlength="12"><?= $eyeToggle ?></span></label>
         <button class="button auth-submit" type="submit">Create student account</button>
       </form>
-      <p class="auth-links">Already have an account? <a href="<?= Security::escape($baseUrl) ?>/login">Log in</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify an existing account</a></p>
+      <p class="auth-links">Already have an account? <a href="<?= Security::escape($baseUrl) ?>/login">Log in</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email?email=<?= rawurlencode((string)($values['email'] ?? '')) ?>">Verify your email</a></p>
     <?php elseif ($mode === 'verify'): ?>
       <form method="post" action="<?= Security::escape($baseUrl) ?>/verify-email">
         <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
         <label class="field">Email<span class="input-wrap"><input name="email" type="email" autocomplete="email" required value="<?= $value('email') ?>"></span></label>
         <label class="field">Six-digit code<span class="input-wrap"><input class="field-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required value="<?= $value('code') ?>"></span></label>
         <button class="button auth-submit" type="submit">Verify email</button>
-        <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/verify-email/resend" formnovalidate>Resend verification code</button>
+        <p class="otp-resend-row" data-otp-countdown="<?= $resendSeconds ?>"><span>Didn’t receive code?</span> <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/verify-email/resend" formnovalidate disabled>Resend</button><span class="otp-resend-timer" aria-live="polite"></span></p>
       </form>
       <p class="auth-links"><a href="<?= Security::escape($baseUrl) ?>/login">Back to log in</a></p>
     <?php elseif ($mode === 'login'): ?>

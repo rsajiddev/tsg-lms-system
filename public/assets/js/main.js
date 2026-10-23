@@ -496,4 +496,51 @@
         }
     }
 
+    document.querySelectorAll('[data-otp-countdown]').forEach((row) => {
+        const resend = row.querySelector('button');
+        const timer = row.querySelector('.otp-resend-timer');
+        let remaining = Math.max(0, Number.parseInt(row.dataset.otpCountdown || '0', 10));
+        if (!resend || !timer) return;
+        const update = () => {
+            resend.disabled = remaining > 0;
+            if (remaining <= 0) {
+                timer.textContent = '';
+                return;
+            }
+            const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+            const seconds = String(remaining % 60).padStart(2, '0');
+            timer.textContent = `— ${minutes}:${seconds}`;
+            remaining -= 1;
+            window.setTimeout(update, 1000);
+        };
+        update();
+    });
+
+    const dashboardToggle = document.querySelector('[data-dashboard-toggle]');
+    const dashboardClose = document.querySelector('[data-dashboard-close]');
+    const setDashboardMenu = (open) => {
+        document.body.classList.toggle('dashboard-menu-open', open);
+        if (dashboardToggle) dashboardToggle.setAttribute('aria-expanded', String(open));
+    };
+    if (dashboardToggle) dashboardToggle.addEventListener('click', () => {
+        setDashboardMenu(!document.body.classList.contains('dashboard-menu-open'));
+    });
+    if (dashboardClose) dashboardClose.addEventListener('click', () => setDashboardMenu(false));
+    document.querySelectorAll('.dashboard-side-nav a').forEach((link) => {
+        link.addEventListener('click', () => setDashboardMenu(false));
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setDashboardMenu(false);
+    });
+
+    const dashboardSearch = document.querySelector('[data-dashboard-search]');
+    if (dashboardSearch) {
+        dashboardSearch.addEventListener('input', () => {
+            const query = dashboardSearch.value.trim().toLocaleLowerCase();
+            document.querySelectorAll('.dashboard-searchable').forEach((item) => {
+                item.hidden = query !== '' && !item.textContent.toLocaleLowerCase().includes(query);
+            });
+        });
+    }
+
 })();

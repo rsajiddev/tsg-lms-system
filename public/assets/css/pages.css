@@ -1289,6 +1289,24 @@ button.button-secondary:active {
   }
 }
 
+/* Admin lesson editor and publishing list */
+.lesson-library-list {display:grid;gap:10px}
+.lesson-editor {min-width:0;border:1px solid #e7edf5;border-radius:14px;background:#fff}
+.lesson-editor>summary {display:flex;min-width:0;align-items:center;justify-content:space-between;gap:14px;padding:15px 17px;cursor:pointer;list-style:none}
+.lesson-editor>summary::-webkit-details-marker {display:none}
+.lesson-editor>summary>span:first-child {display:grid;min-width:0;gap:4px}
+.lesson-editor>summary strong {overflow-wrap:anywhere;color:var(--navy);font-size:13px}
+.lesson-editor>summary small {overflow-wrap:anywhere;color:#64748b;font-size:11px}
+.lesson-editor[open]>summary {border-bottom:1px solid #edf1f6}
+.lesson-editor>.admin-form {padding:17px}
+.lesson-editor .button {align-self:flex-start}
+@media(max-width:600px) {
+  .lesson-editor>summary {align-items:flex-start;padding:13px}
+  .lesson-editor>summary .table-badge {flex:0 0 auto}
+  .lesson-editor>.admin-form {padding:13px}
+  .lesson-editor .button {width:100%}
+}
+
 .form-message {
   margin: 0 0 18px
 }
@@ -3305,12 +3323,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
   color: #1e40af
 }
 
-.dashboard-signout {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 25px
-}
-
 @media(max-width:980px) {
   .dashboard-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr))
@@ -3355,6 +3367,148 @@ html.js [data-reveal].is-visible.dash-card:hover {
   .dashboard-course-card {
     transition: none
   }
+}
+
+/* Student course learning flow */
+.learning-page {padding-top:18px}
+.learning-heading {align-items:flex-end}
+.learning-heading h1 {overflow-wrap:anywhere}
+.learning-progress-count,.learning-module .dashboard-panel-heading>span {flex:0 0 auto;color:#64748b;font-size:12px;font-weight:750}
+.learning-modules {display:grid;gap:16px}
+.learning-module {min-width:0}
+.learning-lesson-list {display:grid}
+.learning-lesson-row {display:flex;min-width:0;align-items:center;gap:12px;padding:13px 2px;border-top:1px solid #edf1f6;color:inherit;text-decoration:none;transition:background .18s ease}
+.learning-lesson-row:hover {background:#f8faff}
+.learning-lesson-row>span:nth-child(2) {display:grid;min-width:0;flex:1;gap:4px}
+.learning-lesson-row strong {overflow-wrap:anywhere;color:#1e293b;font-size:13px}
+.learning-lesson-row small {color:#94a3b8;font-size:11px}
+.learning-lesson-status {display:grid;width:34px;height:34px;flex:0 0 auto;place-items:center;border-radius:11px;background:#eff6ff;color:var(--blue);font-size:12px;font-weight:850}
+.learning-lesson-status.is-complete {background:#ecfdf5;color:#059669}
+.learning-lesson-arrow {flex:0 0 auto;color:#94a3b8}
+.learning-content {display:grid;gap:24px}
+.learning-body {color:#475569;font-size:15px;line-height:1.8;overflow-wrap:anywhere}
+.learning-actions {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:18px;border-top:1px solid #edf1f6}
+.learning-actions form {margin:0}
+.learning-completed-label {color:#047857;font-size:13px;font-weight:800}
+@media(max-width:600px) {.learning-heading {align-items:flex-start;flex-direction:column}.learning-actions,.learning-actions form,.learning-actions .button {width:100%}}
+
+/* Manual course payment and review */
+.payment-layout {display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);align-items:start;gap:18px}
+.payment-help {margin:0 0 20px;padding:14px 16px;border:1px solid #dbeafe;border-radius:13px;background:#eff6ff;color:#1e40af;font-size:13px;line-height:1.6}
+.payment-form {display:grid;gap:17px}
+.payment-form .admin-label span {margin-left:auto;color:#94a3b8;font-size:10px;font-weight:500}
+.payment-form input[type=file] {padding:10px;background:#fff}
+.payment-form>.button {justify-self:start}
+.payment-review-list {display:grid;gap:16px}
+.payment-review-card {display:grid;gap:18px}
+.payment-review-meta {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.payment-review-meta>div {display:grid;min-width:0;gap:5px;padding:13px;border:1px solid #edf1f6;border-radius:12px;background:#f8fafc}
+.payment-review-meta small {color:#94a3b8;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.05em}
+.payment-review-meta strong,.payment-review-meta a {overflow-wrap:anywhere;color:#334155;font-size:12px}
+.payment-review-meta a {color:var(--blue-dark);text-decoration:none}
+.payment-decision-form {display:grid;gap:14px;padding-top:17px;border-top:1px solid #edf1f6}
+.payment-decision-form .dashboard-actions {display:flex;flex-wrap:wrap;gap:10px}
+.payment-receipt-link {justify-self:start}
+@media(max-width:900px) {.payment-layout {grid-template-columns:1fr}}
+@media(max-width:600px) {.payment-review-meta {grid-template-columns:1fr}.payment-decision-form .dashboard-actions,.payment-decision-form .button,.payment-form>.button,.payment-receipt-link {width:100%}.payment-form>.button,.payment-receipt-link {justify-self:stretch}}
+
+/* ===== LMS dashboard workspace shell ===== */
+body.dashboard-shell {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #f3f6fc
+}
+
+body.dashboard-shell>.utility-bar,
+body.dashboard-shell>.topbar,
+body.dashboard-shell>.site-footer {display:none}
+
+body.dashboard-shell>main.dashboard-container {
+  width: auto;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0 0 0 272px;
+  padding: 0 clamp(20px, 3.5vw, 54px);
+  overflow-x: clip
+}
+
+.dashboard-sidebar {
+  position: fixed;
+  z-index: 100;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 272px;
+  flex-direction: column;
+  padding: 26px 18px 20px;
+  border-right: 1px solid #e5ebf4;
+  background: #fff
+}
+
+.dashboard-sidebar-brand {display:flex;align-items:center;gap:12px;padding:0 10px 28px;color:var(--navy);font-size:17px;font-weight:850;text-decoration:none;letter-spacing:-.03em}
+.dashboard-sidebar-brand .brand-mark {width:42px;height:42px;flex:0 0 auto}
+.dashboard-sidebar-brand small {display:block;margin-top:3px;color:#94a3b8;font-size:9px;letter-spacing:.16em}
+.dashboard-side-nav {display:grid;gap:5px;align-content:start}
+.dashboard-nav-caption {padding:6px 12px 8px;color:#9aa8bc;font-size:9px;font-weight:850;letter-spacing:.16em}
+.dashboard-side-nav a {display:flex;min-width:0;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:#64748b;font-size:13px;font-weight:700;text-decoration:none;transition:background .18s ease,color .18s ease}
+.dashboard-side-nav a span {display:grid;width:28px;height:28px;flex:0 0 auto;place-items:center;border-radius:9px;background:#f1f5fb;color:#8a9ab2;font-size:9px;font-weight:850}
+.dashboard-side-nav a:hover {background:#f5f8ff;color:var(--blue-dark)}
+.dashboard-side-nav a.active {background:#eff5ff;color:var(--blue-dark)}
+.dashboard-side-nav a.active span {background:var(--blue);color:#fff}
+.dashboard-sidebar-bottom {margin-top:auto}
+.dashboard-logout-card {position:relative;overflow:hidden;padding:20px 17px 16px;border-radius:18px;background:linear-gradient(145deg,#2563eb 0%,#4f46e5 58%,#6d28d9 100%);color:#fff;box-shadow:0 14px 28px #4338ca2b}
+.dashboard-logout-mark {display:grid;width:34px;height:34px;margin-bottom:18px;place-items:center;border:1px solid #ffffff55;border-radius:11px;background:#ffffff1e;font-size:10px;font-weight:900}
+.dashboard-logout-card strong {display:block;font-size:14px}
+.dashboard-logout-card p {margin:6px 0 15px;color:#e0e7ff;font-size:11px;line-height:1.5}
+.dashboard-logout-card form {margin:0}
+.dashboard-logout-card button {display:flex;width:100%;min-height:40px;align-items:center;justify-content:space-between;gap:8px;padding:0 13px;border:0;border-radius:11px;background:#ffffff26;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer;transition:background .18s ease}
+.dashboard-logout-card button:hover {background:#ffffff3d}
+.dashboard-sidebar-scrim {display:none}
+.dashboard-topbar {display:flex;min-width:0;align-items:center;gap:18px;padding:24px 0 8px}
+.dashboard-breadcrumb {display:flex;min-width:0;align-items:center;gap:10px;color:#94a3b8;font-size:12px}
+.dashboard-breadcrumb i {font-style:normal;color:#c2ccda}
+.dashboard-breadcrumb strong {overflow:hidden;color:#334155;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-search {display:flex;width:min(360px,40vw);min-width:180px;height:42px;align-items:center;gap:10px;margin-left:auto;padding:0 14px;border:1px solid #e4eaf3;border-radius:999px;background:#fff;color:#94a3b8}
+.dashboard-search>span {font-size:23px;line-height:1}
+.dashboard-search input {width:100%;min-width:0;border:0;outline:0;background:transparent;color:#334155;font:inherit;font-size:12px}
+.dashboard-search input::placeholder {color:#a3afc1}
+.dashboard-menu-toggle {display:none;width:42px;height:42px;flex:0 0 auto;align-items:center;justify-content:center;flex-direction:column;gap:5px;border:1px solid #e4eaf3;border-radius:12px;background:#fff;cursor:pointer}
+.dashboard-menu-toggle span {width:17px;height:2px;border-radius:2px;background:#334155}
+.dashboard-heading {align-items:center;margin:14px 0 28px}
+.dashboard-heading h1 {font-size:clamp(29px,3.2vw,42px)}
+.dashboard-heading>div>p:last-child {margin-top:8px}
+.dashboard-metrics,.dashboard-columns,.dashboard-panel,.dashboard-course-list {min-width:0;max-width:100%}
+.dashboard-columns {grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr)}
+.dashboard-table-wrap {max-width:100%;overscroll-behavior-x:contain}
+.dashboard-panel,.dashboard-metric,.dashboard-course-card {overflow-wrap:anywhere}
+
+@media(max-width:900px) {
+  body.dashboard-shell>main.dashboard-container {margin-left:0;padding-inline:clamp(16px,4vw,30px)}
+  .dashboard-sidebar {width:min(300px,86vw);transform:translateX(-105%);transition:transform .24s ease;box-shadow:16px 0 40px #0f172a1a}
+  body.dashboard-menu-open .dashboard-sidebar {transform:translateX(0)}
+  .dashboard-sidebar-scrim {position:fixed;z-index:90;inset:0;border:0;background:#0f172a70}
+  body.dashboard-menu-open .dashboard-sidebar-scrim {display:block}
+  .dashboard-menu-toggle {display:flex}
+  .dashboard-topbar {position:sticky;z-index:20;top:0;margin-inline:-4vw;padding:12px 4vw;background:#f3f6fcf2;backdrop-filter:blur(14px)}
+  .dashboard-breadcrumb {margin-right:auto}
+  .dashboard-search {width:min(260px,42vw);min-width:130px;margin-left:0}
+  .dashboard-columns {grid-template-columns:minmax(0,1fr)}
+}
+
+@media(max-width:560px) {
+  body.dashboard-shell>main.dashboard-container {padding-inline:14px}
+  .dashboard-topbar {gap:10px;margin-inline:-14px;padding:10px 14px}
+  .dashboard-breadcrumb {display:none}
+  .dashboard-search {width:auto;min-width:0;flex:1}
+  .dashboard-heading {gap:15px;margin-top:20px}
+  .dashboard-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .dashboard-metric {min-height:142px;padding:14px}
+  .dashboard-metric strong {font-size:26px}
+  .dashboard-panel {padding:16px}
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .dashboard-sidebar {transition:none}
+  .dashboard-side-nav a,.dashboard-logout-card button {transition:none}
 }
 
 /* ===== Professional Admin Course Management LMS UI ===== */

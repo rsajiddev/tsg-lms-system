@@ -25,7 +25,7 @@ final class AuthService
             throw new RuntimeException('Use a password between 12 and 4096 characters.');
         }
         $subjects = $this->emailIpSubjects($email);
-        $this->limiter->assertAllowed('register', $subjects, 5, 3600);
+        $this->limiter->assertAllowed('register', $subjects, $this->setting('register_max_attempts', 5), $this->setting('register_window_minutes', 60) * 60);
         $this->limiter->record('register', $subjects);
 
         try {
@@ -43,7 +43,7 @@ final class AuthService
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $exception;
         }
-        $studentEmailSent = $this->mail->sendOtp(strtolower($email), $code, 'verify_email');
+        $studentEmailSent = $this->mail->sendOtp(strtolower($email), $code, 'verify_email', $this->setting('otp_lifetime_seconds', 600));
         $this->mail->sendNewStudentAlert($name, strtolower($email));
         return $studentEmailSent;
     }
@@ -57,7 +57,7 @@ final class AuthService
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
-        $this->limiter->assertAllowed('otp_resend', $subjects, 3, 900);
+        $this->limiter->assertAllowed('otp_resend', $subjects, $this->setting('otp_resends_per_window', 3), $this->setting('otp_resend_window_minutes', 15) * 60);
         $this->limiter->record('otp_resend', $subjects);
         $query = $this->db->prepare("SELECT id FROM users WHERE email = ? AND role = 'student' AND status = 'pending' LIMIT 1");
         $query->execute([$email]);
@@ -65,14 +65,24 @@ final class AuthService
         if (!$userId) return false;
         $this->assertOtpCooldown((int) $userId, 'verify_email');
         $code = $this->issueOtp((int) $userId, 'verify_email');
-        return $this->mail->sendOtp($email, $code, 'verify_email');
+        return $this->mail->sendOtp($email, $code, 'verify_email', $this->setting('otp_lifetime_seconds', 600));
+    }
+
+    public function resendSecondsRemaining(string $email, string $purpose = 'verify_email'): int
+    {
+        $email = strtolower(trim($email));
+        $stmt = $this->db->prepare('SELECT eo.created_at FROM email_otps eo JOIN users u ON u.id=eo.user_id WHERE u.email=? AND eo.purpose=? ORDER BY eo.id DESC LIMIT 1');
+        $stmt->execute([$email, $purpose]);
+        $created = $stmt->fetchColumn();
+        if (!$created) return 0;
+        return max(0, $this->setting('otp_lifetime_seconds', 600) - (time() - (int)strtotime((string)$created . ' UTC')));
     }
 
     public function login(string $email, string $password): array
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
-        $this->limiter->assertAllowed('login_fail', $subjects, 5, 900);
+        $this->limiter->assertAllowed('login_fail', $subjects, $this->setting('login_max_attempts', 5), $this->setting('login_lockout_minutes', 15) * 60);
         $query = $this->db->prepare('SELECT id, full_name, email, password_hash, role, status, email_verified_at FROM users WHERE email = ? LIMIT 1');
         $query->execute([$email]);
         $user = $query->fetch();
@@ -92,7 +102,7 @@ final class AuthService
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
-        $this->limiter->assertAllowed('reset_request', $subjects, 3, 900);
+        $this->limiter->assertAllowed('reset_request', $subjects, $this->setting('password_reset_max_attempts', 3), $this->setting('password_reset_window_minutes', 15) * 60);
         $this->limiter->record('reset_request', $subjects);
         $query = $this->db->prepare("SELECT id FROM users WHERE email = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
         $query->execute([$email]);
@@ -100,7 +110,7 @@ final class AuthService
         if (!$userId) return false;
         $this->assertOtpCooldown((int) $userId, 'reset_password');
         $code = $this->issueOtp((int) $userId, 'reset_password');
-        return $this->mail->sendOtp($email, $code, 'reset_password');
+        return $this->mail->sendOtp($email, $code, 'reset_password', $this->setting('otp_lifetime_seconds', 600));
     }
 
     public function resetPassword(string $email, string $code, string $password): void
@@ -115,8 +125,9 @@ final class AuthService
     {
         $code = (string) random_int(100000, 999999);
         $this->db->prepare('UPDATE email_otps SET consumed_at = UTC_TIMESTAMP() WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL')->execute([$userId, $purpose]);
-        $stmt = $this->db->prepare('INSERT INTO email_otps (user_id, purpose, otp_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 10 MINUTE))');
-        $stmt->execute([$userId, $purpose, password_hash($code, PASSWORD_DEFAULT)]);
+        $lifetime = $this->setting('otp_lifetime_seconds', 600);
+        $stmt = $this->db->prepare('INSERT INTO email_otps (user_id, purpose, otp_hash, expires_at) VALUES (?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND))');
+        $stmt->execute([$userId, $purpose, password_hash($code, PASSWORD_DEFAULT), $lifetime]);
         return $code;
     }
 
@@ -133,9 +144,10 @@ final class AuthService
             $otpQuery = $this->db->prepare('SELECT id, otp_hash, attempts FROM email_otps WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() ORDER BY id DESC LIMIT 1 FOR UPDATE');
             $otpQuery->execute([$userId, $purpose]);
             $otp = $otpQuery->fetch();
-            if (!$otp || (int) $otp['attempts'] >= 5 || !password_verify($code, $otp['otp_hash'])) {
+            $maxAttempts = $this->setting('otp_max_attempts', 5);
+            if (!$otp || (int) $otp['attempts'] >= $maxAttempts || !password_verify($code, $otp['otp_hash'])) {
                 if ($otp) {
-                    $this->db->prepare('UPDATE email_otps SET attempts = attempts + 1, consumed_at = IF(attempts + 1 >= 5, UTC_TIMESTAMP(), consumed_at) WHERE id = ?')->execute([$otp['id']]);
+                    $this->db->prepare('UPDATE email_otps SET attempts = attempts + 1, consumed_at = IF(attempts + 1 >= ?, UTC_TIMESTAMP(), consumed_at) WHERE id = ?')->execute([$maxAttempts, $otp['id']]);
                 }
                 $this->db->commit();
                 throw new RuntimeException('The code is invalid or expired.');
@@ -160,8 +172,20 @@ final class AuthService
         $stmt = $this->db->prepare('SELECT created_at FROM email_otps WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1');
         $stmt->execute([$userId, $purpose]);
         $created = $stmt->fetchColumn();
-        if ($created && strtotime((string) $created . ' UTC') > time() - 60) {
+        if ($created && strtotime((string) $created . ' UTC') > time() - $this->setting('otp_lifetime_seconds', 600)) {
             throw new RuntimeException('Please wait before requesting another code.');
+        }
+    }
+
+    private function setting(string $key, int $fallback): int
+    {
+        try {
+            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt->execute([$key]);
+            $value = $stmt->fetchColumn();
+            return $value !== false && ctype_digit((string) $value) ? max(1, (int) $value) : $fallback;
+        } catch (PDOException) {
+            return $fallback;
         }
     }
 

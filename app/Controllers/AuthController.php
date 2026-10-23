@@ -48,7 +48,7 @@ final class AuthController
 
     public function verifyPage(): void
     {
-        $this->page('verify');
+        $this->page('verify', ['email' => (string)($_GET['email'] ?? '')]);
     }
 
     public function verify(): void
@@ -68,7 +68,7 @@ final class AuthController
         try {
             $sent = $this->auth->resendVerification((string) ($_POST['email'] ?? ''));
             $message = $sent
-                ? 'A new verification code was sent. It is valid for 10 minutes.'
+                ? 'A new verification code was sent. It is valid for ' . $this->otpLifetimeSeconds() . ' seconds.'
                 : 'A code could not be delivered. Confirm the account email and SMTP settings, then try again.';
             $this->page('verify', ['email' => (string) ($_POST['email'] ?? '')], $message);
         } catch (RuntimeException $exception) {
@@ -156,9 +156,25 @@ final class AuthController
         return false;
     }
 
+    private function otpLifetimeSeconds(): int
+    {
+        try {
+            $stmt = Database::connection()->prepare("SELECT setting_value FROM app_settings WHERE setting_key='otp_lifetime_seconds' LIMIT 1");
+            $stmt->execute();
+            $value = $stmt->fetchColumn();
+            return $value !== false && ctype_digit((string)$value) ? max(1, (int)$value) : 600;
+        } catch (\Throwable) {
+            return 600;
+        }
+    }
+
     private function page(string $mode, array $values = [], ?string $message = null): void
     {
-        View::render('auth/form', ['title' => $this->title($mode), 'mode' => $mode, 'values' => $values, 'message' => $message]);
+        $resendSeconds = 0;
+        if ($mode === 'verify' && filter_var((string)($values['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+            $resendSeconds = $this->auth->resendSecondsRemaining((string)$values['email']);
+        }
+        View::render('auth/form', ['title' => $this->title($mode), 'mode' => $mode, 'values' => $values, 'message' => $message, 'resendSeconds' => $resendSeconds]);
     }
 
     private function title(string $mode): string
