@@ -468,171 +468,15 @@ button.button-secondary:active {
   box-shadow: 0 12px 24px #2563eb35
 }
 
-.art-lines {
-  display: grid;
-  gap: 9px;
-  margin: 30px 0 24px
-}
-
-.art-lines i {
-  height: 9px;
-  border-radius: 12px;
-  background: #e2e8f0
-}
-
-.art-lines i:first-child {
-  width: 82%;
-  height: 13px;
-  background: #cbd5e1
-}
-
-.art-lines i:last-child {
-  width: 56%
-}
-
 .art-label {
   color: #334155;
   font-size: 14px;
   font-weight: 750
 }
 
-.art-card-small {
-  top: 18px;
-  right: -4px;
-  bottom: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 15px 18px;
-  font-size: 12px;
-  font-weight: 750;
-  color: #334155;
-  animation: float-card 5s ease-in-out -2s infinite
-}
-
-.art-spark {
-  color: #4f46e5;
-  font-size: 25px
-}
-
-/* ===== Hero Art Floating Abstract & Coding Shapes ===== */
+/* ===== Hero art card stacking ===== */
 .art-card-main {
   z-index: 2;
-}
-
-.art-card-small {
-  z-index: 3;
-}
-
-.art-floating-shape {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 13px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 10px 24px -3px rgba(37, 99, 235, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
-  color: #1e293b;
-  font-size: 12px;
-  font-weight: 700;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.art-floating-shape svg {
-  flex-shrink: 0;
-  color: #2463eb;
-}
-
-.shape-code {
-  top: 15px;
-  left: 10px;
-  animation: float-shape-1 7s ease-in-out infinite;
-}
-
-.shape-book {
-  bottom: 25px;
-  left: -10px;
-  animation: float-shape-2 8s ease-in-out -2s infinite;
-}
-
-.shape-book svg {
-  color: #059669;
-}
-
-.shape-brackets {
-  top: 40px;
-  right: -15px;
-  animation: float-shape-3 6.5s ease-in-out -1s infinite;
-}
-
-.brackets-symbol {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #7c3aed;
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.shape-cert {
-  bottom: 30px;
-  right: 15px;
-  animation: float-shape-4 7.5s ease-in-out -3s infinite;
-}
-
-.shape-cert svg {
-  color: #d97706;
-}
-
-@keyframes float-shape-1 {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(-13px) rotate(4deg);
-  }
-}
-
-@keyframes float-shape-2 {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(12px) rotate(-4deg);
-  }
-}
-
-@keyframes float-shape-3 {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(-14px) rotate(-5deg);
-  }
-}
-
-@keyframes float-shape-4 {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(11px) rotate(5deg);
-  }
 }
 
 .home-courses {
@@ -1576,11 +1420,6 @@ button.button-secondary:active {
 
   .hero-art {
     min-height: 290px
-  }
-
-  .art-card-small {
-    right: 0;
-    bottom: 25px
   }
 }
 
@@ -2540,25 +2379,16 @@ html.js [data-reveal].is-visible {
   transform: rotate(45deg)
 }
 
+.faq-answer-wrap {
+  overflow: hidden
+}
+
 .faq-answer {
   margin: 0;
   padding: 0 44px 22px 2px;
   color: #5b6b80;
   font-size: 14.5px;
-  line-height: 1.8;
-  animation: faq-open .3s ease
-}
-
-@keyframes faq-open {
-  from {
-    opacity: 0;
-    transform: translateY(-4px)
-  }
-
-  to {
-    opacity: 1;
-    transform: none
-  }
+  line-height: 1.8
 }
 
 /* ===== CTA banner ===== */
@@ -2788,6 +2618,12 @@ html.js [data-reveal].is-visible {
   .review-lower {
     grid-template-columns: 1fr;
     gap: 22px
+  }
+
+  /* Stacked layout: the intro must scroll normally, never stick over the form. */
+  .review-intro {
+    position: static;
+    top: auto
   }
 
   .testi-card {
@@ -4016,73 +3852,376 @@ html.js [data-reveal].is-visible {
   }
 }
 
+
+
 /* =========================================================
-   HOME REDESIGN OVERRIDES
-   Hero artwork + WHY TECH SG ACADEMY interactive section
+   HOME REDESIGN — Hero artwork + WHY TECH SG ACADEMY orbit
    ========================================================= */
 
-/* Hero artwork stays inside its own visual boundary. */
+/* --- Hero artwork: TSG card and floating shapes stay visible --- */
 .home-hero .hero-art {
+  min-width: 0;
+  overflow: visible;
+}
+
+.home-hero .art-card-main {
+  z-index: 2;
+}
+
+/* --- Hero background decor: soft shapes drifting behind the copy --- */
+.hero-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   overflow: hidden;
-  min-width: 0;
-  border-radius: 30px;
+  pointer-events: none;
 }
 
-.home-hero .art-card-small {
-  display: none !important;
+.home-hero .home-copy,
+.home-hero .hero-art {
+  z-index: 1;
 }
 
-.home-hero .art-floating-shape {
-  z-index: 4;
-  min-width: 0;
-  padding: 11px 14px;
-  border: 1px solid rgba(148, 163, 184, .28);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, .72);
-  box-shadow: 0 14px 34px rgba(15, 23, 42, .08);
-  color: #334155;
-  backdrop-filter: blur(14px);
+.decor-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: .55;
 }
 
-.home-hero .shape-code {
-  top: 22px;
-  left: 24px;
+.decor-blob-1 {
+  width: 320px;
+  height: 320px;
+  top: -70px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(191, 219, 254, .6), transparent 68%);
+  animation: decor-drift-1 24s ease-in-out infinite;
 }
 
-.home-hero .shape-book {
+.decor-blob-2 {
+  width: 360px;
+  height: 360px;
+  right: -80px;
+  bottom: -120px;
+  background: radial-gradient(circle, rgba(199, 210, 254, .55), transparent 70%);
+  animation: decor-drift-2 28s ease-in-out infinite;
+}
+
+.decor-shape {
+  position: absolute;
+  line-height: 1;
+  color: #93c5fd;
+  opacity: .55;
+}
+
+.decor-sparkle {
+  color: #a5b4fc;
+  font-size: 22px;
+  animation: decor-twinkle 6s ease-in-out infinite;
+}
+
+.decor-sparkle-1 {
+  top: 14%;
+  right: 43%;
+}
+
+.decor-sparkle-2 {
+  bottom: 12%;
+  left: 5%;
+  font-size: 16px;
+  animation-delay: -2.5s;
+}
+
+.decor-plus {
+  top: 9%;
+  right: 5%;
+  font-size: 26px;
+  color: #bfdbfe;
+  animation: decor-spin 20s linear infinite;
+}
+
+.decor-ring {
+  top: 33%;
+  left: 45%;
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(147, 197, 253, .55);
+  border-radius: 50%;
+  animation: decor-float 10s ease-in-out infinite;
+}
+
+.decor-dot {
+  right: 3%;
+  bottom: 22%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #93c5fd;
+  box-shadow: 0 0 0 5px rgba(147, 197, 253, .16);
+  animation: decor-float 8s ease-in-out -2s infinite;
+}
+
+.decor-cross {
+  top: 62%;
+  left: 30%;
+  font-size: 18px;
+  color: #c7d2fe;
+  animation: decor-spin 26s linear infinite reverse;
+}
+
+@keyframes decor-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+@keyframes decor-twinkle {
+  0%, 100% { opacity: .25; transform: scale(.85); }
+  50% { opacity: .7; transform: scale(1.12); }
+}
+
+@keyframes decor-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes decor-drift-1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(28px, 22px); }
+}
+
+@keyframes decor-drift-2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-26px, -18px); }
+}
+
+/* --- Floating circular achievement badges around the card --- */
+.art-badge {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, .95);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .9);
+  color: var(--blue);
+  box-shadow: 0 16px 32px rgba(30, 58, 138, .12);
+  backdrop-filter: blur(10px);
+}
+
+.art-badge svg {
+  display: block;
+}
+
+.art-badge-1 {
+  top: 18px;
+  left: 18%;
+  animation: float-card 6.5s ease-in-out -1s infinite;
+}
+
+.art-badge-2 {
+  right: 16%;
   bottom: 24px;
-  left: 24px;
-}
-
-.home-hero .shape-brackets {
-  top: 42px;
-  right: 24px;
-}
-
-.home-hero .shape-pen {
-  bottom: 28px;
-  right: 26px;
-}
-
-.home-hero .shape-code span,
-.home-hero .shape-brackets .brackets-symbol {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #2563eb;
-}
-
-.home-hero .shape-book svg {
   color: #059669;
+  animation: float-card 7.5s ease-in-out -3s infinite;
 }
 
-.home-hero .shape-pen svg {
-  color: #7c3aed;
+.art-badge-3 {
+  top: 44%;
+  right: 3%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  color: #a78bfa;
+  animation: float-card 5.5s ease-in-out -2s infinite;
 }
 
-.home-hero .shape-brackets .brackets-symbol {
-  color: #d97706;
+/* --- TSG card details --- */
+
+/* Course fact rows: real content instead of the old grey skeleton bars,
+   which read as a loading placeholder. */
+.art-features {
+  display: grid;
+  gap: 8px;
+  margin: 22px 0 18px;
 }
 
-/* The three trust items become a polished horizontal row. */
+.art-feature {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #eff6ff, #f5f3ff);
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+  animation: art-feature-in .55s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.art-feature:nth-child(2) {
+  animation-delay: .1s;
+}
+
+.art-feature:nth-child(3) {
+  animation-delay: .2s;
+}
+
+.art-feature i {
+  display: grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--blue);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, .14);
+}
+
+.art-feature svg {
+  display: block;
+}
+
+.art-feature strong {
+  margin-left: auto;
+  color: var(--blue);
+  font-size: 12.5px;
+  font-weight: 850;
+  letter-spacing: -.02em;
+}
+
+@keyframes art-feature-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.art-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.art-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 99px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.art-chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .18);
+  animation: art-chip-pulse 2.4s ease-in-out infinite;
+}
+
+.art-seal {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #22c55e, #16a34a);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, .35);
+  animation: art-seal-pop 3.6s ease-in-out infinite;
+}
+
+.art-card-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, .7) 48%, transparent 64%);
+  background-size: 240% 100%;
+  background-position: 120% 0;
+  pointer-events: none;
+  animation: art-card-sheen 6.5s ease-in-out infinite;
+}
+
+.art-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.art-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.art-progress-head strong {
+  color: var(--blue);
+  font-size: 11.5px;
+}
+
+.art-bar {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e2e8f0;
+}
+
+.art-bar i {
+  display: block;
+  width: 78%;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #2563eb, #6366f1);
+  animation: art-bar-fill 1.6s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes art-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
+@keyframes art-seal-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes art-card-sheen {
+  0%, 55% { background-position: 120% 0; }
+  100% { background-position: -40% 0; }
+}
+
+@keyframes art-bar-fill {
+  from { width: 0; }
+  to { width: 78%; }
+}
+
+/* Trust pills: polished horizontal row */
 .home-hero .hero-trust {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4120,25 +4259,14 @@ html.js [data-reveal].is-visible {
 }
 
 /* =========================================================
-   WHY TECH SG ACADEMY — circular scroll experience
+   WHY TECH SG ACADEMY — circular orbit (click only)
+   Uses the same vertical rhythm as the other home sections.
    ========================================================= */
-
 .why-orbit-section {
-  position: relative;
-  min-height: 100vh;
-  padding: 72px 0 55px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 78% 48%, rgba(219, 234, 254, .72), transparent 34%),
-    var(--page);
+  padding: 30px 0 4px;
 }
 
-.why-orbit-section>.section-heading {
-  position: relative;
-  z-index: 5;
-  margin-bottom: 12px;
-}
-
+/* Original PHP cards remain in the DOM as the JS data source, hidden. */
 .why-orbit-section .why-grid {
   position: absolute !important;
   width: 1px !important;
@@ -4152,43 +4280,20 @@ html.js [data-reveal].is-visible {
   border: 0 !important;
 }
 
-.why-orbit-stage {
-  position: relative;
-  width: 100%;
-}
-
 .why-orbit-ui {
   width: 100%;
-  min-height: 510px;
   display: grid;
-  grid-template-columns: minmax(360px, .9fr) minmax(480px, 1.1fr);
-  align-items: center;
-  gap: clamp(30px, 6vw, 90px);
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, .92fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 52px);
+  margin-top: 0;
 }
 
 .why-orbit-copy {
   position: relative;
   z-index: 4;
-  max-width: 540px;
-}
-
-.why-orbit-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 16px;
-  color: var(--blue);
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: .16em;
-}
-
-.why-orbit-eyebrow::before {
-  content: "";
-  width: 28px;
-  height: 2px;
-  border-radius: 99px;
-  background: var(--blue);
+  align-self: start;
+  max-width: 660px;
 }
 
 .why-orbit-number {
@@ -4221,79 +4326,25 @@ html.js [data-reveal].is-visible {
 }
 
 .why-orbit-content h3 {
-  margin: 0 0 14px;
-  max-width: 520px;
+  margin: 0 0 18px;
+  max-width: 620px;
   color: var(--navy);
   font-size: clamp(32px, 4vw, 52px);
-  line-height: 1.04;
+  line-height: 1.08;
   letter-spacing: -.045em;
 }
 
 .why-orbit-content p {
-  max-width: 500px;
+  max-width: 660px;
   margin: 0;
   color: var(--muted);
   font-size: 16px;
-  line-height: 1.75;
-}
-
-.why-orbit-progress {
-  display: flex;
-  gap: 9px;
-  max-width: 420px;
-  margin-top: 29px;
-}
-
-.why-orbit-progress span {
-  flex: 1;
-  height: 5px;
-  border-radius: 99px;
-  background: #dbe2ec;
-  transition: background .3s ease, transform .3s ease;
-}
-
-.why-orbit-progress span.active {
-  background: var(--blue);
-}
-
-.why-orbit-controls {
-  display: flex;
-  gap: 9px;
-  margin-top: 25px;
-}
-
-.why-orbit-controls button {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #d8e1ed;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .88);
-  color: var(--navy);
-  font: inherit;
-  font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
-  transition: transform .2s ease, background .2s ease, color .2s ease;
-}
-
-.why-orbit-controls button:hover {
-  transform: translateY(-2px);
-  background: var(--blue);
-  color: #fff;
-}
-
-.why-orbit-hint {
-  margin: 15px 0 0;
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 650;
+  line-height: 1.85;
 }
 
 .why-orbit-visual {
   position: relative;
-  width: min(620px, 100%);
+  width: min(400px, 100%);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -4312,7 +4363,7 @@ html.js [data-reveal].is-visible {
 
 .why-orbit-circle {
   position: relative;
-  width: min(500px, 86%);
+  width: min(380px, 92%);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -4372,14 +4423,14 @@ html.js [data-reveal].is-visible {
 
 .why-orbit-center strong {
   color: var(--navy);
-  font-size: clamp(48px, 7vw, 76px);
+  font-size: clamp(38px, 5.5vw, 58px);
   font-weight: 850;
   line-height: .9;
   letter-spacing: -.07em;
 }
 
 .why-orbit-center span {
-  margin-top: 14px;
+  margin-top: 12px;
   color: #94a3b8;
   font-size: 13px;
   font-weight: 750;
@@ -4410,7 +4461,7 @@ html.js [data-reveal].is-visible {
   color: var(--navy);
   cursor: pointer;
   box-shadow: 0 12px 28px rgba(15, 23, 42, .09);
-  transition: transform .7s cubic-bezier(.16, 1, .3, 1), opacity .45s ease, box-shadow .3s ease, border-color .3s ease;
+  transition: transform .7s cubic-bezier(.16, 1, .3, 1), box-shadow .3s ease, border-color .3s ease;
 }
 
 .why-orbit-pill:hover {
@@ -4419,8 +4470,6 @@ html.js [data-reveal].is-visible {
 }
 
 .why-orbit-pill.active {
-  width: 86px;
-  height: 86px;
   border-color: var(--blue);
   background: #fff;
   box-shadow: 0 0 0 7px rgba(37, 99, 235, .08), 0 22px 44px rgba(37, 99, 235, .2);
@@ -4428,20 +4477,12 @@ html.js [data-reveal].is-visible {
 }
 
 .why-orbit-pill .pill-icon {
-  width: 34px;
-  height: 30px;
+  width: 36px;
+  height: 32px;
   display: grid;
   place-items: center;
-  color: var(--blue);
-  font-size: 24px;
+  font-size: 27px;
   line-height: 1;
-}
-
-.why-orbit-pill .pill-icon.code,
-.why-orbit-pill .pill-icon.braces {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  font-weight: 850;
 }
 
 .why-orbit-pill .pill-index {
@@ -4451,25 +4492,23 @@ html.js [data-reveal].is-visible {
   letter-spacing: .12em;
 }
 
-/* Keyboard focus */
-.why-orbit-pill:focus-visible,
-.why-orbit-controls button:focus-visible {
+.why-orbit-pill:focus-visible {
   outline: 3px solid rgba(37, 99, 235, .25);
   outline-offset: 4px;
 }
 
-@media (max-width:980px) {
+@media (max-width: 980px) {
   .why-orbit-ui {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: 1fr;
+    gap: 30px;
   }
 
-  .why-orbit-content h3 {
-    font-size: clamp(30px, 4.5vw, 42px);
+  .why-orbit-copy {
+    max-width: 100%;
   }
 
-  .why-orbit-circle {
-    width: min(440px, 100%);
+  .why-orbit-visual {
+    width: min(420px, 100%);
   }
 
   .why-orbit-pill {
@@ -4477,95 +4516,65 @@ html.js [data-reveal].is-visible {
     height: 64px;
     border-radius: 18px;
   }
-
-  .why-orbit-pill.active {
-    width: 76px;
-    height: 76px;
-  }
 }
 
-@media (max-width:820px) {
+@media (max-width: 820px) {
   .home-hero .hero-trust {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .home-hero .hero-art {
-    overflow: hidden;
-  }
-
-  .why-orbit-section {
-    min-height: auto;
-    padding: 60px 0 70px;
-  }
-
-  .why-orbit-ui {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-
   .why-orbit-visual {
     order: -1;
-    width: min(500px, 100%);
-  }
-
-  .why-orbit-hint {
-    display: none;
   }
 }
 
-@media (max-width:580px) {
+@media (max-width: 580px) {
   .home-hero .hero-trust {
     grid-template-columns: 1fr;
   }
 
-  .home-hero .art-floating-shape {
-    padding: 8px 10px;
-    border-radius: 13px;
+  .decor-ring,
+  .decor-cross {
+    display: none;
   }
 
-  .home-hero .shape-code {
-    top: 12px;
-    left: 10px;
+  .decor-sparkle-1 {
+    top: 8%;
+    right: 8%;
   }
 
-  .home-hero .shape-book {
-    bottom: 12px;
-    left: 10px;
+  .art-badge-1 {
+    top: 8px;
+    left: 6%;
   }
 
-  .home-hero .shape-brackets {
-    top: 26px;
-    right: 10px;
+  .art-badge-2 {
+    right: 4%;
+    bottom: 10px;
   }
 
-  .home-hero .shape-pen {
-    bottom: 14px;
-    right: 10px;
+  .art-badge-3 {
+    display: none;
   }
 
-  .why-orbit-section>.section-heading h2 {
-    font-size: 27px;
-  }
-
-  .why-orbit-visual {
-    width: 100%;
+  .why-orbit-section {
+    padding: 26px 0 4px;
   }
 
   .why-orbit-circle {
-    width: 330px;
-    max-width: 92vw;
+    width: min(320px, 92vw);
   }
 
   .why-orbit-center {
-    width: 43%;
+    width: 44%;
   }
 
   .why-orbit-center strong {
-    font-size: 48px;
+    font-size: 44px;
   }
 
   .why-orbit-center span {
-    margin-top: 9px;
+    margin-top: 8px;
     font-size: 10px;
   }
 
@@ -4575,315 +4584,78 @@ html.js [data-reveal].is-visible {
     border-radius: 15px;
   }
 
-  .why-orbit-pill.active {
-    width: 65px;
-    height: 65px;
-  }
-
   .why-orbit-pill .pill-index {
     display: none;
   }
 
   .why-orbit-content h3 {
-    font-size: 32px;
+    font-size: 28px;
   }
 
   .why-orbit-content p {
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: 15px;
+    line-height: 1.85;
   }
 }
 
-@media (prefers-reduced-motion:reduce) {
+@media (prefers-reduced-motion: reduce) {
 
   .why-orbit-content,
-  .why-orbit-pill,
-  .why-orbit-progress span,
-  .why-orbit-controls button {
+  .why-orbit-pill {
     transition: none !important;
+  }
+
+  .decor-blob,
+  .decor-shape,
+  .art-badge,
+  .art-seal,
+  .art-chip i,
+  .art-bar i,
+  .art-feature,
+  .art-card-main,
+  .art-card-main::after {
+    animation: none !important;
+  }
+
+  .art-bar i {
+    width: 78%;
   }
 }
 
 /* =========================================================
-   FINAL REFACTOR — WHY / DAILY MOTIVATION / MOBILE HEADER
-   Keeps the original stylesheet intact and overrides only the
-   requested home-page presentation issues.
+   PROFESSIONAL MOBILE HEADER — brand left, hamburger right
    ========================================================= */
-
-/* Prevent the interactive WHY wrapper from creating a giant empty
-   area. JavaScript controls the compact scroll-stage height. */
-.why-orbit-stage {
-  position: relative;
-  width: 100%;
-  min-height: 0 !important;
-  overflow: visible;
-}
-
-.why-orbit-section {
-  position: sticky !important;
-  top: 76px !important;
-  height: calc(100vh - 76px) !important;
-  min-height: 0 !important;
-  padding: 24px 0 20px !important;
-  overflow: hidden !important;
-}
-
-/* Keep one clean section heading; the old PHP cards remain hidden
-   visually but are still available to main.js as the data source. */
-.why-orbit-section>.section-heading {
-  display: flex !important;
-  margin: 0 0 12px !important;
-  padding: 0 !important;
-}
-
-.why-orbit-section>.section-heading h2 {
-  margin: 0 !important;
-  max-width: 760px !important;
-}
-
-.why-orbit-section .why-grid {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  margin: -1px !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  clip: rect(0 0 0 0) !important;
-  clip-path: inset(50%) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-
-.why-orbit-ui {
-  width: 100% !important;
-  min-height: calc(100vh - 160px) !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1.12fr) minmax(430px, .88fr) !important;
-  align-items: center !important;
-  gap: clamp(28px, 4vw, 58px) !important;
-  padding: 0 !important;
-}
-
-.why-orbit-copy {
-  width: 100% !important;
-  max-width: 700px !important;
-  min-width: 0 !important;
-}
-
-.why-orbit-content {
-  max-width: 680px !important;
-}
-
-.why-orbit-content h3 {
-  max-width: 680px !important;
-  margin-bottom: 14px !important;
-  font-size: clamp(34px, 3.8vw, 54px) !important;
-  line-height: 1.04 !important;
-}
-
-.why-orbit-content p {
-  max-width: 660px !important;
-  font-size: 16px !important;
-  line-height: 1.72 !important;
-}
-
-/* The old left progress bars, arrows and hint are intentionally gone. */
-.why-orbit-progress,
-.why-orbit-controls,
-.why-orbit-hint,
-.why-progress,
-.why-controls,
-.why-hint {
-  display: none !important;
-}
-
-.why-orbit-visual {
-  width: min(540px, 100%) !important;
-  margin-inline: auto !important;
-}
-
-.why-orbit-circle {
-  width: min(500px, 92%) !important;
-}
-
-/* Support both the current CSS names and the legacy JS names so the
-   orbit remains visually correct even if an older cached script runs. */
-.why-orbit-pill.active,
-.why-orbit-pill.is-active {
-  width: 86px !important;
-  height: 86px !important;
-  border-color: var(--blue) !important;
-  background: #fff !important;
-  box-shadow: 0 0 0 7px rgba(37, 99, 235, .08), 0 22px 44px rgba(37, 99, 235, .20) !important;
-  z-index: 8 !important;
-}
-
-.why-orbit-pill .why-pill-symbol,
-.why-orbit-pill .pill-icon {
-  width: 34px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  color: var(--blue);
-  font-size: 24px;
-  line-height: 1;
-}
-
-.why-orbit-pill .why-pill-number,
-.why-orbit-pill .pill-index {
-  color: #94a3b8;
-  font-size: 9px;
-  font-weight: 850;
-  letter-spacing: .12em;
-}
-
-/* Daily Motivation should follow the compact WHY experience directly. */
-.motive-section {
-  padding: 34px 0 10px !important;
-}
-
-.motive-section .section-heading {
-  margin-bottom: 18px !important;
-}
-
-.motive-grid {
-  margin-top: 0 !important;
-}
-
-/* Professional mobile header: brand left, hamburger right. */
 @media (max-width: 820px) {
   .topbar {
-    min-height: 70px !important;
-    height: 70px !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 12px !important;
-    padding: 0 20px !important;
+    gap: 12px;
+    padding: 0 20px;
   }
 
-  .brand {
-    width: auto !important;
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
+  .topbar .brand {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
-  .nav-toggle,
-  [data-nav-toggle] {
-    display: flex !important;
-    flex: 0 0 44px !important;
-    width: 44px !important;
-    height: 44px !important;
-    margin-left: auto !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .mobile-nav {
-    top: 70px !important;
-  }
-
-  .why-orbit-section {
-    position: relative !important;
-    top: auto !important;
-    height: auto !important;
-    min-height: 0 !important;
-    padding: 46px 0 50px !important;
-    overflow: visible !important;
-  }
-
-  .why-orbit-stage {
-    height: auto !important;
-  }
-
-  .why-orbit-ui {
-    min-height: 0 !important;
-    grid-template-columns: 1fr !important;
-    gap: 30px !important;
-  }
-
-  .why-orbit-copy {
-    order: 2;
-    max-width: 720px !important;
-  }
-
-  .why-orbit-visual {
-    order: 1;
-    width: min(500px, 100%) !important;
+  .topbar .nav-toggle {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
   }
 }
 
 @media (max-width: 580px) {
   .topbar {
-    min-height: 66px !important;
-    height: 66px !important;
-    padding: 0 16px !important;
+    padding: 0 16px;
   }
 
-  .nav-toggle,
-  [data-nav-toggle] {
-    flex-basis: 42px !important;
-    width: 42px !important;
-    height: 42px !important;
-  }
-
-  .mobile-nav {
-    top: 66px !important;
-  }
-
-  .why-orbit-section {
-    padding: 40px 0 44px !important;
-  }
-
-  .why-orbit-section>.section-heading {
-    margin-bottom: 20px !important;
-  }
-
-  .why-orbit-ui {
-    gap: 26px !important;
-  }
-
-  .why-orbit-copy {
-    max-width: 100% !important;
-  }
-
-  .why-orbit-content h3 {
-    font-size: 32px !important;
-    line-height: 1.06 !important;
-  }
-
-  .why-orbit-content p {
-    font-size: 14px !important;
-    line-height: 1.72 !important;
-  }
-
-  .why-orbit-visual {
-    width: 100% !important;
-  }
-
-  .why-orbit-circle {
-    width: min(330px, 92vw) !important;
-  }
-
-  .why-orbit-pill {
-    width: 52px !important;
-    height: 52px !important;
-    border-radius: 15px !important;
-  }
-
-  .why-orbit-pill.active,
-  .why-orbit-pill.is-active {
-    width: 65px !important;
-    height: 65px !important;
-  }
-
-  .why-orbit-pill .why-pill-number,
-  .why-orbit-pill .pill-index {
-    display: none !important;
-  }
-
-  .motive-section {
-    padding-top: 30px !important;
+  .topbar .nav-toggle {
+    flex-basis: 42px;
+    width: 42px;
+    height: 42px;
   }
 }

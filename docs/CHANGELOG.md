@@ -2,6 +2,72 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-23 (home hero + WHY orbit bug fixes after redesign)
+
+Fixed the bugs introduced by the home-page hero / WHY-section redesign, without adding new behaviour.
+
+- **Home hero — restored the TSG card**: `main.js` was deleting the `.art-card` (the simple TSG card on
+  the hero's right). The removal block is gone, so the card and the rotating orbit ring render again.
+  The floating code/coding chips were lightly refreshed (rounded glass pills) and `overflow` on the
+  hero art was relaxed so the shapes are no longer clipped.
+- **WHY orbit — no more duplicate heading**: the section already has a `.section-heading`; the JS orbit
+  copy no longer injects a second "WHY TECH SG ACADEMY" eyebrow.
+- **WHY orbit — click only**: removed the sticky full-viewport scroll "stage", the mouse-wheel paging,
+  the scroll-driven card switching and the arrow-key paging. The page now scrolls normally; the left
+  content only changes when an orbit pill is clicked. Resize only repositions the pills (no content flash).
+- **WHY orbit — consistent spacing**: the orbit section now uses the same vertical rhythm as the other
+  home sections (`54px 0 8px`); the forced `100vh`/sticky height and the reduced Daily-Motivation padding
+  override were removed, so gaps above/below match the rest of the site.
+- **Mobile header**: brand stays on the left and the hamburger on the right in a single row (the earlier
+  stacked layout at ≤580px is fixed). Rules are scoped to `.topbar` so the footer brand is unaffected.
+- **Dead code cleanup**: collapsed the two conflicting CSS override blocks ("HOME REDESIGN" + "FINAL
+  REFACTOR") into one, removing all now-unused `why-orbit-stage / eyebrow / progress / controls / hint`
+  rules. No PHP variables or markup structure were changed.
+
+### Follow-up polish (same day)
+- **Reviews — mobile overlap fixed**: the left `.review-intro` was `position: sticky`, so once the
+  section stacked into a single column on mobile it scrolled over the review form. It is now
+  `position: static` at ≤980px; the sticky side-by-side behaviour is kept only on desktop.
+- **WHY orbit — tighter spacing**: reduced the section top padding and the orbit row top margin, and
+  shrank the orbit circle (460→400px visual, 440→380px circle) so the section no longer leaves large
+  empty gaps above/below between the neighbouring sections.
+- **WHY orbit — content fills the space**: enlarged the left card heading and paragraph (bigger font,
+  wider max-width, taller line-height) so the copy balances the circle instead of floating in whitespace.
+- **WHY orbit — emoji icons**: each orbit pill now shows the same emoji as its source reason card
+  (read from `.why-icon`) instead of the abstract `</>` / `{ }` shapes, so the benefit is recognisable.
+  The unused mono `.pill-icon.code/.braces` styles were removed.
+- **WHY orbit — heading removed, copy fills the space**: the section's `.section-heading`
+  ("WHY TECH SG ACADEMY" + "Learn skills the industry actually uses") was the main source of empty
+  space and is removed (the section keeps an `aria-label` for accessibility). The left copy now
+  top-aligns to the orbit row (`align-items/align-self: start`) so it starts where the heading ended.
+  To fill the space below it, the six `$reasons` descriptions were rewritten as longer, professional
+  copy (same emojis and titles) rather than by inflating the CSS font size or line-height, which is left
+  at its normal 16px / 1.45. Section top/bottom padding tightened (30px/4px, 26px/4px on mobile) so the
+  gap to the neighbouring sections matches the rest of the page.
+
+### Hero atmosphere + FAQ motion (same day)
+- **FAQ — smooth open/close**: each `.faq-answer` is wrapped at runtime in `.faq-answer-wrap`
+  (`overflow: hidden`) and animated with the Web Animations API — height 0 ⇄ natural height plus a
+  short opacity fade over 300ms `cubic-bezier(.4, 0, .2, 1)` in both directions. The summary click is
+  intercepted only to drive that animation, so `<details>` still works natively without JS and the
+  plus icon keeps its 45° turn. The old one-shot `faq-open` keyframe was removed.
+- **Hero background decor**: added a decorative `.hero-decor` layer inside the home hero only
+  (`aria-hidden`, `pointer-events: none`, clipped to the section): two soft drifting blobs, two
+  twinkling sparkles, a slowly rotating `+` and `×`, a floating ring and a pulsing dot. All motion is
+  CSS-only and stops under `prefers-reduced-motion`.
+- **Hero mini pills replaced**: the commented-out code/coding chips were removed from the markup and
+  their dead `.art-floating-shape` / `shape-code|book|brackets|pen|cert` / `.art-card-small` /
+  `.art-spark` styles deleted. In their place sit three floating circular glass badges around the card
+  (graduation cap, verified check, sparkle), each on its own gentle float cycle.
+- **TSG card detail**: added a green verified seal on the card corner, a pulsing "Live + Recorded"
+  status chip, a subtitle label, a course-progress bar and a slow diagonal sheen sweep, with the card
+  layered above the orbit ring and badges.
+- **TSG card — skeleton bars removed**: the three grey placeholder lines (`.art-lines`) looked like
+  content still loading, which reads as broken UI. Their markup and CSS are deleted; in their place are
+  three course-fact rows (Recorded lessons 24 · Hands-on projects 06 · Quizzes & tasks 12), each an
+  icon chip plus an accent value on a soft gradient pill, entering once with a staggered fade
+  (one-shot, and disabled under `prefers-reduced-motion`).
+
 ## Unreleased — 2026-10-22 (reviews, legal pages, auth redesign v2, header/footer polish)
 
 ### Role-specific dashboard overview

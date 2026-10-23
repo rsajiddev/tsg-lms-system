@@ -22,12 +22,12 @@ $motivation = [
 ];
 
 $reasons = [
-    ['💼', 'Learn from practitioners', 'Every course is taught by the Tech SG Studio team — developers building real software for clients in Pakistan, the UK, the USA, the UAE and Europe.'],
-    ['🛠️', 'Project-based learning', 'No dry theory marathons. You learn a concept and immediately apply it to projects, assignments and quizzes.'],
-    ['💰', 'Affordable pricing', 'Professional training at prices that make sense — with Recorded Only and Live + Recorded options for every budget.'],
-    ['🎓', 'Verified certificates', 'Meet the course requirements and download a certificate with a unique verification code you can share with employers.'],
-    ['🤝', 'Real mentorship', 'Stuck on a lesson? Get guidance from senior developers — the same mentorship our internship program runs on.'],
-    ['🌍', 'Global standards', 'Clean code, security and performance are baked into every lesson, so you learn to international standards.'],
+    ['💼', 'Learn from practitioners', 'Every single course is engineered and delivered by active senior engineers at Tech SG Studio — professionals who build, scale, and deploy enterprise-grade software for international clients across Pakistan, the UK, the USA, the UAE, and Europe. Instead of academic theory, you master real-world workflows, production standards, and tools used in daily software development.'],
+    ['🛠️', 'Project-based learning', 'We eliminate passive learning through hands-on development. Every theoretical concept is reinforced with practical exercises, graded assignments, and quizzes so you finish each module with functional code[cite: 1]. By completion, you build an industry-ready portfolio showcasing real-world software applications that confidently demonstrate your technical capabilities to hiring managers.'],
+    ['💰', 'Affordable pricing', 'We offer accessible, high-caliber technical education with transparent structures designed for students, freelancers, and working professionals[cite: 1]. Choose between self-paced Recorded Access or interactive Live Zoom Classes[cite: 1]. You pay strictly for your chosen track with zero hidden fees or forced add-on bundles, delivering maximum value for your career investment.'],
+    ['🎓', 'Verified certificates', 'Earn a verifiable credential upon completing course requirements, including practical projects, assignments, and the final assessment[cite: 1]. Each certificate features a unique verification code that employers and clients can instantly validate on our official portal, ensuring your hard-earned skill set stands up to professional scrutiny worldwide.'],
+    ['🤝', 'Real mentorship', 'Never hit a dead end in your learning journey. Get direct access to senior engineers for code reviews, architectural feedback, and complex bug troubleshooting — leveraging the same mentorship framework that powers our internal engineering team[cite: 1]. Learn how seasoned developers think, structure logic, and solve high-priority technical issues.'],
+    ['🌍', 'Global standards', 'Clean code architecture, robust security protocols, and performance optimization are core elements built directly into every module[cite: 1]. You master industry-standard code conventions, peer review habits, and deployment strategies required by top-tier international software houses, making your skills directly transferrable to global remote or local teams[cite: 1].'],
 ];
 
 $reviews = isset($reviews) && is_array($reviews) ? $reviews : [];
@@ -42,6 +42,16 @@ $checkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke
 $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 ?>
 <section class="home-hero" data-reveal>
+    <div class="hero-decor" aria-hidden="true">
+        <span class="decor-blob decor-blob-1"></span>
+        <span class="decor-blob decor-blob-2"></span>
+        <span class="decor-shape decor-sparkle decor-sparkle-1">✦</span>
+        <span class="decor-shape decor-sparkle decor-sparkle-2">✦</span>
+        <span class="decor-shape decor-plus">+</span>
+        <span class="decor-shape decor-ring"></span>
+        <span class="decor-shape decor-dot"></span>
+        <span class="decor-shape decor-cross">×</span>
+    </div>
     <div class="home-copy">
         <p class="eyebrow">TECH SG ACADEMY · BY TECH SG STUDIO (SMC-PVT.) LTD.</p>
         <h1>Learn practical skills.<br><span>Build what’s next.</span></h1>
@@ -67,40 +77,41 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     <div class="hero-art" aria-hidden="true">
         <div class="art-glow"></div>
 
-        <!-- Floating Abstract & Coding Shapes -->
-        <div class="art-floating-shape shape-code">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="16 18 22 12 16 6"></polyline>
-                <polyline points="8 6 2 12 8 18"></polyline>
+        <!-- Floating achievement badges -->
+        <span class="art-badge art-badge-1">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 10 12 5 2 10l10 5 10-5Z"></path>
+                <path d="M6 12v5c0 1.65 2.69 3 6 3s6-1.35 6-3v-5"></path>
             </svg>
-            <span>&lt;code /&gt;</span>
-        </div>
-
-        <div class="art-floating-shape shape-book">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </span>
+        <span class="art-badge art-badge-2">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="m8.5 12 2.4 2.4 4.6-4.8"></path>
             </svg>
-            <span>Curriculum</span>
-        </div>
-
-        <div class="art-floating-shape shape-brackets">
-            <span class="brackets-symbol">{ ; }</span>
-            <span>Logic</span>
-        </div>
-
-        <div class="art-floating-shape shape-pen">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 20h9"></path>
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
-            </svg>
-            <span>Build</span>
-        </div>
+        </span>
+        <span class="art-badge art-badge-3">✦</span>
 
         <div class="art-card art-card-main">
-            <span class="art-mark">TSG</span>
-            <span class="art-lines"><i></i><i></i><i></i></span>
+            <span class="art-seal">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.5 12.5l5 5 10-11"></path>
+                </svg>
+            </span>
+            <div class="art-card-top">
+                <span class="art-mark">TSG</span>
+                <span class="art-chip"><i></i>Live + Recorded</span>
+            </div>
+            <div class="art-features">
+                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"></path><path d="M10 9.5l4.5 2.5L10 14.5z"></path></svg></i>Recorded lessons<strong>24</strong></span>
+                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg></i>Hands-on projects<strong>06</strong></span>
+                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"></path><path d="M9 3.5h6v3H9z"></path><path d="M8.5 13l2.2 2.2 4.3-4.4"></path></svg></i>Quizzes &amp; tasks<strong>12</strong></span>
+            </div>
             <span class="art-label">Learning that moves you forward</span>
+            <div class="art-progress">
+                <span class="art-progress-head"><span>Course progress</span><strong>78%</strong></span>
+                <span class="art-bar"><i></i></span>
+            </div>
         </div>
         <span class="art-orbit"></span>
     </div>
@@ -148,13 +159,7 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         </article>
     </div>
 </section>
-<section class="why-section why-orbit-section" data-reveal>
-    <div class="section-heading">
-        <div>
-            <p class="eyebrow">WHY TECH SG ACADEMY</p>
-            <h2>Learn skills the industry actually uses</h2>
-        </div>
-    </div>
+<section class="why-section why-orbit-section" data-reveal aria-label="Why Tech SG Academy">
     <div class="why-grid">
         <?php foreach ($reasons as $reasonIndex => $reason): ?><article class="why-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($reasonIndex * 0.06, 2)) ?>s"><span class="why-icon" aria-hidden="true"><?= $reason[0] ?></span>
                 <h3><?= Security::escape($reason[1]) ?></h3>

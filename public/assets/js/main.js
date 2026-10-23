@@ -1,12 +1,11 @@
 /* Tech SG Academy – UI interactions
  *
- * IMPORTANT:
- * This file contains the existing site-wide interactions plus
- * the redesigned HOME / WHY TECH SG ACADEMY experience.
+ * This file contains the site-wide interactions plus the interactive
+ * HOME / "WHY TECH SG ACADEMY" orbit section.
  *
  * PHP variables are NOT modified by this file.
- * The WHY section reads the already-rendered PHP $reasons cards
- * from the DOM and uses them as its data source.
+ * The WHY section reads the already-rendered PHP $reasons cards from
+ * the DOM and uses them as its data source.
  */
 
 (() => {
@@ -23,15 +22,8 @@
         document.body.classList.toggle('nav-open', open);
 
         if (navToggle) {
-            navToggle.setAttribute(
-                'aria-expanded',
-                String(open)
-            );
-
-            navToggle.setAttribute(
-                'aria-label',
-                open ? 'Close menu' : 'Open menu'
-            );
+            navToggle.setAttribute('aria-expanded', String(open));
+            navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         }
     };
 
@@ -42,10 +34,7 @@
         });
 
         mobileNav.addEventListener('click', (event) => {
-            if (
-                event.target instanceof Element &&
-                event.target.closest('a')
-            ) {
+            if (event.target instanceof Element && event.target.closest('a')) {
                 setNav(false);
             }
         });
@@ -77,7 +66,6 @@
                     if (!entry.isIntersecting) {
                         return;
                     }
-
                     entry.target.classList.add('is-visible');
                     observer.unobserve(entry.target);
                 });
@@ -105,27 +93,15 @@
     const counters = document.querySelectorAll('[data-count]');
 
     const runCounter = (element) => {
-        const target = Number(
-            element.dataset.count || '0'
-        );
-
+        const target = Number(element.dataset.count || '0');
         const suffix = element.dataset.suffix || '';
-
         const duration = 1300;
         const start = performance.now();
 
         const frame = (now) => {
-            const progress = Math.min(
-                (now - start) / duration,
-                1
-            );
-
-            const eased =
-                1 - Math.pow(1 - progress, 3);
-
-            element.textContent =
-                String(Math.round(target * eased)) +
-                suffix;
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            element.textContent = String(Math.round(target * eased)) + suffix;
 
             if (progress < 1) {
                 requestAnimationFrame(frame);
@@ -135,29 +111,19 @@
         requestAnimationFrame(frame);
     };
 
-    if (
-        'IntersectionObserver' in window &&
-        counters.length > 0
-    ) {
-        const counterObserver =
-            new IntersectionObserver(
-                (entries) => {
-                    entries.forEach((entry) => {
-                        if (!entry.isIntersecting) {
-                            return;
-                        }
-
-                        runCounter(entry.target);
-
-                        counterObserver.unobserve(
-                            entry.target
-                        );
-                    });
-                },
-                {
-                    threshold: 0.6
-                }
-            );
+    if ('IntersectionObserver' in window && counters.length > 0) {
+        const counterObserver = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+                    runCounter(entry.target);
+                    counterObserver.unobserve(entry.target);
+                });
+            },
+            { threshold: 0.6 }
+        );
 
         counters.forEach((element) => {
             counterObserver.observe(element);
@@ -169,43 +135,22 @@
        PASSWORD VISIBILITY TOGGLE
        ========================================================= */
 
-    document
-        .querySelectorAll('[data-toggle-password]')
-        .forEach((button) => {
-            button.addEventListener('click', () => {
-                const input =
-                    button
-                        .closest('.input-wrap')
-                        ?.querySelector('input');
+    document.querySelectorAll('[data-toggle-password]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const input = button.closest('.input-wrap')?.querySelector('input');
 
-                if (!input) {
-                    return;
-                }
+            if (!input) {
+                return;
+            }
 
-                const show =
-                    input.type === 'password';
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
 
-                input.type =
-                    show ? 'text' : 'password';
-
-                button.classList.toggle(
-                    'is-on',
-                    show
-                );
-
-                button.setAttribute(
-                    'aria-pressed',
-                    String(show)
-                );
-
-                button.setAttribute(
-                    'aria-label',
-                    show
-                        ? 'Hide password'
-                        : 'Show password'
-                );
-            });
+            button.classList.toggle('is-on', show);
+            button.setAttribute('aria-pressed', String(show));
+            button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         });
+    });
 
 
     /* =========================================================
@@ -213,36 +158,21 @@
        Student / Client placeholder switching
        ========================================================= */
 
-    const reviewContext =
-        document.getElementById('review-context');
+    const reviewContext = document.getElementById('review-context');
 
-    const reviewerTypeInputs =
-        document.querySelectorAll(
-            'input[name="reviewer_type"]'
-        );
+    const reviewerTypeInputs = document.querySelectorAll('input[name="reviewer_type"]');
 
-    if (
-        reviewContext &&
-        reviewerTypeInputs.length
-    ) {
+    if (reviewContext && reviewerTypeInputs.length) {
         const applyContext = () => {
-            const checked =
-                document.querySelector(
-                    'input[name="reviewer_type"]:checked'
-                );
+            const checked = document.querySelector('input[name="reviewer_type"]:checked');
 
             if (checked) {
-                reviewContext.placeholder =
-                    checked.dataset.contextPlaceholder ||
-                    '';
+                reviewContext.placeholder = checked.dataset.contextPlaceholder || '';
             }
         };
 
         reviewerTypeInputs.forEach((input) => {
-            input.addEventListener(
-                'change',
-                applyContext
-            );
+            input.addEventListener('change', applyContext);
         });
 
         applyContext();
@@ -250,51 +180,97 @@
 
 
     /* =========================================================
-       HOME HERO CLEANUP
+       FAQ SMOOTH OPEN / CLOSE
        =========================================================
-       
-       Existing PHP/HTML remains untouched.
 
-       We only remove visual elements that were specifically
-       requested to disappear from the redesigned hero:
-       
-       1. Old "Ideas into practice" small card
-       2. About Academy button
-       
-       Abstract coding shapes remain.
+       Native <details> keeps control of state; the answer is
+       wrapped so its height can animate smoothly in both
+       directions instead of snapping open/closed.
        ========================================================= */
 
-    const homeHero =
-        document.querySelector('.home-hero');
+    const faqItems = document.querySelectorAll('.faq-item');
+    const reduceFaqMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (homeHero) {
-        const oldArtCard =
-            homeHero.querySelector('.art-card');
+    if (faqItems.length && !reduceFaqMotion) {
+        const FAQ_DURATION = 300;
+        const FAQ_EASING = 'cubic-bezier(.4, 0, .2, 1)';
 
-        if (oldArtCard) {
-            oldArtCard.remove();
-        }
+        faqItems.forEach((item) => {
+            const summary = item.querySelector('summary');
+            const answer = item.querySelector('.faq-answer');
 
-        const aboutButton =
-            homeHero.querySelector(
-                '.hero-actions a[href$="/about"]'
-            );
+            if (!summary || !answer) {
+                return;
+            }
 
-        if (aboutButton) {
-            aboutButton.remove();
-        }
+            const wrap = document.createElement('div');
+            wrap.className = 'faq-answer-wrap';
+            answer.parentNode.insertBefore(wrap, answer);
+            wrap.appendChild(answer);
 
-        const heroArt =
-            homeHero.querySelector('.hero-art');
+            let animating = false;
 
-        if (heroArt) {
-            heroArt.style.overflow = 'hidden';
-        }
+            const settle = (animation) => {
+                animation.cancel();
+                wrap.style.height = '';
+                wrap.style.opacity = '';
+                animating = false;
+            };
+
+            summary.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                if (animating) {
+                    return;
+                }
+
+                animating = true;
+
+                if (item.open) {
+                    const startHeight = wrap.offsetHeight;
+
+                    const animation = wrap.animate(
+                        [
+                            { height: startHeight + 'px', opacity: 1 },
+                            { height: '0px', opacity: 0 }
+                        ],
+                        { duration: FAQ_DURATION, easing: FAQ_EASING, fill: 'forwards' }
+                    );
+
+                    animation.onfinish = () => {
+                        item.open = false;
+                        settle(animation);
+                    };
+
+                    return;
+                }
+
+                // Open first, but keep the wrapper collapsed so the
+                // full answer never flashes before the animation.
+                wrap.style.height = '0px';
+                wrap.style.opacity = '0';
+                item.open = true;
+
+                const endHeight = answer.offsetHeight;
+
+                const animation = wrap.animate(
+                    [
+                        { height: '0px', opacity: 0 },
+                        { height: endHeight + 'px', opacity: 1 }
+                    ],
+                    { duration: FAQ_DURATION, easing: FAQ_EASING, fill: 'forwards' }
+                );
+
+                animation.onfinish = () => {
+                    settle(animation);
+                };
+            });
+        });
     }
 
 
     /* =========================================================
-       WHY TECH SG ACADEMY
+       WHY TECH SG ACADEMY — circular orbit selector
        =========================================================
 
        IMPORTANT:
@@ -307,49 +283,23 @@
        └── .why-grid
            ├── .why-card
            ├── .why-card
-           ├── ...
-       
-       JavaScript reads those cards and creates the circular
-       interactive presentation.
+           └── ...
 
-       No PHP variable is changed.
+       JavaScript reads those cards, hides the original grid and
+       builds a circular orbit of pills on the right. Clicking a pill
+       swaps the matching content on the left.
 
-       Removed from LEFT side:
-       - Previous button
-       - Next button
-       - Progress indicator bars
+       Deliberately CLICK ONLY: there is no scroll-jacking, no sticky
+       scroll stage, no mouse-wheel paging and no keyboard paging, so
+       the page always scrolls normally. The orbit only reacts when a
+       pill is clicked.
+       ========================================================= */
 
-       Kept:
-       - Mouse wheel
-       - Circle rotation
-       - Orbit cards
-       - Orbit card click
-       - Keyboard navigation
-       - Smooth transitions
-       - Reduced motion
-       - Responsive layout
-    ========================================================= */
+    const whySection = document.querySelector('.why-orbit-section');
+    const whySourceGrid = whySection?.querySelector('.why-grid');
 
-    const whySection =
-        document.querySelector(
-            '.why-orbit-section'
-        );
-
-    const whySourceGrid =
-        whySection?.querySelector(
-            '.why-grid'
-        );
-
-    if (
-        whySection &&
-        whySourceGrid
-    ) {
-        const sourceCards =
-            Array.from(
-                whySourceGrid.querySelectorAll(
-                    '.why-card'
-                )
-            );
+    if (whySection && whySourceGrid) {
+        const sourceCards = Array.from(whySourceGrid.querySelectorAll('.why-card'));
 
         if (sourceCards.length) {
 
@@ -357,611 +307,192 @@
                Convert existing PHP cards into JS data
                ------------------------------------------------- */
 
-            const reasons =
-                sourceCards.map(
-                    (card, index) => ({
-                        number:
-                            String(index + 1)
-                                .padStart(2, '0'),
+            const reasons = sourceCards.map((card, index) => ({
+                number: String(index + 1).padStart(2, '0'),
+                icon: card.querySelector('.why-icon')?.textContent.trim() || '',
+                title: card.querySelector('h3')?.textContent.trim() || '',
+                description: card.querySelector('p')?.textContent.trim() || ''
+            }));
 
-                        title:
-                            card
-                                .querySelector('h3')
-                                ?.textContent
-                                .trim() || '',
-
-                        description:
-                            card
-                                .querySelector('p')
-                                ?.textContent
-                                .trim() || ''
-                    })
-                );
-
-            const total =
-                reasons.length;
-
-
-            /* -------------------------------------------------
-               Abstract icons
-               ------------------------------------------------- */
-
-            const icons = [
-                '<span class="pill-icon code">&lt;/&gt;</span>',
-
-                '<span class="pill-icon braces">{ }</span>',
-
-                '<span class="pill-icon">▤</span>',
-
-                '<span class="pill-icon">✎</span>',
-
-                '<span class="pill-icon">◇</span>',
-
-                '<span class="pill-icon">◎</span>'
-            ];
-
-
-            /* -------------------------------------------------
-               Create scroll stage
-               ------------------------------------------------- */
-
-            const stage =
-                document.createElement('div');
-
-            stage.className =
-                'why-orbit-stage';
-
-            whySection.parentNode.insertBefore(
-                stage,
-                whySection
-            );
-
-            stage.appendChild(
-                whySection
-            );
+            const total = reasons.length;
 
 
             /* -------------------------------------------------
                Create interactive UI
                ------------------------------------------------- */
 
-            const ui =
-                document.createElement('div');
+            const ui = document.createElement('div');
 
-            ui.className =
-                'why-orbit-ui';
+            ui.className = 'why-orbit-ui';
 
             ui.innerHTML = `
                 <div class="why-orbit-copy">
-
-                    <div class="why-orbit-eyebrow">
-                        WHY TECH SG ACADEMY
-                    </div>
-
                     <div class="why-orbit-number">
                         <small>CARD</small>
-
-                        <strong
-                            data-why-number
-                        >
-                            01
-                        </strong>
+                        <strong data-why-number>01</strong>
                     </div>
-
-                    <div
-                        class="why-orbit-content"
-                        aria-live="polite"
-                    >
+                    <div class="why-orbit-content" aria-live="polite">
                         <h3 data-why-title></h3>
-
-                        <p
-                            data-why-description
-                        ></p>
+                        <p data-why-description></p>
                     </div>
-
                 </div>
 
-
                 <div class="why-orbit-visual">
-
                     <div class="why-orbit-glow"></div>
-
                     <div class="why-orbit-circle">
-
-                        <div
-                            class="why-orbit-ring"
-                        ></div>
-
-                        <div
-                            class="why-orbit-ring
-                                   why-orbit-ring-inner"
-                        ></div>
-
-                        <div
-                            class="why-orbit-center"
-                            aria-live="polite"
-                        >
-
-                            <strong
-                                data-why-center
-                            >
-                                01
-                            </strong>
-
-                            <span>
-                                of ${String(total).padStart(2, '0')}
-                            </span>
-
+                        <div class="why-orbit-ring"></div>
+                        <div class="why-orbit-ring why-orbit-ring-inner"></div>
+                        <div class="why-orbit-center" aria-live="polite">
+                            <strong data-why-center>01</strong>
+                            <span>of ${String(total).padStart(2, '0')}</span>
                         </div>
-
-                        <div
-                            class="why-orbit-pills"
-                            data-why-pills
-                            role="tablist"
-                            aria-label="Academy benefits"
-                        ></div>
-
+                        <div class="why-orbit-pills" data-why-pills role="tablist" aria-label="Academy benefits"></div>
                     </div>
-
                 </div>
             `;
 
-
-            whySection.appendChild(
-                ui
-            );
+            whySection.appendChild(ui);
 
 
             /* -------------------------------------------------
                UI references
                ------------------------------------------------- */
 
-            const title =
-                ui.querySelector(
-                    '[data-why-title]'
-                );
-
-            const description =
-                ui.querySelector(
-                    '[data-why-description]'
-                );
-
-            const number =
-                ui.querySelector(
-                    '[data-why-number]'
-                );
-
-            const center =
-                ui.querySelector(
-                    '[data-why-center]'
-                );
-
-            const pillsHost =
-                ui.querySelector(
-                    '[data-why-pills]'
-                );
-
-            const content =
-                ui.querySelector(
-                    '.why-orbit-content'
-                );
+            const title = ui.querySelector('[data-why-title]');
+            const description = ui.querySelector('[data-why-description]');
+            const number = ui.querySelector('[data-why-number]');
+            const center = ui.querySelector('[data-why-center]');
+            const pillsHost = ui.querySelector('[data-why-pills]');
+            const content = ui.querySelector('.why-orbit-content');
 
 
             /* -------------------------------------------------
                Create circular orbit pills
                ------------------------------------------------- */
 
-            const pills =
-                reasons.map(
-                    (reason, index) => {
-
-                        const button =
-                            document.createElement(
-                                'button'
-                            );
-
-                        button.type =
-                            'button';
-
-                        button.className =
-                            'why-orbit-pill';
-
-                        button.dataset.index =
-                            String(index);
-
-                        button.setAttribute(
-                            'role',
-                            'tab'
-                        );
-
-                        button.setAttribute(
-                            'aria-selected',
-                            'false'
-                        );
-
-                        button.setAttribute(
-                            'aria-label',
-                            `Card ${reason.number}: ${reason.title}`
-                        );
-
-                        button.setAttribute(
-                            'tabindex',
-                            '-1'
-                        );
-
-                        button.innerHTML = `
-                            ${icons[index % icons.length]}
-
-                            <span
-                                class="pill-index"
-                            >
-                                ${reason.number}
-                            </span>
-                        `;
-
-                        button.addEventListener(
-                            'click',
-                            () => {
-                                setCard(
-                                    index,
-                                    true
-                                );
-                            }
-                        );
-
-                        pillsHost.appendChild(
-                            button
-                        );
-
-                        return button;
-                    }
-                );
-
-
-            /* -------------------------------------------------
-               State
-               ------------------------------------------------- */
-
             let active = 0;
+            let textTimer = 0;
 
-            let wheelLocked =
-                false;
+            const pills = reasons.map((reason, index) => {
+                const button = document.createElement('button');
 
-            let scrollFrame =
-                false;
+                button.type = 'button';
+                button.className = 'why-orbit-pill';
+                button.dataset.index = String(index);
+                button.setAttribute('role', 'tab');
+                button.setAttribute('aria-selected', 'false');
+                button.setAttribute('aria-label', `Card ${reason.number}: ${reason.title}`);
 
-            let textTimer =
-                0;
+                // Each orbit pill shows the same emoji as its source card so the
+                // benefit is recognisable at a glance.
+                button.innerHTML = `
+                    <span class="pill-icon" aria-hidden="true">${reason.icon}</span>
+                    <span class="pill-index">${reason.number}</span>
+                `;
+
+                button.addEventListener('click', () => {
+                    setCard(index);
+                });
+
+                pillsHost.appendChild(button);
+
+                return button;
+            });
 
 
             /* -------------------------------------------------
                Helpers
                ------------------------------------------------- */
 
-            const normalize =
-                (index) => (
-                    (index % total) + total
-                ) % total;
+            const normalize = (index) => ((index % total) + total) % total;
+
+            const getOrbitRadius = () => {
+                if (window.innerWidth <= 580) {
+                    return 112;
+                }
+                if (window.innerWidth <= 820) {
+                    return 130;
+                }
+                return 158;
+            };
 
 
-            const getOrbitRadius =
-                () => {
+            /* -------------------------------------------------
+               Position every pill around the circle
+               ------------------------------------------------- */
 
-                    if (
-                        window.innerWidth <= 580
-                    ) {
-                        return 118;
-                    }
+            const positionPills = () => {
+                const step = 360 / total;
+                const radius = getOrbitRadius();
 
-                    if (
-                        window.innerWidth <= 820
-                    ) {
-                        return 145;
-                    }
+                pills.forEach((pill, index) => {
+                    const angle = -90 + (index - active) * step;
 
-                    return 185;
-                };
+                    pill.style.transform =
+                        `translate(-50%, -50%) rotate(${angle}deg) translateY(-${radius}px) rotate(${-angle}deg)`;
+
+                    const isActive = index === active;
+
+                    pill.classList.toggle('active', isActive);
+                    pill.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+            };
 
 
             /* -------------------------------------------------
                Render active card
                ------------------------------------------------- */
 
-            const render =
-                (animate = true) => {
+            const render = () => {
+                const reason = reasons[active];
 
-                    const reason =
-                        reasons[active];
+                number.textContent = reason.number;
+                center.textContent = reason.number;
 
-                    number.textContent =
-                        reason.number;
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-                    center.textContent =
-                        reason.number;
+                if (!reduceMotion) {
+                    content.classList.add('is-changing');
 
+                    window.clearTimeout(textTimer);
 
-                    const reduceMotion =
-                        window.matchMedia(
-                            '(prefers-reduced-motion: reduce)'
-                        ).matches;
+                    textTimer = window.setTimeout(() => {
+                        title.textContent = reason.title;
+                        description.textContent = reason.description;
+                        content.classList.remove('is-changing');
+                    }, 150);
+                } else {
+                    title.textContent = reason.title;
+                    description.textContent = reason.description;
+                    content.classList.remove('is-changing');
+                }
 
-
-                    if (
-                        animate &&
-                        !reduceMotion
-                    ) {
-                        content.classList.add(
-                            'is-changing'
-                        );
-
-                        window.clearTimeout(
-                            textTimer
-                        );
-
-                        textTimer =
-                            window.setTimeout(
-                                () => {
-
-                                    title.textContent =
-                                        reason.title;
-
-                                    description.textContent =
-                                        reason.description;
-
-                                    content.classList.remove(
-                                        'is-changing'
-                                    );
-
-                                },
-                                150
-                            );
-
-                    } else {
-
-                        title.textContent =
-                            reason.title;
-
-                        description.textContent =
-                            reason.description;
-
-                        content.classList.remove(
-                            'is-changing'
-                        );
-                    }
-
-
-                    /* -------------------------------------------------
-                       Rotate orbit
-                       ------------------------------------------------- */
-
-                    const step =
-                        360 / total;
-
-                    const radius =
-                        getOrbitRadius();
-
-
-                    pills.forEach(
-                        (pill, index) => {
-
-                            const angle =
-                                -90 +
-                                (index - active) *
-                                step;
-
-
-                            pill.style.transform =
-                                `translate(-50%, -50%)
-                                 rotate(${angle}deg)
-                                 translateY(-${radius}px)
-                                 rotate(${-angle}deg)`;
-
-
-                            const isActive =
-                                index === active;
-
-
-                            pill.classList.toggle(
-                                'active',
-                                isActive
-                            );
-
-
-                            pill.setAttribute(
-                                'aria-selected',
-                                isActive
-                                    ? 'true'
-                                    : 'false'
-                            );
-
-
-                            pill.setAttribute(
-                                'tabindex',
-                                isActive
-                                    ? '0'
-                                    : '-1'
-                            );
-                        }
-                    );
-                };
+                positionPills();
+            };
 
 
             /* -------------------------------------------------
                Set active card
                ------------------------------------------------- */
 
-            function setCard(
-                index,
-                animate = true
-            ) {
-                active =
-                    normalize(index);
-
-                render(
-                    animate
-                );
+            function setCard(index) {
+                active = normalize(index);
+                render();
             }
 
 
             /* -------------------------------------------------
-               Keyboard navigation
+               Reposition on resize (layout only, no content flash)
                ------------------------------------------------- */
 
-            pills.forEach((pill) => {
-                pill.addEventListener('keydown', (event) => {
-                    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                        event.preventDefault();
-                        setCard(active + 1, true);
-                        window.setTimeout(() => { pills[active]?.focus(); }, 30);
-                        return;
-                    }
-                    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                        event.preventDefault();
-
-                        setCard(active - 1, true);
-                        window.setTimeout(() => { pills[active]?.focus(); }, 30);
-                        return;
-                    }
-                    if (event.key === 'Home') {
-                        event.preventDefault();
-                        setCard(0, true);
-                        pills[0]?.focus();
-                        return;
-                    }
-                    if (event.key === 'End') {
-                        event.preventDefault();
-                        setCard(total - 1, true);
-                        pills[total - 1]?.focus();
-                    }
-                }
-                );
-            }
-            );
-
-
-            /* -------------------------------------------------
-               Mouse wheel interaction
-               ------------------------------------------------- */
-            whySection.addEventListener(
-                'wheel',
-                (event) => {
-                    if (window.innerWidth <= 820) {
-                        return;
-                    }
-                    if (Math.abs(event.deltaY) < 8) {
-                        return;
-                    }
-                    event.preventDefault();
-                    if (wheelLocked) {
-                        return;
-                    }
-                    wheelLocked = true;
-                    if (event.deltaY > 0) {
-                        setCard(active + 1, true);
-                    } else {
-                        setCard(active - 1, true);
-                    }
-                    window.setTimeout(() => { wheelLocked = false; }, 650);
-                }, { passive: false });
-
-
-            /* -------------------------------------------------
-               Compact sticky scroll stage
-               
-               IMPORTANT:
-               Do NOT use total * 100vh.
-               
-               Six cards previously created an enormous
-               600vh section.
-               
-               We now use a much shorter scroll distance.
-               ------------------------------------------------- */
-            const setStageHeight = () => {
-
-                if (window.innerWidth <= 820) {
-                    stage.style.height = 'auto';
-                    return;
-                }
-                const headerOffset = 76;
-
-                /*
-                 * Smaller value = less empty space.
-                 *
-                 * 72px per card gives enough movement
-                 * for six cards without pushing the
-                 * Daily Motivation section too far down.
-                 */
-                const perCardScroll = 72;
-                const minimumViewport = Math.max(window.innerHeight - headerOffset, 1);
-                const compactHeight = Math.max(minimumViewport + ((total - 1) * perCardScroll), window.innerHeight);
-                stage.style.height = `${compactHeight}px`;
-            };
-
-
-            /* -------------------------------------------------
-               Page scroll -> active card
-               ------------------------------------------------- */
-            window.addEventListener('scroll', () => {
-
-                if (scrollFrame || window.innerWidth <= 820) {
-                    return;
-                }
-                scrollFrame = true;
-                window.requestAnimationFrame(() => {
-                    scrollFrame = false;
-                    const rect = stage.getBoundingClientRect();
-                    const max = Math.max(stage.offsetHeight - window.innerHeight, 1);
-                    const travelled = Math.min(Math.max(-rect.top, 0), max);
-                    const progress = travelled / max;
-                    const target = Math.round(progress * (total - 1));
-
-                    if (target !== active) {
-                        setCard(target, true);
-                    }
-                }
-                );
-            },
-                { passive: true }
-            );
-
-            /* -------------------------------------------------
-               Resize
-               ------------------------------------------------- */
-            window.addEventListener('resize', () => {
-                setStageHeight();
-                render(false);
-            }
-            );
-
-
-            /* -------------------------------------------------
-               Reduced motion
-               ------------------------------------------------- */
-            const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-            const applyReducedMotion = () => {
-
-                if (reducedMotionQuery.matches) {
-                    ui.classList.add('why-reduced-motion');
-                } else {
-                    ui.classList.remove('why-reduced-motion');
-                }
-            };
-
-
-            applyReducedMotion();
-
-
-            if (reducedMotionQuery.addEventListener) {
-                reducedMotionQuery.addEventListener('change', applyReducedMotion);
-            }
+            window.addEventListener('resize', positionPills);
 
 
             /* -------------------------------------------------
                Initial state
                ------------------------------------------------- */
-            setStageHeight();
-            setCard(0, false);
+
+            setCard(0);
         }
     }
 
