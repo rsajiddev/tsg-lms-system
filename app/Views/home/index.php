@@ -1,4 +1,5 @@
 <?php
+
 use App\Core\Security;
 
 $courses = isset($courses) && is_array($courses) ? $courses : [];
@@ -47,7 +48,6 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         <p class="lead">Project-based training from a SECP-registered software company — learn from developers who build for clients in Pakistan, the UK, the USA, the UAE and Europe.</p>
         <div class="hero-actions">
             <a class="button" href="<?= Security::escape($baseUrl) ?>/courses">Explore courses <span aria-hidden="true">→</span></a>
-            <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">About the Academy</a>
         </div>
         <div class="hero-trust">
             <div class="trust-pill">
@@ -89,22 +89,18 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
             <span>Logic</span>
         </div>
 
-        <div class="art-floating-shape shape-cert">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        <div class="art-floating-shape shape-pen">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path>
             </svg>
-            <span>Certified</span>
+            <span>Build</span>
         </div>
 
         <div class="art-card art-card-main">
             <span class="art-mark">TSG</span>
             <span class="art-lines"><i></i><i></i><i></i></span>
             <span class="art-label">Learning that moves you forward</span>
-        </div>
-        <div class="art-card art-card-small">
-            <span class="art-spark">✦</span>
-            <span>Ideas into practice</span>
         </div>
         <span class="art-orbit"></span>
     </div>
@@ -115,43 +111,106 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     <div class="stat-card"><span class="stat-num" data-count="100" data-suffix="%">100%</span><span class="stat-label">Practical, project-based learning</span></div>
     <div class="stat-card"><span class="stat-num" data-count="2" data-suffix="h">2h</span><span class="stat-label">Average response time</span></div>
 </section>
-<section class="home-courses" data-reveal><div class="section-heading"><div><p class="eyebrow">START LEARNING</p><h2>Courses from the Academy</h2></div><a class="text-link" href="<?= Security::escape($baseUrl) ?>/courses">View catalogue <span aria-hidden="true">→</span></a></div>
-<?php if ($courses === []): ?><div class="empty-state"><h3>Courses are being prepared</h3><p>Published courses will appear here. For current training information, get in touch with the Academy.</p><a href="<?= Security::escape($baseUrl) ?>/contact">Contact the Academy →</a></div>
-<?php else: ?><div class="course-grid home-course-grid"><?php $courseIndex = 0; foreach ($courses as $course): ?><article class="course-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($courseIndex * 0.07, 2)) ?>s"><p class="eyebrow"><?= Security::escape((string) ($course['category'] ?: 'TECH SG ACADEMY')) ?></p><h3><?= Security::escape((string) $course['title']) ?></h3><p><?= Security::escape((string) ($course['short_description'] ?: 'Explore the course catalogue for details.')) ?></p><?php if (!empty($course['duration_label'])): ?><p class="course-duration"><?= Security::escape((string) $course['duration_label']) ?></p><?php endif; ?><div class="price-options"><?php if ($course['recorded_price'] !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?><?php if ($course['live_price'] !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?></div><a class="button course-cta" href="<?= Security::escape($baseUrl) ?>/register">Create student account</a></article><?php $courseIndex++; endforeach; ?></div><?php endif; ?></section>
-<section class="learning-modes" data-reveal><div class="section-heading"><div><p class="eyebrow">CHOOSE YOUR FORMAT</p><h2>Learning that fits your schedule</h2></div></div><div class="mode-grid"><article class="mode-card mode-recorded" data-reveal><span class="mode-symbol">01</span><h3>Recorded Only</h3><p>Learn at your own pace with recorded lectures, materials, assignments and quizzes.</p></article><article class="mode-card mode-live" data-reveal style="--reveal-delay: .08s"><span class="mode-symbol">02</span><h3>Live + Recorded</h3><p>Join scheduled live Zoom classes and revisit every session through the recordings.</p></article></div></section>
-<section class="why-section" data-reveal>
-    <div class="section-heading"><div><p class="eyebrow">WHY TECH SG ACADEMY</p><h2>Learn skills the industry actually uses</h2></div></div>
+<section class="home-courses" data-reveal>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">START LEARNING</p>
+            <h2>Courses from the Academy</h2>
+        </div><a class="text-link" href="<?= Security::escape($baseUrl) ?>/courses">View catalogue <span aria-hidden="true">→</span></a>
+    </div>
+    <?php if ($courses === []): ?><div class="empty-state">
+            <h3>Courses are being prepared</h3>
+            <p>Published courses will appear here. For current training information, get in touch with the Academy.</p><a href="<?= Security::escape($baseUrl) ?>/contact">Contact the Academy →</a>
+        </div>
+    <?php else: ?><div class="course-grid home-course-grid"><?php $courseIndex = 0;
+                                                            foreach ($courses as $course): ?><article class="course-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($courseIndex * 0.07, 2)) ?>s">
+                    <p class="eyebrow"><?= Security::escape((string) ($course['category'] ?: 'TECH SG ACADEMY')) ?></p>
+                    <h3><?= Security::escape((string) $course['title']) ?></h3>
+                    <p><?= Security::escape((string) ($course['short_description'] ?: 'Explore the course catalogue for details.')) ?></p><?php if (!empty($course['duration_label'])): ?><p class="course-duration"><?= Security::escape((string) $course['duration_label']) ?></p><?php endif; ?><div class="price-options"><?php if ($course['recorded_price'] !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?><?php if ($course['live_price'] !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape((string) $course['currency']) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?></div><a class="button course-cta" href="<?= Security::escape($baseUrl) ?>/register">Create student account</a>
+                </article><?php $courseIndex++;
+                                                            endforeach; ?></div><?php endif; ?>
+</section>
+<section class="learning-modes" data-reveal>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">CHOOSE YOUR FORMAT</p>
+            <h2>Learning that fits your schedule</h2>
+        </div>
+    </div>
+    <div class="mode-grid">
+        <article class="mode-card mode-recorded" data-reveal><span class="mode-symbol">01</span>
+            <h3>Recorded Only</h3>
+            <p>Learn at your own pace with recorded lectures, materials, assignments and quizzes.</p>
+        </article>
+        <article class="mode-card mode-live" data-reveal style="--reveal-delay: .08s"><span class="mode-symbol">02</span>
+            <h3>Live + Recorded</h3>
+            <p>Join scheduled live Zoom classes and revisit every session through the recordings.</p>
+        </article>
+    </div>
+</section>
+<section class="why-section why-orbit-section" data-reveal>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">WHY TECH SG ACADEMY</p>
+            <h2>Learn skills the industry actually uses</h2>
+        </div>
+    </div>
     <div class="why-grid">
-        <?php foreach ($reasons as $reasonIndex => $reason): ?><article class="why-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($reasonIndex * 0.06, 2)) ?>s"><span class="why-icon" aria-hidden="true"><?= $reason[0] ?></span><h3><?= Security::escape($reason[1]) ?></h3><p><?= Security::escape($reason[2]) ?></p></article><?php endforeach; ?>
+        <?php foreach ($reasons as $reasonIndex => $reason): ?><article class="why-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($reasonIndex * 0.06, 2)) ?>s"><span class="why-icon" aria-hidden="true"><?= $reason[0] ?></span>
+                <h3><?= Security::escape($reason[1]) ?></h3>
+                <p><?= Security::escape($reason[2]) ?></p>
+            </article><?php endforeach; ?>
     </div>
 </section>
 <section class="motive-section" data-reveal>
-    <div class="section-heading"><div><p class="eyebrow">DAILY MOTIVATION</p><h2>A little push for every study session</h2></div></div>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">DAILY MOTIVATION</p>
+            <h2>A little push for every study session</h2>
+        </div>
+    </div>
     <div class="motive-grid">
-        <?php foreach ($motivation as $motiveIndex => $motive): ?><article class="motive-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($motiveIndex * 0.08, 2)) ?>s"><span class="motive-spark" aria-hidden="true">✦</span><span class="motive-emoji" aria-hidden="true"><?= $motive[0] ?></span><h3><?= Security::escape($motive[1]) ?></h3><p><?= Security::escape($motive[2]) ?></p></article><?php endforeach; ?>
+        <?php foreach ($motivation as $motiveIndex => $motive): ?><article class="motive-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($motiveIndex * 0.08, 2)) ?>s"><span class="motive-spark" aria-hidden="true">✦</span><span class="motive-emoji" aria-hidden="true"><?= $motive[0] ?></span>
+                <h3><?= Security::escape($motive[1]) ?></h3>
+                <p><?= Security::escape($motive[2]) ?></p>
+            </article><?php endforeach; ?>
     </div>
 </section>
 <section class="testi-section" id="reviews">
-    <div class="section-heading"><div><p class="eyebrow">STUDENT &amp; CLIENT REVIEWS</p><h2>What our students and clients say</h2></div></div>
-    <?php if ($reviews === []): ?>
-    <div class="empty-state" data-reveal><div><h3>No approved reviews yet</h3><p>Student and client reviews will appear here after they are approved.</p></div></div>
-    <?php else: ?>
-    <div class="review-marquee" data-reveal aria-label="Reviews from our students and clients">
-        <div class="review-track">
-            <?php // Cards render twice so the marquee loops seamlessly.
-            $renderReviewCards = static function (bool $clone) use ($reviews, $checkIcon): void {
-                foreach ($reviews as $review) {
-                    $reviewRating = max(1, min(5, (int) $review['rating']));
-                    $reviewWords = preg_split('/\s+/', trim((string) $review['full_name'])) ?: [];
-                    $reviewInitials = strtoupper(mb_substr((string) ($reviewWords[0] ?? 'T'), 0, 1) . mb_substr((string) ($reviewWords[1] ?? ''), 0, 1));
-                    ?><article class="testi-card"<?= $clone ? ' aria-hidden="true"' : '' ?>><div class="testi-top"><span class="testi-stars" aria-label="Rated <?= Security::escape((string) $reviewRating) ?> out of 5"><?= Security::escape(str_repeat('★', $reviewRating) . str_repeat('☆', 5 - $reviewRating)) ?></span><span class="testi-type type-<?= Security::escape((string) $review['reviewer_type']) ?>"><?= $review['reviewer_type'] === 'client' ? 'Client' : 'Student' ?></span></div><blockquote>“<?= Security::escape((string) $review['content']) ?>”</blockquote><div class="testi-who"><span class="testi-ava" aria-hidden="true"><?= Security::escape($reviewInitials) ?></span><span><span class="testi-name"><?= Security::escape((string) $review['full_name']) ?></span><span class="testi-role"><?= Security::escape((string) ($review['context_label'] ?: ($review['reviewer_type'] === 'client' ? 'Client' : 'Student'))) ?></span></span><span class="testi-verified"><?= $checkIcon ?>Verified</span></div></article><?php
-                }
-            };
-            $renderReviewCards(false);
-            $renderReviewCards(true);
-            ?>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">STUDENT &amp; CLIENT REVIEWS</p>
+            <h2>What our students and clients say</h2>
         </div>
     </div>
+    <?php if ($reviews === []): ?>
+        <div class="empty-state" data-reveal>
+            <div>
+                <h3>No approved reviews yet</h3>
+                <p>Student and client reviews will appear here after they are approved.</p>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="review-marquee" data-reveal aria-label="Reviews from our students and clients">
+            <div class="review-track">
+                <?php // Cards render twice so the marquee loops seamlessly.
+                $renderReviewCards = static function (bool $clone) use ($reviews, $checkIcon): void {
+                    foreach ($reviews as $review) {
+                        $reviewRating = max(1, min(5, (int) $review['rating']));
+                        $reviewWords = preg_split('/\s+/', trim((string) $review['full_name'])) ?: [];
+                        $reviewInitials = strtoupper(mb_substr((string) ($reviewWords[0] ?? 'T'), 0, 1) . mb_substr((string) ($reviewWords[1] ?? ''), 0, 1));
+                ?><article class="testi-card" <?= $clone ? ' aria-hidden="true"' : '' ?>>
+                            <div class="testi-top"><span class="testi-stars" aria-label="Rated <?= Security::escape((string) $reviewRating) ?> out of 5"><?= Security::escape(str_repeat('★', $reviewRating) . str_repeat('☆', 5 - $reviewRating)) ?></span><span class="testi-type type-<?= Security::escape((string) $review['reviewer_type']) ?>"><?= $review['reviewer_type'] === 'client' ? 'Client' : 'Student' ?></span></div>
+                            <blockquote>“<?= Security::escape((string) $review['content']) ?>”</blockquote>
+                            <div class="testi-who"><span class="testi-ava" aria-hidden="true"><?= Security::escape($reviewInitials) ?></span><span><span class="testi-name"><?= Security::escape((string) $review['full_name']) ?></span><span class="testi-role"><?= Security::escape((string) ($review['context_label'] ?: ($review['reviewer_type'] === 'client' ? 'Client' : 'Student'))) ?></span></span><span class="testi-verified"><?= $checkIcon ?>Verified</span></div>
+                        </article><?php
+                                }
+                            };
+                            $renderReviewCards(false);
+                            $renderReviewCards(true);
+                                    ?>
+            </div>
+        </div>
     <?php endif; ?>
     <div class="review-lower" data-reveal>
         <div class="review-intro">
@@ -161,32 +220,33 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
             <p class="review-sign">Submitted reviews go live after a quick moderation check, usually within a day.<br>— Team Tech SG Academy</p>
         </div>
         <div class="review-box" id="review-form">
-        <div class="review-box-head">
-            <h3>Share your experience</h3>
-            <p>Took a course or worked with our team? Students and clients are both welcome to leave a review — it appears here after a quick check by our team.</p>
-        </div>
-        <?php if ($reviewSubmitted): ?><p class="review-banner review-success" role="status">Thank you! Your review was received and will appear on this page once our team approves it.</p><?php endif; ?>
-        <?php if ($reviewMessage !== null): ?><p class="review-banner review-error" role="alert"><?= Security::escape($reviewMessage) ?></p><?php endif; ?>
-        <form method="post" action="<?= Security::escape($baseUrl) ?>/reviews" class="review-form">
-            <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
-            <div class="reviewer-type" role="radiogroup" aria-label="I am a">
-                <label class="review-type"><input type="radio" name="reviewer_type" value="student" data-context-placeholder="e.g. Web Development student"<?= $reviewType === 'student' ? ' checked' : '' ?>><span>🎓 I'm a student</span></label>
-                <label class="review-type"><input type="radio" name="reviewer_type" value="client" data-context-placeholder="e.g. Founder, Tech SG Studio"<?= $reviewType === 'client' ? ' checked' : '' ?>><span>💼 I'm a client</span></label>
+            <div class="review-box-head">
+                <h3>Share your experience</h3>
+                <p>Took a course or worked with our team? Students and clients are both welcome to leave a review — it appears here after a quick check by our team.</p>
             </div>
-            <div class="review-fields">
-                <label class="field">Your name<input class="review-input" name="full_name" required minlength="2" maxlength="150" value="<?= $oldReview('full_name') ?>"></label>
-                <label class="field">Course or project <small>(optional)</small><input class="review-input" id="review-context" name="context_label" maxlength="120" placeholder="e.g. Web Development student" value="<?= $oldReview('context_label') ?>"></label>
-            </div>
-            <fieldset class="review-rating">
-                <legend>Your rating</legend>
-                <div class="star-rating">
-                    <?php $oldRating = (int) ($reviewValues['rating'] ?? 5); for ($star = 5; $star >= 1; $star--): ?><input type="radio" id="rating-<?= $star ?>" name="rating" value="<?= $star ?>"<?= $oldRating === $star ? ' checked' : '' ?>><label for="rating-<?= $star ?>" aria-label="<?= $star ?> star<?= $star > 1 ? 's' : '' ?>">★</label><?php endfor; ?>
+            <?php if ($reviewSubmitted): ?><p class="review-banner review-success" role="status">Thank you! Your review was received and will appear on this page once our team approves it.</p><?php endif; ?>
+            <?php if ($reviewMessage !== null): ?><p class="review-banner review-error" role="alert"><?= Security::escape($reviewMessage) ?></p><?php endif; ?>
+            <form method="post" action="<?= Security::escape($baseUrl) ?>/reviews" class="review-form">
+                <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+                <div class="reviewer-type" role="radiogroup" aria-label="I am a">
+                    <label class="review-type"><input type="radio" name="reviewer_type" value="student" data-context-placeholder="e.g. Web Development student" <?= $reviewType === 'student' ? ' checked' : '' ?>><span>🎓 I'm a student</span></label>
+                    <label class="review-type"><input type="radio" name="reviewer_type" value="client" data-context-placeholder="e.g. Founder, Tech SG Studio" <?= $reviewType === 'client' ? ' checked' : '' ?>><span>💼 I'm a client</span></label>
                 </div>
-            </fieldset>
-            <label class="field">Your review<textarea class="review-input" name="content" rows="4" required minlength="15" maxlength="1500" placeholder="What did you learn, or what did we build for you?"><?= $oldReview('content') ?></textarea></label>
-            <button class="button review-submit" type="submit">Submit review</button>
-            <p class="review-note">Honest feedback only — reviews are moderated before publishing.</p>
-        </form>
+                <div class="review-fields">
+                    <label class="field">Your name<input class="review-input" name="full_name" required minlength="2" maxlength="150" value="<?= $oldReview('full_name') ?>"></label>
+                    <label class="field">Course or project <small>(optional)</small><input class="review-input" id="review-context" name="context_label" maxlength="120" placeholder="e.g. Web Development student" value="<?= $oldReview('context_label') ?>"></label>
+                </div>
+                <fieldset class="review-rating">
+                    <legend>Your rating</legend>
+                    <div class="star-rating">
+                        <?php $oldRating = (int) ($reviewValues['rating'] ?? 5);
+                        for ($star = 5; $star >= 1; $star--): ?><input type="radio" id="rating-<?= $star ?>" name="rating" value="<?= $star ?>" <?= $oldRating === $star ? ' checked' : '' ?>><label for="rating-<?= $star ?>" aria-label="<?= $star ?> star<?= $star > 1 ? 's' : '' ?>">★</label><?php endfor; ?>
+                    </div>
+                </fieldset>
+                <label class="field">Your review<textarea class="review-input" name="content" rows="4" required minlength="15" maxlength="1500" placeholder="What did you learn, or what did we build for you?"><?= $oldReview('content') ?></textarea></label>
+                <button class="button review-submit" type="submit">Submit review</button>
+                <p class="review-note">Honest feedback only — reviews are moderated before publishing.</p>
+            </form>
         </div>
     </div>
 </section>
@@ -199,10 +259,10 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         </div>
         <div class="faq-list">
             <?php foreach ($faqs as $faqIndex => $faq): ?>
-            <details class="faq-item"<?= $faqIndex === 0 ? ' open' : '' ?>>
-                <summary><?= Security::escape($faq[0]) ?><span class="faq-icon" aria-hidden="true"><?= $faqIcon ?></span></summary>
-                <p class="faq-answer"><?= Security::escape($faq[1]) ?></p>
-            </details>
+                <details class="faq-item" <?= $faqIndex === 0 ? ' open' : '' ?>>
+                    <summary><?= Security::escape($faq[0]) ?><span class="faq-icon" aria-hidden="true"><?= $faqIcon ?></span></summary>
+                    <p class="faq-answer"><?= Security::escape($faq[1]) ?></p>
+                </details>
             <?php endforeach; ?>
         </div>
     </div>

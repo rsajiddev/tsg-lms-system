@@ -1,3 +1,4 @@
+/* page.css file */
 .top-nav {
   display: flex;
   align-items: center;
@@ -288,16 +289,16 @@
   gap: 9px;
   padding: 7px 14px 7px 10px;
   border-radius: 100px;
-  border: 1.5px solid rgba(37,99,235,0.15);
-  background: rgba(239,246,255,0.7);
+  border: 1.5px solid rgba(37, 99, 235, 0.15);
+  background: rgba(239, 246, 255, 0.7);
   backdrop-filter: blur(8px);
   white-space: nowrap;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .trust-pill:hover {
-  border-color: rgba(37,99,235,0.35);
-  background: rgba(219,234,254,0.6);
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(219, 234, 254, 0.6);
 }
 
 .trust-num {
@@ -587,36 +588,48 @@ button.button-secondary:active {
 }
 
 @keyframes float-shape-1 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(-13px) rotate(4deg);
   }
 }
 
 @keyframes float-shape-2 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(12px) rotate(-4deg);
   }
 }
 
 @keyframes float-shape-3 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(-14px) rotate(-5deg);
   }
 }
 
 @keyframes float-shape-4 {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(11px) rotate(5deg);
   }
@@ -4000,5 +4013,877 @@ html.js [data-reveal].is-visible {
 
   .admin-card {
     padding: 18px;
+  }
+}
+
+/* =========================================================
+   HOME REDESIGN OVERRIDES
+   Hero artwork + WHY TECH SG ACADEMY interactive section
+   ========================================================= */
+
+/* Hero artwork stays inside its own visual boundary. */
+.home-hero .hero-art {
+  overflow: hidden;
+  min-width: 0;
+  border-radius: 30px;
+}
+
+.home-hero .art-card-small {
+  display: none !important;
+}
+
+.home-hero .art-floating-shape {
+  z-index: 4;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .08);
+  color: #334155;
+  backdrop-filter: blur(14px);
+}
+
+.home-hero .shape-code {
+  top: 22px;
+  left: 24px;
+}
+
+.home-hero .shape-book {
+  bottom: 24px;
+  left: 24px;
+}
+
+.home-hero .shape-brackets {
+  top: 42px;
+  right: 24px;
+}
+
+.home-hero .shape-pen {
+  bottom: 28px;
+  right: 26px;
+}
+
+.home-hero .shape-code span,
+.home-hero .shape-brackets .brackets-symbol {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #2563eb;
+}
+
+.home-hero .shape-book svg {
+  color: #059669;
+}
+
+.home-hero .shape-pen svg {
+  color: #7c3aed;
+}
+
+.home-hero .shape-brackets .brackets-symbol {
+  color: #d97706;
+}
+
+/* The three trust items become a polished horizontal row. */
+.home-hero .hero-trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 25px;
+}
+
+.home-hero .trust-pill {
+  min-width: 0;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid #dbe5f1;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .045);
+  white-space: normal;
+}
+
+.home-hero .trust-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.home-hero .trust-text {
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* =========================================================
+   WHY TECH SG ACADEMY — circular scroll experience
+   ========================================================= */
+
+.why-orbit-section {
+  position: relative;
+  min-height: 100vh;
+  padding: 72px 0 55px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 48%, rgba(219, 234, 254, .72), transparent 34%),
+    var(--page);
+}
+
+.why-orbit-section>.section-heading {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 12px;
+}
+
+.why-orbit-section .why-grid {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.why-orbit-stage {
+  position: relative;
+  width: 100%;
+}
+
+.why-orbit-ui {
+  width: 100%;
+  min-height: 510px;
+  display: grid;
+  grid-template-columns: minmax(360px, .9fr) minmax(480px, 1.1fr);
+  align-items: center;
+  gap: clamp(30px, 6vw, 90px);
+}
+
+.why-orbit-copy {
+  position: relative;
+  z-index: 4;
+  max-width: 540px;
+}
+
+.why-orbit-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .16em;
+}
+
+.why-orbit-eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 2px;
+  border-radius: 99px;
+  background: var(--blue);
+}
+
+.why-orbit-number {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  margin-bottom: 9px;
+}
+
+.why-orbit-number small {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .16em;
+}
+
+.why-orbit-number strong {
+  color: var(--navy);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.why-orbit-content {
+  transition: opacity .32s ease, transform .32s ease;
+}
+
+.why-orbit-content.is-changing {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.why-orbit-content h3 {
+  margin: 0 0 14px;
+  max-width: 520px;
+  color: var(--navy);
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+}
+
+.why-orbit-content p {
+  max-width: 500px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.why-orbit-progress {
+  display: flex;
+  gap: 9px;
+  max-width: 420px;
+  margin-top: 29px;
+}
+
+.why-orbit-progress span {
+  flex: 1;
+  height: 5px;
+  border-radius: 99px;
+  background: #dbe2ec;
+  transition: background .3s ease, transform .3s ease;
+}
+
+.why-orbit-progress span.active {
+  background: var(--blue);
+}
+
+.why-orbit-controls {
+  display: flex;
+  gap: 9px;
+  margin-top: 25px;
+}
+
+.why-orbit-controls button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d8e1ed;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .88);
+  color: var(--navy);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
+  transition: transform .2s ease, background .2s ease, color .2s ease;
+}
+
+.why-orbit-controls button:hover {
+  transform: translateY(-2px);
+  background: var(--blue);
+  color: #fff;
+}
+
+.why-orbit-hint {
+  margin: 15px 0 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.why-orbit-visual {
+  position: relative;
+  width: min(620px, 100%);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  margin-inline: auto;
+}
+
+.why-orbit-glow {
+  position: absolute;
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, .15), rgba(147, 197, 253, .07) 42%, transparent 72%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.why-orbit-circle {
+  position: relative;
+  width: min(500px, 86%);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.why-orbit-ring {
+  position: absolute;
+  inset: 8%;
+  border: 1px dashed rgba(100, 116, 139, .32);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.why-orbit-ring::before,
+.why-orbit-ring::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 0 6px rgba(96, 165, 250, .12);
+}
+
+.why-orbit-ring::before {
+  top: 12%;
+  left: 9%;
+}
+
+.why-orbit-ring::after {
+  right: 10%;
+  bottom: 17%;
+  background: #a78bfa;
+}
+
+.why-orbit-ring-inner {
+  inset: 20%;
+  border-style: solid;
+  border-color: rgba(148, 163, 184, .24);
+}
+
+.why-orbit-center {
+  position: absolute;
+  width: 42%;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, .32);
+  border-radius: 50%;
+  background: rgba(248, 250, 252, .72);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 25px 70px rgba(15, 23, 42, .08), inset 0 0 0 10px rgba(255, 255, 255, .3);
+  z-index: 3;
+}
+
+.why-orbit-center strong {
+  color: var(--navy);
+  font-size: clamp(48px, 7vw, 76px);
+  font-weight: 850;
+  line-height: .9;
+  letter-spacing: -.07em;
+}
+
+.why-orbit-center span {
+  margin-top: 14px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.why-orbit-pills {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.why-orbit-pill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, .42);
+  border-radius: 21px;
+  background: rgba(255, 255, 255, .94);
+  backdrop-filter: blur(12px);
+  color: var(--navy);
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .09);
+  transition: transform .7s cubic-bezier(.16, 1, .3, 1), opacity .45s ease, box-shadow .3s ease, border-color .3s ease;
+}
+
+.why-orbit-pill:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 18px 38px rgba(37, 99, 235, .16);
+}
+
+.why-orbit-pill.active {
+  width: 86px;
+  height: 86px;
+  border-color: var(--blue);
+  background: #fff;
+  box-shadow: 0 0 0 7px rgba(37, 99, 235, .08), 0 22px 44px rgba(37, 99, 235, .2);
+  z-index: 8;
+}
+
+.why-orbit-pill .pill-icon {
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--blue);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.why-orbit-pill .pill-icon.code,
+.why-orbit-pill .pill-icon.braces {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.why-orbit-pill .pill-index {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+/* Keyboard focus */
+.why-orbit-pill:focus-visible,
+.why-orbit-controls button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .25);
+  outline-offset: 4px;
+}
+
+@media (max-width:980px) {
+  .why-orbit-ui {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .why-orbit-content h3 {
+    font-size: clamp(30px, 4.5vw, 42px);
+  }
+
+  .why-orbit-circle {
+    width: min(440px, 100%);
+  }
+
+  .why-orbit-pill {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+  }
+
+  .why-orbit-pill.active {
+    width: 76px;
+    height: 76px;
+  }
+}
+
+@media (max-width:820px) {
+  .home-hero .hero-trust {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-hero .hero-art {
+    overflow: hidden;
+  }
+
+  .why-orbit-section {
+    min-height: auto;
+    padding: 60px 0 70px;
+  }
+
+  .why-orbit-ui {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .why-orbit-visual {
+    order: -1;
+    width: min(500px, 100%);
+  }
+
+  .why-orbit-hint {
+    display: none;
+  }
+}
+
+@media (max-width:580px) {
+  .home-hero .hero-trust {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero .art-floating-shape {
+    padding: 8px 10px;
+    border-radius: 13px;
+  }
+
+  .home-hero .shape-code {
+    top: 12px;
+    left: 10px;
+  }
+
+  .home-hero .shape-book {
+    bottom: 12px;
+    left: 10px;
+  }
+
+  .home-hero .shape-brackets {
+    top: 26px;
+    right: 10px;
+  }
+
+  .home-hero .shape-pen {
+    bottom: 14px;
+    right: 10px;
+  }
+
+  .why-orbit-section>.section-heading h2 {
+    font-size: 27px;
+  }
+
+  .why-orbit-visual {
+    width: 100%;
+  }
+
+  .why-orbit-circle {
+    width: 330px;
+    max-width: 92vw;
+  }
+
+  .why-orbit-center {
+    width: 43%;
+  }
+
+  .why-orbit-center strong {
+    font-size: 48px;
+  }
+
+  .why-orbit-center span {
+    margin-top: 9px;
+    font-size: 10px;
+  }
+
+  .why-orbit-pill {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  .why-orbit-pill.active {
+    width: 65px;
+    height: 65px;
+  }
+
+  .why-orbit-pill .pill-index {
+    display: none;
+  }
+
+  .why-orbit-content h3 {
+    font-size: 32px;
+  }
+
+  .why-orbit-content p {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+
+  .why-orbit-content,
+  .why-orbit-pill,
+  .why-orbit-progress span,
+  .why-orbit-controls button {
+    transition: none !important;
+  }
+}
+
+/* =========================================================
+   FINAL REFACTOR — WHY / DAILY MOTIVATION / MOBILE HEADER
+   Keeps the original stylesheet intact and overrides only the
+   requested home-page presentation issues.
+   ========================================================= */
+
+/* Prevent the interactive WHY wrapper from creating a giant empty
+   area. JavaScript controls the compact scroll-stage height. */
+.why-orbit-stage {
+  position: relative;
+  width: 100%;
+  min-height: 0 !important;
+  overflow: visible;
+}
+
+.why-orbit-section {
+  position: sticky !important;
+  top: 76px !important;
+  height: calc(100vh - 76px) !important;
+  min-height: 0 !important;
+  padding: 24px 0 20px !important;
+  overflow: hidden !important;
+}
+
+/* Keep one clean section heading; the old PHP cards remain hidden
+   visually but are still available to main.js as the data source. */
+.why-orbit-section>.section-heading {
+  display: flex !important;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+}
+
+.why-orbit-section>.section-heading h2 {
+  margin: 0 !important;
+  max-width: 760px !important;
+}
+
+.why-orbit-section .why-grid {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.why-orbit-ui {
+  width: 100% !important;
+  min-height: calc(100vh - 160px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.12fr) minmax(430px, .88fr) !important;
+  align-items: center !important;
+  gap: clamp(28px, 4vw, 58px) !important;
+  padding: 0 !important;
+}
+
+.why-orbit-copy {
+  width: 100% !important;
+  max-width: 700px !important;
+  min-width: 0 !important;
+}
+
+.why-orbit-content {
+  max-width: 680px !important;
+}
+
+.why-orbit-content h3 {
+  max-width: 680px !important;
+  margin-bottom: 14px !important;
+  font-size: clamp(34px, 3.8vw, 54px) !important;
+  line-height: 1.04 !important;
+}
+
+.why-orbit-content p {
+  max-width: 660px !important;
+  font-size: 16px !important;
+  line-height: 1.72 !important;
+}
+
+/* The old left progress bars, arrows and hint are intentionally gone. */
+.why-orbit-progress,
+.why-orbit-controls,
+.why-orbit-hint,
+.why-progress,
+.why-controls,
+.why-hint {
+  display: none !important;
+}
+
+.why-orbit-visual {
+  width: min(540px, 100%) !important;
+  margin-inline: auto !important;
+}
+
+.why-orbit-circle {
+  width: min(500px, 92%) !important;
+}
+
+/* Support both the current CSS names and the legacy JS names so the
+   orbit remains visually correct even if an older cached script runs. */
+.why-orbit-pill.active,
+.why-orbit-pill.is-active {
+  width: 86px !important;
+  height: 86px !important;
+  border-color: var(--blue) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 7px rgba(37, 99, 235, .08), 0 22px 44px rgba(37, 99, 235, .20) !important;
+  z-index: 8 !important;
+}
+
+.why-orbit-pill .why-pill-symbol,
+.why-orbit-pill .pill-icon {
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--blue);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.why-orbit-pill .why-pill-number,
+.why-orbit-pill .pill-index {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+/* Daily Motivation should follow the compact WHY experience directly. */
+.motive-section {
+  padding: 34px 0 10px !important;
+}
+
+.motive-section .section-heading {
+  margin-bottom: 18px !important;
+}
+
+.motive-grid {
+  margin-top: 0 !important;
+}
+
+/* Professional mobile header: brand left, hamburger right. */
+@media (max-width: 820px) {
+  .topbar {
+    min-height: 70px !important;
+    height: 70px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 0 20px !important;
+  }
+
+  .brand {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .nav-toggle,
+  [data-nav-toggle] {
+    display: flex !important;
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    margin-left: auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobile-nav {
+    top: 70px !important;
+  }
+
+  .why-orbit-section {
+    position: relative !important;
+    top: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 46px 0 50px !important;
+    overflow: visible !important;
+  }
+
+  .why-orbit-stage {
+    height: auto !important;
+  }
+
+  .why-orbit-ui {
+    min-height: 0 !important;
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+  }
+
+  .why-orbit-copy {
+    order: 2;
+    max-width: 720px !important;
+  }
+
+  .why-orbit-visual {
+    order: 1;
+    width: min(500px, 100%) !important;
+  }
+}
+
+@media (max-width: 580px) {
+  .topbar {
+    min-height: 66px !important;
+    height: 66px !important;
+    padding: 0 16px !important;
+  }
+
+  .nav-toggle,
+  [data-nav-toggle] {
+    flex-basis: 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .mobile-nav {
+    top: 66px !important;
+  }
+
+  .why-orbit-section {
+    padding: 40px 0 44px !important;
+  }
+
+  .why-orbit-section>.section-heading {
+    margin-bottom: 20px !important;
+  }
+
+  .why-orbit-ui {
+    gap: 26px !important;
+  }
+
+  .why-orbit-copy {
+    max-width: 100% !important;
+  }
+
+  .why-orbit-content h3 {
+    font-size: 32px !important;
+    line-height: 1.06 !important;
+  }
+
+  .why-orbit-content p {
+    font-size: 14px !important;
+    line-height: 1.72 !important;
+  }
+
+  .why-orbit-visual {
+    width: 100% !important;
+  }
+
+  .why-orbit-circle {
+    width: min(330px, 92vw) !important;
+  }
+
+  .why-orbit-pill {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 15px !important;
+  }
+
+  .why-orbit-pill.active,
+  .why-orbit-pill.is-active {
+    width: 65px !important;
+    height: 65px !important;
+  }
+
+  .why-orbit-pill .why-pill-number,
+  .why-orbit-pill .pill-index {
+    display: none !important;
+  }
+
+  .motive-section {
+    padding-top: 30px !important;
   }
 }
