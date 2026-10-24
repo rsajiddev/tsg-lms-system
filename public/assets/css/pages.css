@@ -4161,6 +4161,107 @@ body.dashboard-shell>main.dashboard-container {
 .student-status-note {color:#718096;font-size:12px}
 .student-management-page .button-danger {border-color:#fecaca;background:#fff1f2;color:#b42318}
 .student-management-page .button-danger:hover {border-color:#fda4af;background:#ffe4e6;color:#991b1b}
+
+/* Student workspace refinement: clear directory hierarchy and predictable dashboard spacing. */
+.student-overview-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:0 0 22px}
+.student-overview-card {display:grid;grid-template-columns:42px minmax(0,1fr);align-items:start;gap:14px;min-width:0;padding:19px;border:1px solid #e1e8f2;border-radius:18px;background:linear-gradient(145deg,#fff,#f9fbff);box-shadow:0 10px 28px #0f172a08}
+.student-overview-card-primary {border-color:#cfddff;background:linear-gradient(145deg,#fff,#f4f7ff)}
+.student-overview-icon {display:grid;width:42px;height:42px;place-items:center;border-radius:13px;background:#eaf0ff;color:#245eea;font-size:12px;font-weight:850}
+.student-overview-icon svg {width:21px;height:21px}
+.student-icon-active {background:#e7f8ef;color:#087443}
+.student-icon-pending {background:#fff6df;color:#a16207}
+.student-icon-blocked {background:#fff0f0;color:#b42318}
+.student-overview-card>div {display:grid;gap:4px;min-width:0}
+.student-overview-card>div>span {color:#718096;font-size:12px;font-weight:700}
+.student-overview-card strong {color:#17233d;font-size:27px;line-height:1.1;letter-spacing:-.04em}
+.student-overview-card small {color:#8a97aa;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.student-management-page .dashboard-panel-heading {margin-bottom:18px}
+.student-management-page .dashboard-panel-heading p:last-child {margin:6px 0 0;color:#718096;font-size:13px}
+.student-filter-form {grid-template-columns:minmax(260px,1fr) minmax(170px,.42fr) auto auto;gap:14px;margin:22px 0;padding:16px;border:1px solid #e7edf5;border-radius:16px;background:#f8faff}
+.student-filter-form .admin-label {display:grid;gap:8px;color:#4b5b73;font-size:12px;font-weight:750}
+.student-filter-form .admin-input,.student-filter-form .admin-select {height:46px;border-radius:12px;background:#fff}
+.student-filter-form>.button,.student-filter-form>a.button {min-height:46px;align-self:end;justify-content:center;white-space:nowrap}
+.student-management-page .admin-table-wrapper {border:1px solid #e5eaf2;border-radius:16px;background:#fff;box-shadow:0 8px 24px #0f172a05}
+.student-directory-table {width:100%;min-width:0;table-layout:fixed;border-collapse:separate;border-spacing:0}
+.student-directory-table th:nth-child(1) {width:17%}
+.student-directory-table th:nth-child(2) {width:18%}
+.student-directory-table th:nth-child(3) {width:15%}
+.student-directory-table th:nth-child(4) {width:15%}
+.student-directory-table th:nth-child(5) {width:12%}
+.student-directory-table th:nth-child(6) {width:10%}
+.student-directory-table th:nth-child(7) {width:13%}
+.student-directory-table th {padding:16px 18px;background:#f7f9fd;color:#8290a5;font-size:10px;letter-spacing:.12em}
+.student-directory-table td {padding:17px 12px;border-bottom:1px solid #edf1f6;color:#35445b;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.student-directory-table tbody tr:last-child td {border-bottom:0}
+.student-directory-table tbody tr:hover td {background:#f9fbff}
+.student-table-identity {display:flex;min-width:0;align-items:center}
+.student-table-identity>span:last-child {display:grid;gap:4px;min-width:0}
+.student-table-identity strong {color:#17233d;font-size:13px}
+.student-table-identity small {color:#94a3b8;font-size:10px;letter-spacing:.04em}
+.student-avatar {display:grid;width:38px;height:38px;flex:0 0 auto;place-items:center;border:1px solid #dbe6ff;border-radius:13px;background:linear-gradient(145deg,#eef4ff,#e7edff);color:#245eea;font-size:13px;font-weight:850}
+.student-email-cell {max-width:235px;overflow-wrap:anywhere}
+.student-login-count {display:inline-grid;min-width:34px;height:30px;place-items:center;padding:0 9px;border:1px solid #e3eaf4;border-radius:10px;background:#f8fafc;color:#334155;font-weight:800}
+.student-row-actions {white-space:normal}
+.student-row-actions .student-activity-link {display:inline-block;margin:0 8px 5px 0}
+.student-status-form {display:inline-flex;vertical-align:middle}
+.student-action-button {min-height:34px;padding:6px 11px;border:1px solid #fecaca;border-radius:10px;background:#fff5f5;color:#b42318;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.student-action-button.is-unblock {border-color:#c9ead8;background:#effaf4;color:#087443}
+.student-detail-id {display:inline-flex;margin-left:8px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;white-space:nowrap}
+.student-activity-summary {grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:20px 0 26px}
+.student-activity-summary span {display:grid;align-content:start;gap:7px;min-height:0;padding:12px;border-color:#e7edf5;border-radius:14px;background:#f9fbfe;font-size:12px;font-weight:700}
+.student-activity-summary strong {margin:0;font-size:9px;letter-spacing:.1em}
+.student-activity-summary .student-status-badge {justify-self:start}
+.student-activity-panel h3 {margin-bottom:16px}
+.student-activity-table th {padding:14px 16px}
+.student-activity-table td {padding:14px 16px}
+.dashboard-sidebar {padding-top:26px}
+.dashboard-side-nav {gap:8px;margin-top:-46px;padding-top:58px}
+.course-card-heading {align-items:flex-start;justify-content:flex-start;flex-wrap:wrap;gap:10px}
+.course-category {flex:0 1 auto;white-space:normal;overflow-wrap:anywhere}
+.course-heading-right {display:flex;flex:1 1 100%;min-width:0;max-width:100%;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.course-badge,.level-label {max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.dashboard-page>.dashboard-panel+.dashboard-panel {margin-top:22px}
+.dashboard-student-overview {grid-template-columns:minmax(0,1fr);gap:22px}
+.dashboard-metrics-student {grid-template-columns:repeat(3,minmax(0,1fr))}
+
+@media(max-width:1050px) {
+  .student-overview-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .student-activity-summary {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px) {
+  .student-filter-form {grid-template-columns:minmax(0,1fr);padding:13px}
+  .student-filter-form>.button,.student-filter-form>a.button {width:100%}
+  .student-activity-summary {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .student-management-page .dashboard-panel {padding:17px}
+  .dashboard-metrics-student {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1100px) {
+  .student-directory-table th,.student-directory-table td {padding-right:8px;padding-left:8px;font-size:11px}
+  .student-directory-table th {font-size:9px;letter-spacing:.06em}
+  .student-row-actions .student-activity-link {margin-right:0}
+}
+@media(max-width:760px) {
+  .student-directory-table,.student-directory-table tbody,.student-directory-table tr,.student-directory-table td {display:block;width:100%}
+  .student-directory-table thead {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .student-directory-table tbody {padding:10px}
+  .student-directory-table tr {margin:0 0 10px;padding:8px 12px;border:1px solid #e6ecf4;border-radius:14px;background:#fff}
+  .student-directory-table tbody tr:last-child {margin-bottom:0}
+  .student-directory-table td {display:grid;grid-template-columns:minmax(105px,.38fr) minmax(0,1fr);gap:12px;padding:10px 2px;border-bottom:1px solid #edf1f6;text-align:right;overflow-wrap:anywhere}
+  .student-directory-table td:last-child {border-bottom:0}
+  .student-directory-table td::before {content:attr(data-label);color:#8391a6;font-size:10px;font-weight:800;letter-spacing:.06em;text-align:left;text-transform:uppercase}
+  .student-directory-table td[data-label="Student"] .student-table-identity {justify-content:flex-end}
+  .student-directory-table .student-row-actions {display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left}
+  .student-directory-table .student-row-actions::before {flex:0 0 auto}
+  .student-row-actions .student-activity-link {margin:0}
+  .student-status-form {margin-left:auto}
+  .student-activity-table {width:100%;min-width:0}
+  .student-activity-table thead {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .student-activity-table,.student-activity-table tbody,.student-activity-table tr,.student-activity-table td {display:block;width:100%}
+  .student-activity-table tr {padding:8px 12px;border-bottom:1px solid #edf1f6}
+  .student-activity-table tr:last-child {border-bottom:0}
+  .student-activity-table td {display:grid;grid-template-columns:minmax(105px,.38fr) minmax(0,1fr);gap:12px;padding:9px 2px;border:0;text-align:right;overflow-wrap:anywhere}
+  .student-activity-table td::before {content:attr(data-label);color:#8391a6;font-size:10px;font-weight:800;letter-spacing:.06em;text-align:left;text-transform:uppercase}
+}
 @media(max-width:760px) {
   .student-filter-form {grid-template-columns:minmax(0,1fr);align-items:stretch}
   .student-filter-form .button {width:100%}

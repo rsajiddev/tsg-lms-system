@@ -76,73 +76,11 @@ final class DashboardController
         );
         $courses->execute([$studentId]);
 
-        $payments = $db->prepare(
-            'SELECT p.id, p.amount, p.currency, p.status, p.created_at, p.receipt_path, p.review_note, c.title AS course_title
-             FROM payments p JOIN courses c ON c.id = p.course_id
-             WHERE p.student_id = ? ORDER BY p.created_at DESC, p.id DESC LIMIT 5'
-        );
-        $payments->execute([$studentId]);
-
-        $quizzes = $db->prepare(
-            "SELECT q.id, q.title, q.week_number, q.unlock_at, c.id AS course_id, c.title AS course_title
-             FROM quizzes q
-             JOIN courses c ON c.id = q.course_id
-             JOIN student_course_access sca ON sca.course_id = c.id
-             WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
-               AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
-               AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
-               AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())
-             ORDER BY q.week_number ASC, q.id DESC LIMIT 5"
-        );
-        $quizzes->execute([$studentId]);
-
-        $attempts = $db->prepare(
-            'SELECT qa.id, qa.status, qa.submitted_at, qa.percentage, qa.result, q.title AS quiz_title,
-                    q.week_number, c.title AS course_title
-             FROM quiz_attempts qa
-             JOIN quizzes q ON q.id = qa.quiz_id
-             JOIN courses c ON c.id = q.course_id
-             WHERE qa.student_id = ?
-             ORDER BY COALESCE(qa.submitted_at, qa.started_at) DESC, qa.id DESC LIMIT 5'
-        );
-        $attempts->execute([$studentId]);
-
-        $notifications = $db->prepare(
-            'SELECT n.id, n.title, n.body, n.published_at
-             FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id
-             WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL
-             ORDER BY n.published_at DESC, n.id DESC LIMIT 4'
-        );
-        $notifications->execute([$studentId]);
-
-        $assignments = $db->prepare("SELECT a.id,a.title,a.week_number,a.due_at,c.id AS course_id,c.title AS course_title,s.status AS submission_status,s.marks_awarded FROM assignments a JOIN courses c ON c.id=a.course_id JOIN student_course_access sca ON sca.course_id=c.id AND sca.student_id=? AND sca.status='active' AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.status IN ('published','closed') ORDER BY a.due_at IS NULL,a.due_at,a.id DESC LIMIT 6");
-        $assignments->execute([$studentId,$studentId]);
-
         return [
             'activeCourseCount' => $this->count($db, "SELECT COUNT(*) FROM student_course_access WHERE student_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())", [$studentId]),
             'pendingPaymentCount' => $this->count($db, "SELECT COUNT(*) FROM payments WHERE student_id = ? AND status = 'pending'", [$studentId]),
-            'releasedQuizCount' => $this->count(
-                $db,
-                "SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id = q.course_id
-                 WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
-                   AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
-                   AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
-                   AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())",
-                [$studentId]
-            ),
             'completedLessonCount' => $this->count($db, 'SELECT COUNT(*) FROM lesson_progress WHERE student_id = ? AND completed_at IS NOT NULL', [$studentId]),
-            'unreadNotificationCount' => $this->count(
-                $db,
-                'SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id
-                 WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL',
-                [$studentId]
-            ),
             'courses' => $courses->fetchAll(),
-            'payments' => $payments->fetchAll(),
-            'quizzes' => $quizzes->fetchAll(),
-            'attempts' => $attempts->fetchAll(),
-            'notifications' => $notifications->fetchAll(),
-            'assignments' => $assignments->fetchAll(),
         ];
     }
 

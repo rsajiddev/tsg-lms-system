@@ -31,11 +31,17 @@ final class StudentManagementController
         $status = (string) ($_GET['status'] ?? 'all');
         if (!in_array($status, ['all', 'active', 'pending', 'suspended'], true)) $status = 'all';
         $page = max(1, (int) ($_GET['page'] ?? 1));
+        $statusCounts = $db->query("SELECT COUNT(*) AS total, SUM(status='active') AS active, SUM(status='pending') AS pending, SUM(status='suspended') AS suspended FROM users WHERE role='student'")->fetch() ?: [];
 
         $where = ["u.role = 'student'"];
         $params = [];
         if ($search !== '') {
-            $where[] = '(u.full_name LIKE ? OR u.email LIKE ?)';
+            if (ctype_digit($search)) {
+                $where[] = '(u.id = ? OR u.full_name LIKE ? OR u.email LIKE ?)';
+                $params[] = (int) $search;
+            } else {
+                $where[] = '(u.full_name LIKE ? OR u.email LIKE ?)';
+            }
             $params[] = '%' . $search . '%';
             $params[] = '%' . $search . '%';
         }
@@ -64,11 +70,15 @@ final class StudentManagementController
         $studentId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
         $selectedStudent = null;
         $activity = [];
+        $selectedLoginCounts = ['successful' => 0, 'failed' => 0];
         if ($studentId !== null) {
             $selectedQuery = $db->prepare("SELECT id,full_name,email,status,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
             $selectedQuery->execute([$studentId]);
             $selectedStudent = $selectedQuery->fetch() ?: null;
             if ($selectedStudent && $loginHistoryAvailable) {
+                $countsQuery = $db->prepare("SELECT SUM(event_type='success') AS successful, SUM(event_type IN ('failed','blocked')) AS failed FROM login_events WHERE user_id=?");
+                $countsQuery->execute([$studentId]);
+                $selectedLoginCounts = $countsQuery->fetch() ?: $selectedLoginCounts;
                 $eventsQuery = $db->prepare('SELECT event_type,ip_address,created_at FROM login_events WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
                 $eventsQuery->execute([$studentId]);
                 $activity = $eventsQuery->fetchAll();
@@ -84,7 +94,9 @@ final class StudentManagementController
             'page' => $page,
             'pages' => $pages,
             'totalStudents' => $total,
+            'statusCounts' => $statusCounts,
             'selectedStudent' => $selectedStudent,
+            'selectedLoginCounts' => $selectedLoginCounts,
             'activity' => $activity,
             'loginHistoryAvailable' => $loginHistoryAvailable,
             'message' => $_SESSION['_flash'] ?? null,
