@@ -38,10 +38,13 @@ final class PaymentController
         $pending->execute([(int) $student['id'], $courseId]);
         $history = $db->prepare('SELECT id,amount,currency,transaction_reference,status,review_note,created_at FROM payments WHERE student_id=? AND course_id=? ORDER BY id DESC LIMIT 5');
         $history->execute([(int) $student['id'], $courseId]);
+        $flash = $_SESSION['_flash'] ?? null;
+        if (is_string($flash)) $flash = ['type' => 'success', 'text' => $flash];
         View::render('payments/form', [
             'title' => 'Submit course payment', 'user' => $student, 'course' => $course,
             'hasPendingPayment' => (bool) $pending->fetchColumn(), 'payments' => $history->fetchAll(),
-            'message' => $_SESSION['_flash'] ?? null,
+            'message' => is_array($flash) ? ($flash['text'] ?? null) : null,
+            'messageType' => is_array($flash) ? ($flash['type'] ?? 'success') : 'success',
         ]);
         unset($_SESSION['_flash']);
     }
@@ -71,7 +74,7 @@ final class PaymentController
         $pending = $db->prepare("SELECT 1 FROM payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
         $pending->execute([(int) $student['id'], $courseId]);
         if ($pending->fetchColumn()) {
-            $_SESSION['_flash'] = 'A payment for this course is already awaiting review.';
+            $_SESSION['_flash'] = ['type' => 'info', 'text' => 'A payment for this course is already awaiting review.'];
             $this->redirect('/payments/new?course_id=' . $courseId);
         }
         $duplicateReference = $db->prepare('SELECT 1 FROM payments WHERE transaction_reference=? LIMIT 1');
@@ -98,7 +101,7 @@ final class PaymentController
             throw $exception;
         }
         (new MailService())->sendPaymentSubmitted($student['email'], $student['name'], $course['title'], (string) $course['price'], (string) ($course['currency'] ?: $course['course_currency']), $reference);
-        $_SESSION['_flash'] = 'Payment details submitted. Course access will be enabled after admin verification.';
+        $_SESSION['_flash'] = ['type' => 'success', 'text' => 'Payment details submitted. Course access will be enabled after admin verification.'];
         $this->redirect('/payments/new?course_id=' . $courseId);
     }
 
@@ -197,7 +200,7 @@ final class PaymentController
 
     private function paymentError(int $courseId, string $message): never
     {
-        $_SESSION['_flash'] = $message;
+        $_SESSION['_flash'] = ['type' => 'error', 'text' => $message];
         $this->redirect('/payments/new?course_id=' . $courseId);
     }
 

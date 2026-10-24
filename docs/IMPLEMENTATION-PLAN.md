@@ -9,11 +9,11 @@ The work follows the requested dependency order. A phase is complete only after 
 | C | Public site integration and the two real responsive dashboards | Public MVC pages integrated. Role-specific Student/Admin overview dashboards now read account, course, payment, quiz, progress, and notification data from the database; browser validation remains pending. |
 | D | Course/content management, student-specific grants, access checks, progress | In progress: admin course/grant management, lesson authoring/editing/publishing, student grant checks, and lesson completion are implemented. Browser validation and any missing edge cases remain. |
 | E | Manual payment verification, private receipts, explicit student/course access grant | In progress: student payment submissions, private receipt upload/download, admin approve/reject, and approval-triggered course access grants are implemented. SMTP delivery and full browser workflow validation remain. |
-| F-H | Quiz management, timed attempts, anti-cheating submission, server grading/results | Not started; policies remain open |
+| F-H | Quiz management, timed attempts, anti-cheating submission, server grading/results | Implemented for local workflow: Admin quiz/question authoring and release checks, Student-owned timed attempts, best-effort focus/hidden-page submission, server deadline enforcement, grading, and private answer keys. Browser workflow validation and final production policy approval remain. |
 | I | Assignments, submissions, review, progress status | Not started |
 | J | Announcements, recipient notifications, unread status, private replies | Not started |
 | K | Database-backed weekly/monthly admin reporting and period filters | Not started |
 | L | Approved SMTP, invoices, certificates, and remaining proposal features | Not started; provider/legal decisions remain open |
 | M | Security, performance, accessibility, backup/restore, release review | Not started |
 
-Next work: verify the Phase D and E flows in the browser: active/revoked course grants, draft/published lesson visibility, payment receipt privacy, admin approval/rejection, access grant, and student/developer emails. Then continue to Phase F quiz management. Quiz-release and announcement notifications depend on their later phases and are not implemented yet.
+Next work: validate the quiz workflow in the browser with a small draft assessment: author questions, release, start as an enrolled student, submit/timeout, and confirm the result. Then continue to Phase I assignments. Quiz-release notifications depend on the later notification phase and are not implemented yet.

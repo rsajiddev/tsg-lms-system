@@ -2,6 +2,13 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-23 (quiz workflow)
+
+- Added Admin quiz authoring and course/week scheduling with configurable question count (1–75), time limit, pass mark, attempt limit, and release/close dates.
+- Added four-option MCQ editing with exactly one correct answer, release validation, and question locking after student attempts begin.
+- Added Student quiz listing, course-access checks, server-timed attempts, focus/hidden-page best-effort submission, server-side grading, and result history without exposing answer keys.
+- Added responsive quiz pages and Admin sidebar navigation. Browser workflow validation is still pending; quiz-release email notifications remain part of the later notification phase.
+
 ## Unreleased — 2026-10-23 (manual course payments)
 
 - Students can submit a selected course pricing option, transaction reference, and PDF/JPG/PNG/WebP receipt (maximum 5 MB). The amount and currency are read from the database, not accepted from the browser.

@@ -123,7 +123,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['quizzes'] as $quiz): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $quiz['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($quiz['title']) ?></strong><small><?= $escape($quiz['course_title']) ?></small></div><span class="dashboard-status status-active">Available</span></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $quiz['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($quiz['title']) ?></strong><small><?= $escape($quiz['course_title']) ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int)$quiz['course_id'] ?>">Open quiz</a></article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
@@ -136,7 +136,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['attempts'] as $attempt): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $attempt['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['course_title']) ?> · <?= $attempt['percentage'] !== null ? number_format((float) $attempt['percentage'], 1) . '%' : $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></small></div><?php if ($attempt['result'] !== null): ?><span class="dashboard-status status-<?= $attempt['result'] === 'pass' ? 'approved' : 'rejected' ?>"><?= $escape(ucfirst($attempt['result'])) ?></span><?php endif; ?></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $attempt['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['course_title']) ?> · <?= $attempt['percentage'] !== null ? number_format((float) $attempt['percentage'], 1) . '%' : $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></small></div><?php if ($attempt['result'] !== null): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quiz/result?attempt_id=<?= (int)$attempt['id'] ?>"><?= $escape(ucfirst($attempt['result'])) ?> · View</a><?php endif; ?></article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>

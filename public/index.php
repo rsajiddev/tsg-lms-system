@@ -23,6 +23,7 @@ foreach (
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/PaymentController.php',
+        '/app/Controllers/QuizController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -91,6 +92,14 @@ $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']
 $router->get('/learning', [\App\Controllers\LearningController::class, 'course']);
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
+$router->get('/learning/quizzes', [\App\Controllers\QuizController::class, 'courseQuizzes']);
+$router->post('/learning/quiz/start', [\App\Controllers\QuizController::class, 'start']);
+$router->get('/learning/quiz/attempt', [\App\Controllers\QuizController::class, 'attempt']);
+$router->post('/learning/quiz/submit', [\App\Controllers\QuizController::class, 'submit']);
+$router->get('/learning/quiz/result', [\App\Controllers\QuizController::class, 'result']);
+$router->get('/admin/quizzes', [\App\Controllers\QuizController::class, 'adminIndex']);
+$router->post('/admin/quizzes/save', [\App\Controllers\QuizController::class, 'saveQuiz']);
+$router->post('/admin/quizzes/questions/save', [\App\Controllers\QuizController::class, 'saveQuestion']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);

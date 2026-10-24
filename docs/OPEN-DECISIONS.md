@@ -2,9 +2,9 @@
 
 These items remain configurable or unimplemented until approved.
 
-1. **Weekly quiz question count:** the proposal and dashboard specify 20 MCQs; the latest instruction also requires 75. The schema has a per-quiz `question_count` field and defaults new rows to 75, but per-quiz authoring and enforcement are not implemented yet. Confirm the production default; preserve both values through configuration.
-2. **Quiz policy:** duration, passing threshold, retakes/attempt limit, randomization, result visibility, release calendar, and application timezone for release cutoffs.
-3. **Auto-submit policy:** implementation must submit on hidden tab, detectable focus loss, supported in-app navigation, and server deadline expiry as requested. Confirm student-facing policy wording only. Browser events are best-effort signals and cannot detect every browser/device scenario.
+1. **Weekly quiz question count:** Admins can configure 1–75 questions per quiz, supporting both the proposal's 20 MCQs and the latest 75-question instruction. The Admin UI defaults new quizzes to 75; confirm the company-wide production default.
+2. **Quiz policy:** Duration, pass threshold, and attempt limit are configurable per quiz (defaults are 20 minutes, 50%, and one attempt). Randomization, result visibility policy, release calendar, and application timezone for release cutoffs still need approval.
+3. **Auto-submit policy:** timed attempts use a server-enforced deadline; hidden-tab and focus-loss browser events trigger best-effort auto-submission. Browser events cannot detect every browser/device scenario or guarantee delivery after a crash/offline event. Confirm student-facing wording and whether focus loss should submit in production.
 4. **Payment and access:** implement payment approval and the exact student/course access grant as distinct actions, following the latest instruction. Rejection resubmission and refund/reversal access policy still need approval.
 5. **Commission:** proposed 15% is not approved. Confirm calculation base, fees/taxes/refunds adjustments, recipient, and payout timing before enabling.
 6. **Invoices and certificates:** legal issuer details, numbering/tax fields, invoice retention, certificate eligibility/verification rules, and approved templates.

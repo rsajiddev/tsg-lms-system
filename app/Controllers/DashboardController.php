@@ -84,11 +84,12 @@ final class DashboardController
         $payments->execute([$studentId]);
 
         $quizzes = $db->prepare(
-            "SELECT q.id, q.title, q.week_number, q.unlock_at, c.title AS course_title
+            "SELECT q.id, q.title, q.week_number, q.unlock_at, c.id AS course_id, c.title AS course_title
              FROM quizzes q
              JOIN courses c ON c.id = q.course_id
              JOIN student_course_access sca ON sca.course_id = c.id
-             WHERE sca.student_id = ? AND sca.status = 'active' AND q.status = 'released'
+             WHERE sca.student_id = ? AND sca.status = 'active'
+               AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
                AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
                AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())
              ORDER BY q.week_number ASC, q.id DESC LIMIT 5"
@@ -96,7 +97,7 @@ final class DashboardController
         $quizzes->execute([$studentId]);
 
         $attempts = $db->prepare(
-            'SELECT qa.status, qa.submitted_at, qa.percentage, qa.result, q.title AS quiz_title,
+            'SELECT qa.id, qa.status, qa.submitted_at, qa.percentage, qa.result, q.title AS quiz_title,
                     q.week_number, c.title AS course_title
              FROM quiz_attempts qa
              JOIN quizzes q ON q.id = qa.quiz_id
@@ -120,7 +121,8 @@ final class DashboardController
             'releasedQuizCount' => $this->count(
                 $db,
                 "SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id = q.course_id
-                 WHERE sca.student_id = ? AND sca.status = 'active' AND q.status = 'released'
+                 WHERE sca.student_id = ? AND sca.status = 'active'
+                   AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
                    AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
                    AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())",
                 [$studentId]

@@ -1,0 +1,12 @@
+<?php use App\Core\Security; $baseUrl=rtrim((require BASE_PATH.'/config/app.php')['url'],'/'); $escape=static fn(mixed $v):string=>Security::escape((string)$v); ?>
+<section class="dashboard-page learning-page quiz-list-page">
+  <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button><div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><a href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int)$course['id'] ?>"><?= $escape($course['title']) ?></a><i>/</i><strong>Quizzes</strong></div></div>
+  <header class="dashboard-heading"><div><p class="eyebrow">COURSE ASSESSMENTS</p><h1><?= $escape($course['title']) ?> quizzes</h1><p>Released weekly quizzes and your remaining attempts.</p></div></header>
+  <?php if ($quizzes===[]): ?><section class="dashboard-panel"><div class="dashboard-empty"><div><h2>No quiz is currently available</h2><p>Released assessments for this course will appear here.</p></div></div></section><?php else: ?>
+    <div class="quiz-student-list"><?php foreach ($quizzes as $quiz): $remaining=max(0,(int)$quiz['attempt_limit']-(int)$quiz['used_attempts']); ?>
+      <article class="dashboard-panel quiz-student-card"><div><p class="eyebrow">WEEK <?= (int)$quiz['week_number'] ?> · <?= (int)$quiz['actual_question_count'] ?> QUESTIONS</p><h2><?= $escape($quiz['title']) ?></h2><p><?= $escape($quiz['instructions']?:'Complete this timed assessment before its closing time.') ?></p><div class="quiz-meta"><span><?= (int)ceil((int)$quiz['time_limit_seconds']/60) ?> min</span><span><?= $remaining ?> attempt(s) left</span></div></div>
+        <?php if (!empty($quiz['active_attempt'])): ?><a class="button" href="<?= $escape($baseUrl) ?>/learning/quiz/attempt?attempt_id=<?= (int)$quiz['active_attempt'] ?>">Continue quiz</a><?php elseif ($remaining>0): ?><form method="post" action="<?= $escape($baseUrl) ?>/learning/quiz/start"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="quiz_id" value="<?= (int)$quiz['id'] ?>"><button class="button" type="submit">Start quiz</button></form><?php else: ?><span class="dashboard-status status-closed">Attempts used</span><?php endif; ?>
+      </article>
+    <?php endforeach; ?></div>
+  <?php endif; ?>
+</section>

@@ -41,9 +41,10 @@ $dashboardRole = (string)($currentUser['role'] ?? 'student');
                 <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard"><span>01</span>Overview</a>
                 <?php if ($dashboardRole === 'admin'): ?>
                     <a<?= $navClass('/admin/courses') ?> href="<?= Security::escape($baseUrl) ?>/admin/courses"><span>02</span>Manage courses</a>
-                    <a<?= $navClass('/admin/payments') ?> href="<?= Security::escape($baseUrl) ?>/admin/payments"><span>03</span>Payment review</a>
-                    <a<?= $navClass('/admin/reviews') ?> href="<?= Security::escape($baseUrl) ?>/admin/reviews"><span>04</span>Review moderation</a>
-                    <a<?= $navClass('/admin/settings') ?> href="<?= Security::escape($baseUrl) ?>/admin/settings"><span>05</span>Security settings</a>
+                    <a<?= $navClass('/admin/quizzes') ?> href="<?= Security::escape($baseUrl) ?>/admin/quizzes"><span>03</span>Quiz management</a>
+                    <a<?= $navClass('/admin/payments') ?> href="<?= Security::escape($baseUrl) ?>/admin/payments"><span>04</span>Payment review</a>
+                    <a<?= $navClass('/admin/reviews') ?> href="<?= Security::escape($baseUrl) ?>/admin/reviews"><span>05</span>Review moderation</a>
+                    <a<?= $navClass('/admin/settings') ?> href="<?= Security::escape($baseUrl) ?>/admin/settings"><span>06</span>Security settings</a>
                 <?php else: ?>
                     <a<?= in_array($activePath, ['/learning', '/learning/lesson'], true) ? ' class="active"' : '' ?> href="<?= Security::escape($baseUrl) ?>/dashboard#my-courses"><span>02</span>My courses</a>
                     <a href="<?= Security::escape($baseUrl) ?>/courses"><span>03</span>Course catalogue</a>
