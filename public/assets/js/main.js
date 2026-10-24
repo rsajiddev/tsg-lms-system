@@ -516,11 +516,33 @@
         update();
     });
 
+    /* =========================================================
+       BODY SCROLL LOCK — one owner for every overlay
+
+       Both the mobile sidebar drawer and the admin course
+       editor lock page scrolling. They share a single inline
+       body overflow slot, so the value is always recomputed
+       from the two states instead of being set and cleared
+       independently. Closing a modal can therefore never wipe
+       the drawer's lock, and closing the drawer can never
+       unlock a modal that is still open.
+       ========================================================= */
+
+    let modalOpenCount = 0;
+    let closeTopModal = () => {};
+
+    const bodyScrollLock = () => {
+        const drawerOpen = document.body.classList.contains('dashboard-menu-open');
+
+        document.body.style.overflow = (modalOpenCount > 0 || drawerOpen) ? 'hidden' : '';
+    };
+
     const dashboardToggle = document.querySelector('[data-dashboard-toggle]');
     const dashboardClose = document.querySelector('[data-dashboard-close]');
     const setDashboardMenu = (open) => {
         document.body.classList.toggle('dashboard-menu-open', open);
         if (dashboardToggle) dashboardToggle.setAttribute('aria-expanded', String(open));
+        bodyScrollLock();
     };
     if (dashboardToggle) dashboardToggle.addEventListener('click', () => {
         setDashboardMenu(!document.body.classList.contains('dashboard-menu-open'));
@@ -528,9 +550,6 @@
     if (dashboardClose) dashboardClose.addEventListener('click', () => setDashboardMenu(false));
     document.querySelectorAll('.dashboard-side-nav a').forEach((link) => {
         link.addEventListener('click', () => setDashboardMenu(false));
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') setDashboardMenu(false);
     });
 
     const dashboardSearch = document.querySelector('[data-dashboard-search]');
@@ -542,5 +561,136 @@
             });
         });
     }
+
+
+    /* =========================================================
+       ADMIN MODAL — course editor overlay
+
+       The overlay also opens without JavaScript through a CSS
+       :target fallback. Once this script runs it takes over:
+       the address bar stays clean, Escape closes the dialog and
+       the page behind it stops scrolling.
+       ========================================================= */
+
+    const adminModalTriggers = document.querySelectorAll('[data-admin-modal-open]');
+
+    if (adminModalTriggers.length) {
+        document.documentElement.classList.add('admin-modal-js');
+
+        const openAdminModal = (modal) => {
+            if (modal.classList.contains('is-open')) {
+                return;
+            }
+
+            modal.classList.add('is-open');
+            document.body.classList.add('admin-modal-open');
+            modalOpenCount += 1;
+            bodyScrollLock();
+
+            const firstField = modal.querySelector(
+                'input:not([type="hidden"]):not([type="radio"]), select, textarea'
+            );
+
+            if (firstField) {
+                firstField.focus({ preventScroll: true });
+            }
+        };
+
+        const closeAdminModal = (modal) => {
+            if (!modal.classList.contains('is-open')) {
+                return;
+            }
+
+            modal.classList.remove('is-open');
+            modalOpenCount = Math.max(0, modalOpenCount - 1);
+
+            if (modalOpenCount === 0) {
+                document.body.classList.remove('admin-modal-open');
+            }
+
+            /* Recompute instead of clearing: an open drawer keeps its lock. */
+            bodyScrollLock();
+
+            const trigger = document.querySelector('[data-admin-modal-open="' + modal.id + '"]');
+
+            if (trigger) {
+                trigger.focus({ preventScroll: true });
+            }
+        };
+
+        closeTopModal = () => {
+            const openModal = document.querySelector('.admin-modal.is-open');
+
+            if (openModal) {
+                closeAdminModal(openModal);
+            }
+        };
+
+        adminModalTriggers.forEach((trigger) => {
+            trigger.addEventListener('click', (event) => {
+                const modal = document.getElementById(trigger.dataset.adminModalOpen);
+
+                if (!modal) {
+                    return;
+                }
+
+                event.preventDefault();
+                openAdminModal(modal);
+            });
+        });
+
+        document.querySelectorAll('[data-admin-modal]').forEach((modal) => {
+            modal.querySelectorAll('[data-admin-modal-close]').forEach((control) => {
+                control.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    closeAdminModal(modal);
+                });
+            });
+        });
+
+        /* Deep link support: /admin/courses#course-edit-3 opens the editor. */
+        const deepLinkId = window.location.hash.replace('#', '');
+
+        if (deepLinkId) {
+            const deepLinkModal = document.getElementById(deepLinkId);
+
+            if (deepLinkModal && deepLinkModal.matches('[data-admin-modal]')) {
+                openAdminModal(deepLinkModal);
+            }
+        }
+    }
+
+    /* =========================================================
+       ESCAPE — closes only the top-most overlay layer
+
+       The admin modal sits above the sidebar drawer in the
+       stacking order, so it is dismissed first. The drawer is
+       only closed when no modal is left open.
+       ========================================================= */
+
+    const notificationAudience = document.querySelector('[data-notification-audience]');
+    const recipientPicker = document.querySelector('[data-notification-recipient-picker]');
+    if (notificationAudience && recipientPicker) {
+        const syncRecipientPicker = () => {
+            recipientPicker.hidden = notificationAudience.value !== 'selected_students';
+        };
+        notificationAudience.addEventListener('change', syncRecipientPicker);
+        syncRecipientPicker();
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        if (modalOpenCount > 0) {
+            closeTopModal();
+            return;
+        }
+
+        if (document.body.classList.contains('dashboard-menu-open')) {
+            setDashboardMenu(false);
+        }
+    });
 
 })();

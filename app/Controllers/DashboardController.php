@@ -108,12 +108,15 @@ final class DashboardController
         $attempts->execute([$studentId]);
 
         $notifications = $db->prepare(
-            'SELECT n.title, n.body, n.published_at
+            'SELECT n.id, n.title, n.body, n.published_at
              FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id
              WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL
              ORDER BY n.published_at DESC, n.id DESC LIMIT 4'
         );
         $notifications->execute([$studentId]);
+
+        $assignments = $db->prepare("SELECT a.id,a.title,a.week_number,a.due_at,c.id AS course_id,c.title AS course_title,s.status AS submission_status,s.marks_awarded FROM assignments a JOIN courses c ON c.id=a.course_id JOIN student_course_access sca ON sca.course_id=c.id AND sca.student_id=? AND sca.status='active' LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.status IN ('published','closed') ORDER BY a.due_at IS NULL,a.due_at,a.id DESC LIMIT 6");
+        $assignments->execute([$studentId,$studentId]);
 
         return [
             'activeCourseCount' => $this->count($db, "SELECT COUNT(*) FROM student_course_access WHERE student_id = ? AND status = 'active'", [$studentId]),
@@ -139,6 +142,7 @@ final class DashboardController
             'quizzes' => $quizzes->fetchAll(),
             'attempts' => $attempts->fetchAll(),
             'notifications' => $notifications->fetchAll(),
+            'assignments' => $assignments->fetchAll(),
         ];
     }
 

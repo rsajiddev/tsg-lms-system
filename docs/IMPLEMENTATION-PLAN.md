@@ -10,10 +10,11 @@ The work follows the requested dependency order. A phase is complete only after 
 | D | Course/content management, student-specific grants, access checks, progress | In progress: admin course/grant management, lesson authoring/editing/publishing, student grant checks, and lesson completion are implemented. Browser validation and any missing edge cases remain. |
 | E | Manual payment verification, private receipts, explicit student/course access grant | In progress: student payment submissions, private receipt upload/download, admin approve/reject, and approval-triggered course access grants are implemented. SMTP delivery and full browser workflow validation remain. |
 | F-H | Quiz management, timed attempts, anti-cheating submission, server grading/results | Implemented for local workflow: Admin quiz/question authoring and release checks, Student-owned timed attempts, best-effort focus/hidden-page submission, server deadline enforcement, grading, and private answer keys. Browser workflow validation and final production policy approval remain. |
-| I | Assignments, submissions, review, progress status | Not started |
-| J | Announcements, recipient notifications, unread status, private replies | Not started |
-| K | Database-backed weekly/monthly admin reporting and period filters | Not started |
-| L | Approved SMTP, invoices, certificates, and remaining proposal features | Not started; provider/legal decisions remain open |
-| M | Security, performance, accessibility, backup/restore, release review | Not started |
+| I | Assignments, submissions, review, progress status | Implemented for local workflow: Admin assignment authoring/status and submission review, enrolled-student text/file submissions, due-date and access checks, marks/feedback, and resubmission requests. Browser workflow validation remains pending. |
+| J | Announcements, recipient notifications, unread status, private replies | Implemented for local workflow: admin broadcasts/selected-recipient announcements, student inbox with read tracking, and owner-scoped private reply threads; browser validation remains pending. |
+| K | Student directory and login activity audit | Implemented locally: admin-only searchable/paginated student roster, account status and last login, successful/failed/blocked login totals, and latest 50 events per student. Import the updated canonical schema before using it; browser validation remains pending. Existing sign-ins cannot be reconstructed. |
+| L | Database-backed weekly/monthly admin reporting and period filters | Not started |
+| M | Approved SMTP, invoices, certificates, and remaining proposal features | Not started; provider/legal decisions remain open |
+| N | Security, performance, accessibility, backup/restore, release review | Not started |
 
-Next work: validate the quiz workflow in the browser with a small draft assessment: author questions, release, start as an enrolled student, submit/timeout, and confirm the result. Then continue to Phase I assignments. Quiz-release notifications depend on the later notification phase and are not implemented yet.
+Next work: validate Phase J in the browser: publish to all students and a selected group, confirm only recipients can see each announcement, mark one read, reply as a student, and respond privately as Admin. Also validate Phase I assignment submissions/reviews and the quiz workflow. Email delivery for announcements is not included in this in-app notification phase.

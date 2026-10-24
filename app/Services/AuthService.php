@@ -82,7 +82,21 @@ final class AuthService
     {
         $email = strtolower(trim($email));
         $subjects = $this->emailIpSubjects($email);
-        $this->limiter->assertAllowed('login_fail', $subjects, $this->setting('login_max_attempts', 5), $this->setting('login_lockout_minutes', 15) * 60);
+        try {
+            $this->limiter->assertAllowed('login_fail', $subjects, $this->setting('login_max_attempts', 5), $this->setting('login_lockout_minutes', 15) * 60);
+        } catch (RuntimeException $exception) {
+            $studentId = null;
+            try {
+                $blockedAccount = $this->db->prepare("SELECT id FROM users WHERE email = ? AND role = 'student' LIMIT 1");
+                $blockedAccount->execute([$email]);
+                $studentId = $blockedAccount->fetchColumn();
+                $studentId = $studentId === false ? null : (int) $studentId;
+            } catch (PDOException) {
+                // Authentication remains generic when the lookup is unavailable.
+            }
+            $this->recordLoginEvent($studentId, 'blocked');
+            throw $exception;
+        }
         $query = $this->db->prepare('SELECT id, full_name, email, password_hash, role, status, email_verified_at FROM users WHERE email = ? LIMIT 1');
         $query->execute([$email]);
         $user = $query->fetch();
@@ -90,12 +104,27 @@ final class AuthService
         $valid = password_verify($password, $hash);
         if (!$user || !$valid || $user['status'] !== 'active' || !$user['email_verified_at'] || !in_array($user['role'], ['student', 'admin'], true)) {
             $this->limiter->record('login_fail', $subjects);
+            $this->recordLoginEvent($user && $user['role'] === 'student' ? (int) $user['id'] : null, 'failed');
             throw new RuntimeException('Email or password is incorrect.');
         }
         $this->limiter->clear('login_fail', $subjects);
         $this->db->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$user['id']]);
+        if ($user['role'] === 'student') $this->recordLoginEvent((int) $user['id'], 'success');
         unset($user['password_hash'], $user['status'], $user['email_verified_at']);
         return $user;
+    }
+
+    /** Login must remain available during a rolling schema import; history logging fails open. */
+    private function recordLoginEvent(?int $userId, string $eventType): void
+    {
+        try {
+            $stmt = $this->db->prepare('INSERT INTO login_events (user_id, event_type, ip_address, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP())');
+            $ip = filter_var($_SERVER['REMOTE_ADDR'] ?? '', FILTER_VALIDATE_IP) ? $_SERVER['REMOTE_ADDR'] : null;
+            $stmt->execute([$userId, $eventType, $ip]);
+        } catch (PDOException $exception) {
+            // Keep authentication working if the updated canonical schema has not been imported yet.
+            error_log('[AUTH] Login event could not be recorded; check the login_events schema.');
+        }
     }
 
     public function requestPasswordReset(string $email): bool

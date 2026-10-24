@@ -4,8 +4,9 @@ use App\Core\Security;
 
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $v): string => Security::escape((string) $v);
-$courses = $courses ?? [];
-$students = $students ?? [];
+$courses = isset($courses) && is_array($courses) ? $courses : [];
+$lessons = isset($lessons) && is_array($lessons) ? $lessons : [];
+$students = isset($students) && is_array($students) ? $students : [];
 $message = $message ?? null;
 
 $totalCourses = count($courses);
@@ -337,7 +338,7 @@ $totalStudents = count($students);
                 <p>Get started by using the form above to create your first academy course record.</p>
             </div>
         <?php else: ?>
-            <div class="admin-table-wrapper">
+            <div class="admin-table-wrapper" id="admin-course-table">
                 <table class="admin-table">
                     <thead>
                         <tr>
@@ -345,7 +346,7 @@ $totalStudents = count($students);
                             <th scope="col">Visibility</th>
                             <th scope="col">Modules</th>
                             <th scope="col">Lessons</th>
-                            <th scope="col">Details</th>
+                            <th scope="col">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -383,7 +384,15 @@ $totalStudents = count($students);
                                         <?= (int) $course['lesson_count'] ?> <?= (int) $course['lesson_count'] === 1 ? 'lesson' : 'lessons' ?>
                                     </span>
                                 </td>
-                                <td><details><summary>Edit course</summary><form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="id" value="<?= (int)$course['id'] ?>"><label class="admin-label">Title<input class="admin-input" name="title" required value="<?= $escape($course['title']) ?>"></label><label class="admin-label">Slug<input class="admin-input" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="<?= $escape($course['slug']) ?>"></label><label class="admin-label">Category<input class="admin-input" name="category" value="<?= $escape($course['category']??'') ?>"></label><label class="admin-label">Card summary<textarea class="admin-textarea" name="short_description" maxlength="500"><?= $escape($course['short_description']??'') ?></textarea></label><label class="admin-label">Full description<textarea class="admin-textarea" name="description"><?= $escape($course['description']??'') ?></textarea></label><label class="admin-label">Duration<input class="admin-input" name="duration_label" value="<?= $escape($course['duration_label']??'') ?>"></label><label class="admin-label">Level<input class="admin-input" name="level_label" value="<?= $escape($course['level_label']??'') ?>"></label><label class="admin-label">Recorded Only (PKR)<input class="admin-input" name="recorded_price" type="number" min="0" step="0.01" required value="<?= $escape($course['recorded_price']??'0') ?>"></label><label class="admin-label">Live + Recorded (PKR)<input class="admin-input" name="live_price" type="number" min="0" step="0.01" required value="<?= $escape($course['live_price']??'0') ?>"></label><label class="admin-label">Visibility<select class="admin-select" name="visibility"><option value="draft" <?= $vis==='draft'?'selected':'' ?>>Draft</option><option value="published" <?= $vis==='published'?'selected':'' ?>>Published</option><option value="hidden" <?= $vis==='hidden'?'selected':'' ?>>Hidden</option><option value="archived" <?= $vis==='archived'?'selected':'' ?>>Archived</option></select></label><button class="button" type="submit">Save course details</button></form></details></td>
+                                <td class="admin-table-actions">
+                                    <a class="admin-edit-trigger" href="#course-edit-<?= (int) $course['id'] ?>" data-admin-modal-open="course-edit-<?= (int) $course['id'] ?>">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M12 20h9"></path>
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                        </svg>
+                                        Edit course
+                                    </a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -411,64 +420,76 @@ $totalStudents = count($students);
         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/access" class="admin-form">
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
 
-            <div class="admin-form-row-4">
-                <div class="admin-field">
-                    <label class="admin-label" for="access-student">
-                        Verified student <span class="req">*</span>
-                    </label>
-                    <select class="admin-select" id="access-student" name="student_id" required>
-                        <?php if (empty($students)): ?>
-                            <option value="" disabled selected>No active verified students</option>
-                        <?php else: ?>
-                            <?php foreach ($students as $index => $student): ?>
-                                <option value="<?= (int) $student['id'] ?>" data-email="<?= $escape($student['email']) ?>" <?= $index === 0 ? 'selected' : '' ?>>
-                                    <?= $escape($student['full_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="access-student-email">
-                        Student email <span class="req">*</span>
-                    </label>
-                    <div class="input-with-icon">
-                        <span class="field-icon">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
-                            </svg>
-                        </span>
-                        <input class="admin-input icon-padded" id="access-student-email" type="email" readonly placeholder="student@example.com" value="<?= !empty($students) ? $escape($students[0]['email']) : '' ?>">
+            <div class="admin-field-list">
+                <div class="admin-field-row">
+                    <div class="admin-field-row-text">
+                        <span class="admin-label">Verified student <span class="req">*</span></span>
+                        <span class="admin-hint">Only active learners with a confirmed email address can be selected.</span>
+                    </div>
+                    <div class="admin-field-row-control">
+                        <select class="admin-select" id="access-student" name="student_id" required>
+                            <?php if (empty($students)): ?>
+                                <option value="" disabled selected>No active verified students</option>
+                            <?php else: ?>
+                                <?php foreach ($students as $index => $student): ?>
+                                    <option value="<?= (int) $student['id'] ?>" data-email="<?= $escape($student['email']) ?>" <?= $index === 0 ? 'selected' : '' ?>>
+                                        <?= $escape($student['full_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
                     </div>
                 </div>
 
-                <div class="admin-field">
-                    <label class="admin-label" for="access-course">
-                        Target course <span class="req">*</span>
-                    </label>
-                    <select class="admin-select" id="access-course" name="course_id" required>
-                        <?php if (empty($courses)): ?>
-                            <option value="" disabled selected>No courses available</option>
-                        <?php else: ?>
-                            <?php foreach ($courses as $course): ?>
-                                <option value="<?= (int) $course['id'] ?>">
-                                    <?= $escape($course['title']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
+                <div class="admin-field-row">
+                    <div class="admin-field-row-text">
+                        <span class="admin-label">Student email <span class="req">*</span></span>
+                        <span class="admin-hint">Filled in automatically from the selected student.</span>
+                    </div>
+                    <div class="admin-field-row-control">
+                        <div class="input-with-icon">
+                            <span class="field-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                            </span>
+                            <input class="admin-input icon-padded" id="access-student-email" type="email" readonly placeholder="student@example.com" value="<?= !empty($students) ? $escape($students[0]['email']) : '' ?>">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="admin-field">
-                    <label class="admin-label" for="access-action">
-                        Action permission <span class="req">*</span>
-                    </label>
-                    <select class="admin-select" id="access-action" name="access_action">
-                        <option value="grant">Grant course access</option>
-                        <option value="revoke">Revoke access</option>
-                    </select>
+                <div class="admin-field-row">
+                    <div class="admin-field-row-text">
+                        <span class="admin-label">Target course <span class="req">*</span></span>
+                        <span class="admin-hint">The exact course whose access is granted or revoked.</span>
+                    </div>
+                    <div class="admin-field-row-control">
+                        <select class="admin-select" id="access-course" name="course_id" required>
+                            <?php if (empty($courses)): ?>
+                                <option value="" disabled selected>No courses available</option>
+                            <?php else: ?>
+                                <?php foreach ($courses as $course): ?>
+                                    <option value="<?= (int) $course['id'] ?>">
+                                        <?= $escape($course['title']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="admin-field-row">
+                    <div class="admin-field-row-text">
+                        <span class="admin-label">Action permission <span class="req">*</span></span>
+                        <span class="admin-hint">Granting opens the course immediately, revoking closes it again.</span>
+                    </div>
+                    <div class="admin-field-row-control">
+                        <select class="admin-select" id="access-action" name="access_action">
+                            <option value="grant">Grant course access</option>
+                            <option value="revoke">Revoke access</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -513,3 +534,107 @@ $totalStudents = count($students);
     });
     </script>
 </section>
+
+<!-- Course editor overlays live outside the reveal-animated section so their
+     fixed positioning is always measured against the viewport. -->
+<?php foreach ($courses as $course):
+    $courseId = (int) $course['id'];
+    $modalVisibility = strtolower((string) ($course['visibility'] ?? 'draft'));
+    ?>
+    <div class="admin-modal" id="course-edit-<?= $courseId ?>" data-admin-modal role="dialog" aria-modal="true" aria-labelledby="course-edit-<?= $courseId ?>-title">
+        <a class="admin-modal-backdrop" href="#admin-course-table" data-admin-modal-close aria-label="Close the course editor"></a>
+        <div class="admin-modal-dialog">
+            <div class="admin-modal-header">
+                <div class="admin-card-title-group">
+                    <div class="admin-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                    </div>
+                    <div class="admin-card-titles">
+                        <p class="eyebrow">EDIT COURSE</p>
+                        <h2 id="course-edit-<?= $courseId ?>-title"><?= $escape($course['title']) ?></h2>
+                    </div>
+                </div>
+                <a class="admin-modal-close" href="#admin-course-table" data-admin-modal-close aria-label="Close the course editor">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </a>
+            </div>
+
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form admin-modal-body">
+                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                <input type="hidden" name="id" value="<?= $courseId ?>">
+
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-title-field">Title <span class="req">*</span></label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-title-field" name="title" required maxlength="200" value="<?= $escape($course['title']) ?>">
+                    </div>
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-slug">URL slug <span class="req">*</span></label>
+                        <div class="slug-input-wrapper">
+                            <span class="slug-prefix">/courses/</span>
+                            <input class="admin-input" id="course-edit-<?= $courseId ?>-slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="<?= $escape($course['slug']) ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-category">Category</label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-category" name="category" maxlength="100" value="<?= $escape($course['category'] ?? '') ?>">
+                    </div>
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-visibility">Visibility <span class="req">*</span></label>
+                        <select class="admin-select" id="course-edit-<?= $courseId ?>-visibility" name="visibility">
+                            <?php foreach (['draft' => 'Draft (Private)', 'published' => 'Published (Public)', 'hidden' => 'Hidden (Direct URL)', 'archived' => 'Archived'] as $value => $text): ?>
+                                <option value="<?= $value ?>" <?= $modalVisibility === $value ? 'selected' : '' ?>><?= $text ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-duration">Duration</label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-duration" name="duration_label" maxlength="100" value="<?= $escape($course['duration_label'] ?? '') ?>">
+                    </div>
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-level">Level</label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-level" name="level_label" maxlength="50" value="<?= $escape($course['level_label'] ?? '') ?>">
+                    </div>
+                </div>
+
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-recorded">Recorded Only price (PKR) <span class="req">*</span></label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-recorded" name="recorded_price" type="number" min="0" step="0.01" required value="<?= $escape($course['recorded_price'] ?? '0') ?>">
+                    </div>
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-live">Live + Recorded price (PKR) <span class="req">*</span></label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-live" name="live_price" type="number" min="0" step="0.01" required value="<?= $escape($course['live_price'] ?? '0') ?>">
+                    </div>
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="course-edit-<?= $courseId ?>-summary">Card summary</label>
+                    <textarea class="admin-textarea" id="course-edit-<?= $courseId ?>-summary" name="short_description" rows="2" maxlength="500" placeholder="Short description shown on home and course cards..."><?= $escape($course['short_description'] ?? '') ?></textarea>
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="course-edit-<?= $courseId ?>-description">Description</label>
+                    <textarea class="admin-textarea" id="course-edit-<?= $courseId ?>-description" name="description" rows="4" placeholder="Brief outline of syllabus, core competencies, and career outcomes..."><?= $escape($course['description'] ?? '') ?></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <a class="button button-ghost" href="#admin-course-table" data-admin-modal-close>Cancel</a>
+                    <button class="button" type="submit">Save course details</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endforeach; ?>

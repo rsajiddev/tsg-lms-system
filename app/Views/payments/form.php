@@ -1,6 +1,8 @@
 <?php
 use App\Core\Security;
 $escape = [Security::class, 'escape'];
+$paymentDetails = $paymentDetails ?? [];
+$hasPaymentDetails = count(array_filter($paymentDetails, static fn($value): bool => trim((string) $value) !== '')) > 0;
 $options = [];
 if ($course['recorded_price'] !== null && (float) $course['recorded_price'] > 0) $options[] = ['code'=>'recorded_only','label'=>'Recorded Only','price'=>$course['recorded_price']];
 if ($course['live_price'] !== null && (float) $course['live_price'] > 0) $options[] = ['code'=>'live_recorded','label'=>'Live + Recorded','price'=>$course['live_price']];
@@ -12,7 +14,19 @@ if ($course['live_price'] !== null && (float) $course['live_price'] > 0) $option
   <div class="payment-layout">
     <section class="dashboard-panel">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">SELECTED COURSE</p><h2><?= $escape($course['title']) ?></h2></div></div>
-      <p class="payment-help">Contact Tech SG Academy for current payment account details before transferring. Access is granted only after an administrator verifies the submitted transaction.</p>
+      <?php if ($hasPaymentDetails): ?>
+        <div class="payment-help"><strong>Payment account details</strong>
+          <dl class="payment-account-details">
+            <?php foreach (['payment_account_title'=>'Account title','payment_bank_name'=>'Bank / provider','payment_account_number'=>'Account number','payment_iban'=>'IBAN','payment_wallet_name'=>'Mobile wallet','payment_wallet_number'=>'Wallet number'] as $key=>$label): ?>
+              <?php if (!empty($paymentDetails[$key])): ?><div><dt><?= $escape($label) ?></dt><dd><?= $escape($paymentDetails[$key]) ?></dd></div><?php endif; ?>
+            <?php endforeach; ?>
+          </dl>
+          <?php if (!empty($paymentDetails['payment_instructions'])): ?><p><?= nl2br($escape($paymentDetails['payment_instructions'])) ?></p><?php endif; ?>
+          <p>Access is granted only after an administrator verifies the submitted transaction.</p>
+        </div>
+      <?php else: ?>
+        <p class="payment-help">Payment account details have not been configured yet. Please contact Tech SG Academy before transferring. Access is granted only after an administrator verifies the submitted transaction.</p>
+      <?php endif; ?>
       <?php if ($hasPendingPayment): ?><div class="dashboard-empty"><div><h3>Payment is awaiting review</h3><p>Please wait for the Academy team to verify your submitted transaction before sending another payment.</p></div></div>
       <?php elseif ($options === []): ?><div class="dashboard-empty"><div><h3>Pricing is not available</h3><p>Please contact the Academy team to confirm course pricing.</p></div></div>
       <?php else: ?>

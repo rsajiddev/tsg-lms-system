@@ -38,11 +38,16 @@ final class PaymentController
         $pending->execute([(int) $student['id'], $courseId]);
         $history = $db->prepare('SELECT id,amount,currency,transaction_reference,status,review_note,created_at FROM payments WHERE student_id=? AND course_id=? ORDER BY id DESC LIMIT 5');
         $history->execute([(int) $student['id'], $courseId]);
+        $paymentDetails = [];
+        foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {
+            $paymentDetails[$setting['setting_key']] = $setting['setting_value'];
+        }
         $flash = $_SESSION['_flash'] ?? null;
         if (is_string($flash)) $flash = ['type' => 'success', 'text' => $flash];
         View::render('payments/form', [
             'title' => 'Submit course payment', 'user' => $student, 'course' => $course,
             'hasPendingPayment' => (bool) $pending->fetchColumn(), 'payments' => $history->fetchAll(),
+            'paymentDetails' => $paymentDetails,
             'message' => is_array($flash) ? ($flash['text'] ?? null) : null,
             'messageType' => is_array($flash) ? ($flash['type'] ?? 'success') : 'success',
         ]);

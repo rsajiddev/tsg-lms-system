@@ -65,7 +65,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                 <?php endif; ?>
             </section>
         </div>
-        <div class="dashboard-note"><strong>Workspace overview</strong><span>Use the sidebar to manage courses, review submitted payments, moderate reviews, and configure security. Quizzes and reporting will be added in their planned phases. This dashboard reflects records already stored in the database.</span></div>
+        <div class="dashboard-note"><strong>Workspace overview</strong><span>Use the sidebar to manage courses, assignments, quizzes, announcements, payment reviews, reviews, and security settings. This dashboard reflects records already stored in the database.</span></div>
 
     <?php else: ?>
         <div class="dashboard-metrics" aria-label="Your learning summary">
@@ -142,6 +142,19 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php endif; ?>
                 </section>
 
+                <section class="dashboard-panel dashboard-searchable" id="assignments">
+                    <div class="dashboard-panel-heading"><div><p class="eyebrow">PRACTICAL COURSE WORK</p><h2>Assignments</h2></div></div>
+                    <?php if (($student['assignments'] ?? []) === []): ?>
+                        <div class="dashboard-compact-empty"><p>Published assignments for your active courses will appear here.</p></div>
+                    <?php else: ?>
+                        <div class="dashboard-list">
+                            <?php foreach ($student['assignments'] as $assignment): ?>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">A</span><div class="dashboard-list-copy"><strong><?= $escape($assignment['title']) ?></strong><small><?= $escape($assignment['course_title']) ?><?= !empty($assignment['week_number']) ? ' · Week '.(int)$assignment['week_number'] : '' ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/assignments?course_id=<?= (int)$assignment['course_id'] ?>">Open assignments</a></article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
                 <section class="dashboard-panel dashboard-searchable" id="notifications">
                     <div class="dashboard-panel-heading"><div><p class="eyebrow">FROM THE ACADEMY</p><h2>Notifications</h2></div></div>
                     <?php if (($student['notifications'] ?? []) === []): ?>
@@ -149,7 +162,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['notifications'] as $notification): ?>
-                                <article class="dashboard-list-row dashboard-notification"><span class="dashboard-list-icon">i</span><div class="dashboard-list-copy"><strong><?= $escape($notification['title']) ?></strong><small><?= $escape($notification['body']) ?></small></div><time><?= $escape($dateLabel($notification['published_at'] ?? null)) ?></time></article>
+                                <article class="dashboard-list-row dashboard-notification"><span class="dashboard-list-icon">i</span><div class="dashboard-list-copy"><strong><?= $escape($notification['title']) ?></strong><small><?= $escape($notification['body']) ?></small><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$notification['id'] ?>">Read and reply</a></div><time><?= $escape($dateLabel($notification['published_at'] ?? null)) ?></time></article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>

@@ -2,6 +2,32 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-24 (student directory and login activity)
+
+- Added an Admin-only Students page with parameterized name/email search, account-status filtering, and pagination.
+- Added successful, failed, and rate-limited sign-in event records for student accounts, including UTC time and validated IP address. Unknown-email attempts are not linked to a student; passwords, OTPs, and entered email addresses are never stored in this history.
+- Added per-student totals and a recent activity view (up to 50 events), including account status, registration time, and last successful login.
+- Added `login_events` to the canonical `database/migrations/001_initial_schema.sql`; import the updated file into the existing database before expecting new sign-in history. Historic login events are not available retroactively.
+- Added responsive layout rules and the Admin sidebar entry. Authentication continues if event logging is unavailable during schema setup; in that case the event is omitted and a generic server log entry is written.
+- Made the shared Admin/Student sidebar vertically scrollable on desktop and mobile so navigation and the logout control remain reachable on short screens. The Students page now shows a setup notice instead of a SQL exception if `login_events` has not been imported yet.
+
+## Unreleased — 2026-10-24 (assignment workflow)
+
+- Added Admin assignment creation with course, optional week, instructions, due date, maximum marks, and draft/published/closed status.
+- Added enrolled-student assignment pages with text or private file submissions (PDF, images, ZIP, TXT; 10 MB maximum), server-side course-access and deadline checks, and a private authenticated download route.
+- Added Admin submission review with marks, feedback, and resubmission requests. Student pages and dashboards display latest submission status, score, and feedback.
+- Reused the existing assignment and submission tables in `001_initial_schema.sql`; no new database table is required.
+- Added assignment routes and dashboard sidebar/course links. Browser workflow validation remains pending.
+- Upload protections: allowlisted `finfo` MIME types plus file-signature checks, server-generated random names, a 10 MB limit, restrictive private-directory/file permissions, no public upload path, and an authenticated owner/admin download check. Submission revisions are capped at five per assignment/student.
+
+## Unreleased — 2026-10-24 (announcements and private notifications)
+
+- Added Admin announcements for all active verified students or an explicitly selected verified recipient list.
+- Added a student notification inbox, per-recipient read tracking, and private student/Admin reply threads.
+- Added CSRF checks, input length validation, recipient ownership checks on every read/reply route, and audit events.
+- Updated `001_initial_schema.sql` to add/backfill the per-recipient reply-thread key idempotently for existing databases; import the updated canonical SQL file once before using private replies.
+- Browser workflow validation remains pending.
+
 ## Unreleased — 2026-10-23 (quiz workflow)
 
 - Added Admin quiz authoring and course/week scheduling with configurable question count (1–75), time limit, pass mark, attempt limit, and release/close dates.

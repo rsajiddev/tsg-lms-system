@@ -121,15 +121,44 @@ CREATE TABLE IF NOT EXISTS notification_recipients (
  CONSTRAINT fk_recipient_notification FOREIGN KEY(notification_id) REFERENCES notifications(id), CONSTRAINT fk_recipient_student FOREIGN KEY(student_id) REFERENCES users(id), INDEX idx_recipient_unread(student_id,read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS notification_replies (
- id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, notification_id BIGINT UNSIGNED NOT NULL, student_id BIGINT UNSIGNED NOT NULL,
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, notification_id BIGINT UNSIGNED NOT NULL, student_id BIGINT UNSIGNED NOT NULL, recipient_student_id BIGINT UNSIGNED NOT NULL,
  message TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
- CONSTRAINT fk_reply_notification FOREIGN KEY(notification_id) REFERENCES notifications(id), CONSTRAINT fk_reply_student FOREIGN KEY(student_id) REFERENCES users(id), INDEX idx_reply_notification(notification_id,created_at)
+ CONSTRAINT fk_reply_notification FOREIGN KEY(notification_id) REFERENCES notifications(id), CONSTRAINT fk_reply_student FOREIGN KEY(student_id) REFERENCES users(id),
+ CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES users(id), INDEX idx_reply_notification(notification_id,created_at), INDEX idx_reply_thread(notification_id,recipient_student_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SET @reply_recipient_column_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='notification_replies' AND COLUMN_NAME='recipient_student_id');
+SET @reply_schema_sql = IF(@reply_recipient_column_exists=0, 'ALTER TABLE notification_replies ADD COLUMN recipient_student_id BIGINT UNSIGNED NULL AFTER student_id', 'SELECT 1');
+PREPARE reply_schema_stmt FROM @reply_schema_sql;
+EXECUTE reply_schema_stmt;
+DEALLOCATE PREPARE reply_schema_stmt;
+UPDATE notification_replies SET recipient_student_id=student_id WHERE recipient_student_id IS NULL;
+ALTER TABLE notification_replies MODIFY recipient_student_id BIGINT UNSIGNED NOT NULL;
+SET @reply_thread_index_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='notification_replies' AND INDEX_NAME='idx_reply_thread');
+SET @reply_index_sql = IF(@reply_thread_index_exists=0, 'CREATE INDEX idx_reply_thread ON notification_replies(notification_id,recipient_student_id,created_at)', 'SELECT 1');
+PREPARE reply_index_stmt FROM @reply_index_sql;
+EXECUTE reply_index_stmt;
+DEALLOCATE PREPARE reply_index_stmt;
+SET @reply_recipient_fk_exists = (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='notification_replies' AND CONSTRAINT_NAME='fk_reply_recipient');
+SET @reply_fk_sql = IF(@reply_recipient_fk_exists=0, 'ALTER TABLE notification_replies ADD CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES users(id)', 'SELECT 1');
+PREPARE reply_fk_stmt FROM @reply_fk_sql;
+EXECUTE reply_fk_stmt;
+DEALLOCATE PREPARE reply_fk_stmt;
 CREATE TABLE IF NOT EXISTS audit_logs (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, actor_user_id BIGINT UNSIGNED NULL, action VARCHAR(100) NOT NULL,
  entity_type VARCHAR(100) NOT NULL, entity_id BIGINT UNSIGNED NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL,
  metadata JSON NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT fk_audit_actor FOREIGN KEY(actor_user_id) REFERENCES users(id), INDEX idx_audit_action(action,created_at), INDEX idx_audit_entity(entity_type,entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Minimal sign-in audit: never store entered email, password, OTP, or credential material.
+CREATE TABLE IF NOT EXISTS login_events (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NULL,
+ event_type ENUM('success','failed','blocked') NOT NULL,
+ ip_address VARCHAR(45) NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_login_event_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL,
+ INDEX idx_login_event_user_time(user_id,created_at),
+ INDEX idx_login_event_type_time(event_type,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS auth_rate_limits (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, action VARCHAR(40) NOT NULL,
@@ -151,7 +180,14 @@ INSERT INTO app_settings(setting_key,setting_value) VALUES
  ('password_reset_max_attempts','3'),
  ('password_reset_window_minutes','15'),
  ('otp_resends_per_window','3'),
- ('otp_resend_window_minutes','15')
+ ('otp_resend_window_minutes','15'),
+ ('payment_account_title',''),
+ ('payment_bank_name',''),
+ ('payment_account_number',''),
+ ('payment_iban',''),
+ ('payment_wallet_name',''),
+ ('payment_wallet_number',''),
+ ('payment_instructions','')
 ON DUPLICATE KEY UPDATE setting_key=VALUES(setting_key);
 CREATE TABLE IF NOT EXISTS reviews (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

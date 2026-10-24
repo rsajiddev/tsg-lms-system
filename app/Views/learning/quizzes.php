@@ -1,4 +1,4 @@
-<?php use App\Core\Security; $baseUrl=rtrim((require BASE_PATH.'/config/app.php')['url'],'/'); $escape=static fn(mixed $v):string=>Security::escape((string)$v); ?>
+<?php use App\Core\Security; $baseUrl=rtrim((require BASE_PATH.'/config/app.php')['url'],'/'); $escape=static fn(mixed $v):string=>Security::escape((string)$v); $course=$course??[]; $quizzes=$quizzes??[]; ?>
 <section class="dashboard-page learning-page quiz-list-page">
   <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button><div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><a href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int)$course['id'] ?>"><?= $escape($course['title']) ?></a><i>/</i><strong>Quizzes</strong></div></div>
   <header class="dashboard-heading"><div><p class="eyebrow">COURSE ASSESSMENTS</p><h1><?= $escape($course['title']) ?> quizzes</h1><p>Released weekly quizzes and your remaining attempts.</p></div></header>

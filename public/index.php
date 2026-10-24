@@ -20,10 +20,14 @@ foreach (
         '/app/Controllers/HealthController.php',
         '/app/Controllers/AuthController.php',
         '/app/Controllers/DashboardController.php',
+        '/app/Controllers/LearningController.php',
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/PaymentController.php',
         '/app/Controllers/QuizController.php',
+        '/app/Controllers/AssignmentController.php',
+        '/app/Controllers/NotificationController.php',
+        '/app/Controllers/StudentManagementController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -93,6 +97,18 @@ $router->get('/learning', [\App\Controllers\LearningController::class, 'course']
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
 $router->get('/learning/quizzes', [\App\Controllers\QuizController::class, 'courseQuizzes']);
+$router->get('/learning/assignments', [\App\Controllers\AssignmentController::class, 'studentIndex']);
+$router->post('/learning/assignments/submit', [\App\Controllers\AssignmentController::class, 'submit']);
+$router->get('/learning/assignments/file', [\App\Controllers\AssignmentController::class, 'file']);
+$router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
+$router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
+$router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
+$router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
+$router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
+$router->post('/admin/announcements/publish', [\App\Controllers\NotificationController::class, 'publish']);
+$router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
+$router->get('/notifications/view', [\App\Controllers\NotificationController::class, 'show']);
+$router->post('/notifications/reply', [\App\Controllers\NotificationController::class, 'reply']);
 $router->post('/learning/quiz/start', [\App\Controllers\QuizController::class, 'start']);
 $router->get('/learning/quiz/attempt', [\App\Controllers\QuizController::class, 'attempt']);
 $router->post('/learning/quiz/submit', [\App\Controllers\QuizController::class, 'submit']);
