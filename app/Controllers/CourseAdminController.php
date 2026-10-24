@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\CourseDuration;
 use PDO;
 use RuntimeException;
 
@@ -39,6 +40,7 @@ final class CourseAdminController
             || mb_strlen($shortDescription)>500 || mb_strlen($duration)>100 || mb_strlen($level)>50) {
             throw new RuntimeException('Enter valid course details, duration, and both non-negative prices.');
         }
+        CourseDuration::expiry($duration);
         $db=Database::connection();
         if ($id>0) {
             $stmt=$db->prepare('UPDATE courses SET title=?,slug=?,category=?,short_description=?,description=?,duration_label=?,level_label=?,visibility=? WHERE id=?');
@@ -99,8 +101,14 @@ final class CourseAdminController
         $db->beginTransaction();
         try {
             if ($action==='grant') {
-                $stmt=$db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,revoked_by,revoked_at) SELECT ?,?,'active',?,UTC_TIMESTAMP(),NULL,NULL FROM users u JOIN courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=UTC_TIMESTAMP(),revoked_by=NULL,revoked_at=NULL");
-                $stmt->execute([$studentId,$courseId,(int)$admin['id'],$courseId,$studentId]);
+                $durationQuery=$db->prepare('SELECT duration_label FROM courses WHERE id=?'); $durationQuery->execute([$courseId]);
+                $duration=$durationQuery->fetchColumn();
+                if ($duration===false) throw new RuntimeException('Course not found.');
+                $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $grantedAtSql = $grantedAt->format('Y-m-d H:i:s');
+                $expiresAt=CourseDuration::expiry((string)$duration,$grantedAt);
+                $stmt=$db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at) SELECT ?,?,'active',?,?,?,NULL,NULL FROM users u JOIN courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL");
+                $stmt->execute([$studentId,$courseId,(int)$admin['id'],$grantedAtSql,$expiresAt,$courseId,$studentId]);
                 if ($stmt->rowCount()===0) throw new RuntimeException('Active verified student or course not found.');
             } else {
                 $stmt=$db->prepare("UPDATE student_course_access SET status='revoked',revoked_by=?,revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND status='active'"); $stmt->execute([(int)$admin['id'],$studentId,$courseId]);
@@ -110,6 +118,45 @@ final class CourseAdminController
             $db->commit();
         } catch (\Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
         $_SESSION['_flash']='Course access updated.'; $this->redirect('/admin/courses');
+    }
+
+    public function delete(): void
+    {
+        $admin=AuthMiddleware::requireRole('admin'); $this->csrf();
+        $courseId=filter_var($_POST['course_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+        if ($courseId<1) throw new RuntimeException('Choose a valid course to delete.');
+        $db=Database::connection(); $db->beginTransaction();
+        try {
+            $course=$db->prepare('SELECT id,title FROM courses WHERE id=? FOR UPDATE'); $course->execute([$courseId]);
+            $row=$course->fetch();
+            if (!$row) {
+                $db->rollBack();
+                $_SESSION['_flash']='Course not found. It may already have been deleted.';
+                $this->redirect('/admin/courses');
+            }
+            $history=$db->prepare("SELECT (SELECT COUNT(*) FROM payments WHERE course_id=?) + (SELECT COUNT(*) FROM student_course_access WHERE course_id=?) + (SELECT COUNT(*) FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id WHERE q.course_id=?) + (SELECT COUNT(*) FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE a.course_id=?) + (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?)");
+            $history->execute([$courseId,$courseId,$courseId,$courseId,$courseId]);
+            if ((int)$history->fetchColumn()>0) {
+                $db->rollBack();
+                $_SESSION['_flash']='This course has student or payment history. Archive it to preserve those records instead of deleting it.';
+                $this->redirect('/admin/courses');
+            }
+
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'course.deleted','course',?,?)")
+                ->execute([(int)$admin['id'],$courseId,json_encode(['title'=>$row['title']],JSON_THROW_ON_ERROR)]);
+            $db->prepare('DELETE qop FROM quiz_options qop JOIN quiz_questions qq ON qq.id=qop.question_id JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE qa FROM quiz_answers qa JOIN quiz_questions qq ON qq.id=qa.question_id JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE qq FROM quiz_questions qq JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM quizzes WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM assignments WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE l FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM course_modules WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM course_pricing_options WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM courses WHERE id=?')->execute([$courseId]);
+            $db->commit();
+        } catch (\Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
+        $_SESSION['_flash']='Course deleted. Courses with student or payment history must be archived to retain their records.';
+        $this->redirect('/admin/courses');
     }
 
     private function csrf(): void { if (!Security::verifyCsrf($_POST['_csrf']??null)) throw new RuntimeException('Your session expired. Refresh and try again.'); }

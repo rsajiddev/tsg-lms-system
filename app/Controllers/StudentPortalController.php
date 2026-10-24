@@ -21,7 +21,7 @@ final class StudentPortalController
     {
         $user = AuthMiddleware::requireRole('student');
         $stmt = Database::connection()->prepare(
-            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, sca.granted_at,
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, sca.granted_at, sca.expires_at,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
@@ -29,7 +29,7 @@ final class StudentPortalController
                      WHERE lp.student_id = sca.student_id AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
              FROM student_course_access sca
              JOIN courses c ON c.id = sca.course_id
-             WHERE sca.student_id = ? AND sca.status = 'active'
+             WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              ORDER BY sca.granted_at DESC, c.title ASC"
         );
         $stmt->execute([(int) $user['id']]);
@@ -82,7 +82,7 @@ final class StudentPortalController
                     (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id = q.id AND qa.student_id = ?) AS used_attempts
              FROM quizzes q
              JOIN courses c ON c.id = q.course_id
-             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active'
+             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              WHERE 1=1 {$released}
              ORDER BY q.course_id ASC, q.week_number ASC, q.id DESC"
         );
@@ -119,7 +119,7 @@ final class StudentPortalController
                     s.marks_awarded, s.feedback, s.submitted_at
              FROM assignments a
              JOIN courses c ON c.id = a.course_id
-             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active'
+             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              LEFT JOIN assignment_submissions s ON s.id = (
                  SELECT latest.id FROM assignment_submissions latest
                  WHERE latest.assignment_id = a.id AND latest.student_id = ?

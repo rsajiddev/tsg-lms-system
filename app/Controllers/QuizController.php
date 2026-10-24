@@ -151,7 +151,7 @@ final class QuizController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int)$student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -173,7 +173,7 @@ final class QuizController
         $studentId = (int)$student['id'];
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare("SELECT q.* FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status='active' WHERE q.id=? AND (q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) FOR UPDATE");
+            $stmt = $db->prepare("SELECT q.* FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE q.id=? AND (q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) FOR UPDATE");
             $stmt->execute([$studentId, $quizId]);
             $quiz = $stmt->fetch();
             if (!$quiz) throw new RuntimeException('This quiz is unavailable or you do not have course access.');
@@ -319,7 +319,7 @@ final class QuizController
 
     private function ownedAttempt(PDO $db, int $attemptId, int $studentId, bool $lock = false, bool $requireCurrentAccess = false): ?array
     {
-        $accessJoin = $requireCurrentAccess ? " JOIN student_course_access a ON a.student_id=qa.student_id AND a.course_id=q.course_id AND a.status='active'" : '';
+        $accessJoin = $requireCurrentAccess ? " JOIN student_course_access a ON a.student_id=qa.student_id AND a.course_id=q.course_id AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP())" : '';
         $stmt = $db->prepare('SELECT qa.*,q.title,q.week_number,q.course_id,q.time_limit_seconds,q.question_count,q.pass_mark_percent,c.title AS course_title FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id' . $accessJoin . ' WHERE qa.id=? AND qa.student_id=?' . ($lock ? ' FOR UPDATE' : ''));
         $stmt->execute([$attemptId, $studentId]);
         return $stmt->fetch() ?: null;

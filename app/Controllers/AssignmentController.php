@@ -62,7 +62,7 @@ final class AssignmentController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int)$student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -92,7 +92,7 @@ final class AssignmentController
         $db->beginTransaction();
         $stored = null;
         try {
-            $stmt = $db->prepare("SELECT a.course_id,a.status,a.due_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status='active' WHERE a.id=? LIMIT 1 FOR UPDATE");
+            $stmt = $db->prepare("SELECT a.course_id,a.status,a.due_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status='active' AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
             $stmt->execute([(int)$student['id'], $assignmentId]);
             $assignment = $stmt->fetch();
             if (!$assignment || $assignment['status'] !== 'published' || ($assignment['due_at'] !== null && strtotime($assignment['due_at'] . ' UTC') < time())) throw new RuntimeException('This assignment is unavailable or its deadline has passed.');

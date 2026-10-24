@@ -154,7 +154,7 @@ $totalStudents = count($students);
                 </div>
 
                 <div class="admin-form-row">
-                    <div class="admin-field"><label class="admin-label" for="course-duration">Duration</label><input class="admin-input" id="course-duration" name="duration_label" maxlength="100" placeholder="e.g. 3 Months"></div>
+                    <div class="admin-field"><label class="admin-label" for="course-duration">Duration <span class="req">*</span></label><input class="admin-input" id="course-duration" name="duration_label" required pattern="[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" placeholder="e.g. 3 Months"><span class="admin-hint">Access expires after this duration from payment approval. Use days, weeks, months, or years.</span></div>
                     <div class="admin-field"><label class="admin-label" for="course-level">Level</label><input class="admin-input" id="course-level" name="level_label" maxlength="50" placeholder="e.g. Beginner"></div>
                 </div>
 
@@ -401,6 +401,11 @@ $totalStudents = count($students);
                                         </svg>
                                         Edit course
                                     </a>
+                                    <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/delete" onsubmit="return confirm('Delete this course and its unused lessons, quizzes, assignments, and pricing? Courses with student or payment history must be archived instead.');">
+                                        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                        <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                                        <button class="admin-edit-trigger admin-delete-trigger" type="submit">Delete course</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -609,8 +614,9 @@ $totalStudents = count($students);
 
                 <div class="admin-form-row">
                     <div class="admin-field">
-                        <label class="admin-label" for="course-edit-<?= $courseId ?>-duration">Duration</label>
-                        <input class="admin-input" id="course-edit-<?= $courseId ?>-duration" name="duration_label" maxlength="100" value="<?= $escape($course['duration_label'] ?? '') ?>">
+                        <label class="admin-label" for="course-edit-<?= $courseId ?>-duration">Duration <span class="req">*</span></label>
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-duration" name="duration_label" required pattern="[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" value="<?= $escape($course['duration_label'] ?? '') ?>">
+                        <span class="admin-hint">Access expires after this duration from payment approval.</span>
                     </div>
                     <div class="admin-field">
                         <label class="admin-label" for="course-edit-<?= $courseId ?>-level">Level</label>

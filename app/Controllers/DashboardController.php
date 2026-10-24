@@ -71,7 +71,7 @@ final class DashboardController
                      WHERE lp.student_id = sca.student_id AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
              FROM student_course_access sca
              JOIN courses c ON c.id = sca.course_id
-             WHERE sca.student_id = ? AND sca.status = \'active\'
+             WHERE sca.student_id = ? AND sca.status = \'active\' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              ORDER BY sca.granted_at DESC, c.title ASC LIMIT 6'
         );
         $courses->execute([$studentId]);
@@ -88,7 +88,7 @@ final class DashboardController
              FROM quizzes q
              JOIN courses c ON c.id = q.course_id
              JOIN student_course_access sca ON sca.course_id = c.id
-             WHERE sca.student_id = ? AND sca.status = 'active'
+             WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
                AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
                AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
                AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())
@@ -115,16 +115,16 @@ final class DashboardController
         );
         $notifications->execute([$studentId]);
 
-        $assignments = $db->prepare("SELECT a.id,a.title,a.week_number,a.due_at,c.id AS course_id,c.title AS course_title,s.status AS submission_status,s.marks_awarded FROM assignments a JOIN courses c ON c.id=a.course_id JOIN student_course_access sca ON sca.course_id=c.id AND sca.student_id=? AND sca.status='active' LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.status IN ('published','closed') ORDER BY a.due_at IS NULL,a.due_at,a.id DESC LIMIT 6");
+        $assignments = $db->prepare("SELECT a.id,a.title,a.week_number,a.due_at,c.id AS course_id,c.title AS course_title,s.status AS submission_status,s.marks_awarded FROM assignments a JOIN courses c ON c.id=a.course_id JOIN student_course_access sca ON sca.course_id=c.id AND sca.student_id=? AND sca.status='active' AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.status IN ('published','closed') ORDER BY a.due_at IS NULL,a.due_at,a.id DESC LIMIT 6");
         $assignments->execute([$studentId,$studentId]);
 
         return [
-            'activeCourseCount' => $this->count($db, "SELECT COUNT(*) FROM student_course_access WHERE student_id = ? AND status = 'active'", [$studentId]),
+            'activeCourseCount' => $this->count($db, "SELECT COUNT(*) FROM student_course_access WHERE student_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())", [$studentId]),
             'pendingPaymentCount' => $this->count($db, "SELECT COUNT(*) FROM payments WHERE student_id = ? AND status = 'pending'", [$studentId]),
             'releasedQuizCount' => $this->count(
                 $db,
                 "SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id = q.course_id
-                 WHERE sca.student_id = ? AND sca.status = 'active'
+                 WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
                    AND (q.status = 'released' OR (q.status = 'scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at <= UTC_TIMESTAMP()))
                    AND (q.unlock_at IS NULL OR q.unlock_at <= UTC_TIMESTAMP())
                    AND (q.close_at IS NULL OR q.close_at > UTC_TIMESTAMP())",

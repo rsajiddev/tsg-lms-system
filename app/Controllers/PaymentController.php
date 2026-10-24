@@ -29,7 +29,7 @@ final class PaymentController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' LIMIT 1");
+        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $access->execute([(int) $student['id'], $courseId]);
         if ($access->fetchColumn()) {
             $this->redirect('/learning?course_id=' . $courseId);
@@ -74,7 +74,7 @@ final class PaymentController
         if (!$course) {
             $this->paymentError($courseId, 'This course option is unavailable. Refresh the catalogue and try again.');
         }
-        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' LIMIT 1");
+        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $access->execute([(int) $student['id'], $courseId]);
         if ($access->fetchColumn()) {
             $this->redirect('/learning?course_id=' . $courseId);
@@ -132,7 +132,7 @@ final class PaymentController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
+            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
             $lookup->execute([$paymentId]);
             $payment = $lookup->fetch();
             if (!$payment || $payment['status'] !== 'pending') throw new RuntimeException('This payment is no longer awaiting review.');
@@ -140,8 +140,11 @@ final class PaymentController
             $update->execute([$decision, (int) $admin['id'], $note !== '' ? $note : null, $paymentId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('This payment could not be updated. Refresh the queue and try again.');
             if ($decision === 'approved') {
-                $grant = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,revoked_by,revoked_at) VALUES(?,?,'active',?,UTC_TIMESTAMP(),NULL,NULL) ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=UTC_TIMESTAMP(),revoked_by=NULL,revoked_at=NULL");
-                $grant->execute([(int) $payment['student_id'], (int) $payment['course_id'], (int) $admin['id']]);
+                $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $grantedAtSql = $grantedAt->format('Y-m-d H:i:s');
+                $expiresAt = \App\Services\CourseDuration::expiry((string) ($payment['duration_label'] ?? ''), $grantedAt);
+                $grant = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at) VALUES(?,?,'active',?,?,?,NULL,NULL) ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL");
+                $grant->execute([(int) $payment['student_id'], (int) $payment['course_id'], (int) $admin['id'], $grantedAtSql, $expiresAt]);
             }
             $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'payment\',?,JSON_OBJECT(\'course_id\',?,\'student_id\',?))');
             $audit->execute([(int) $admin['id'], 'payment.' . $decision, $paymentId, (int) $payment['course_id'], (int) $payment['student_id']]);
@@ -155,7 +158,7 @@ final class PaymentController
             throw $exception;
         }
         (new MailService())->sendPaymentDecision($payment['student_email'], $payment['student_name'], $payment['course_title'], (string) $payment['amount'], (string) $payment['currency'], $decision === 'approved', $note);
-        $_SESSION['_flash'] = $decision === 'approved' ? 'Payment approved and course access granted.' : 'Payment rejected; the student can submit corrected payment details.';
+        $_SESSION['_flash'] = $decision === 'approved' ? 'Payment approved. Course access is active until ' . $expiresAt . ' UTC.' : 'Payment rejected; the student can submit corrected payment details.';
         $this->redirect('/admin/payments');
     }
 

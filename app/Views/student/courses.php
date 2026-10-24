@@ -10,7 +10,7 @@ $grantedLabel = static function (?string $value): string {
     if (!$value) {
         return '—';
     }
-    $timestamp = strtotime($value);
+    $timestamp = strtotime($value . ' UTC');
     return $timestamp === false ? '—' : date('M j, Y', $timestamp);
 };
 ?>
@@ -57,7 +57,7 @@ $grantedLabel = static function (?string $value): string {
                         <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>
                         <div class="dashboard-progress-label"><span>Lesson progress</span><strong><?= $lessons > 0 ? $progress . '%' : 'Not started' ?></strong></div>
                         <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
-                        <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?> · Access granted <?= $escape($grantedLabel($course['granted_at'] ?? null)) ?></small>
+                        <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?> · Access granted <?= $escape($grantedLabel($course['granted_at'] ?? null)) ?> · Expires <?= $escape($grantedLabel($course['expires_at'] ?? null)) ?></small>
                         <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $course['id'] ?>">Open course →</a>
                     </article>
                 <?php endforeach; ?>

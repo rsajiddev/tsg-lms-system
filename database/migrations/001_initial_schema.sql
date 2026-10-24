@@ -43,11 +43,30 @@ CREATE TABLE IF NOT EXISTS lessons (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS student_course_access (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, student_id BIGINT UNSIGNED NOT NULL, course_id BIGINT UNSIGNED NOT NULL,
- status ENUM('active','revoked') NOT NULL DEFAULT 'active', granted_by BIGINT UNSIGNED NOT NULL, granted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ status ENUM('active','revoked') NOT NULL DEFAULT 'active', granted_by BIGINT UNSIGNED NOT NULL, granted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at DATETIME NULL,
  revoked_by BIGINT UNSIGNED NULL, revoked_at DATETIME NULL, UNIQUE KEY uq_student_course(student_id,course_id),
  CONSTRAINT fk_access_student FOREIGN KEY(student_id) REFERENCES users(id), CONSTRAINT fk_access_course FOREIGN KEY(course_id) REFERENCES courses(id),
  CONSTRAINT fk_access_granted_by FOREIGN KEY(granted_by) REFERENCES users(id), CONSTRAINT fk_access_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id), INDEX idx_access_status(student_id,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Keep existing installations compatible: course access expires relative to its grant/approval timestamp.
+SET @add_access_expiry = (SELECT IF(COUNT(*)=0,'ALTER TABLE student_course_access ADD COLUMN expires_at DATETIME NULL AFTER granted_at','SELECT 1') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='student_course_access' AND COLUMN_NAME='expires_at');
+PREPARE add_access_expiry_stmt FROM @add_access_expiry;
+EXECUTE add_access_expiry_stmt;
+DEALLOCATE PREPARE add_access_expiry_stmt;
+-- Backfill valid historical grants from their original grant date; unknown free-text durations remain visible for admin correction.
+UPDATE student_course_access a
+JOIN courses c ON c.id=a.course_id
+SET a.expires_at = CASE
+ WHEN LOWER(TRIM(c.duration_label)) REGEXP '^[1-9][0-9]{0,2}[[:space:]]*days?$' THEN TIMESTAMPADD(DAY, CAST(REGEXP_SUBSTR(TRIM(c.duration_label),'^[0-9]+') AS UNSIGNED), a.granted_at)
+ WHEN LOWER(TRIM(c.duration_label)) REGEXP '^[1-9][0-9]{0,2}[[:space:]]*weeks?$' THEN TIMESTAMPADD(WEEK, CAST(REGEXP_SUBSTR(TRIM(c.duration_label),'^[0-9]+') AS UNSIGNED), a.granted_at)
+ WHEN LOWER(TRIM(c.duration_label)) REGEXP '^[1-9][0-9]{0,2}[[:space:]]*months?$' THEN TIMESTAMPADD(MONTH, CAST(REGEXP_SUBSTR(TRIM(c.duration_label),'^[0-9]+') AS UNSIGNED), a.granted_at)
+ WHEN LOWER(TRIM(c.duration_label)) REGEXP '^[1-9][0-9]{0,2}[[:space:]]*years?$' THEN TIMESTAMPADD(YEAR, CAST(REGEXP_SUBSTR(TRIM(c.duration_label),'^[0-9]+') AS UNSIGNED), a.granted_at)
+ ELSE a.granted_at END
+WHERE a.expires_at IS NULL;
+SET @add_access_expiry_index = (SELECT IF(COUNT(*)=0,'ALTER TABLE student_course_access ADD INDEX idx_access_expiry(student_id,status,expires_at)','SELECT 1') FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='student_course_access' AND INDEX_NAME='idx_access_expiry');
+PREPARE add_access_expiry_index_stmt FROM @add_access_expiry_index;
+EXECUTE add_access_expiry_index_stmt;
+DEALLOCATE PREPARE add_access_expiry_index_stmt;
 CREATE TABLE IF NOT EXISTS payments (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, student_id BIGINT UNSIGNED NOT NULL, course_id BIGINT UNSIGNED NOT NULL,
  amount DECIMAL(10,2) NOT NULL, currency CHAR(3) NOT NULL DEFAULT 'PKR', transaction_reference VARCHAR(190) NOT NULL,

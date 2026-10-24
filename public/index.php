@@ -14,6 +14,7 @@ foreach (
         '/app/Core/RateLimiter.php',
         '/app/Core/AuthMiddleware.php',
         '/app/Services/MailService.php',
+        '/app/Services/CourseDuration.php',
         '/app/Services/AuthService.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
@@ -107,6 +108,7 @@ $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::clas
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
 $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
+$router->post('/admin/students/status', [\App\Controllers\StudentManagementController::class, 'setStatus']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
 $router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
@@ -123,6 +125,7 @@ $router->post('/admin/quizzes/save', [\App\Controllers\QuizController::class, 's
 $router->post('/admin/quizzes/questions/save', [\App\Controllers\QuizController::class, 'saveQuestion']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
+$router->post('/admin/courses/delete', [\App\Controllers\CourseAdminController::class, 'delete']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);
 $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::class, 'access']);
 $router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);

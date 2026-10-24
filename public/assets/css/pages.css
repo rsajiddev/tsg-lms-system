@@ -4137,7 +4137,7 @@ body.dashboard-shell>main.dashboard-container {
 .student-filter-form {display:grid;grid-template-columns:minmax(220px,1fr) minmax(170px,.55fr) auto auto;align-items:end;gap:12px;margin:22px 0}
 .student-filter-form .admin-label {min-width:0}
 .student-filter-form .admin-input,.student-filter-form .admin-select {width:100%;min-width:0}
-.student-directory-table {min-width:900px}
+.student-directory-table {min-width:1060px}
 .student-directory-table td:first-child strong,.student-directory-table td:first-child small {display:block}
 .student-directory-table td:first-child small {margin-top:4px;color:#718096;overflow-wrap:anywhere}
 .student-status-badge,.student-event-badge {display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:750;white-space:nowrap}
@@ -4156,6 +4156,11 @@ body.dashboard-shell>main.dashboard-container {
 .student-activity-panel h3 {margin:0 0 14px;color:#17233d;font-size:16px}
 .student-activity-panel h3 small {display:block;margin-top:5px;color:#718096;font-size:12px;font-weight:500}
 .student-activity-table {min-width:560px}
+.student-status-form {margin:0}
+.student-status-form .button {min-height:36px;padding:7px 11px;font-size:12px;white-space:nowrap}
+.student-status-note {color:#718096;font-size:12px}
+.student-management-page .button-danger {border-color:#fecaca;background:#fff1f2;color:#b42318}
+.student-management-page .button-danger:hover {border-color:#fda4af;background:#ffe4e6;color:#991b1b}
 @media(max-width:760px) {
   .student-filter-form {grid-template-columns:minmax(0,1fr);align-items:stretch}
   .student-filter-form .button {width:100%}
@@ -5688,6 +5693,10 @@ body.dashboard-shell>main.dashboard-container {
   background: #eff6ff;
   color: #1e40af;
 }
+
+.admin-delete-trigger {color:#b42318;cursor:pointer;font-family:inherit}
+.admin-delete-trigger:hover {border-color:#fecaca;background:#fff1f2;color:#991b1b}
+.admin-table-actions form {display:inline-flex;margin:0 0 0 6px}
 
 /* --- Course editor modal ------------------------------------ */
 

@@ -10,6 +10,7 @@ $statusFilter = is_string($statusFilter ?? null) ? $statusFilter : 'all';
 $page = max(1, (int) ($page ?? 1));
 $pages = max(1, (int) ($pages ?? 1));
 $selectedStudent = is_array($selectedStudent ?? null) ? $selectedStudent : null;
+$message = is_string($message ?? null) ? $message : null;
 $queryUrl = static function (array $overrides = []) use ($search, $statusFilter): string {
     return http_build_query(array_merge(['q' => $search, 'status' => $statusFilter], $overrides));
 };
@@ -23,6 +24,8 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
             <p>Review student accounts and recent sign-in activity.</p>
         </div>
     </header>
+
+    <?php if ($message !== null && $message !== ''): ?><div class="admin-alert admin-alert-success" role="status"><?= Security::escape($message) ?></div><?php endif; ?>
 
     <?php if (empty($loginHistoryAvailable)): ?>
         <div class="student-schema-notice" role="status"><strong>Login history needs its database table.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. The student directory is available now; login totals and activity will appear after import.</span></div>
@@ -108,6 +111,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                             <th>Last login</th>
                             <th>Successful logins</th>
                             <th>Failed attempts</th>
+                            <th>Account access</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -119,6 +123,12 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                                 <td><?= Security::escape($student['last_login_at'] ?: 'Never') ?></td>
                                 <td><?= $student['successful_logins'] === null ? '—' : number_format((int) $student['successful_logins']) ?></td>
                                 <td><?= $student['failed_logins'] === null ? '—' : number_format((int) $student['failed_logins']) ?></td>
+                                <td><?php if (in_array($student['status'], ['active', 'suspended'], true)): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/status" class="student-status-form" onsubmit="return confirm('<?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?> this student account?')">
+                                        <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+                                        <input type="hidden" name="student_id" value="<?= (int) $student['id'] ?>">
+                                        <input type="hidden" name="status" value="<?= $student['status'] === 'active' ? 'suspended' : 'active' ?>">
+                                        <button class="button <?= $student['status'] === 'active' ? 'button-danger' : 'button-secondary' ?>" type="submit"><?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?></button>
+                                    </form><?php else: ?><span class="student-status-note">Available after verification</span><?php endif; ?></td>
                                 <td><a class="student-activity-link" href="<?= Security::escape($baseUrl) ?>/admin/students?<?= Security::escape($queryUrl(['student_id' => (int) $student['id'], 'page' => $page])) ?>">View activity</a></td>
                             </tr><?php endforeach; ?>
                     </tbody>
