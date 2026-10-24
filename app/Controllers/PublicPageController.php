@@ -56,7 +56,7 @@ final class PublicPageController
                  ORDER BY c.created_at DESC, c.id DESC"
             );
             $courses = $statement->fetchAll();
-        } catch (PDOException|\RuntimeException $exception) {
+        } catch (PDOException | \RuntimeException $exception) {
             error_log('[CATALOGUE] Unable to load published courses: ' . $exception->getMessage());
             $catalogueAvailable = false;
         }

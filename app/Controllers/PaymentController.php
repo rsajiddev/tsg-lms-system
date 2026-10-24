@@ -45,8 +45,11 @@ final class PaymentController
         $flash = $_SESSION['_flash'] ?? null;
         if (is_string($flash)) $flash = ['type' => 'success', 'text' => $flash];
         View::render('payments/form', [
-            'title' => 'Submit course payment', 'user' => $student, 'course' => $course,
-            'hasPendingPayment' => (bool) $pending->fetchColumn(), 'payments' => $history->fetchAll(),
+            'title' => 'Submit course payment',
+            'user' => $student,
+            'course' => $course,
+            'hasPendingPayment' => (bool) $pending->fetchColumn(),
+            'payments' => $history->fetchAll(),
             'paymentDetails' => $paymentDetails,
             'message' => is_array($flash) ? ($flash['text'] ?? null) : null,
             'messageType' => is_array($flash) ? ($flash['type'] ?? 'success') : 'success',
@@ -167,16 +170,28 @@ final class PaymentController
         $db = Database::connection();
         $sql = 'SELECT receipt_path FROM payments WHERE id=?';
         $params = [$paymentId];
-        if ($user['role'] === 'student') { $sql .= ' AND student_id=?'; $params[] = (int) $user['id']; }
+        if ($user['role'] === 'student') {
+            $sql .= ' AND student_id=?';
+            $params[] = (int) $user['id'];
+        }
         $stmt = $db->prepare($sql . ' LIMIT 1');
         $stmt->execute($params);
         $relative = $stmt->fetchColumn();
-        if (!is_string($relative) || !preg_match('#^receipts/[a-f0-9]{48}\.(pdf|jpg|png|webp)$#', $relative)) { http_response_code(404); return; }
+        if (!is_string($relative) || !preg_match('#^receipts/[a-f0-9]{48}\.(pdf|jpg|png|webp)$#', $relative)) {
+            http_response_code(404);
+            return;
+        }
         $root = realpath(BASE_PATH . '/storage/uploads/private/receipts');
         $file = $root === false ? false : realpath($root . '/' . basename($relative));
-        if ($root === false || $file === false || !str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !is_file($file)) { http_response_code(404); return; }
+        if ($root === false || $file === false || !str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !is_file($file)) {
+            http_response_code(404);
+            return;
+        }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file) ?: 'application/octet-stream';
-        if (!in_array($mime, ['application/pdf','image/jpeg','image/png','image/webp'], true)) { http_response_code(404); return; }
+        if (!in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true)) {
+            http_response_code(404);
+            return;
+        }
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . (string) filesize($file));
         header('Content-Disposition: attachment; filename="payment-receipt-' . $paymentId . '.' . pathinfo($file, PATHINFO_EXTENSION) . '"');
@@ -192,7 +207,7 @@ final class PaymentController
         }
         if ((int) $upload['size'] < 1 || (int) $upload['size'] > self::MAX_RECEIPT_BYTES) throw new RuntimeException('Receipt files must be no larger than 5 MB.');
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file((string) $upload['tmp_name']);
-        $extensions = ['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+        $extensions = ['application/pdf' => 'pdf', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
         if (!is_string($mime) || !isset($extensions[$mime])) throw new RuntimeException('Receipt must be a PDF, JPG, PNG, or WebP file.');
         $directory = BASE_PATH . '/storage/uploads/private/receipts';
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) throw new RuntimeException('Private receipt storage is unavailable.');
@@ -200,7 +215,7 @@ final class PaymentController
         $absolute = $directory . '/' . $filename;
         if (!move_uploaded_file((string) $upload['tmp_name'], $absolute)) throw new RuntimeException('The receipt could not be saved. Try again.');
         @chmod($absolute, 0600);
-        return ['absolute_path'=>$absolute,'relative_path'=>'receipts/'.$filename];
+        return ['absolute_path' => $absolute, 'relative_path' => 'receipts/' . $filename];
     }
 
     private function paymentError(int $courseId, string $message): never

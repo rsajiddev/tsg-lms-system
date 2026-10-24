@@ -2,6 +2,11 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-24 (view data diagnostics)
+
+- Added explicit, guarded local defaults and PHPDoc data shapes to the Admin, Student, learning, and notification views flagged by Intelephense. This makes controller-to-view data contracts visible to the editor and keeps templates safe when optional data is absent.
+- Normalized the learning-course lesson collection as an array before iteration/counting and added the standard CSS `line-clamp` property alongside its WebKit fallback.
+
 ## Unreleased — 2026-10-24 (student directory and login activity)
 
 - Added an Admin-only Students page with parameterized name/email search, account-status filtering, and pagination.

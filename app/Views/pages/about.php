@@ -1,7 +1,11 @@
 <?php
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 ?>
-<section class="page-hero" data-reveal><p class="eyebrow">ABOUT THE ACADEMY</p><h1>Young minds. Real skills. World-class digital solutions.</h1><p>Tech SG Academy is the training arm of Tech SG Studio (SMC-Pvt.) Ltd. — a SECP-registered software company from Faisalabad, Pakistan, serving clients across Pakistan, the UK, the USA, the UAE and Europe.</p></section>
+<section class="page-hero" data-reveal>
+    <p class="eyebrow">ABOUT THE ACADEMY</p>
+    <h1>Young minds. Real skills. World-class digital solutions.</h1>
+    <p>Tech SG Academy is the training arm of Tech SG Studio (SMC-Pvt.) Ltd. — a SECP-registered software company from Faisalabad, Pakistan, serving clients across Pakistan, the UK, the USA, the UAE and Europe.</p>
+</section>
 <section class="stats-band" data-reveal aria-label="Studio highlights">
     <div class="stat-card"><span class="stat-num" data-count="13" data-suffix="+">13+</span><span class="stat-label">Projects delivered by our team</span></div>
     <div class="stat-card"><span class="stat-num" data-count="5" data-suffix="+">5+</span><span class="stat-label">Countries served worldwide</span></div>
@@ -19,7 +23,7 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
     <aside class="studio-card">
         <span class="brand-mark">TSG</span>
         <h2>Tech SG Studio (SMC-Pvt.) Ltd.</h2>
-        <p>Officially incorporated, verified and active with the Securities &amp; Exchange Commission of Pakistan.</p>
+        <p>Officialwly incorporated, verified and active with the Securities &amp; Exchange Commission of Pakistan.</p>
         <div class="secp-list">
             <span>Registered with SECP — Securities &amp; Exchange Commission of Pakistan</span>
             <span>Company type — SMC-Private Limited (SMC-Pvt. Ltd.)</span>
@@ -30,12 +34,29 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
     </aside>
 </section>
 <section class="why-section" data-reveal>
-    <div class="section-heading"><div><p class="eyebrow">OUR VALUES</p><h2>What we stand for</h2></div></div>
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">OUR VALUES</p>
+            <h2>What we stand for</h2>
+        </div>
+    </div>
     <div class="why-grid">
-        <article class="why-card" data-reveal><span class="why-icon" aria-hidden="true">🔥</span><h3>Passionate</h3><p>We love what we do — and it shows in every project we ship and every class we teach.</p></article>
-        <article class="why-card" data-reveal style="--reveal-delay: .06s"><span class="why-icon" aria-hidden="true">💡</span><h3>Innovative</h3><p>Fresh ideas, modern design trends and up-to-date technology in everything we build.</p></article>
-        <article class="why-card" data-reveal style="--reveal-delay: .12s"><span class="why-icon" aria-hidden="true">🤝</span><h3>Reliable</h3><p>We deliver on promises — on agreed deadlines, with free support after delivery.</p></article>
-        <article class="why-card" data-reveal style="--reveal-delay: .18s"><span class="why-icon" aria-hidden="true">📈</span><h3>Growing</h3><p>We learn every day — and our students and clients grow right along with us.</p></article>
+        <article class="why-card" data-reveal><span class="why-icon" aria-hidden="true">🔥</span>
+            <h3>Passionate</h3>
+            <p>We love what we do — and it shows in every project we ship and every class we teach.</p>
+        </article>
+        <article class="why-card" data-reveal style="--reveal-delay: .06s"><span class="why-icon" aria-hidden="true">💡</span>
+            <h3>Innovative</h3>
+            <p>Fresh ideas, modern design trends and up-to-date technology in everything we build.</p>
+        </article>
+        <article class="why-card" data-reveal style="--reveal-delay: .12s"><span class="why-icon" aria-hidden="true">🤝</span>
+            <h3>Reliable</h3>
+            <p>We deliver on promises — on agreed deadlines, with free support after delivery.</p>
+        </article>
+        <article class="why-card" data-reveal style="--reveal-delay: .18s"><span class="why-icon" aria-hidden="true">📈</span>
+            <h3>Growing</h3>
+            <p>We learn every day — and our students and clients grow right along with us.</p>
+        </article>
     </div>
 </section>
 <section class="content-split" data-reveal>
@@ -44,10 +65,18 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
         <h2>Simple, transparent and stress-free.</h2>
         <p>Every Academy course — and every client project behind it — follows the same four-step process.</p>
         <ul class="process-list">
-            <li><span class="process-num">01</span><span><strong>Discuss &amp; Plan</strong><p>We listen to your requirements and plan a clear roadmap.</p></span></li>
-            <li><span class="process-num">02</span><span><strong>Design</strong><p>Modern, clean work tailored to the brand and the goal.</p></span></li>
-            <li><span class="process-num">03</span><span><strong>Develop</strong><p>Clean, well-structured code built by our team.</p></span></li>
-            <li><span class="process-num">04</span><span><strong>Launch &amp; Support</strong><p>We launch, test and provide free support after delivery.</p></span></li>
+            <li><span class="process-num">01</span><span><strong>Discuss &amp; Plan</strong>
+                    <p>We listen to your requirements and plan a clear roadmap.</p>
+                </span></li>
+            <li><span class="process-num">02</span><span><strong>Design</strong>
+                    <p>Modern, clean work tailored to the brand and the goal.</p>
+                </span></li>
+            <li><span class="process-num">03</span><span><strong>Develop</strong>
+                    <p>Clean, well-structured code built by our team.</p>
+                </span></li>
+            <li><span class="process-num">04</span><span><strong>Launch &amp; Support</strong>
+                    <p>We launch, test and provide free support after delivery.</p>
+                </span></li>
         </ul>
     </div>
     <aside class="studio-card">

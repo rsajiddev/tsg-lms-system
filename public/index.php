@@ -21,6 +21,7 @@ foreach (
         '/app/Controllers/AuthController.php',
         '/app/Controllers/DashboardController.php',
         '/app/Controllers/LearningController.php',
+        '/app/Controllers/StudentPortalController.php',
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/PaymentController.php',
@@ -100,6 +101,10 @@ $router->get('/learning/quizzes', [\App\Controllers\QuizController::class, 'cour
 $router->get('/learning/assignments', [\App\Controllers\AssignmentController::class, 'studentIndex']);
 $router->post('/learning/assignments/submit', [\App\Controllers\AssignmentController::class, 'submit']);
 $router->get('/learning/assignments/file', [\App\Controllers\AssignmentController::class, 'file']);
+$router->get('/student/courses', [\App\Controllers\StudentPortalController::class, 'courses']);
+$router->get('/student/payments', [\App\Controllers\StudentPortalController::class, 'payments']);
+$router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
+$router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
 $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);

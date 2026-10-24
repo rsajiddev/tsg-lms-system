@@ -14,7 +14,7 @@ if ($appBasePath !== '' && str_starts_with($requestPath, $appBasePath)) {
 }
 $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
-$dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
+$dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
 ?>
 <!doctype html>
@@ -35,9 +35,11 @@ $dashboardRole = (string)($currentUser['role'] ?? 'student');
 <body<?= $dashboardArea ? ' class="dashboard-shell"' : '' ?>>
     <?php if ($dashboardArea): ?>
         <aside class="dashboard-sidebar" id="dashboard-sidebar" aria-label="Dashboard navigation">
-            <a class="dashboard-sidebar-brand" href="<?= Security::escape($baseUrl) ?>/dashboard"><span class="brand-mark">TSG</span><span>Tech SG<small><?= $dashboardRole === 'admin' ? 'ADMIN' : 'ACADEMY' ?></small></span></a>
-            <nav class="dashboard-side-nav" aria-label="Workspace">
+            <div class="dashboard-sidebar-head">
+                <a class="dashboard-sidebar-brand" href="<?= Security::escape($baseUrl) ?>/dashboard"><span class="brand-mark">TSG</span><span>Tech SG<small><?= $dashboardRole === 'admin' ? 'ADMIN' : 'ACADEMY' ?></small></span></a>
                 <span class="dashboard-nav-caption">WORKSPACE</span>
+            </div>
+            <nav class="dashboard-side-nav" aria-label="Workspace">
                 <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard"><span>01</span>Overview</a>
                 <?php if ($dashboardRole === 'admin'): ?>
                     <a<?= $navClass('/admin/courses') ?> href="<?= Security::escape($baseUrl) ?>/admin/courses"><span>02</span>Manage courses</a>
@@ -49,11 +51,11 @@ $dashboardRole = (string)($currentUser['role'] ?? 'student');
                     <a<?= $navClass('/admin/reviews') ?> href="<?= Security::escape($baseUrl) ?>/admin/reviews"><span>08</span>Review moderation</a>
                     <a<?= $navClass('/admin/settings') ?> href="<?= Security::escape($baseUrl) ?>/admin/settings"><span>09</span>Security settings</a>
                 <?php else: ?>
-                    <a<?= in_array($activePath, ['/learning', '/learning/lesson'], true) ? ' class="active"' : '' ?> href="<?= Security::escape($baseUrl) ?>/dashboard#my-courses"><span>02</span>My courses</a>
-                    <a href="<?= Security::escape($baseUrl) ?>/courses"><span>03</span>Course catalogue</a>
-                    <a<?= str_starts_with($activePath, '/payments') ? ' class="active"' : '' ?> href="<?= Security::escape($baseUrl) ?>/dashboard#payments"><span>04</span>Payments</a>
-                    <a href="<?= Security::escape($baseUrl) ?>/dashboard#quizzes"><span>05</span>Quizzes &amp; results</a>
-                    <a href="<?= Security::escape($baseUrl) ?>/dashboard#assignments"><span>06</span>Assignments</a>
+                    <a<?= in_array($activePath, ['/student/courses', '/learning', '/learning/lesson'], true) ? ' class="active"' : '' ?> href="<?= Security::escape($baseUrl) ?>/student/courses"><span>02</span>My courses</a>
+                    <a<?= $navClass('/courses') ?> href="<?= Security::escape($baseUrl) ?>/courses"><span>03</span>Course catalogue</a>
+                    <a<?= $navClass('/student/payments') ?> href="<?= Security::escape($baseUrl) ?>/student/payments"><span>04</span>Payments</a>
+                    <a<?= $navClass('/student/quizzes') ?> href="<?= Security::escape($baseUrl) ?>/student/quizzes"><span>05</span>Quizzes &amp; results</a>
+                    <a<?= $navClass('/student/assignments') ?> href="<?= Security::escape($baseUrl) ?>/student/assignments"><span>06</span>Assignments</a>
                     <a<?= str_starts_with($activePath, '/notifications') ? ' class="active"' : '' ?> href="<?= Security::escape($baseUrl) ?>/notifications"><span>07</span>Notifications</a>
                 <?php endif; ?>
             </nav>

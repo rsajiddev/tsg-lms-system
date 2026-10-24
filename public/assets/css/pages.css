@@ -3146,7 +3146,8 @@ html.js [data-reveal].is-visible.dash-card:hover {
   color: #94a3b8;
   font-size: 11px;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .dashboard-empty {
@@ -3487,29 +3488,65 @@ body.dashboard-shell>main.dashboard-container {
   padding: 26px 18px 20px;
   border-right: 1px solid #e5ebf4;
   background: #fff;
-  overflow-x: hidden;
+  overflow: hidden
+}
+
+/* The brand block and the logout card stay pinned; only the nav links travel.
+   The scroll box is pulled under both ends with negative margins and pushed
+   back into place with equal padding, so links slide behind the WORKSPACE
+   caption when scrolled up and fade under the logout card when scrolled down. */
+.dashboard-sidebar-head {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  background: #fff
+}
+
+.dashboard-sidebar-head::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(180deg,#fff,#fff0)
+}
+
+.dashboard-sidebar-brand {display:flex;align-items:center;gap:12px;padding:0 10px 22px;color:var(--navy);font-size:17px;font-weight:850;text-decoration:none;letter-spacing:-.03em}
+.dashboard-sidebar-brand .brand-mark {width:42px;height:42px;flex:0 0 auto}
+.dashboard-sidebar-brand small {display:block;margin-top:3px;color:#94a3b8;font-size:9px;letter-spacing:.16em}
+.dashboard-side-nav {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: -34px 0 -30px;
+  padding: 34px 0 30px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch
 }
-
-.dashboard-sidebar::-webkit-scrollbar {width:6px}
-.dashboard-sidebar::-webkit-scrollbar-thumb {border-radius:999px;background:#cbd5e1}
-.dashboard-sidebar::-webkit-scrollbar-track {background:transparent}
-
-.dashboard-sidebar-brand {display:flex;align-items:center;gap:12px;padding:0 10px 28px;color:var(--navy);font-size:17px;font-weight:850;text-decoration:none;letter-spacing:-.03em}
-.dashboard-sidebar-brand .brand-mark {width:42px;height:42px;flex:0 0 auto}
-.dashboard-sidebar-brand small {display:block;margin-top:3px;color:#94a3b8;font-size:9px;letter-spacing:.16em}
-.dashboard-side-nav {display:grid;gap:5px;align-content:start}
+.dashboard-side-nav::-webkit-scrollbar {width:6px}
+.dashboard-side-nav::-webkit-scrollbar-thumb {border-radius:999px;background:#cbd5e1}
+.dashboard-side-nav::-webkit-scrollbar-track {background:transparent}
 .dashboard-nav-caption {padding:6px 12px 8px;color:#9aa8bc;font-size:9px;font-weight:850;letter-spacing:.16em}
 .dashboard-side-nav a {display:flex;min-width:0;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:#64748b;font-size:13px;font-weight:700;text-decoration:none;transition:background .18s ease,color .18s ease}
 .dashboard-side-nav a span {display:grid;width:28px;height:28px;flex:0 0 auto;place-items:center;border-radius:9px;background:#f1f5fb;color:#8a9ab2;font-size:9px;font-weight:850}
 .dashboard-side-nav a:hover {background:#f5f8ff;color:var(--blue-dark)}
 .dashboard-side-nav a.active {background:#eff5ff;color:var(--blue-dark)}
 .dashboard-side-nav a.active span {background:var(--blue);color:#fff}
-.dashboard-sidebar-bottom {margin-top:auto}
+.dashboard-sidebar-bottom {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 26px;
+  background: linear-gradient(180deg,#fff0,#fff 34%)
+}
 .dashboard-logout-card {position:relative;overflow:hidden;padding:20px 17px 16px;border-radius:18px;background:linear-gradient(145deg,#2563eb 0%,#4f46e5 58%,#6d28d9 100%);color:#fff;box-shadow:0 14px 28px #4338ca2b}
 .dashboard-logout-mark {display:grid;width:34px;height:34px;margin-bottom:18px;place-items:center;border:1px solid #ffffff55;border-radius:11px;background:#ffffff1e;font-size:10px;font-weight:900}
 .dashboard-logout-card strong {display:block;font-size:14px}

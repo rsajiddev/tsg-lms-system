@@ -25,8 +25,8 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
             <p class="eyebrow"><?= $user['role'] === 'admin' ? 'ADMIN WORKSPACE' : 'YOUR LEARNING SPACE' ?></p>
             <h1>Welcome, <?= $escape($user['name'] ?? 'User') ?></h1>
             <p><?= $user['role'] === 'admin'
-                ? 'A live overview of students, courses, payments, and learning activity.'
-                : 'Your courses, payment updates, quizzes, and learning progress in one place.' ?></p>
+                    ? 'A live overview of students, courses, payments, and learning activity.'
+                    : 'Your courses, payment updates, quizzes, and learning progress in one place.' ?></p>
         </div>
     </div>
 
@@ -40,26 +40,65 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
 
         <div class="dashboard-columns">
             <section class="dashboard-panel dashboard-searchable" id="payments">
-                <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT ACTIVITY</p><h2>Recent payments</h2></div><span class="dashboard-live-label"><i></i> Live data</span></div>
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">PAYMENT ACTIVITY</p>
+                        <h2>Recent payments</h2>
+                    </div><span class="dashboard-live-label"><i></i> Live data</span>
+                </div>
                 <?php if (($admin['recentPayments'] ?? []) === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">₨</span><div><h3>No payments yet</h3><p>Student payment submissions will appear here when they are recorded.</p></div></div>
+                    <div class="dashboard-empty"><span class="dashboard-empty-icon">₨</span>
+                        <div>
+                            <h3>No payments yet</h3>
+                            <p>Student payment submissions will appear here when they are recorded.</p>
+                        </div>
+                    </div>
                 <?php else: ?>
-                    <div class="dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>Student / course</th><th>Amount</th><th>Status</th><th>Received</th></tr></thead><tbody>
-                        <?php foreach ($admin['recentPayments'] as $payment): ?>
-                            <tr><td><strong><?= $escape($payment['student_name']) ?></strong><small><?= $escape($payment['course_title']) ?></small></td><td><?= $money($payment['amount'], $payment['currency']) ?></td><td><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></td><td><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></td></tr>
-                        <?php endforeach; ?>
-                    </tbody></table></div>
+                    <div class="dashboard-table-wrap">
+                        <table class="dashboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Student / course</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Received</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($admin['recentPayments'] as $payment): ?>
+                                    <tr>
+                                        <td><strong><?= $escape($payment['student_name']) ?></strong><small><?= $escape($payment['course_title']) ?></small></td>
+                                        <td><?= $money($payment['amount'], $payment['currency']) ?></td>
+                                        <td><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></td>
+                                        <td><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </section>
 
             <section class="dashboard-panel dashboard-searchable" id="quizzes">
-                <div class="dashboard-panel-heading"><div><p class="eyebrow">ASSESSMENT ACTIVITY</p><h2>Recent quiz attempts</h2></div></div>
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">ASSESSMENT ACTIVITY</p>
+                        <h2>Recent quiz attempts</h2>
+                    </div>
+                </div>
                 <?php if (($admin['recentAttempts'] ?? []) === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span><div><h3>No quiz attempts yet</h3><p>Student attempts and results will show here after quizzes are available.</p></div></div>
+                    <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span>
+                        <div>
+                            <h3>No quiz attempts yet</h3>
+                            <p>Student attempts and results will show here after quizzes are available.</p>
+                        </div>
+                    </div>
                 <?php else: ?>
                     <div class="dashboard-list">
                         <?php foreach ($admin['recentAttempts'] as $attempt): ?>
-                            <article class="dashboard-list-row"><span class="dashboard-list-icon">Q</span><div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['student_name']) ?> · <?= $escape($attempt['course_title']) ?></small></div><span class="dashboard-status status-<?= $escape($attempt['status']) ?>"><?= $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></span></article>
+                            <article class="dashboard-list-row"><span class="dashboard-list-icon">Q</span>
+                                <div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['student_name']) ?> · <?= $escape($attempt['course_title']) ?></small></div><span class="dashboard-status status-<?= $escape($attempt['status']) ?>"><?= $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></span>
+                            </article>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
@@ -77,9 +116,19 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
 
         <div class="dashboard-columns">
             <section class="dashboard-panel dashboard-searchable" id="my-courses">
-                <div class="dashboard-panel-heading"><div><p class="eyebrow">YOUR ENROLMENT</p><h2>My courses</h2></div><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a></div>
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">YOUR ENROLMENT</p>
+                        <h2>My courses</h2>
+                    </div><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a>
+                </div>
                 <?php if (($student['courses'] ?? []) === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span><div><h3>Your learning starts here</h3><p>You do not have a course access grant yet. Browse the catalogue to explore available courses.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Explore published courses →</a></div></div>
+                    <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>
+                        <div>
+                            <h3>Your learning starts here</h3>
+                            <p>You do not have a course access grant yet. Browse the catalogue to explore available courses.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Explore published courses →</a>
+                        </div>
+                    </div>
                 <?php else: ?>
                     <div class="dashboard-course-list">
                         <?php foreach ($student['courses'] as $course):
@@ -104,65 +153,110 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
 
             <div class="dashboard-side-stack">
                 <section class="dashboard-panel dashboard-searchable" id="payments">
-                    <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT HISTORY</p><h2>Recent payments</h2></div></div>
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">PAYMENT HISTORY</p>
+                            <h2>Recent payments</h2>
+                        </div>
+                    </div>
                     <?php if (($student['payments'] ?? []) === []): ?>
-                        <div class="dashboard-compact-empty"><p>No payment submissions have been recorded.</p><a href="<?= $escape($baseUrl) ?>/courses">View courses →</a></div>
+                        <div class="dashboard-compact-empty">
+                            <p>No payment submissions have been recorded.</p><a href="<?= $escape($baseUrl) ?>/courses">View courses →</a>
+                        </div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['payments'] as $payment): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">₨</span><div class="dashboard-list-copy"><strong><?= $escape($payment['course_title']) ?></strong><small><?= $money($payment['amount'], $payment['currency']) ?> · <?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?><?php if (!empty($payment['receipt_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download receipt</a><?php endif; ?></div><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">₨</span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($payment['course_title']) ?></strong><small><?= $money($payment['amount'], $payment['currency']) ?> · <?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?><?php if (!empty($payment['receipt_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download receipt</a><?php endif; ?></div><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </section>
 
                 <section class="dashboard-panel dashboard-searchable" id="quizzes">
-                    <div class="dashboard-panel-heading"><div><p class="eyebrow">COURSE ASSESSMENTS</p><h2>Available quizzes</h2></div></div>
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">COURSE ASSESSMENTS</p>
+                            <h2>Available quizzes</h2>
+                        </div>
+                    </div>
                     <?php if (($student['quizzes'] ?? []) === []): ?>
-                        <div class="dashboard-compact-empty"><p>No released quizzes are available for your courses right now.</p></div>
+                        <div class="dashboard-compact-empty">
+                            <p>No released quizzes are available for your courses right now.</p>
+                        </div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['quizzes'] as $quiz): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $quiz['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($quiz['title']) ?></strong><small><?= $escape($quiz['course_title']) ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int)$quiz['course_id'] ?>">Open quiz</a></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $quiz['week_number'] ?></span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($quiz['title']) ?></strong><small><?= $escape($quiz['course_title']) ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int)$quiz['course_id'] ?>">Open quiz</a>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </section>
 
                 <section class="dashboard-panel dashboard-searchable" id="results">
-                    <div class="dashboard-panel-heading"><div><p class="eyebrow">YOUR RESULTS</p><h2>Quiz history</h2></div></div>
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">YOUR RESULTS</p>
+                            <h2>Quiz history</h2>
+                        </div>
+                    </div>
                     <?php if (($student['attempts'] ?? []) === []): ?>
-                        <div class="dashboard-compact-empty"><p>Your quiz attempts and results will appear here.</p></div>
+                        <div class="dashboard-compact-empty">
+                            <p>Your quiz attempts and results will appear here.</p>
+                        </div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['attempts'] as $attempt): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $attempt['week_number'] ?></span><div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['course_title']) ?> · <?= $attempt['percentage'] !== null ? number_format((float) $attempt['percentage'], 1) . '%' : $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></small></div><?php if ($attempt['result'] !== null): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quiz/result?attempt_id=<?= (int)$attempt['id'] ?>"><?= $escape(ucfirst($attempt['result'])) ?> · View</a><?php endif; ?></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q<?= (int) $attempt['week_number'] ?></span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['course_title']) ?> · <?= $attempt['percentage'] !== null ? number_format((float) $attempt['percentage'], 1) . '%' : $escape(ucwords(str_replace('_', ' ', $attempt['status']))) ?></small></div><?php if ($attempt['result'] !== null): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quiz/result?attempt_id=<?= (int)$attempt['id'] ?>"><?= $escape(ucfirst($attempt['result'])) ?> · View</a><?php endif; ?>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </section>
 
                 <section class="dashboard-panel dashboard-searchable" id="assignments">
-                    <div class="dashboard-panel-heading"><div><p class="eyebrow">PRACTICAL COURSE WORK</p><h2>Assignments</h2></div></div>
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">PRACTICAL COURSE WORK</p>
+                            <h2>Assignments</h2>
+                        </div>
+                    </div>
                     <?php if (($student['assignments'] ?? []) === []): ?>
-                        <div class="dashboard-compact-empty"><p>Published assignments for your active courses will appear here.</p></div>
+                        <div class="dashboard-compact-empty">
+                            <p>Published assignments for your active courses will appear here.</p>
+                        </div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['assignments'] as $assignment): ?>
-                                <article class="dashboard-list-row"><span class="dashboard-list-icon">A</span><div class="dashboard-list-copy"><strong><?= $escape($assignment['title']) ?></strong><small><?= $escape($assignment['course_title']) ?><?= !empty($assignment['week_number']) ? ' · Week '.(int)$assignment['week_number'] : '' ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/assignments?course_id=<?= (int)$assignment['course_id'] ?>">Open assignments</a></article>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">A</span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($assignment['title']) ?></strong><small><?= $escape($assignment['course_title']) ?><?= !empty($assignment['week_number']) ? ' · Week ' . (int)$assignment['week_number'] : '' ?></small></div><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/assignments?course_id=<?= (int)$assignment['course_id'] ?>">Open assignments</a>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </section>
 
                 <section class="dashboard-panel dashboard-searchable" id="notifications">
-                    <div class="dashboard-panel-heading"><div><p class="eyebrow">FROM THE ACADEMY</p><h2>Notifications</h2></div></div>
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">FROM THE ACADEMY</p>
+                            <h2>Notifications</h2>
+                        </div>
+                    </div>
                     <?php if (($student['notifications'] ?? []) === []): ?>
-                        <div class="dashboard-compact-empty"><p>You are all caught up. New account and course updates will appear here.</p></div>
+                        <div class="dashboard-compact-empty">
+                            <p>You are all caught up. New account and course updates will appear here.</p>
+                        </div>
                     <?php else: ?>
                         <div class="dashboard-list">
                             <?php foreach ($student['notifications'] as $notification): ?>
-                                <article class="dashboard-list-row dashboard-notification"><span class="dashboard-list-icon">i</span><div class="dashboard-list-copy"><strong><?= $escape($notification['title']) ?></strong><small><?= $escape($notification['body']) ?></small><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$notification['id'] ?>">Read and reply</a></div><time><?= $escape($dateLabel($notification['published_at'] ?? null)) ?></time></article>
+                                <article class="dashboard-list-row dashboard-notification"><span class="dashboard-list-icon">i</span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($notification['title']) ?></strong><small><?= $escape($notification['body']) ?></small><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$notification['id'] ?>">Read and reply</a></div><time><?= $escape($dateLabel($notification['published_at'] ?? null)) ?></time>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>

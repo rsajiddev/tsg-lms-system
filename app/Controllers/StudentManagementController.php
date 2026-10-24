@@ -74,10 +74,16 @@ final class StudentManagementController
         }
 
         View::render('admin/students', [
-            'title' => 'Student management', 'user' => $admin,
-            'students' => $studentsQuery->fetchAll(), 'search' => $search, 'statusFilter' => $status,
-            'page' => $page, 'pages' => $pages, 'totalStudents' => $total,
-            'selectedStudent' => $selectedStudent, 'activity' => $activity,
+            'title' => 'Student management',
+            'user' => $admin,
+            'students' => $studentsQuery->fetchAll(),
+            'search' => $search,
+            'statusFilter' => $status,
+            'page' => $page,
+            'pages' => $pages,
+            'totalStudents' => $total,
+            'selectedStudent' => $selectedStudent,
+            'activity' => $activity,
             'loginHistoryAvailable' => $loginHistoryAvailable,
         ]);
     }

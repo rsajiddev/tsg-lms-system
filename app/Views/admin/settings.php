@@ -85,7 +85,7 @@ $message = $message ?? null;
                                 continue;
                             }
                             [$label, $min, $max, $unit, $hint] = $settings[$key];
-                            ?>
+                        ?>
                             <div class="admin-setting-row">
                                 <div class="admin-setting-row-text">
                                     <span class="admin-label"><?= $escape($label) ?></span>

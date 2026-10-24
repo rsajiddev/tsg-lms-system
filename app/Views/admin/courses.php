@@ -275,12 +275,18 @@ $totalStudents = count($students);
         <div class="admin-card-header">
             <div class="admin-card-title-group">
                 <div class="admin-card-icon violet"><span aria-hidden="true">▤</span></div>
-                <div class="admin-card-titles"><h2>Lessons &amp; publishing</h2><p>Edit lesson content or change whether students can access it.</p></div>
+                <div class="admin-card-titles">
+                    <h2>Lessons &amp; publishing</h2>
+                    <p>Edit lesson content or change whether students can access it.</p>
+                </div>
             </div>
             <span class="count-pill"><?= count($lessons) ?> <?= count($lessons) === 1 ? 'lesson' : 'lessons' ?></span>
         </div>
         <?php if ($lessons === []): ?>
-            <div class="admin-empty-state"><h3>No lessons yet</h3><p>Create a lesson above to start building course content.</p></div>
+            <div class="admin-empty-state">
+                <h3>No lessons yet</h3>
+                <p>Create a lesson above to start building course content.</p>
+            </div>
         <?php else: ?>
             <div class="lesson-library-list">
                 <?php foreach ($lessons as $lesson): ?>
@@ -294,7 +300,10 @@ $totalStudents = count($students);
                             <input type="hidden" name="module_title" value="<?= $escape($lesson['module_title']) ?>">
                             <label class="admin-label">Lesson title<input class="admin-input" name="lesson_title" required maxlength="200" value="<?= $escape($lesson['title']) ?>"></label>
                             <label class="admin-label">Lesson content<textarea class="admin-textarea" name="body" rows="5" maxlength="500000"><?= $escape($lesson['body'] ?? '') ?></textarea></label>
-                            <label class="admin-label">Publishing status<select class="admin-select" name="status"><option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option><option value="published" <?= $lesson['status'] === 'published' ? 'selected' : '' ?>>Published</option></select></label>
+                            <label class="admin-label">Publishing status<select class="admin-select" name="status">
+                                    <option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
+                                    <option value="published" <?= $lesson['status'] === 'published' ? 'selected' : '' ?>>Published</option>
+                                </select></label>
                             <button class="button" type="submit">Save lesson changes</button>
                         </form>
                     </details>
@@ -516,22 +525,22 @@ $totalStudents = count($students);
     </section>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var studentSelect = document.getElementById('access-student');
-        var emailInput = document.getElementById('access-student-email');
-        if (studentSelect && emailInput) {
-            var syncStudentEmail = function () {
-                var selected = studentSelect.options[studentSelect.selectedIndex];
-                if (selected && selected.getAttribute('data-email')) {
-                    emailInput.value = selected.getAttribute('data-email');
-                } else {
-                    emailInput.value = '';
-                }
-            };
-            studentSelect.addEventListener('change', syncStudentEmail);
-            syncStudentEmail();
-        }
-    });
+        document.addEventListener('DOMContentLoaded', function() {
+            var studentSelect = document.getElementById('access-student');
+            var emailInput = document.getElementById('access-student-email');
+            if (studentSelect && emailInput) {
+                var syncStudentEmail = function() {
+                    var selected = studentSelect.options[studentSelect.selectedIndex];
+                    if (selected && selected.getAttribute('data-email')) {
+                        emailInput.value = selected.getAttribute('data-email');
+                    } else {
+                        emailInput.value = '';
+                    }
+                };
+                studentSelect.addEventListener('change', syncStudentEmail);
+                syncStudentEmail();
+            }
+        });
     </script>
 </section>
 
@@ -540,7 +549,7 @@ $totalStudents = count($students);
 <?php foreach ($courses as $course):
     $courseId = (int) $course['id'];
     $modalVisibility = strtolower((string) ($course['visibility'] ?? 'draft'));
-    ?>
+?>
     <div class="admin-modal" id="course-edit-<?= $courseId ?>" data-admin-modal role="dialog" aria-modal="true" aria-labelledby="course-edit-<?= $courseId ?>-title">
         <a class="admin-modal-backdrop" href="#admin-course-table" data-admin-modal-close aria-label="Close the course editor"></a>
         <div class="admin-modal-dialog">
