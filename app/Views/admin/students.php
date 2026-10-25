@@ -2,6 +2,21 @@
 
 use App\Core\Security;
 
+/**
+ * View::render() injects these values from StudentManagementController.
+ * @var array<int, array<string, mixed>> $students
+ * @var array<int, array<string, mixed>> $activity
+ * @var string $search
+ * @var string $statusFilter
+ * @var int $page
+ * @var int $pages
+ * @var int $totalStudents
+ * @var array<string, int|string|null> $statusCounts
+ * @var array<string, mixed>|null $selectedStudent
+ * @var array<string, int|string|null> $selectedLoginCounts
+ * @var bool $loginHistoryAvailable
+ * @var string|null $message
+ */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $students = is_array($students ?? null) ? $students : [];
 $activity = is_array($activity ?? null) ? $activity : [];
@@ -18,9 +33,17 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
 };
 ?>
 <section class="dashboard-page student-management-page" data-reveal>
+    <div class="dashboard-topbar">
+        <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
+        <div class="dashboard-breadcrumb"><span>Workspace</span><i>/</i><strong>Students</strong></div>
+        <form class="dashboard-search student-page-search" method="get" action="<?= Security::escape($baseUrl) ?>/admin/students" role="search">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" name="q" value="<?= Security::escape($search) ?>" placeholder="Search student ID, name or email" aria-label="Search students">
+            <input type="hidden" name="status" value="<?= Security::escape($statusFilter) ?>">
+        </form>
+    </div>
     <header class="dashboard-heading">
         <div>
-            <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Students</h1>
             <p>Review student accounts and recent sign-in activity.</p>
@@ -40,22 +63,22 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
         <div class="student-schema-notice" role="status"><strong>Login history needs its database table.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. The student directory is available now; login totals and activity will appear after import.</span></div>
     <?php endif; ?>
 
-    <section class="dashboard-panel" aria-label="Student directory">
-        <div class="dashboard-panel-heading">
-            <div>
+    <section class="dashboard-panel student-directory-panel" aria-label="Student directory">
+        <div class="dashboard-panel-heading student-directory-heading">
+            <div class="student-directory-title">
                 <p class="eyebrow">STUDENT DIRECTORY</p>
                 <h2><?= number_format((int) ($totalStudents ?? 0)) ?> matching student<?= (int) ($totalStudents ?? 0) === 1 ? '' : 's' ?></h2>
-                <p>Login totals include events recorded after this feature is installed.</p>
             </div>
-        </div>
-        <form class="student-filter-form" method="get" action="<?= Security::escape($baseUrl) ?>/admin/students">
-            <label class="admin-label" for="student-search">Find a student<input class="admin-input" id="student-search" name="q" type="search" maxlength="100" value="<?= Security::escape($search) ?>" placeholder="Search student ID, name or email"></label>
-            <label class="admin-label" for="student-status">Account status<select class="admin-select" id="student-status" name="status">
+            <form class="student-status-control" method="get" action="<?= Security::escape($baseUrl) ?>/admin/students">
+                <input type="hidden" name="q" value="<?= Security::escape($search) ?>">
+                <label class="sr-only" for="student-status">Account status</label>
+                <select class="admin-select student-status-filter" id="student-status" name="status" onchange="this.form.submit()">
                     <option value="all" <?= $statusFilter === 'all' ? ' selected' : '' ?>>All statuses</option><?php foreach (['active', 'pending', 'suspended'] as $status): ?><option value="<?= $status ?>" <?= $statusFilter === $status ? ' selected' : '' ?>><?= Security::escape(ucfirst($status)) ?></option><?php endforeach; ?>
-                </select></label>
-            <button class="button" type="submit">Search students</button>
-            <?php if ($search !== '' || $statusFilter !== 'all'): ?><a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/admin/students">Clear</a><?php endif; ?>
-        </form>
+                </select>
+                <?php if ($search !== '' || $statusFilter !== 'all'): ?><a class="button button-secondary student-filter-clear" href="<?= Security::escape($baseUrl) ?>/admin/students">Clear</a><?php endif; ?>
+            </form>
+        </div>
+        <p class="student-directory-hint">Login totals include events recorded after this feature is installed.</p>
         <?php if ($students === []): ?>
             <div class="dashboard-empty">
                 <div>

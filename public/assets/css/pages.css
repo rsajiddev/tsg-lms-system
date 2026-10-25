@@ -4177,19 +4177,20 @@ body.dashboard-shell>main.dashboard-container {
 .student-overview-card small {color:#8a97aa;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
 .student-management-page .dashboard-panel-heading {margin-bottom:18px}
 .student-management-page .dashboard-panel-heading p:last-child {margin:6px 0 0;color:#718096;font-size:13px}
+.sr-only {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .student-filter-form {grid-template-columns:minmax(260px,1fr) minmax(170px,.42fr) auto auto;gap:14px;margin:22px 0;padding:16px;border:1px solid #e7edf5;border-radius:16px;background:#f8faff}
 .student-filter-form .admin-label {display:grid;gap:8px;color:#4b5b73;font-size:12px;font-weight:750}
 .student-filter-form .admin-input,.student-filter-form .admin-select {height:46px;border-radius:12px;background:#fff}
 .student-filter-form>.button,.student-filter-form>a.button {min-height:46px;align-self:end;justify-content:center;white-space:nowrap}
 .student-management-page .admin-table-wrapper {border:1px solid #e5eaf2;border-radius:16px;background:#fff;box-shadow:0 8px 24px #0f172a05}
 .student-directory-table {width:100%;min-width:0;table-layout:fixed;border-collapse:separate;border-spacing:0}
-.student-directory-table th:nth-child(1) {width:17%}
-.student-directory-table th:nth-child(2) {width:18%}
-.student-directory-table th:nth-child(3) {width:15%}
-.student-directory-table th:nth-child(4) {width:15%}
-.student-directory-table th:nth-child(5) {width:12%}
-.student-directory-table th:nth-child(6) {width:10%}
-.student-directory-table th:nth-child(7) {width:13%}
+.student-directory-table th:nth-child(1) {width:16%}
+.student-directory-table th:nth-child(2) {width:16%}
+.student-directory-table th:nth-child(3) {width:14%}
+.student-directory-table th:nth-child(4) {width:14%}
+.student-directory-table th:nth-child(5) {width:10%}
+.student-directory-table th:nth-child(6) {width:9%}
+.student-directory-table th:nth-child(7) {width:21%}
 .student-directory-table th {padding:16px 18px;background:#f7f9fd;color:#8290a5;font-size:10px;letter-spacing:.12em}
 .student-directory-table td {padding:17px 12px;border-bottom:1px solid #edf1f6;color:#35445b;font-size:12px;white-space:normal;overflow-wrap:anywhere}
 .student-directory-table tbody tr:last-child td {border-bottom:0}
@@ -4201,8 +4202,8 @@ body.dashboard-shell>main.dashboard-container {
 .student-avatar {display:grid;width:38px;height:38px;flex:0 0 auto;place-items:center;border:1px solid #dbe6ff;border-radius:13px;background:linear-gradient(145deg,#eef4ff,#e7edff);color:#245eea;font-size:13px;font-weight:850}
 .student-email-cell {max-width:235px;overflow-wrap:anywhere}
 .student-login-count {display:inline-grid;min-width:34px;height:30px;place-items:center;padding:0 9px;border:1px solid #e3eaf4;border-radius:10px;background:#f8fafc;color:#334155;font-weight:800}
-.student-row-actions {white-space:normal}
-.student-row-actions .student-activity-link {display:inline-block;margin:0 8px 5px 0}
+.student-row-actions {display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:nowrap;white-space:nowrap}
+.student-row-actions .student-activity-link {display:inline-flex;margin:0}
 .student-status-form {display:inline-flex;vertical-align:middle}
 .student-action-button {min-height:34px;padding:6px 11px;border:1px solid #fecaca;border-radius:10px;background:#fff5f5;color:#b42318;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
 .student-action-button.is-unblock {border-color:#c9ead8;background:#effaf4;color:#087443}
@@ -4270,6 +4271,71 @@ body.dashboard-shell>main.dashboard-container {
   .student-pagination>div {width:100%}
   .student-pagination .button {flex:1;justify-content:center}
   .student-management-page .dashboard-panel-heading {align-items:flex-start;gap:12px;flex-wrap:wrap}
+}
+
+/* Directory header: title on the left, search + status filters inline on the right. */
+.student-directory-panel .student-directory-heading {display:flex;align-items:center;justify-content:space-between;gap:16px 22px;flex-wrap:wrap;margin:0 0 6px}
+.student-directory-title {min-width:0}
+.student-directory-title h2 {margin:0}
+.student-directory-hint {margin:0 0 16px;color:#8a97aa;font-size:12px}
+.student-filter-form {display:flex;flex-wrap:nowrap;align-items:center;gap:10px;flex:0 1 auto;margin:0;padding:0;border:0;background:none}
+.student-search-field {position:relative;display:flex;flex:1 1 240px;min-width:180px;align-items:center}
+.student-search-icon {position:absolute;left:13px;display:grid;place-items:center;width:17px;height:17px;color:#94a3b8;pointer-events:none}
+.student-search-icon svg {width:17px;height:17px}
+.student-search-input {width:100%;height:44px;padding-left:38px;border-radius:11px;background:#fff;font-size:13px}
+.student-search-input::-webkit-search-cancel-button {-webkit-appearance:none;appearance:none}
+.student-status-filter {flex:0 0 auto;width:auto;min-width:150px;height:44px;border-radius:11px;background-color:#fff;font-size:13px;font-weight:600}
+.student-filter-submit,.student-filter-clear {flex:0 0 auto;height:44px;padding-inline:18px;border-radius:11px;font-size:13px}
+@media(max-width:1200px) {
+  .student-directory-panel .student-directory-heading {align-items:flex-start}
+  .student-filter-form {flex:1 1 100%;flex-wrap:wrap}
+  .student-search-field {flex:1 1 220px}
+}
+@media(max-width:760px) {
+  .student-directory-panel .student-directory-heading {flex-direction:column;align-items:stretch;gap:14px}
+  .student-filter-form {flex-wrap:wrap}
+  .student-search-field {flex:1 1 100%}
+  .student-status-filter {flex:1 1 150px}
+  .student-filter-submit {flex:1 1 auto}
+  .student-filter-clear {flex:0 0 auto}
+}
+
+/* Student search follows the dashboard top bar; directory controls stay with the directory. */
+.student-page-search {width:min(360px,40vw);min-width:220px;margin-left:auto}
+.student-directory-panel .student-directory-heading {display:flex;align-items:center;justify-content:space-between;gap:16px 22px;margin-bottom:8px}
+.student-directory-panel .student-directory-title {flex:0 1 auto}
+.student-status-control {display:flex;align-items:center;gap:10px;margin:0;padding:0;border:0;background:transparent}
+.student-status-control .student-status-filter {width:auto;min-width:160px;height:42px;border-radius:999px;background:#fff}
+.student-status-control .student-filter-clear {min-height:42px}
+.student-directory-panel .student-directory-hint {margin:0 0 16px}
+.student-directory-table {width:100%;min-width:0;table-layout:fixed}
+.student-directory-table th {white-space:normal;line-height:1.45;overflow-wrap:anywhere}
+.student-directory-table th:nth-child(1) {width:14%}
+.student-directory-table th:nth-child(2) {width:15%}
+.student-directory-table th:nth-child(3) {width:16%}
+.student-directory-table th:nth-child(4) {width:16%}
+.student-directory-table th:nth-child(5) {width:11%}
+.student-directory-table th:nth-child(6) {width:8%}
+.student-directory-table th:nth-child(7) {width:21%}
+.student-directory-table td {overflow-wrap:anywhere}
+.student-directory-table td[data-label="Registered"],
+.student-directory-table td[data-label="Last login"] {white-space:nowrap;font-size:11px}
+.student-directory-table .student-row-actions {display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:nowrap;white-space:nowrap}
+.student-directory-table .student-row-actions .student-activity-link {white-space:nowrap}
+@media(max-width:1050px) {
+  .student-page-search {width:min(320px,38vw);min-width:180px}
+  .student-directory-table .student-row-actions {flex-wrap:wrap;white-space:normal}
+  .student-directory-table .student-row-actions .student-activity-link {white-space:normal}
+}
+@media(max-width:760px) {
+  .student-page-search {width:auto;min-width:0;flex:1}
+  .student-directory-panel .student-directory-heading {align-items:flex-start;flex-wrap:wrap}
+  .student-status-control {width:100%;flex-wrap:wrap}
+  .student-status-control .student-status-filter {flex:1;min-width:0}
+  .student-directory-table th:nth-child(n) {width:auto}
+  .student-directory-table td[data-label="Registered"],
+  .student-directory-table td[data-label="Last login"] {white-space:normal;font-size:inherit}
+  .student-directory-table .student-row-actions {display:flex;align-items:center;justify-content:space-between}
 }
 
 .table-course-item {
