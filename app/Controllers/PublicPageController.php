@@ -40,8 +40,9 @@ final class PublicPageController
         $courses = [];
         $catalogueAvailable = true;
         try {
+            $imageColumn = $this->courseImageColumnAvailable() ? 'c.image_path' : 'NULL AS image_path';
             $statement = Database::connection()->query(
-                "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.short_description,
+                "SELECT c.id, c.title, c.slug, c.category, $imageColumn, c.short_description,
                         c.description, c.duration_label, COALESCE(p.currency, c.currency) AS currency,
                         p.recorded_price, p.live_price
                  FROM courses c
@@ -67,5 +68,16 @@ final class PublicPageController
             'catalogueAvailable' => $catalogueAvailable,
             'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
         ]);
+    }
+
+    private function courseImageColumnAvailable(): bool
+    {
+        try {
+            Database::connection()->query('SELECT image_path FROM courses LIMIT 0');
+            return true;
+        } catch (PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
+        }
     }
 }

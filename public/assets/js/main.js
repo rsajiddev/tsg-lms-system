@@ -59,6 +59,26 @@
 
     const revealables = document.querySelectorAll('[data-reveal]');
 
+    const setImageState = (image) => {
+        const frame = image.closest('[data-image-frame]');
+        if (!frame) return;
+        const status = frame.querySelector('.course-image-status');
+        if (image.complete && image.naturalWidth > 0) {
+            frame.classList.add('is-loaded');
+            frame.classList.remove('is-image-error');
+            if (status) status.textContent = '';
+        } else {
+            frame.classList.remove('is-loaded');
+            frame.classList.add('is-image-error');
+            if (status) status.textContent = 'Image unavailable';
+        }
+    };
+    document.querySelectorAll('[data-course-image]').forEach((image) => {
+        image.addEventListener('load', () => setImageState(image), { once: true });
+        image.addEventListener('error', () => setImageState(image), { once: true });
+        if (image.complete) setImageState(image);
+    });
+
     if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver(
             (entries) => {

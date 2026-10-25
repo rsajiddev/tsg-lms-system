@@ -7,6 +7,7 @@ $escape = static fn(mixed $v): string => Security::escape((string) $v);
 $courses = isset($courses) && is_array($courses) ? $courses : [];
 $lessons = isset($lessons) && is_array($lessons) ? $lessons : [];
 $students = isset($students) && is_array($students) ? $students : [];
+$courseImagesAvailable = isset($courseImagesAvailable) && (bool) $courseImagesAvailable;
 $message = $message ?? null;
 
 $totalCourses = count($courses);
@@ -34,6 +35,8 @@ $totalStudents = count($students);
             <span><?= $escape($message) ?></span>
         </div>
     <?php endif; ?>
+
+    <?php if (!$courseImagesAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Course image upload needs a database update.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Course management remains available; image uploads will unlock after the update.</span></div><?php endif; ?>
 
     <!-- Summary KPI Metrics -->
     <div class="admin-stats-grid" aria-label="Course and Enrollment Overview">
@@ -112,7 +115,7 @@ $totalStudents = count($students);
                 </div>
             </div>
 
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form">
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form" enctype="multipart/form-data">
                 <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
 
                 <div class="admin-field">
@@ -151,6 +154,12 @@ $totalStudents = count($students);
                             <option value="hidden">Hidden (Direct URL)</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="admin-field course-image-upload-field">
+                    <label class="admin-label" for="course-image">Course cover image</label>
+                    <input class="admin-input" id="course-image" name="image" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"<?= $courseImagesAvailable ? '' : ' disabled' ?>>
+                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 600 KB. Use a clear landscape image; a course-related image is shown automatically if you leave this empty.</span>
                 </div>
 
                 <div class="admin-form-row">
@@ -554,6 +563,8 @@ $totalStudents = count($students);
 <?php foreach ($courses as $course):
     $courseId = (int) $course['id'];
     $modalVisibility = strtolower((string) ($course['visibility'] ?? 'draft'));
+    $modalImagePath = (string) ($course['image_path'] ?? '');
+    if (!preg_match('~^assets/uploads/courses/[a-f0-9]{32}\.(?:jpg|png|webp)$~', $modalImagePath)) $modalImagePath = '';
 ?>
     <div class="admin-modal" id="course-edit-<?= $courseId ?>" data-admin-modal role="dialog" aria-modal="true" aria-labelledby="course-edit-<?= $courseId ?>-title">
         <a class="admin-modal-backdrop" href="#admin-course-table" data-admin-modal-close aria-label="Close the course editor"></a>
@@ -579,7 +590,7 @@ $totalStudents = count($students);
                 </a>
             </div>
 
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form admin-modal-body">
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form admin-modal-body" enctype="multipart/form-data">
                 <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                 <input type="hidden" name="id" value="<?= $courseId ?>">
 
@@ -638,6 +649,13 @@ $totalStudents = count($students);
                 <div class="admin-field">
                     <label class="admin-label" for="course-edit-<?= $courseId ?>-summary">Card summary</label>
                     <textarea class="admin-textarea" id="course-edit-<?= $courseId ?>-summary" name="short_description" rows="2" maxlength="500" placeholder="Short description shown on home and course cards..."><?= $escape($course['short_description'] ?? '') ?></textarea>
+                </div>
+
+                <div class="admin-field course-image-upload-field">
+                    <label class="admin-label" for="course-edit-<?= $courseId ?>-image">Course cover image</label>
+                    <?php if ($modalImagePath !== ''): ?><img class="course-image-edit-preview" src="<?= $escape($baseUrl) ?>/public/<?= $escape($modalImagePath) ?>" alt="Current cover for <?= $escape($course['title']) ?>" loading="lazy" decoding="async"><?php endif; ?>
+                    <input class="admin-input" id="course-edit-<?= $courseId ?>-image" name="image" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"<?= $courseImagesAvailable ? '' : ' disabled' ?>>
+                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 600 KB. Leave empty to keep the current image.</span>
                 </div>
 
                 <div class="admin-field">

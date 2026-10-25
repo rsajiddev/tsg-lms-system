@@ -62,17 +62,18 @@ final class DashboardController
 
     private function studentOverview(PDO $db, int $studentId): array
     {
+        $imageColumn = $this->courseImageColumnAvailable($db) ? 'c.image_path' : 'NULL AS image_path';
         $courses = $db->prepare(
-            'SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, sca.granted_at,
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
-                     WHERE cm.course_id = c.id AND l.status = \'published\') AS lesson_count,
+                     WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
                      JOIN course_modules cm ON cm.id = l.module_id
                      WHERE lp.student_id = sca.student_id AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
              FROM student_course_access sca
              JOIN courses c ON c.id = sca.course_id
-             WHERE sca.student_id = ? AND sca.status = \'active\' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
-             ORDER BY sca.granted_at DESC, c.title ASC LIMIT 6'
+             WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
+             ORDER BY sca.granted_at DESC, c.title ASC LIMIT 6"
         );
         $courses->execute([$studentId]);
 
@@ -82,6 +83,17 @@ final class DashboardController
             'completedLessonCount' => $this->count($db, 'SELECT COUNT(*) FROM lesson_progress WHERE student_id = ? AND completed_at IS NOT NULL', [$studentId]),
             'courses' => $courses->fetchAll(),
         ];
+    }
+
+    private function courseImageColumnAvailable(PDO $db): bool
+    {
+        try {
+            $db->query('SELECT image_path FROM courses LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
+        }
     }
 
     private function count(PDO $db, string $sql, array $params = []): int

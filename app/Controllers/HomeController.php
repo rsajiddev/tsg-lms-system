@@ -56,7 +56,7 @@ final class HomeController
                 $_SERVER['REMOTE_ADDR'] ?? null,
             ]);
             $this->redirect('/?review=submitted#reviews');
-        } catch (\PDOException|\RuntimeException $exception) {
+        } catch (\PDOException | \RuntimeException $exception) {
             error_log('[REVIEWS] Unable to save review: ' . $exception->getMessage());
             $this->home($values, 'Your review could not be saved right now. Please try again in a moment.');
         }
@@ -88,8 +88,9 @@ final class HomeController
     {
         $courses = [];
         try {
+            $imageColumn = $this->courseImageColumnAvailable() ? 'c.image_path' : 'NULL AS image_path';
             $courses = Database::connection()->query(
-                "SELECT c.id, c.title, c.short_description, c.duration_label, c.category,
+                "SELECT c.id, c.title, c.short_description, c.duration_label, c.category, $imageColumn,
                         p.recorded_price, p.live_price, COALESCE(p.currency, c.currency) AS currency
                  FROM courses c
                  LEFT JOIN (
@@ -102,7 +103,7 @@ final class HomeController
                  WHERE c.visibility = 'published'
                  ORDER BY c.created_at DESC, c.id DESC LIMIT 3"
             )->fetchAll();
-        } catch (\PDOException|\RuntimeException $exception) {
+        } catch (\PDOException | \RuntimeException $exception) {
             error_log('[HOME] Unable to load published courses: ' . $exception->getMessage());
         }
 
@@ -113,7 +114,7 @@ final class HomeController
                  FROM reviews WHERE status = 'approved'
                  ORDER BY created_at DESC, id DESC LIMIT 6"
             )->fetchAll();
-        } catch (\PDOException|\RuntimeException $exception) {
+        } catch (\PDOException | \RuntimeException $exception) {
             error_log('[HOME] Unable to load reviews: ' . $exception->getMessage());
         }
 
@@ -126,6 +127,17 @@ final class HomeController
             'reviewSubmitted' => $reviewSubmitted,
             'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
         ]);
+    }
+
+    private function courseImageColumnAvailable(): bool
+    {
+        try {
+            Database::connection()->query('SELECT image_path FROM courses LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
+        }
     }
 
     private function redirect(string $path): never

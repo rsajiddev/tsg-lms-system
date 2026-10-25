@@ -49,9 +49,11 @@ $grantedLabel = static function (?string $value): string {
                     $lessons = (int) $course['lesson_count'];
                     $completed = (int) $course['completed_lessons'];
                     $progress = $lessons > 0 ? min(100, (int) round(($completed / $lessons) * 100)) : 0;
+                    $courseImageFrameClass = 'dashboard-course-image';
                 ?>
                     <article class="dashboard-course-card">
-                        <div class="dashboard-course-top"><span class="dashboard-course-mark">TSG</span><span class="dashboard-status status-active">Access active</span></div>
+                        <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
+                        <div class="dashboard-course-top"><span class="dashboard-status status-active">Access active</span></div>
                         <p class="dashboard-course-category"><?= $escape($course['category'] ?: 'Academy course') ?></p>
                         <h3><?= $escape($course['title']) ?></h3>
                         <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>

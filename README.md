@@ -9,7 +9,7 @@ PHP 8+ / MySQL / MVC application for XAMPP. The existing public website is prese
 4. Copy `.env.example` to `.env` and configure `APP_URL`, DB values, and approved mail sender/transport settings.
 5. Start Apache/MySQL and open the project URL.
 
-`database/migrations/001_initial_schema.sql` is the single database schema and seed file for fresh installs. Add future schema/table changes there so project setup needs only one SQL import. Configure approved `MAIL_*` SMTP values in the private `.env` to send registration and password-reset OTPs.
+`database/migrations/001_initial_schema.sql` is the canonical schema file for fresh installs and incremental database updates. New schema changes belong in this file; its guarded upgrade statements let an existing database receive additions when the updated file is imported again. Back up an existing database before importing the updated file. Configure approved `MAIL_*` SMTP values in the private `.env` to send registration and password-reset OTPs.
 
 See [the project audit](docs/PROJECT-AUDIT.md), [implementation plan](docs/IMPLEMENTATION-PLAN.md), [open company decisions](docs/OPEN-DECISIONS.md), [test plan](docs/TEST-PLAN.md), and [XAMPP setup guide](docs/SETUP-XAMPP.md), along with the original [Week 1](docs/WEEK-1-AUDIT-AND-REQUIREMENTS.md) and [Week 2](docs/WEEK-2-MVC-FOUNDATION.md) notes.
 

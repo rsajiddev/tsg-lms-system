@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS email_otps (
 CREATE TABLE IF NOT EXISTS courses (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(200) NOT NULL, slug VARCHAR(220) NOT NULL UNIQUE,
  category VARCHAR(100) NULL, short_description VARCHAR(500) NULL, description TEXT NULL, duration_label VARCHAR(100) NULL,
- level_label VARCHAR(50) NULL, price DECIMAL(10,2) NOT NULL DEFAULT 0,
+ level_label VARCHAR(50) NULL, image_path VARCHAR(500) NULL, price DECIMAL(10,2) NOT NULL DEFAULT 0,
  currency CHAR(3) NOT NULL DEFAULT 'PKR', visibility ENUM('draft','published','hidden','archived') NOT NULL DEFAULT 'draft',
  created_by BIGINT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  CONSTRAINT fk_courses_creator FOREIGN KEY(created_by) REFERENCES users(id), INDEX idx_courses_visibility(visibility)
@@ -254,4 +254,21 @@ FROM (
         'They built my e-commerce store with a complete admin panel. The team was very cooperative and delivered right on time.'
 ) AS seed
 WHERE NOT EXISTS (SELECT 1 FROM reviews existing WHERE existing.full_name=seed.full_name);
+
+-- Add course cover-image support to existing databases when this canonical file is re-imported.
+SET @add_course_image_path = (
+    SELECT IF(
+        COUNT(*) = 0,
+        'ALTER TABLE courses ADD COLUMN image_path VARCHAR(500) NULL AFTER level_label',
+        'SELECT 1'
+    )
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'courses'
+      AND COLUMN_NAME = 'image_path'
+);
+PREPARE add_course_image_path_stmt FROM @add_course_image_path;
+EXECUTE add_course_image_path_stmt;
+DEALLOCATE PREPARE add_course_image_path_stmt;
+
 SET FOREIGN_KEY_CHECKS = 1;

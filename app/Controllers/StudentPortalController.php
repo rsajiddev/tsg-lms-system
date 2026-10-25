@@ -20,8 +20,10 @@ final class StudentPortalController
     public function courses(): void
     {
         $user = AuthMiddleware::requireRole('student');
-        $stmt = Database::connection()->prepare(
-            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, sca.granted_at, sca.expires_at,
+        $db = Database::connection();
+        $imageColumn = $this->courseImageColumnAvailable($db) ? 'c.image_path' : 'NULL AS image_path';
+        $stmt = $db->prepare(
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
@@ -142,5 +144,16 @@ final class StudentPortalController
         $stmt->execute($params);
 
         return (int) $stmt->fetchColumn();
+    }
+
+    private function courseImageColumnAvailable(\PDO $db): bool
+    {
+        try {
+            $db->query('SELECT image_path FROM courses LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
+        }
     }
 }
