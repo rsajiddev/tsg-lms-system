@@ -15,6 +15,7 @@ foreach (
         '/app/Core/AuthMiddleware.php',
         '/app/Services/MailService.php',
         '/app/Services/CourseDuration.php',
+        '/app/Services/PaymentReceiptPdf.php',
         '/app/Services/AuthService.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
@@ -134,9 +135,11 @@ $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::clas
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
 $router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
+$router->post('/admin/payments/settings', [\App\Controllers\AdminManagementController::class, 'savePaymentDetails']);
 $router->get('/payments/new', [\App\Controllers\PaymentController::class, 'newPage']);
 $router->post('/payments', [\App\Controllers\PaymentController::class, 'submit']);
 $router->get('/payments/receipt', [\App\Controllers\PaymentController::class, 'receipt']);
+$router->get('/payments/proof', [\App\Controllers\PaymentController::class, 'proof']);
 
 $requestMethod = is_string($_SERVER['REQUEST_METHOD'] ?? null) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 $requestUri = is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '/';

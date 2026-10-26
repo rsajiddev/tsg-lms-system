@@ -63,15 +63,13 @@ final class AdminManagementController
         $db = Database::connection();
         try {
             $values = [];
-            $paymentValues = [];
             foreach ($db->query('SELECT setting_key,setting_value FROM app_settings')->fetchAll() as $row) {
-                if (isset(self::PAYMENT_SETTINGS[$row['setting_key']])) $paymentValues[$row['setting_key']] = $row['setting_value'];
-                else $values[$row['setting_key']] = (int)$row['setting_value'];
+                if (!isset(self::PAYMENT_SETTINGS[$row['setting_key']])) $values[$row['setting_key']] = (int)$row['setting_value'];
             }
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'paymentValues' => $paymentValues, 'message' => $_SESSION['_flash'] ?? null]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'message' => $_SESSION['_flash'] ?? null]);
         } catch (\PDOException $exception) {
             if ((string)$exception->getCode() !== '42S02') throw $exception;
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'paymentValues' => [], 'message' => null, 'migrationRequired' => true]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'message' => null, 'migrationRequired' => true]);
         }
         unset($_SESSION['_flash']);
     }
@@ -84,7 +82,7 @@ final class AdminManagementController
             return;
         }
         if (($_POST['form_type'] ?? '') === 'payment_details') {
-            $this->savePaymentSettings($admin);
+            $this->savePaymentSettings($admin, '/admin/settings');
         }
         $db = Database::connection();
         $db->beginTransaction();
@@ -106,7 +104,17 @@ final class AdminManagementController
         exit;
     }
 
-    private function savePaymentSettings(array $admin): never
+    public function savePaymentDetails(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            return;
+        }
+        $this->savePaymentSettings($admin, '/admin/payments');
+    }
+
+    private function savePaymentSettings(array $admin, string $redirectPath): never
     {
         $db = Database::connection();
         $db->beginTransaction();
@@ -126,7 +134,7 @@ final class AdminManagementController
             if ($db->inTransaction()) $db->rollBack();
             throw $e;
         }
-        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $redirectPath);
         exit;
     }
 

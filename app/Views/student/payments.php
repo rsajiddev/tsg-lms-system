@@ -64,7 +64,8 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                             <th scope="col">Reference</th>
                             <th scope="col">Status</th>
                             <th scope="col">Submitted</th>
-                            <th scope="col">Receipt</th>
+                            <th scope="col">Payment proof</th>
+                            <th scope="col">Academy receipt</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,7 +76,8 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                                 <td><small><?= $escape($payment['transaction_reference'] ?: '—') ?></small></td>
                                 <td><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
                                 <td><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
-                                <td><?php if (!empty($payment['receipt_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download</a><?php else: ?><small>—</small><?php endif; ?></td>
+                                <td><?php if (!empty($payment['payment_proof_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View uploaded proof</a><?php else: ?><small>—</small><?php endif; ?></td>
+                                <td><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

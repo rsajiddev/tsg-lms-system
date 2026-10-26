@@ -50,7 +50,7 @@ final class StudentPortalController
 
         $payments = $db->prepare(
             'SELECT p.id, p.amount, p.currency, p.status, p.transaction_reference, p.review_note,
-                    p.receipt_path, p.created_at, p.reviewed_at, c.title AS course_title
+                    p.payment_proof_path, p.receipt_number, p.receipt_issued_at, p.created_at, p.reviewed_at, c.title AS course_title
              FROM payments p
              JOIN courses c ON c.id = p.course_id
              WHERE p.student_id = ?

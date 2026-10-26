@@ -203,7 +203,9 @@ CREATE TABLE IF NOT EXISTS payments (
        amount DECIMAL(10, 2) NOT NULL,
        currency CHAR(3) NOT NULL DEFAULT 'PKR',
        transaction_reference VARCHAR(190) NOT NULL,
-       receipt_path VARCHAR(500) NULL,
+       payment_proof_path VARCHAR(500) NULL,
+       receipt_number VARCHAR(48) NULL,
+       receipt_issued_at DATETIME NULL,
        status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
        reviewed_by BIGINT UNSIGNED NULL,
        reviewed_at DATETIME NULL,
@@ -214,6 +216,56 @@ CREATE TABLE IF NOT EXISTS payments (
        CONSTRAINT fk_payments_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
        INDEX idx_payment_review(status, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Keep student-uploaded transaction proof separate from academy-issued receipts.
+SET
+       @rename_payment_receipt_path = (
+              SELECT IF(
+                     SUM(COLUMN_NAME = 'receipt_path') = 1 AND SUM(COLUMN_NAME = 'payment_proof_path') = 0,
+                     'ALTER TABLE payments CHANGE COLUMN receipt_path payment_proof_path VARCHAR(500) NULL',
+                     'SELECT 1'
+              )
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments'
+       );
+PREPARE rename_payment_receipt_path_stmt FROM @rename_payment_receipt_path;
+EXECUTE rename_payment_receipt_path_stmt;
+DEALLOCATE PREPARE rename_payment_receipt_path_stmt;
+
+SET
+       @add_payment_proof_path = (
+              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN payment_proof_path VARCHAR(500) NULL AFTER transaction_reference', 'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'payment_proof_path'
+       );
+PREPARE add_payment_proof_path_stmt FROM @add_payment_proof_path;
+EXECUTE add_payment_proof_path_stmt;
+DEALLOCATE PREPARE add_payment_proof_path_stmt;
+
+SET
+       @add_payment_receipt_number = (
+              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN receipt_number VARCHAR(48) NULL AFTER payment_proof_path', 'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'receipt_number'
+       );
+PREPARE add_payment_receipt_number_stmt FROM @add_payment_receipt_number;
+EXECUTE add_payment_receipt_number_stmt;
+DEALLOCATE PREPARE add_payment_receipt_number_stmt;
+
+SET
+       @add_payment_receipt_issued_at = (
+              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN receipt_issued_at DATETIME NULL AFTER receipt_number', 'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'receipt_issued_at'
+       );
+PREPARE add_payment_receipt_issued_at_stmt FROM @add_payment_receipt_issued_at;
+EXECUTE add_payment_receipt_issued_at_stmt;
+DEALLOCATE PREPARE add_payment_receipt_issued_at_stmt;
+
+UPDATE payments
+SET receipt_number = CONCAT('TSG-RCP-', YEAR(COALESCE(reviewed_at, created_at)), '-', LPAD(id, 6, '0')),
+    receipt_issued_at = COALESCE(reviewed_at, created_at)
+WHERE status = 'approved' AND receipt_number IS NULL;
 
 CREATE TABLE IF NOT EXISTS quizzes (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

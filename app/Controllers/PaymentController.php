@@ -9,12 +9,13 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
+use App\Services\PaymentReceiptPdf;
 use PDO;
 use RuntimeException;
 
 final class PaymentController
 {
-    private const MAX_RECEIPT_BYTES = 5_242_880;
+    private const MAX_PROOF_BYTES = 5_242_880;
 
     public function newPage(): void
     {
@@ -36,7 +37,7 @@ final class PaymentController
         }
         $pending = $db->prepare("SELECT 1 FROM payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
         $pending->execute([(int) $student['id'], $courseId]);
-        $history = $db->prepare('SELECT id,amount,currency,transaction_reference,status,review_note,created_at FROM payments WHERE student_id=? AND course_id=? ORDER BY id DESC LIMIT 5');
+        $history = $db->prepare('SELECT id,amount,currency,transaction_reference,payment_proof_path,receipt_number,receipt_issued_at,status,review_note,created_at FROM payments WHERE student_id=? AND course_id=? ORDER BY id DESC LIMIT 5');
         $history->execute([(int) $student['id'], $courseId]);
         $paymentDetails = [];
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {
@@ -90,22 +91,22 @@ final class PaymentController
         if ($duplicateReference->fetchColumn()) $this->paymentError($courseId, 'That transaction reference has already been submitted. Check it and contact the Academy if you believe this is an error.');
 
         try {
-            $receipt = $this->storeReceipt($_FILES['receipt'] ?? null);
+            $proof = $this->storePaymentProof($_FILES['payment_proof'] ?? null);
         } catch (RuntimeException $exception) {
             $this->paymentError($courseId, $exception->getMessage());
         }
 
         $db->beginTransaction();
         try {
-            $insert = $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,receipt_path,status) VALUES(?,?,?,?,?,?,'pending')");
-            $insert->execute([(int) $student['id'], $courseId, $course['price'], $course['currency'] ?: $course['course_currency'], $reference, $receipt['relative_path']]);
+            $insert = $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
+            $insert->execute([(int) $student['id'], $courseId, $course['price'], $course['currency'] ?: $course['course_currency'], $reference, $proof['relative_path']]);
             $paymentId = (int) $db->lastInsertId();
             $audit = $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'payment.submitted','payment',?,JSON_OBJECT('course_id',?,'option_code',?))");
             $audit->execute([(int) $student['id'], $paymentId, $courseId, $option]);
             $db->commit();
         } catch (\Throwable $exception) {
             if ($db->inTransaction()) $db->rollBack();
-            @unlink($receipt['absolute_path']);
+            @unlink($proof['absolute_path']);
             throw $exception;
         }
         (new MailService())->sendPaymentSubmitted($student['email'], $student['name'], $course['title'], (string) $course['price'], (string) ($course['currency'] ?: $course['course_currency']), $reference);
@@ -116,8 +117,11 @@ final class PaymentController
     public function adminIndex(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
-        $rows = Database::connection()->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
-        View::render('admin/payments', ['title' => 'Payment review', 'user' => $admin, 'payments' => $rows, 'message' => $_SESSION['_flash'] ?? null]);
+        $db = Database::connection();
+        $rows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.payment_proof_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
+        $paymentValues = [];
+        foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
+        View::render('admin/payments', ['title' => 'Payment review', 'user' => $admin, 'payments' => $rows, 'paymentValues' => $paymentValues, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -136,8 +140,9 @@ final class PaymentController
             $lookup->execute([$paymentId]);
             $payment = $lookup->fetch();
             if (!$payment || $payment['status'] !== 'pending') throw new RuntimeException('This payment is no longer awaiting review.');
-            $update = $db->prepare('UPDATE payments SET status=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=? WHERE id=? AND status=\'pending\'');
-            $update->execute([$decision, (int) $admin['id'], $note !== '' ? $note : null, $paymentId]);
+            $receiptNumber = $decision === 'approved' ? 'TSG-RCP-' . gmdate('Y') . '-' . str_pad((string) $paymentId, 6, '0', STR_PAD_LEFT) : null;
+            $update = $db->prepare('UPDATE payments SET status=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=?,receipt_number=?,receipt_issued_at=IF(?=\'approved\',UTC_TIMESTAMP(),NULL) WHERE id=? AND status=\'pending\'');
+            $update->execute([$decision, (int) $admin['id'], $note !== '' ? $note : null, $receiptNumber, $decision, $paymentId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('This payment could not be updated. Refresh the queue and try again.');
             if ($decision === 'approved') {
                 $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
@@ -171,20 +176,47 @@ final class PaymentController
         $user = AuthMiddleware::requireRole((string) $sessionUser['role']);
         $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $sql = 'SELECT receipt_path FROM payments WHERE id=?';
+        $sql = "SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_number,p.receipt_issued_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=?";
         $params = [$paymentId];
         if ($user['role'] === 'student') {
-            $sql .= ' AND student_id=?';
+            $sql .= ' AND p.student_id=?';
             $params[] = (int) $user['id'];
         }
+        $sql .= " AND p.status='approved'";
         $stmt = $db->prepare($sql . ' LIMIT 1');
         $stmt->execute($params);
-        $relative = $stmt->fetchColumn();
-        if (!is_string($relative) || !preg_match('#^receipts/[a-f0-9]{48}\.(pdf|jpg|png|webp)$#', $relative)) {
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$payment || !is_string($payment['receipt_number']) || $payment['receipt_number'] === '') {
             http_response_code(404);
             return;
         }
-        $root = realpath(BASE_PATH . '/storage/uploads/private/receipts');
+        $pdf = PaymentReceiptPdf::render($payment);
+        header('Content-Type: application/pdf');
+        header('Content-Length: ' . strlen($pdf));
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.pdf"');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        echo $pdf;
+    }
+
+    public function proof(): void
+    {
+        $sessionUser = $_SESSION['user'] ?? null;
+        if (!is_array($sessionUser) || !in_array($sessionUser['role'] ?? '', ['admin', 'student'], true)) $this->redirect('/login');
+        $user = AuthMiddleware::requireRole((string) $sessionUser['role']);
+        $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
+        $sql = 'SELECT payment_proof_path FROM payments WHERE id=?';
+        $params = [$paymentId];
+        if ($user['role'] === 'student') { $sql .= ' AND student_id=?'; $params[] = (int) $user['id']; }
+        $stmt = Database::connection()->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
+        $relative = $stmt->fetchColumn();
+        if (!is_string($relative) || !preg_match('#^(?:payment-proofs|receipts)/[a-f0-9]{48}\.(pdf|jpg|png|webp)$#', $relative)) {
+            http_response_code(404);
+            return;
+        }
+        $proofDirectory = str_starts_with($relative, 'payment-proofs/') ? 'payment-proofs' : 'receipts';
+        $root = realpath(BASE_PATH . '/storage/uploads/private/' . $proofDirectory);
         $file = $root === false ? false : realpath($root . '/' . basename($relative));
         if ($root === false || $file === false || !str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !is_file($file)) {
             http_response_code(404);
@@ -197,28 +229,28 @@ final class PaymentController
         }
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . (string) filesize($file));
-        header('Content-Disposition: attachment; filename="payment-receipt-' . $paymentId . '.' . pathinfo($file, PATHINFO_EXTENSION) . '"');
+        header('Content-Disposition: attachment; filename="submitted-payment-proof-' . $paymentId . '.' . pathinfo($file, PATHINFO_EXTENSION) . '"');
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
         readfile($file);
     }
 
-    private function storeReceipt(mixed $upload): array
+    private function storePaymentProof(mixed $upload): array
     {
         if (!is_array($upload) || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !isset($upload['tmp_name'], $upload['size']) || !is_uploaded_file((string) $upload['tmp_name'])) {
-            throw new RuntimeException('Upload a payment receipt as PDF, JPG, PNG, or WebP (maximum 5 MB).');
+            throw new RuntimeException('Upload payment proof as PDF, JPG, PNG, or WebP (maximum 5 MB).');
         }
-        if ((int) $upload['size'] < 1 || (int) $upload['size'] > self::MAX_RECEIPT_BYTES) throw new RuntimeException('Receipt files must be no larger than 5 MB.');
+        if ((int) $upload['size'] < 1 || (int) $upload['size'] > self::MAX_PROOF_BYTES) throw new RuntimeException('Payment proof files must be no larger than 5 MB.');
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file((string) $upload['tmp_name']);
         $extensions = ['application/pdf' => 'pdf', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-        if (!is_string($mime) || !isset($extensions[$mime])) throw new RuntimeException('Receipt must be a PDF, JPG, PNG, or WebP file.');
-        $directory = BASE_PATH . '/storage/uploads/private/receipts';
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) throw new RuntimeException('Private receipt storage is unavailable.');
+        if (!is_string($mime) || !isset($extensions[$mime])) throw new RuntimeException('Payment proof must be a PDF, JPG, PNG, or WebP file.');
+        $directory = BASE_PATH . '/storage/uploads/private/payment-proofs';
+        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) throw new RuntimeException('Private payment-proof storage is unavailable.');
         $filename = bin2hex(random_bytes(24)) . '.' . $extensions[$mime];
         $absolute = $directory . '/' . $filename;
-        if (!move_uploaded_file((string) $upload['tmp_name'], $absolute)) throw new RuntimeException('The receipt could not be saved. Try again.');
+        if (!move_uploaded_file((string) $upload['tmp_name'], $absolute)) throw new RuntimeException('The payment proof could not be saved. Try again.');
         @chmod($absolute, 0600);
-        return ['absolute_path' => $absolute, 'relative_path' => 'receipts/' . $filename];
+        return ['absolute_path' => $absolute, 'relative_path' => 'payment-proofs/' . $filename];
     }
 
     private function paymentError(int $courseId, string $message): never
