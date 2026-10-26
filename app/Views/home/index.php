@@ -68,20 +68,6 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         <div class="hero-actions">
             <a class="button" href="<?= Security::escape($baseUrl) ?>/courses">Explore courses <span aria-hidden="true">→</span></a>
         </div>
-        <div class="hero-trust">
-            <div class="trust-pill">
-                <span class="trust-num">01</span>
-                <span class="trust-text">SECP Registered Company</span>
-            </div>
-            <div class="trust-pill">
-                <span class="trust-num">02</span>
-                <span class="trust-text">Project-Based Learning</span>
-            </div>
-            <div class="trust-pill">
-                <span class="trust-num">03</span>
-                <span class="trust-text">Certificate on Completion</span>
-            </div>
-        </div>
     </div>
     <div class="hero-art" aria-hidden="true">
         <div class="art-glow"></div>
@@ -90,6 +76,20 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
             <div class="art-card-top">
                 <span class="art-mark">TSG</span>
                 <span class="art-chip"><i></i>Live + Recorded</span>
+            </div>
+            <div class="hero-trust" aria-label="Academy highlights">
+                <div class="trust-pill">
+                    <span class="trust-num">01</span>
+                    <span class="trust-text">SECP Registered Company</span>
+                </div>
+                <div class="trust-pill">
+                    <span class="trust-num">02</span>
+                    <span class="trust-text">Project-Based Learning</span>
+                </div>
+                <div class="trust-pill">
+                    <span class="trust-num">03</span>
+                    <span class="trust-text">Certificate on Completion</span>
+                </div>
             </div>
             <div class="art-features">
                 <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"></path><path d="M10 9.5l4.5 2.5L10 14.5z"></path></svg></i>Recorded lessons<strong>24</strong></span>
@@ -301,12 +301,13 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         </div>
     </div>
 </section>
-<section class="cta-banner" data-reveal>
-    <h2>Ready to start learning?</h2>
-    <p>Create your account in a minute and pick your first course.</p>
-    <div class="cta-actions">
-        <a class="cta-primary" href="<?= Security::escape($baseUrl) ?>/register">Create free account</a>
-        <a class="cta-ghost" href="<?= Security::escape($baseUrl) ?>/contact">Talk to us</a>
-    </div>
-    <p class="cta-note">Free registration · No hidden fees · Mon–Sat support</p>
-</section>
+<?php
+$ctaTitle = 'Ready to start learning?';
+$ctaDescription = 'Create your account in a minute, explore practical courses and take the next step in your career.';
+$ctaPrimaryLabel = 'Create free account';
+$ctaPrimaryHref = $baseUrl . '/register';
+$ctaSecondaryLabel = 'Talk to our team';
+$ctaSecondaryHref = $baseUrl . '/contact';
+$ctaNote = 'Free registration · No hidden fees · Mon–Sat support';
+require BASE_PATH . '/app/Views/components/academy-cta.php';
+?>

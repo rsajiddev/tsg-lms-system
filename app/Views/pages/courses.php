@@ -62,3 +62,14 @@ $courseCategories = array_values(array_unique(array_filter(array_map(
         </div>
     </section>
 <?php endif; ?>
+
+<?php
+$ctaTitle = 'Build skills you can put to work';
+$ctaDescription = 'Learn with Tech SG Academy through practical courses guided by developers, designers and marketers who build real projects.';
+$ctaPrimaryLabel = 'Create free account';
+$ctaPrimaryHref = $baseUrl . '/register';
+$ctaSecondaryLabel = 'Ask about a course';
+$ctaSecondaryHref = $baseUrl . '/contact';
+$ctaNote = 'Practical learning · Clear course pricing · Academy support';
+require BASE_PATH . '/app/Views/components/academy-cta.php';
+?>

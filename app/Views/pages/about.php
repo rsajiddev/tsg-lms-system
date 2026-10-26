@@ -57,6 +57,14 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
             <h3>Growing</h3>
             <p>We learn every day — and our students and clients grow right along with us.</p>
         </article>
+        <article class="why-card" data-reveal style="--reveal-delay: .24s"><span class="why-icon" aria-hidden="true">🎓</span>
+            <h3>Student-first</h3>
+            <p>We keep learning practical, supportive and focused on the skills students want to use.</p>
+        </article>
+        <article class="why-card" data-reveal style="--reveal-delay: .30s"><span class="why-icon" aria-hidden="true">🔎</span>
+            <h3>Honest by design</h3>
+            <p>Clear course details, transparent pricing and dependable support guide every learner's experience.</p>
+        </article>
     </div>
 </section>
 <section class="content-split" data-reveal>
@@ -84,12 +92,13 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
         <p class="quote-by">— Tech SG Studio Team</p>
     </aside>
 </section>
-<section class="cta-banner" data-reveal>
-    <h2>Learn from people who build</h2>
-    <p>Join the Academy and start with a course taught by working developers, designers and marketers.</p>
-    <div class="cta-actions">
-        <a class="cta-primary" href="<?= App\Core\Security::escape($baseUrl) ?>/register">Create free account</a>
-        <a class="cta-ghost" href="<?= App\Core\Security::escape($baseUrl) ?>/courses">Browse courses</a>
-    </div>
-    <p class="cta-note">SECP-registered company · Real projects · Verified certificates</p>
-</section>
+<?php
+$ctaTitle = 'Learn from people who build';
+$ctaDescription = 'Join the Academy and start with a course taught by working developers, designers and marketers.';
+$ctaPrimaryLabel = 'Create free account';
+$ctaPrimaryHref = $baseUrl . '/register';
+$ctaSecondaryLabel = 'Browse courses';
+$ctaSecondaryHref = $baseUrl . '/courses';
+$ctaNote = 'SECP-registered company · Real projects · Verified certificates';
+require BASE_PATH . '/app/Views/components/academy-cta.php';
+?>

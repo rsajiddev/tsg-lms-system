@@ -41,7 +41,8 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
         </div>
     </div>
     <div class="footer-bottom"><span>© <?= date('Y') ?> Tech SG Studio (SMC-PVT.) LTD.</span>
-        <nav class="footer-legal" aria-label="Legal"><a href="<?= Security::escape($baseUrl) ?>/privacy">Privacy Policy</a><a href="<?= Security::escape($baseUrl) ?>/terms">Terms &amp; Conditions</a><a href="<?= Security::escape($baseUrl) ?>/refund-policy">Refund Policy</a></nav><span>Learn with purpose. Build with confidence.</span>
+        <nav class="footer-legal" aria-label="Legal"><a href="<?= Security::escape($baseUrl) ?>/privacy">Privacy Policy</a><a href="<?= Security::escape($baseUrl) ?>/terms">Terms &amp; Conditions</a><a href="<?= Security::escape($baseUrl) ?>/refund-policy">Refund Policy</a></nav>
+        <span class="footer-initiative">An initiative of <a href="https://techsgstudio.com" target="_blank" rel="noopener noreferrer"><strong>Tech SG Studio (SMC-PVT.) LTD.</strong></a></span>
     </div>
 </footer>
 </body>

@@ -55,7 +55,7 @@ $statusLabel = static function (?string $value): string {
                     $overdue = !empty($assignment['due_at']) && strtotime((string) $assignment['due_at']) < time();
                     $badge = $statusLabel($assignment['submission_status'] ?? null);
                 ?>
-                    <article class="dashboard-list-row">
+                    <article class="dashboard-list-row student-assignment-row">
                         <span class="dashboard-list-icon">A<?= (int) $assignment['week_number'] ?: '' ?></span>
                         <div class="dashboard-list-copy">
                             <strong><?= $escape($assignment['title']) ?></strong>
@@ -63,8 +63,10 @@ $statusLabel = static function (?string $value): string {
                             <small><?= $dueLabel($assignment['due_at'] ?? null) ?><?= $overdue && ($assignment['status'] ?? '') !== 'published' ? ' (closed)' : '' ?></small>
                             <?php if (!empty($assignment['feedback'])): ?><small>Feedback: <?= $escape($assignment['feedback']) ?></small><?php endif; ?>
                         </div>
-                        <span class="dashboard-status status-<?= $escape(($assignment['submission_status'] ?? '') !== '' ? str_replace('resubmit_requested', 'pending', (string) $assignment['submission_status']) : 'draft') ?>"><?= $escape($badge) ?></span>
-                        <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/assignments?course_id=<?= (int) $assignment['course_id'] ?>"><?= ($assignment['submission_status'] ?? '') === '' ? 'Submit work' : 'View &amp; resubmit' ?> →</a>
+                        <div class="student-assignment-actions">
+                            <span class="dashboard-status status-<?= $escape(($assignment['submission_status'] ?? '') !== '' ? str_replace('resubmit_requested', 'pending', (string) $assignment['submission_status']) : 'draft') ?>"><?= $escape($badge) ?></span>
+                            <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/assignments?course_id=<?= (int) $assignment['course_id'] ?>"><?= ($assignment['submission_status'] ?? '') === '' ? 'Submit work' : 'View &amp; resubmit' ?> <span aria-hidden="true">→</span></a>
+                        </div>
                     </article>
                 <?php endforeach; ?>
             </div>
