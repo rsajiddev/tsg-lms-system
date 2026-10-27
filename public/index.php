@@ -31,6 +31,7 @@ foreach (
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/NotificationController.php',
         '/app/Controllers/StudentManagementController.php',
+        '/app/Controllers/CodingChallengeController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -76,6 +77,7 @@ $router->get('/', [\App\Controllers\HomeController::class, 'index']);
 $router->post('/reviews', [\App\Controllers\HomeController::class, 'storeReview']);
 $router->get('/about', [\App\Controllers\PublicPageController::class, 'about']);
 $router->get('/courses', [\App\Controllers\PublicPageController::class, 'courses']);
+$router->get('/courses/{slug}', [\App\Controllers\PublicPageController::class, 'courseDetails']);
 $router->get('/contact', [\App\Controllers\PublicPageController::class, 'contact']);
 $router->get('/terms', [\App\Controllers\PublicPageController::class, 'terms']);
 $router->get('/privacy', [\App\Controllers\PublicPageController::class, 'privacy']);
@@ -99,6 +101,9 @@ $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']
 $router->get('/learning', [\App\Controllers\LearningController::class, 'course']);
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
+$router->get('/learning/challenges', [\App\Controllers\CodingChallengeController::class, 'studentIndex']);
+$router->get('/learning/challenge', [\App\Controllers\CodingChallengeController::class, 'editor']);
+$router->post('/learning/challenge/submit', [\App\Controllers\CodingChallengeController::class, 'submitAttempt']);
 $router->get('/learning/quizzes', [\App\Controllers\QuizController::class, 'courseQuizzes']);
 $router->get('/learning/assignments', [\App\Controllers\AssignmentController::class, 'studentIndex']);
 $router->post('/learning/assignments/submit', [\App\Controllers\AssignmentController::class, 'submit']);
@@ -120,10 +125,16 @@ $router->post('/notifications/reply', [\App\Controllers\NotificationController::
 $router->post('/learning/quiz/start', [\App\Controllers\QuizController::class, 'start']);
 $router->get('/learning/quiz/attempt', [\App\Controllers\QuizController::class, 'attempt']);
 $router->post('/learning/quiz/submit', [\App\Controllers\QuizController::class, 'submit']);
+$router->post('/learning/quiz/retake-request', [\App\Controllers\QuizController::class, 'requestRetake']);
 $router->get('/learning/quiz/result', [\App\Controllers\QuizController::class, 'result']);
 $router->get('/admin/quizzes', [\App\Controllers\QuizController::class, 'adminIndex']);
+$router->get('/admin/coding-challenges', [\App\Controllers\CodingChallengeController::class, 'adminIndex']);
+$router->post('/admin/coding-challenges/save', [\App\Controllers\CodingChallengeController::class, 'save']);
+$router->get('/admin/quiz-reports', [\App\Controllers\QuizController::class, 'adminReports']);
 $router->post('/admin/quizzes/save', [\App\Controllers\QuizController::class, 'saveQuiz']);
+$router->post('/admin/quizzes/delete', [\App\Controllers\QuizController::class, 'deleteQuiz']);
 $router->post('/admin/quizzes/questions/save', [\App\Controllers\QuizController::class, 'saveQuestion']);
+$router->post('/admin/quizzes/retake-decision', [\App\Controllers\QuizController::class, 'retakeDecision']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
 $router->post('/admin/courses/delete', [\App\Controllers\CourseAdminController::class, 'delete']);

@@ -29,6 +29,28 @@ final class Router
         }
         $path = $this->normalize($path);
         $handler = $this->routes[strtoupper($method)][$path] ?? null;
+        $arguments = [];
+        if ($handler === null) {
+            foreach ($this->routes[strtoupper($method)] ?? [] as $routePath => $routeHandler) {
+                if (!str_contains($routePath, '{')) continue;
+                $names = [];
+                $parts = [];
+                foreach (explode('/', trim($routePath, '/')) as $segment) {
+                    if (preg_match('/^\{([A-Za-z_][A-Za-z0-9_]*)\}$/', $segment, $placeholder)) {
+                        $names[] = $placeholder[1];
+                        $parts[] = '([^/]+)';
+                    } else {
+                        $parts[] = preg_quote($segment, '#');
+                    }
+                }
+                $pattern = '#^/' . implode('/', $parts) . '$#';
+                if (preg_match($pattern, $path, $matches) === 1) {
+                    $handler = $routeHandler;
+                    foreach ($names as $index => $name) $arguments[$name] = rawurldecode($matches[$index + 1]);
+                    break;
+                }
+            }
+        }
         if (!$handler) {
             http_response_code(404);
             require BASE_PATH . '/app/Views/errors/404.php';
@@ -36,7 +58,7 @@ final class Router
         }
         if (is_array($handler)) {
             [$class, $action] = $handler;
-            (new $class())->$action();
+            (new $class())->$action(...array_values($arguments));
             return;
         }
         $handler();

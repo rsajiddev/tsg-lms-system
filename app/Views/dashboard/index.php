@@ -102,6 +102,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
+                <div class="assessment-report-link"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/quiz-reports">See report <span aria-hidden="true">→</span></a></div>
             </section>
         </div>
         <div class="dashboard-note"><strong>Workspace overview</strong><span>Use the sidebar to manage courses, assignments, quizzes, announcements, payment reviews, reviews, and security settings. This dashboard reflects records already stored in the database.</span></div>

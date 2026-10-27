@@ -7,6 +7,7 @@ $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $courses = $courses ?? [];
 $quizzes = $quizzes ?? [];
 $questions = $questions ?? [];
+$retakeRequests = is_array($retakeRequests ?? null) ? $retakeRequests : [];
 $message = $message ?? null;
 $questionsByQuiz = [];
 foreach ($questions as $question) {
@@ -49,7 +50,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
           </svg>
         </div>
         <div class="admin-card-titles">
-          <h2>Create a weekly quiz</h2>
+          <h2>Create an assessment</h2>
           <p>Set the assessment window, scoring rules, and release status</p>
         </div>
       </div>
@@ -73,30 +74,39 @@ $optionLetters = ['A', 'B', 'C', 'D'];
         <div class="admin-field">
           <label class="admin-label" for="quiz-new-week">Week <span class="req">*</span></label>
           <input class="admin-input" id="quiz-new-week" type="number" name="week_number" min="1" max="52" value="1" required>
-          <span class="admin-hint">One assessment per course, per week.</span>
+          <span class="admin-hint">Different assessment types can share a course week.</span>
         </div>
 
         <div class="admin-field">
+          <label class="admin-label" for="quiz-new-type">Assessment type <span class="req">*</span></label>
+          <select class="admin-select" id="quiz-new-type" name="quiz_type" required data-quiz-type>
+            <option value="practice">Practice MCQs — unlimited, untimed</option>
+            <option value="lesson" selected>Lesson quiz — 5–10 questions, 3 attempts</option>
+            <option value="module">Module test — 15–20 questions, timed</option>
+            <option value="final">Final test — 30 questions, timed, retake by approval</option>
+          </select>
+        </div>
+        <div class="admin-field">
           <label class="admin-label" for="quiz-new-count">Question count <span class="req">*</span></label>
-          <input class="admin-input" id="quiz-new-count" type="number" name="question_count" min="1" max="75" value="75" required>
-          <span class="admin-hint">Choose 20 or 75 to match the course policy; other counts up to 75 are supported.</span>
+          <input class="admin-input" id="quiz-new-count" type="number" name="question_count" min="1" max="75" value="5" required data-quiz-count>
+          <span class="admin-hint">Lesson: 5–10 · Module: 15–20 · Final: fixed at 30.</span>
         </div>
       </div>
 
       <div class="admin-form-row-3">
         <div class="admin-field">
           <label class="admin-label" for="quiz-new-time">Time limit (minutes) <span class="req">*</span></label>
-          <input class="admin-input" id="quiz-new-time" type="number" name="time_limit_minutes" min="1" max="600" value="20" required>
+          <input class="admin-input" id="quiz-new-time" type="number" name="time_limit_minutes" min="1" max="600" value="20" data-quiz-time>
         </div>
 
         <div class="admin-field">
           <label class="admin-label" for="quiz-new-pass">Pass mark (%) <span class="req">*</span></label>
-          <input class="admin-input" id="quiz-new-pass" type="number" name="pass_mark_percent" min="0" max="100" step="0.01" value="50" required>
+          <input class="admin-input" id="quiz-new-pass" type="number" name="pass_mark_percent" min="0" max="100" step="0.01" value="60">
         </div>
 
         <div class="admin-field">
           <label class="admin-label" for="quiz-new-attempts">Attempts allowed <span class="req">*</span></label>
-          <input class="admin-input" id="quiz-new-attempts" type="number" name="attempt_limit" min="1" max="10" value="1" required>
+          <input class="admin-input" id="quiz-new-attempts" type="number" name="attempt_limit" min="1" max="10" value="3" data-quiz-attempts>
         </div>
       </div>
 
@@ -176,15 +186,23 @@ $optionLetters = ['A', 'B', 'C', 'D'];
             <div class="admin-card-titles">
               <p class="eyebrow"><?= $escape($quiz['course_title']) ?> &middot; WEEK <?= (int) $quiz['week_number'] ?></p>
               <h2><?= $escape($quiz['title']) ?></h2>
+              <p class="quiz-type-label"><?= $escape(ucfirst($quiz['quiz_type'] ?? 'lesson')) ?> assessment</p>
             </div>
           </div>
-          <span class="dashboard-status status-<?= $escape($quiz['status']) ?>"><?= $escape(ucfirst($quiz['status'])) ?></span>
+          <div class="quiz-admin-card-actions">
+            <span class="dashboard-status status-<?= $escape($quiz['status']) ?>"><?= $escape(ucfirst($quiz['status'])) ?></span>
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/quizzes/delete" onsubmit="return confirm('Delete this quiz and all its questions, student attempts, answers, and results? This cannot be undone.')">
+              <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+              <input type="hidden" name="id" value="<?= $quizId ?>">
+              <button class="quiz-delete-button" type="submit" aria-label="Delete quiz: <?= $escape($quiz['title']) ?>">Delete quiz</button>
+            </form>
+          </div>
         </div>
 
         <div class="quiz-meta">
           <span><?= (int) $quiz['actual_question_count'] ?> / <?= (int) $quiz['question_count'] ?> questions</span>
-          <span><?= (int) ceil((int) $quiz['time_limit_seconds'] / 60) ?> minutes</span>
-          <span><?= (int) $quiz['attempt_limit'] ?> attempt(s)</span>
+          <span><?= in_array(($quiz['quiz_type'] ?? 'lesson'), ['module', 'final'], true) ? (int) ceil((int) $quiz['time_limit_seconds'] / 60) . ' min · timed' : 'Untimed' ?></span>
+          <span><?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? 'Unlimited retries' : (($quiz['quiz_type'] ?? 'lesson') === 'final' ? '1 attempt + approved retake' : (int) $quiz['attempt_limit'] . ' graded attempt(s)') ?></span>
           <span><?= $escape($quiz['pass_mark_percent']) ?>% pass</span>
           <span><?= (int) $quiz['attempt_count'] ?> started</span>
         </div>
@@ -196,6 +214,14 @@ $optionLetters = ['A', 'B', 'C', 'D'];
             <input type="hidden" name="id" value="<?= $quizId ?>">
 
             <div class="admin-form-row-3">
+              <div class="admin-field">
+                <label class="admin-label" for="quiz-<?= $quizId ?>-type">Assessment type <span class="req">*</span></label>
+                <select class="admin-select" id="quiz-<?= $quizId ?>-type" name="quiz_type" required data-quiz-type>
+                  <?php foreach (['practice', 'lesson', 'module', 'final'] as $type): ?>
+                    <option value="<?= $type ?>" <?= ($quiz['quiz_type'] ?? 'lesson') === $type ? 'selected' : '' ?>><?= ucfirst($type) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
               <div class="admin-field">
                 <label class="admin-label" for="quiz-<?= $quizId ?>-course">Course <span class="req">*</span></label>
                 <select class="admin-select" id="quiz-<?= $quizId ?>-course" name="course_id" required>
@@ -212,7 +238,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
 
               <div class="admin-field">
                 <label class="admin-label" for="quiz-<?= $quizId ?>-count">Question count <span class="req">*</span></label>
-                <input class="admin-input" id="quiz-<?= $quizId ?>-count" type="number" name="question_count" min="1" max="75" value="<?= (int) $quiz['question_count'] ?>" required>
+                <input class="admin-input" id="quiz-<?= $quizId ?>-count" type="number" name="question_count" min="1" max="75" value="<?= (int) $quiz['question_count'] ?>" required data-quiz-count>
                 <span class="admin-hint">Cannot drop below the questions already saved.</span>
               </div>
             </div>
@@ -220,7 +246,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
             <div class="admin-form-row-3">
               <div class="admin-field">
                 <label class="admin-label" for="quiz-<?= $quizId ?>-time">Time limit (minutes) <span class="req">*</span></label>
-                <input class="admin-input" id="quiz-<?= $quizId ?>-time" type="number" name="time_limit_minutes" min="1" max="600" value="<?= (int) ceil((int) $quiz['time_limit_seconds'] / 60) ?>" required>
+                <input class="admin-input" id="quiz-<?= $quizId ?>-time" type="number" name="time_limit_minutes" min="1" max="600" value="<?= max(1, (int) ceil((int) $quiz['time_limit_seconds'] / 60)) ?>" data-quiz-time>
               </div>
 
               <div class="admin-field">
@@ -230,7 +256,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
 
               <div class="admin-field">
                 <label class="admin-label" for="quiz-<?= $quizId ?>-attempts">Attempts allowed <span class="req">*</span></label>
-                <input class="admin-input" id="quiz-<?= $quizId ?>-attempts" type="number" name="attempt_limit" min="1" max="10" value="<?= (int) $quiz['attempt_limit'] ?>" required>
+                <input class="admin-input" id="quiz-<?= $quizId ?>-attempts" type="number" name="attempt_limit" min="1" max="10" value="<?= min(10, max(1, (int) $quiz['attempt_limit'])) ?>" data-quiz-attempts>
               </div>
             </div>
 
@@ -295,6 +321,10 @@ $optionLetters = ['A', 'B', 'C', 'D'];
                     <label class="admin-label" for="question-<?= $questionId ?>-text">Question <span class="req">*</span></label>
                     <textarea class="admin-textarea" id="question-<?= $questionId ?>-text" name="question_text" rows="3" maxlength="10000" required><?= $escape($question['question_text']) ?></textarea>
                   </div>
+                  <div class="admin-field">
+                    <label class="admin-label" for="question-<?= $questionId ?>-explanation">Answer explanation<?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? ' <span class="req">*</span>' : '' ?></label>
+                    <textarea class="admin-textarea" id="question-<?= $questionId ?>-explanation" name="explanation" rows="2" maxlength="5000" data-quiz-explanation <?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? 'required' : '' ?> placeholder="Explain why the correct answer is right."><?= $escape($question['explanation'] ?? '') ?></textarea>
+                  </div>
 
                   <div class="admin-form-row quiz-question-meta">
                     <div class="admin-field">
@@ -347,6 +377,10 @@ $optionLetters = ['A', 'B', 'C', 'D'];
                     <label class="admin-label" for="question-new-<?= $quizId ?>-text">Question <span class="req">*</span></label>
                     <textarea class="admin-textarea" id="question-new-<?= $quizId ?>-text" name="question_text" rows="3" maxlength="10000" required placeholder="Write one multiple-choice question"></textarea>
                   </div>
+                  <div class="admin-field">
+                    <label class="admin-label" for="question-new-<?= $quizId ?>-explanation">Answer explanation<?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? ' <span class="req">*</span>' : '' ?></label>
+                    <textarea class="admin-textarea" id="question-new-<?= $quizId ?>-explanation" name="explanation" rows="2" maxlength="5000" data-quiz-explanation <?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? 'required' : '' ?> placeholder="Explain why the correct answer is right."></textarea>
+                  </div>
 
                   <div class="admin-form-row quiz-question-meta">
                     <div class="admin-field">
@@ -397,4 +431,51 @@ $optionLetters = ['A', 'B', 'C', 'D'];
     <?php endforeach; ?>
   </div>
 
+  <section class="admin-card" id="retake-requests">
+    <div class="admin-card-header"><div class="admin-card-titles"><h2>Final-test retake requests</h2><p>Review each request before allowing one additional final-test attempt.</p></div><span class="count-pill"><?= count($retakeRequests) ?> pending</span></div>
+    <?php if ($retakeRequests === []): ?><div class="admin-empty-state"><h3>No pending requests</h3><p>Student requests for a final-test retake will appear here.</p></div>
+    <?php else: ?><div class="assignment-review-list"><?php foreach ($retakeRequests as $request): ?><article class="assignment-review-item">
+      <div class="assignment-submission-heading"><div><p class="eyebrow"><?= $escape($request['course_title']) ?></p><h3><?= $escape($request['quiz_title']) ?></h3><p><?= $escape($request['student_name']) ?> · <?= $escape($request['student_email']) ?> · <?= $escape($request['student_requested_at'] ?? '') ?></p></div><span class="dashboard-status status-pending">Pending</span></div>
+      <?php if (!empty($request['student_note'])): ?><p><?= nl2br($escape($request['student_note'])) ?></p><?php endif; ?>
+      <form method="post" action="<?= $escape($baseUrl) ?>/admin/quizzes/retake-decision" class="admin-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>"><div class="admin-field"><label class="admin-label" for="retake-note-<?= (int)$request['id'] ?>">Admin note</label><textarea class="admin-textarea" id="retake-note-<?= (int)$request['id'] ?>" name="admin_note" rows="2" maxlength="1000"></textarea></div><div class="form-actions"><button class="button" name="decision" value="approved" type="submit">Approve retake</button><button class="button button-secondary" name="decision" value="rejected" type="submit">Reject request</button></div></form>
+    </article><?php endforeach; ?></div><?php endif; ?>
+  </section>
+
 </section>
+<script>
+  (() => {
+    const policies = {
+      practice: { min: 1, max: 75, count: 5, timed: false, attempts: false, pass: false },
+      lesson: { min: 5, max: 10, count: 5, timed: false, attempts: false, pass: true },
+      module: { min: 15, max: 20, count: 15, timed: true, attempts: true, pass: false },
+      final: { min: 30, max: 30, count: 30, timed: true, attempts: false, pass: true }
+    };
+    document.querySelectorAll('[data-quiz-type]').forEach(select => {
+      const form = select.closest('form');
+      const count = form.querySelector('[data-quiz-count]');
+      const time = form.querySelector('[data-quiz-time]');
+      const attempts = form.querySelector('[data-quiz-attempts]');
+      const pass = form.querySelector('[name="pass_mark_percent"]');
+      const sync = (resetCount = false) => {
+        const policy = policies[select.value] || policies.lesson;
+        count.min = String(policy.min);
+        count.max = String(policy.max);
+        if (resetCount || Number(count.value) < policy.min || Number(count.value) > policy.max) count.value = String(policy.count);
+        time.required = policy.timed;
+        time.disabled = !policy.timed;
+        attempts.required = policy.attempts;
+        attempts.disabled = !policy.attempts;
+        if (pass) {
+          pass.required = !policy.pass;
+          pass.disabled = policy.pass;
+          if (policy.pass) pass.value = '60';
+        }
+        form.querySelectorAll('[data-quiz-explanation]').forEach(explanation => {
+          explanation.required = select.value === 'practice';
+        });
+      };
+      sync();
+      select.addEventListener('change', () => sync(true));
+    });
+  })();
+</script>

@@ -2,6 +2,8 @@
 
 use App\Core\Security;
 
+$baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+$course = isset($course) && is_array($course) ? $course : [];
 $courseImage = trim((string) ($course['image_path'] ?? ''));
 $stockImages = ['assets/images/graphic-design.jpg', 'assets/images/digital-marketing.jpg', 'assets/images/web-development.jpg'];
 if (!in_array($courseImage, $stockImages, true) && !preg_match('~^assets/uploads/courses/[a-f0-9]{32}\.(?:jpg|png|webp)$~', $courseImage)) {

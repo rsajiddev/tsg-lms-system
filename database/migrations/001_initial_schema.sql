@@ -220,52 +220,113 @@ CREATE TABLE IF NOT EXISTS payments (
 -- Keep student-uploaded transaction proof separate from academy-issued receipts.
 SET
        @rename_payment_receipt_path = (
-              SELECT IF(
-                     SUM(COLUMN_NAME = 'receipt_path') = 1 AND SUM(COLUMN_NAME = 'payment_proof_path') = 0,
-                     'ALTER TABLE payments CHANGE COLUMN receipt_path payment_proof_path VARCHAR(500) NULL',
-                     'SELECT 1'
-              )
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments'
+              SELECT
+                     IF(
+                            SUM(COLUMN_NAME = 'receipt_path') = 1
+                            AND SUM(COLUMN_NAME = 'payment_proof_path') = 0,
+                            'ALTER TABLE payments CHANGE COLUMN receipt_path payment_proof_path VARCHAR(500) NULL',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'payments'
        );
-PREPARE rename_payment_receipt_path_stmt FROM @rename_payment_receipt_path;
+
+PREPARE rename_payment_receipt_path_stmt
+FROM
+       @rename_payment_receipt_path;
+
 EXECUTE rename_payment_receipt_path_stmt;
+
 DEALLOCATE PREPARE rename_payment_receipt_path_stmt;
 
 SET
        @add_payment_proof_path = (
-              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN payment_proof_path VARCHAR(500) NULL AFTER transaction_reference', 'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'payment_proof_path'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE payments ADD COLUMN payment_proof_path VARCHAR(500) NULL AFTER transaction_reference',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'payments'
+                     AND COLUMN_NAME = 'payment_proof_path'
        );
-PREPARE add_payment_proof_path_stmt FROM @add_payment_proof_path;
+
+PREPARE add_payment_proof_path_stmt
+FROM
+       @add_payment_proof_path;
+
 EXECUTE add_payment_proof_path_stmt;
+
 DEALLOCATE PREPARE add_payment_proof_path_stmt;
 
 SET
        @add_payment_receipt_number = (
-              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN receipt_number VARCHAR(48) NULL AFTER payment_proof_path', 'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'receipt_number'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE payments ADD COLUMN receipt_number VARCHAR(48) NULL AFTER payment_proof_path',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'payments'
+                     AND COLUMN_NAME = 'receipt_number'
        );
-PREPARE add_payment_receipt_number_stmt FROM @add_payment_receipt_number;
+
+PREPARE add_payment_receipt_number_stmt
+FROM
+       @add_payment_receipt_number;
+
 EXECUTE add_payment_receipt_number_stmt;
+
 DEALLOCATE PREPARE add_payment_receipt_number_stmt;
 
 SET
        @add_payment_receipt_issued_at = (
-              SELECT IF(COUNT(*) = 0, 'ALTER TABLE payments ADD COLUMN receipt_issued_at DATETIME NULL AFTER receipt_number', 'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'receipt_issued_at'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE payments ADD COLUMN receipt_issued_at DATETIME NULL AFTER receipt_number',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'payments'
+                     AND COLUMN_NAME = 'receipt_issued_at'
        );
-PREPARE add_payment_receipt_issued_at_stmt FROM @add_payment_receipt_issued_at;
+
+PREPARE add_payment_receipt_issued_at_stmt
+FROM
+       @add_payment_receipt_issued_at;
+
 EXECUTE add_payment_receipt_issued_at_stmt;
+
 DEALLOCATE PREPARE add_payment_receipt_issued_at_stmt;
 
-UPDATE payments
-SET receipt_number = CONCAT('TSG-RCP-', YEAR(COALESCE(reviewed_at, created_at)), '-', LPAD(id, 6, '0')),
-    receipt_issued_at = COALESCE(reviewed_at, created_at)
-WHERE status = 'approved' AND receipt_number IS NULL;
+UPDATE
+       payments
+SET
+       receipt_number = CONCAT(
+              'TSG-RCP-',
+              YEAR(COALESCE(reviewed_at, created_at)),
+              '-',
+              LPAD(id, 6, '0')
+       ),
+       receipt_issued_at = COALESCE(reviewed_at, created_at)
+WHERE
+       status = 'approved'
+       AND receipt_number IS NULL;
 
 CREATE TABLE IF NOT EXISTS quizzes (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -348,6 +409,93 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
        CONSTRAINT fk_answer_option FOREIGN KEY(selected_option_id) REFERENCES quiz_options(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- Additive learning-phase fields. Keep this project on its single import file.
+SET
+       @add_quiz_type = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quizzes ADD COLUMN quiz_type ENUM(''practice'',''lesson'',''module'',''final'') NOT NULL DEFAULT ''lesson'' AFTER instructions',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quizzes'
+                     AND COLUMN_NAME = 'quiz_type'
+       );
+
+PREPARE add_quiz_type_stmt
+FROM
+       @add_quiz_type;
+
+EXECUTE add_quiz_type_stmt;
+
+DEALLOCATE PREPARE add_quiz_type_stmt;
+
+SET
+       @add_question_explanation = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quiz_questions ADD COLUMN explanation TEXT NULL AFTER question_text',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_questions'
+                     AND COLUMN_NAME = 'explanation'
+       );
+
+PREPARE add_question_explanation_stmt
+FROM
+       @add_question_explanation;
+
+EXECUTE add_question_explanation_stmt;
+
+DEALLOCATE PREPARE add_question_explanation_stmt;
+
+CREATE TABLE IF NOT EXISTS quiz_retake_approvals (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       quiz_id BIGINT UNSIGNED NOT NULL,
+       student_id BIGINT UNSIGNED NOT NULL,
+       approved_by BIGINT UNSIGNED NOT NULL,
+       approved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       used_at DATETIME NULL,
+       UNIQUE KEY uq_quiz_retake_student(quiz_id, student_id),
+       CONSTRAINT fk_retake_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
+       CONSTRAINT fk_retake_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_retake_admin FOREIGN KEY(approved_by) REFERENCES users(id),
+       INDEX idx_quiz_retake_available(student_id, used_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Snapshot randomized question and option order once per attempt so refreshes
+-- preserve order and submitted answers remain bound to the original question IDs.
+CREATE TABLE IF NOT EXISTS quiz_attempt_questions (
+       attempt_id BIGINT UNSIGNED NOT NULL,
+       question_id BIGINT UNSIGNED NOT NULL,
+       sort_order SMALLINT UNSIGNED NOT NULL,
+       PRIMARY KEY(attempt_id, question_id),
+       UNIQUE KEY uq_attempt_question_order(attempt_id, sort_order),
+       CONSTRAINT fk_attempt_question_attempt FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_question_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS quiz_attempt_options (
+       attempt_id BIGINT UNSIGNED NOT NULL,
+       question_id BIGINT UNSIGNED NOT NULL,
+       option_id BIGINT UNSIGNED NOT NULL,
+       sort_order TINYINT UNSIGNED NOT NULL,
+       PRIMARY KEY(attempt_id, question_id, option_id),
+       UNIQUE KEY uq_attempt_option_order(attempt_id, question_id, sort_order),
+       CONSTRAINT fk_attempt_option_attempt FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_option_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_option_option FOREIGN KEY(option_id) REFERENCES quiz_options(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS assignments (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
@@ -380,6 +528,222 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
        CONSTRAINT fk_submission_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
        INDEX idx_submission_student(student_id, submitted_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+SET
+       @add_assignment_cutoff = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignments ADD COLUMN admin_cutoff_at DATETIME NULL AFTER due_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignments'
+                     AND COLUMN_NAME = 'admin_cutoff_at'
+       );
+
+PREPARE add_assignment_cutoff_stmt
+FROM
+       @add_assignment_cutoff;
+
+EXECUTE add_assignment_cutoff_stmt;
+
+DEALLOCATE PREPARE add_assignment_cutoff_stmt;
+
+SET
+       @add_assignment_late_deduction = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignments ADD COLUMN late_deduction_percent DECIMAL(5,2) NOT NULL DEFAULT 0 AFTER admin_cutoff_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignments'
+                     AND COLUMN_NAME = 'late_deduction_percent'
+       );
+
+PREPARE add_assignment_late_deduction_stmt
+FROM
+       @add_assignment_late_deduction;
+
+EXECUTE add_assignment_late_deduction_stmt;
+
+DEALLOCATE PREPARE add_assignment_late_deduction_stmt;
+
+SET
+       @add_submission_github_url = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN github_url VARCHAR(500) NULL AFTER submission_text',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'github_url'
+       );
+
+PREPARE add_submission_github_url_stmt
+FROM
+       @add_submission_github_url;
+
+EXECUTE add_submission_github_url_stmt;
+
+DEALLOCATE PREPARE add_submission_github_url_stmt;
+
+SET
+       @add_submission_late_flag = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN submitted_late TINYINT(1) NOT NULL DEFAULT 0 AFTER file_path',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'submitted_late'
+       );
+
+PREPARE add_submission_late_flag_stmt
+FROM
+       @add_submission_late_flag;
+
+EXECUTE add_submission_late_flag_stmt;
+
+DEALLOCATE PREPARE add_submission_late_flag_stmt;
+
+SET
+       @add_rubric_technical = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_technical DECIMAL(3,2) NULL AFTER feedback',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'rubric_technical'
+       );
+
+PREPARE add_rubric_technical_stmt
+FROM
+       @add_rubric_technical;
+
+EXECUTE add_rubric_technical_stmt;
+
+DEALLOCATE PREPARE add_rubric_technical_stmt;
+
+SET
+       @add_rubric_problem_solving = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_problem_solving DECIMAL(3,2) NULL AFTER rubric_technical',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'rubric_problem_solving'
+       );
+
+PREPARE add_rubric_problem_solving_stmt
+FROM
+       @add_rubric_problem_solving;
+
+EXECUTE add_rubric_problem_solving_stmt;
+
+DEALLOCATE PREPARE add_rubric_problem_solving_stmt;
+
+SET
+       @add_rubric_code_quality = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_code_quality DECIMAL(3,2) NULL AFTER rubric_problem_solving',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'rubric_code_quality'
+       );
+
+PREPARE add_rubric_code_quality_stmt
+FROM
+       @add_rubric_code_quality;
+
+EXECUTE add_rubric_code_quality_stmt;
+
+DEALLOCATE PREPARE add_rubric_code_quality_stmt;
+
+SET
+       @add_rubric_timeliness = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_timeliness DECIMAL(3,2) NULL AFTER rubric_code_quality',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'rubric_timeliness'
+       );
+
+PREPARE add_rubric_timeliness_stmt
+FROM
+       @add_rubric_timeliness;
+
+EXECUTE add_rubric_timeliness_stmt;
+
+DEALLOCATE PREPARE add_rubric_timeliness_stmt;
+
+SET
+       @add_rubric_completeness = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_completeness DECIMAL(3,2) NULL AFTER rubric_timeliness',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignment_submissions'
+                     AND COLUMN_NAME = 'rubric_completeness'
+       );
+
+PREPARE add_rubric_completeness_stmt
+FROM
+       @add_rubric_completeness;
+
+EXECUTE add_rubric_completeness_stmt;
+
+DEALLOCATE PREPARE add_rubric_completeness_stmt;
 
 CREATE TABLE IF NOT EXISTS lesson_progress (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -426,7 +790,11 @@ CREATE TABLE IF NOT EXISTS notification_replies (
        CONSTRAINT fk_reply_student FOREIGN KEY(student_id) REFERENCES users(id),
        CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES users(id),
        INDEX idx_reply_notification(notification_id, created_at),
-       INDEX idx_reply_thread(notification_id, recipient_student_id, created_at)
+       INDEX idx_reply_thread(
+              notification_id,
+              recipient_student_id,
+              created_at
+       )
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 SET
@@ -590,7 +958,7 @@ VALUES
 UPDATE
        setting_key =
 VALUES
-(setting_key);
+       (setting_key);
 
 CREATE TABLE IF NOT EXISTS reviews (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -821,6 +1189,40 @@ FROM
 EXECUTE add_course_image_path_stmt;
 
 DEALLOCATE PREPARE add_course_image_path_stmt;
+
+-- Browser-based coding practice. Student code is never executed by the PHP server.
+CREATE TABLE IF NOT EXISTS coding_challenges (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       course_id BIGINT UNSIGNED NOT NULL,
+       title VARCHAR(200) NOT NULL,
+       instructions TEXT NOT NULL,
+       starter_html MEDIUMTEXT NOT NULL,
+       starter_css MEDIUMTEXT NOT NULL,
+       starter_js MEDIUMTEXT NOT NULL,
+       tests_json LONGTEXT NOT NULL,
+       status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
+       created_by BIGINT UNSIGNED NOT NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       CONSTRAINT fk_coding_challenges_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+       CONSTRAINT fk_coding_challenges_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       INDEX idx_coding_challenges_course(course_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS coding_challenge_attempts (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       challenge_id BIGINT UNSIGNED NOT NULL,
+       student_id BIGINT UNSIGNED NOT NULL,
+       html_code MEDIUMTEXT NOT NULL,
+       css_code MEDIUMTEXT NOT NULL,
+       js_code MEDIUMTEXT NOT NULL,
+       reported_status ENUM('pass', 'fail') NOT NULL,
+       test_results LONGTEXT NOT NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_coding_attempt_challenge FOREIGN KEY(challenge_id) REFERENCES coding_challenges(id) ON DELETE CASCADE,
+       CONSTRAINT fk_coding_attempt_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+       INDEX idx_coding_attempt_student(challenge_id, student_id, id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 SET
        FOREIGN_KEY_CHECKS = 1;

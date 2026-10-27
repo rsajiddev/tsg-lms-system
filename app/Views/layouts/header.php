@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Security;
+use App\Core\Database;
 
 $title = isset($title) && is_string($title) ? $title : 'TSG Academy LMS';
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
@@ -16,6 +17,17 @@ $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
 $dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
+$studentHasCodingCourse = false;
+if ($dashboardArea && $dashboardRole === 'student' && isset($currentUser['id'])) {
+    try {
+        $codingAccess = Database::connection()->prepare("SELECT 1 FROM student_course_access sca JOIN courses c ON c.id = sca.course_id WHERE sca.student_id = ? AND c.slug = 'full-stack-web-development' AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP()) LIMIT 1");
+        $codingAccess->execute([(int) $currentUser['id']]);
+        $studentHasCodingCourse = (bool) $codingAccess->fetchColumn();
+    } catch (Throwable $exception) {
+        // A navigation eligibility lookup must not prevent the rest of the page from rendering.
+        error_log('[Dashboard navigation] Coding course access lookup failed: ' . $exception->getMessage());
+    }
+}
 $dashboardNavIcon = static function (string $name): string {
     $contents = match ($name) {
         'overview' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="13" width="7" height="8" rx="1.5"/>',
@@ -23,6 +35,7 @@ $dashboardNavIcon = static function (string $name): string {
         'grid' => '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
         'card' => '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 9h18M7 15h4"/>',
         'quiz' => '<path d="M8 3h8l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v5h5M8 13l2.2 2.2L15.5 10"/>',
+        'code' => '<path d="m8 17-5-5 5-5M16 7l5 5-5 5M14 4l-4 16"/>',
         'assignment' => '<path d="M8 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m8 13 2.5 2.5L16 10"/>',
         'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
         'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6"/>',
@@ -39,22 +52,30 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['number' => '01', 'label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
         ['number' => '02', 'label' => 'Manage courses', 'href' => '/admin/courses', 'icon' => 'book', 'active' => $activePath === '/admin/courses'],
         ['number' => '03', 'label' => 'Quiz management', 'href' => '/admin/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/admin/quizzes'],
-        ['number' => '04', 'label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
-        ['number' => '05', 'label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
-        ['number' => '06', 'label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
-        ['number' => '07', 'label' => 'Payment review', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
-        ['number' => '08', 'label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
-        ['number' => '09', 'label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
+        ['number' => '04', 'label' => 'Coding challenges', 'href' => '/admin/coding-challenges', 'icon' => 'code', 'active' => $activePath === '/admin/coding-challenges'],
+        ['number' => '05', 'label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'active' => $activePath === '/admin/quiz-reports'],
+        ['number' => '06', 'label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
+        ['number' => '07', 'label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
+        ['number' => '08', 'label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
+        ['number' => '09', 'label' => 'Payment review', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
+        ['number' => '10', 'label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
+        ['number' => '11', 'label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
     ]
     : [
         ['number' => '01', 'label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
         ['number' => '02', 'label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'active' => in_array($activePath, ['/student/courses', '/learning', '/learning/lesson'], true)],
-        ['number' => '03', 'label' => 'Course catalogue', 'href' => '/courses', 'icon' => 'grid', 'active' => $activePath === '/courses'],
-        ['number' => '04', 'label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
-        ['number' => '05', 'label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
-        ['number' => '06', 'label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
-        ['number' => '07', 'label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'active' => str_starts_with($activePath, '/notifications')],
+        ['number' => '03', 'label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
+        ['number' => '04', 'label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
+        ...($studentHasCodingCourse ? [['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges']] : []),
+        ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
+        ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'active' => str_starts_with($activePath, '/notifications')],
     ];
+if ($dashboardRole !== 'admin') {
+    foreach ($dashboardNavItems as $index => &$dashboardNavItem) {
+        $dashboardNavItem['number'] = str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
+    }
+    unset($dashboardNavItem);
+}
 ?>
 <!doctype html>
 <html lang="en">

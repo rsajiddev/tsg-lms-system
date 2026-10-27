@@ -7,6 +7,13 @@ $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $user = isset($user) && is_array($user) ? $user : [];
 $quizzes = is_array($quizzes ?? null) ? $quizzes : [];
 $attempts = is_array($attempts ?? null) ? $attempts : [];
+$totalAttemptLimit = 0;
+$totalAttemptRemaining = 0;
+foreach ($quizzes as $quizSummary) {
+    $summaryLimit = (int) ($quizSummary['attempt_limit'] ?? 0);
+    $totalAttemptLimit += $summaryLimit;
+    $totalAttemptRemaining += max(0, $summaryLimit - (int) ($quizSummary['used_attempts'] ?? 0));
+}
 $minutes = static fn(mixed $seconds): int => max(1, (int) ceil((int) $seconds / 60));
 $dateTimeLabel = static function (?string $value): string {
     if (!$value) {
@@ -31,11 +38,12 @@ $dateTimeLabel = static function (?string $value): string {
     </header>
 
     <section class="dashboard-panel">
-        <div class="dashboard-panel-heading">
+        <div class="dashboard-panel-heading quiz-attempts-heading">
             <div>
                 <p class="eyebrow">OPEN NOW</p>
                 <h2>Available quizzes</h2>
-            </div><span class="count-pill"><?= count($quizzes) ?> quiz<?= count($quizzes) === 1 ? '' : 'es' ?></span>
+            </div>
+            <?php if ($quizzes !== []): ?><span class="quiz-attempts-summary"><?= $totalAttemptRemaining ?> of <?= $totalAttemptLimit ?> attempt<?= $totalAttemptLimit === 1 ? '' : 's' ?> left</span><?php endif; ?>
         </div>
         <?php if ($quizzes === []): ?>
             <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span>
@@ -46,20 +54,14 @@ $dateTimeLabel = static function (?string $value): string {
             </div>
         <?php else: ?>
             <div class="dashboard-list">
-                <?php foreach ($quizzes as $quiz):
-                    $used = (int) $quiz['used_attempts'];
-                    $limit = (int) $quiz['attempt_limit'];
-                    $remaining = max(0, $limit - $used);
-                ?>
-                    <article class="dashboard-list-row">
-                        <span class="dashboard-list-icon">Q<?= (int) $quiz['week_number'] ?></span>
+                <?php foreach ($quizzes as $quiz): ?>
+                    <article class="dashboard-list-row quiz-list-row">
                         <div class="dashboard-list-copy">
                             <strong><?= $escape($quiz['title']) ?></strong>
                             <small><?= $escape($quiz['course_title']) ?> · <?= (int) $quiz['question_count'] ?> questions · <?= $minutes($quiz['time_limit_seconds']) ?> min</small>
                             <small>Closes <?= $escape($dateTimeLabel($quiz['close_at'] ?? null)) ?></small>
                         </div>
-                        <span class="dashboard-status status-<?= $remaining > 0 ? 'active' : 'closed' ?>"><?= $remaining ?> of <?= $limit ?> attempt<?= $limit === 1 ? '' : 's' ?> left</span>
-                        <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int) $quiz['course_id'] ?>">Open quiz →</a>
+                        <a class="quiz-open-btn" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int) $quiz['course_id'] ?>">Open quiz</a>
                     </article>
                 <?php endforeach; ?>
             </div>

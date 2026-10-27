@@ -2,16 +2,17 @@
 
 use App\Core\Security;
 
+$baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+$course = isset($course) && is_array($course) ? $course : [];
+$courseIndex = isset($courseIndex) && is_numeric($courseIndex) ? (float) $courseIndex : 0.0;
 $courseTitle = (string) ($course['title'] ?? 'Academy course');
 $courseCategory = trim((string) ($course['category'] ?? ''));
 $courseDescription = trim((string) ($course['short_description'] ?? ''));
 if ($courseDescription === '') $courseDescription = trim((string) ($course['description'] ?? ''));
 if ($courseDescription === '') $courseDescription = 'Practical, project-based training designed to build useful skills.';
 $courseCurrency = (string) ($course['currency'] ?? 'PKR');
-$signedInUser = isset($_SESSION['user']) && is_array($_SESSION['user']) ? $_SESSION['user'] : [];
-$courseLink = ($signedInUser['role'] ?? '') === 'student'
-    ? $baseUrl . '/payments/new?course_id=' . (int) ($course['id'] ?? 0)
-    : $baseUrl . '/register';
+$courseSlug = trim((string) ($course['slug'] ?? ''));
+$courseLink = $baseUrl . '/courses/' . rawurlencode($courseSlug);
 ?>
 <article class="course-card course-card-unified" data-reveal style="--reveal-delay: <?= Security::escape(number_format($courseIndex * 0.07, 2)) ?>s">
     <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
@@ -26,6 +27,6 @@ $courseLink = ($signedInUser['role'] ?? '') === 'student'
             <?php if (($course['recorded_price'] ?? null) !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape($courseCurrency) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?>
             <?php if (($course['live_price'] ?? null) !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape($courseCurrency) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?>
         </div>
-        <a class="button course-cta" href="<?= Security::escape($courseLink) ?>"><?= ($signedInUser['role'] ?? '') === 'student' ? 'Enroll / submit payment' : 'Explore this course' ?><span aria-hidden="true">→</span></a>
+        <a class="button course-cta" href="<?= Security::escape($courseLink) ?>">Explore course</a>
     </div>
 </article>
