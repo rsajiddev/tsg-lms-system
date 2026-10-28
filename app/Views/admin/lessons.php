@@ -59,12 +59,107 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             <h1>Lesson library</h1>
             <p>Every lesson across every course in one searchable list, with its publish state, recorded video and completion reach.</p>
         </div>
-        <a class="button" href="<?= $escape($baseUrl) ?>/admin/courses#lesson-add">Add a lesson</a>
+        <a class="button" href="#lesson-add">Add a lesson</a>
     </header>
 
     <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><span><?= $escape($message) ?></span></div><?php endif; ?>
     <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><span><?= $escape($error) ?></span></div><?php endif; ?>
     <?php if (!$videosAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Lesson video columns are missing from this database.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Lessons still appear here; video fields unlock after the import.</span></div><?php endif; ?>
+
+    <!-- Authoring form: the list below is the read view of exactly these records. -->
+    <section class="admin-card lesson-add-card" id="lesson-add">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon violet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2>Add lesson</h2>
+                    <p>Attach modules and draft lessons to existing courses</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
+            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+            <input type="hidden" name="return_to" value="/admin/lessons">
+
+            <div class="admin-form-row">
+                <div class="admin-field">
+                    <label class="admin-label" for="lesson-course">Target course <span class="req">*</span></label>
+                    <select class="admin-select" id="lesson-course" name="course_id" required>
+                        <?php if ($courses === []): ?>
+                            <option value="" disabled selected>No courses available (create one first)</option>
+                        <?php else: ?>
+                            <?php foreach ($courses as $index => $course): ?>
+                                <option value="<?= (int) $course['id'] ?>" <?= $index === 0 ? 'selected' : '' ?>><?= $escape($course['title']) ?> (<?= $escape($course['slug'] ?? '') ?>)</option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <span class="admin-hint">The lesson is published inside this course's curriculum.</span>
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="module-title">Module title <span class="req">*</span></label>
+                    <input class="admin-input" id="module-title" name="module_title" required maxlength="200" placeholder="e.g. Module 1: Foundations &amp; Architecture">
+                    <span class="admin-hint">Matches existing modules automatically or creates a new sequential section.</span>
+                </div>
+            </div>
+
+            <div class="admin-form-row">
+                <div class="admin-field">
+                    <label class="admin-label" for="lesson-title">Lesson title <span class="req">*</span></label>
+                    <input class="admin-input" id="lesson-title" name="lesson_title" required maxlength="200" placeholder="e.g. Lesson 1: Introduction to Web Standards">
+                </div>
+
+                <div class="admin-field">
+                    <label class="admin-label" for="lesson-status">Publishing status</label>
+                    <select class="admin-select" id="lesson-status" name="status">
+                        <option value="draft" selected>Draft — visible to admins only</option>
+                        <option value="published">Published — available to students with course access</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="admin-field">
+                <label class="admin-label" for="lesson-body">Lesson content</label>
+                <textarea class="admin-textarea" id="lesson-body" name="body" rows="4" placeholder="Draft lecture summary, reading materials, code snippets, or video links..."></textarea>
+            </div>
+
+            <?php if ($videosAvailable): ?>
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-video-url">Lesson video link</label>
+                        <input class="admin-input" id="lesson-video-url" name="video_url" maxlength="600" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4">
+                        <span class="admin-hint">Direct .mp4 / .webm files track the playhead exactly. YouTube and Vimeo links are re-written to an embed player.</span>
+                    </div>
+
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-video-duration">Video length</label>
+                        <input class="admin-input" id="lesson-video-duration" name="video_duration" maxlength="8" placeholder="e.g. 18:30">
+                        <span class="admin-hint">Needed for the watch-time rule. Accepts seconds, mm:ss or h:mm:ss.</span>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="form-actions">
+                <button class="button" type="submit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save lesson
+                </button>
+                <span class="lesson-add-note">Saved lessons appear in the library below and stay editable from <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/courses">Manage courses</a>.</span>
+            </div>
+        </form>
+    </section>
 
     <div class="admin-stats-grid lesson-lib-metrics" aria-label="Lesson totals for the current filters">
         <article class="admin-stat-card">

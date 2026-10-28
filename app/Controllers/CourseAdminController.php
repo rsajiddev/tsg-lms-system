@@ -113,7 +113,8 @@ final class CourseAdminController
               ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
               LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
-        $courses = $db->query('SELECT id, title FROM courses ORDER BY title')->fetchAll();
+        // Slug is included because the same list feeds the "Add lesson" target-course picker.
+        $courses = $db->query('SELECT id, title, slug FROM courses ORDER BY title')->fetchAll();
 
         View::render('admin/lessons', [
             'title' => 'Lesson library',
@@ -370,7 +371,10 @@ final class CourseAdminController
             throw $e;
         }
         $_SESSION['_flash'] = $status === 'published' ? 'Lesson published for students with active course access.' : 'Lesson saved as a draft.';
-        $this->redirect('/admin/courses');
+        // Lesson authoring now lives on the Lesson library page, so a save from there must return there.
+        // Only the two known lesson screens are accepted - never a caller-supplied URL.
+        $returnTo = (string) ($_POST['return_to'] ?? '');
+        $this->redirect($returnTo === '/admin/lessons' ? '/admin/lessons' : '/admin/courses');
     }
 
     public function access(): void

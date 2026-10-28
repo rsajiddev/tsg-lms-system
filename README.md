@@ -32,9 +32,9 @@ This README is the single catalogue of what is implemented. Every feature that s
 - Security settings page for the admin: OTP window, login protection, registration limits, password-reset limits.
 
 ### Courses, modules and lessons
-- Admin course builder: courses → modules → lessons, explicit sort order, publish/draft state, course image and upload handling.
-- Lesson editor with content, resources and video attachment (direct file, YouTube or Vimeo).
-- **Lesson library** (`/admin/lessons`): every lesson across all courses on one page — search, filter by course / status / video state, KPI cards (total, published, with video, missing length), completion reach bar per lesson, pagination, and a deep link that jumps straight into the owning lesson editor.
+- Admin course builder: course records with slug, category, visibility, cover image upload, duration, level, pricing, plus explicit module/lesson sort order and publish/draft state.
+- Lesson editor (per lesson, under Lessons & publishing on the course page) for content, video link and length, and publishing status.
+- **Lesson library** (`/admin/lessons`): the lesson home page — the **Add lesson** authoring form (target course, module, title, content, video link and length, status) plus every lesson across all courses in one searchable list with filters by course / status / video state, KPI cards (total, published, with video, missing length), completion reach per lesson, pagination, and deep links into the owning lesson editor.
 - Student enrolment management per course (grant/revoke access, expiry), with access enforced on every learning page.
 
 ### Lesson videos and watch time
@@ -78,7 +78,7 @@ Work through this in order. Steps 1–3 are the happy path, 4–8 prove the rule
 
 It exercises the watch-time service against the database and exits non-zero on failure. Run the other smoke scripts in `tests/` the same way.
 
-**Step 1 — attach a short video as admin.** Log in as admin → **Manage courses** → pick a course → open a lesson editor → set the video URL to a clip you can measure, for example `https://www.w3schools.com/html/mov_bbb.mp4`, and set the duration to that clip's length (`10` seconds, shown as `0:10`). Save. Confirm the lesson now appears in **Lesson library** with `Video 0:10`.
+**Step 1 — attach a short video as admin.** Log in as admin → **Lesson library** → the *Add lesson* card: pick the target course, type a module title and lesson title, set the status to Published, put a clip you can measure in the video link — for example `https://www.w3schools.com/html/mov_bbb.mp4` — and set Video length to that clip's length (`10` seconds, shown as `0:10`). Save: you stay on the Lesson library with a confirmation, and the new lesson appears in the list below with `Video 0:10`.
 
 **Step 2 — see the player as student.** Log in as a student who has access to that course → **Lessons** → open the lesson. The player must render, the watch bar must show `0%`, and the required watch time must be stated (`you must watch 90% …`).
 

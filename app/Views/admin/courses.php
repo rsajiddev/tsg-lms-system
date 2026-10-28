@@ -23,7 +23,7 @@ $totalStudents = count($students);
             <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Course management</h1>
-            <p>Create course records, build curriculum modules and draft lessons, and manage verified student access.</p>
+            <p>Create course records and manage verified student access. Lessons are authored in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons">Lesson library</a>.</p>
         </div>
     </header>
 
@@ -97,8 +97,8 @@ $totalStudents = count($students);
         </article>
     </div>
 
-    <!-- 2-Column Section: Create Course & Add Lesson -->
-    <div class="admin-grid-2">
+    <!-- Course creation now owns the whole row; lesson authoring lives on the Lesson library page. -->
+    <div class="admin-grid-2 admin-grid-single">
         <!-- Create Course Card -->
         <section class="admin-card">
             <div class="admin-card-header">
@@ -119,22 +119,24 @@ $totalStudents = count($students);
             <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/save" class="admin-form" enctype="multipart/form-data">
                 <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
 
-                <div class="admin-field">
-                    <label class="admin-label" for="course-title">
-                        Course title <span class="req">*</span>
-                    </label>
-                    <input class="admin-input" id="course-title" name="title" required minlength="3" maxlength="200" placeholder="e.g. Full Stack Web Development">
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="course-slug">
-                        URL slug <span class="req">*</span>
-                    </label>
-                    <div class="slug-input-wrapper">
-                        <span class="slug-prefix">/courses/</span>
-                        <input class="admin-input" id="course-slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="full-stack-web-development">
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-title">
+                            Course title <span class="req">*</span>
+                        </label>
+                        <input class="admin-input" id="course-title" name="title" required minlength="3" maxlength="200" placeholder="e.g. Full Stack Web Development">
                     </div>
-                    <span class="admin-hint">Use lowercase letters, numbers, and hyphens only (e.g. graphic-design-basics).</span>
+
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-slug">
+                            URL slug <span class="req">*</span>
+                        </label>
+                        <div class="slug-input-wrapper">
+                            <span class="slug-prefix">/courses/</span>
+                            <input class="admin-input" id="course-slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="full-stack-web-development">
+                        </div>
+                        <span class="admin-hint">Use lowercase letters, numbers, and hyphens only (e.g. graphic-design-basics).</span>
+                    </div>
                 </div>
 
                 <div class="admin-form-row">
@@ -173,16 +175,18 @@ $totalStudents = count($students);
                     <div class="admin-field"><label class="admin-label" for="course-live-price">Live + Recorded price (PKR) <span class="req">*</span></label><input class="admin-input" id="course-live-price" name="live_price" type="number" min="0" step="0.01" required value="0"></div>
                 </div>
 
-                <div class="admin-field">
-                    <label class="admin-label" for="course-short-description">Card summary</label>
-                    <textarea class="admin-textarea" id="course-short-description" name="short_description" rows="2" maxlength="500" placeholder="Short description shown on home and course cards..."></textarea>
-                </div>
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-short-description">Card summary</label>
+                        <textarea class="admin-textarea" id="course-short-description" name="short_description" rows="3" maxlength="500" placeholder="Short description shown on home and course cards..."></textarea>
+                    </div>
 
-                <div class="admin-field">
-                    <label class="admin-label" for="course-description">
-                        Description
-                    </label>
-                    <textarea class="admin-textarea" id="course-description" name="description" rows="3" placeholder="Brief outline of syllabus, core competencies, and career outcomes..."></textarea>
+                    <div class="admin-field">
+                        <label class="admin-label" for="course-description">
+                            Description
+                        </label>
+                        <textarea class="admin-textarea" id="course-description" name="description" rows="3" placeholder="Brief outline of syllabus, core competencies, and career outcomes..."></textarea>
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -196,106 +200,6 @@ $totalStudents = count($students);
                 </div>
             </form>
         </section>
-
-        <!-- Add Lesson Card -->
-        <section class="admin-card" id="lesson-add">
-            <div class="admin-card-header">
-                <div class="admin-card-title-group">
-                    <div class="admin-card-icon violet">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="12" y1="18" x2="12" y2="12"></line>
-                            <line x1="9" y1="15" x2="15" y2="15"></line>
-                        </svg>
-                    </div>
-                    <div class="admin-card-titles">
-                        <h2>Add lesson</h2>
-                        <p>Attach modules and draft lessons to existing courses</p>
-                    </div>
-                </div>
-            </div>
-
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
-                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-
-                <div class="admin-field">
-                    <label class="admin-label" for="lesson-course">
-                        Target course <span class="req">*</span>
-                    </label>
-                    <select class="admin-select" id="lesson-course" name="course_id" required>
-                        <?php if (empty($courses)): ?>
-                            <option value="" disabled selected>No courses available (create one first)</option>
-                        <?php else: ?>
-                            <?php foreach ($courses as $index => $course): ?>
-                                <option value="<?= (int) $course['id'] ?>" <?= $index === 0 ? 'selected' : '' ?>>
-                                    <?= $escape($course['title']) ?> (<?= $escape($course['slug']) ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="module-title">
-                        Module title <span class="req">*</span>
-                    </label>
-                    <input class="admin-input" id="module-title" name="module_title" required maxlength="200" placeholder="e.g. Module 1: Foundations & Architecture">
-                    <span class="admin-hint">Matches existing modules automatically or creates a new sequential section.</span>
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="lesson-title">
-                        Lesson title <span class="req">*</span>
-                    </label>
-                    <input class="admin-input" id="lesson-title" name="lesson_title" required maxlength="200" placeholder="e.g. Lesson 1: Introduction to Web Standards">
-                </div>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="lesson-body">
-                        Lesson content
-                    </label>
-                    <textarea class="admin-textarea" id="lesson-body" name="body" rows="4" placeholder="Draft lecture summary, reading materials, code snippets, or video links..."></textarea>
-                </div>
-
-                <?php if ($lessonVideosAvailable): ?>
-                    <div class="admin-field">
-                        <label class="admin-label" for="lesson-video-url">
-                            Lesson video link
-                        </label>
-                        <input class="admin-input" id="lesson-video-url" name="video_url" maxlength="600" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4">
-                        <span class="admin-hint">Direct .mp4 / .webm files track the playhead exactly. YouTube and Vimeo links are re-written to an embed player.</span>
-                    </div>
-
-                    <div class="admin-field">
-                        <label class="admin-label" for="lesson-video-duration">
-                            Video length
-                        </label>
-                        <input class="admin-input" id="lesson-video-duration" name="video_duration" maxlength="8" placeholder="e.g. 18:30">
-                        <span class="admin-hint">Needed for the watch-time rule. Accepts seconds, mm:ss or h:mm:ss.</span>
-                    </div>
-                <?php endif; ?>
-
-                <div class="admin-field">
-                    <label class="admin-label" for="lesson-status">Publishing status</label>
-                    <select class="admin-select" id="lesson-status" name="status">
-                        <option value="draft" selected>Draft — visible to admins only</option>
-                        <option value="published">Published — available to students with course access</option>
-                    </select>
-                </div>
-
-                <div class="form-actions">
-                    <button class="button" type="submit">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                        Save lesson
-                    </button>
-                </div>
-            </form>
-        </section>
     </div>
 
     <!-- Lesson editing and publishing -->
@@ -305,7 +209,7 @@ $totalStudents = count($students);
                 <div class="admin-card-icon violet"><span aria-hidden="true">▤</span></div>
                 <div class="admin-card-titles">
                     <h2>Lessons &amp; publishing</h2>
-                    <p>Edit lesson content or change whether students can access it.</p>
+                    <p>Edit lesson content or change whether students can access it. New lessons are added from the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons#lesson-add">Lesson library</a>.</p>
                 </div>
             </div>
             <span class="count-pill"><?= count($lessons) ?> <?= count($lessons) === 1 ? 'lesson' : 'lessons' ?></span>
@@ -313,7 +217,7 @@ $totalStudents = count($students);
         <?php if ($lessons === []): ?>
             <div class="admin-empty-state">
                 <h3>No lessons yet</h3>
-                <p>Create a lesson above to start building course content.</p>
+                <p>Add a lesson from the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons#lesson-add">Lesson library</a> to start building course content.</p>
             </div>
         <?php else: ?>
             <div class="lesson-library-list">
