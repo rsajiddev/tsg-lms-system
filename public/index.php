@@ -19,6 +19,7 @@ foreach (
         '/app/Services/PaymentReceiptJpg.php',
         '/app/Services/AuthService.php',
         '/app/Services/AttendanceService.php',
+        '/app/Services/LessonMedia.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/HealthController.php',
@@ -107,6 +108,7 @@ $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']
 $router->get('/learning', [\App\Controllers\LearningController::class, 'course']);
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
+$router->post('/learning/lesson/watch', [\App\Controllers\LearningController::class, 'watch']);
 $router->get('/learning/challenges', [\App\Controllers\CodingChallengeController::class, 'studentIndex']);
 $router->get('/learning/challenge', [\App\Controllers\CodingChallengeController::class, 'editor']);
 $router->post('/learning/challenge/submit', [\App\Controllers\CodingChallengeController::class, 'submitAttempt']);

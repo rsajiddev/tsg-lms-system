@@ -2,6 +2,17 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-28 (lesson video and watch-time rule)
+
+- A lesson can now carry one recorded video. Admins paste a link and the video length when editing a lesson: a direct `.mp4`/`.webm`/`.ogv` file is played natively, a YouTube link is re-written to the consent-free `youtube-nocookie` embed, a Vimeo link to `player.vimeo.com`, and anything else is embedded as-is. The provider is always derived from the stored link, so a hand-edited record cannot break the player.
+- Added `app/Services/LessonMedia.php`. Watch time is accumulated server side from player heartbeats only: the browser reports where the playhead is, and the server credits capped forward deltas (at most 20 seconds per heartbeat, and nothing at all from a heartbeat that arrives inside eight seconds). A refused heartbeat is not allowed to move the remembered playhead either, so one stray report cannot silently lock a student out of earning credit for the rest of a recording. Seeking backwards, replaying, and reporting positions past the end of the file add nothing.
+- Watch-time rule: once a student has accumulated `lesson_watch_completion_percent` of the registered length, the server writes `lesson_progress.completed_at` itself. Manual completion is refused with a clear message until then. Because certificates and every dashboard already count `completed_at`, certificate eligibility and course progress inherit the rule with no other change.
+- The rule only applies when a length is registered. A lesson without a video, or with a video of unknown length, stays manually completable, so nothing is blocked by an incomplete record.
+- Added the student lesson player: native video or responsive 16:9 embed frame, a watch-progress bar with `watched / length`, the remaining requirement, and the completion control that unlocks when the threshold is met. Heartbeats stop while the tab is hidden, and a YouTube/Vimeo embed says up front that its playhead cannot be read, so only visible active time is measured.
+- Added the `lesson_watch_completion_percent` setting (default 90, allowed 10–100) to the admin settings page as its own Lesson video group, validated and audited with the other limits, and seeded once so an admin edit survives a re-import.
+- Added `lessons.video_url`, `video_provider`, `video_duration_seconds` and `lesson_progress.watched_seconds`, `last_position_seconds`, `updated_at` to the canonical `database/migrations/001_initial_schema.sql`, with guarded `ALTER TABLE` patches and a provider backfill so an existing database is upgraded by re-importing the same file. Watch columns are added alongside the existing `completed_at`, which stays DATETIME to avoid a second timezone conversion. Import the updated file before expecting a video; until then the player is simply absent and completion stays manual, and the admin lesson form hides the video fields.
+- Added `tests/lesson-watch-flow-smoke.php` covering provider and embed detection, duration parsing, both fallbacks, capped and rate-guarded watch accounting, threshold auto-completion, and replay safety.
+
 ## Unreleased — 2026-10-28 (admin overview card layout)
 
 - Equalised the admin dashboard overview cards: every card in a row now shares that row's height, so the space underneath a column is identical instead of leaving a ragged gap below the shorter cards. Bars, sparklines, donuts, meters, rankings and alert lists grow to fill the card, while footnotes and stat tiles stay pinned to the bottom.

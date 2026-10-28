@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseDuration;
+use App\Services\LessonMedia;
 use PDO;
 use RuntimeException;
 
@@ -19,11 +20,12 @@ final class CourseAdminController
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $courseImagesAvailable = $this->courseImageColumnAvailable($db);
+        $videoColumns = $this->lessonVideoColumnsAvailable($db);
         $imageColumn = $courseImagesAvailable ? 'c.image_path' : 'NULL AS image_path';
         $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM courses c LEFT JOIN course_modules cm ON cm.course_id=c.id LEFT JOIN lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
-        $lessons = $db->query('SELECT l.id,l.title,l.body,l.status,l.sort_order,cm.id AS module_id,cm.title AS module_title,c.id AS course_id,c.title AS course_title FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id')->fetchAll();
+        $lessons = $db->query('SELECT l.id,l.title,l.body,l.status,l.sort_order,' . ($videoColumns ? 'l.video_url,l.video_duration_seconds' : 'NULL AS video_url,NULL AS video_duration_seconds') . ',cm.id AS module_id,cm.title AS module_title,c.id AS course_id,c.title AS course_title FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id')->fetchAll();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
-        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'lessons' => $lessons, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'lessons' => $lessons, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'lessonVideosAvailable' => $videoColumns, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -152,6 +154,18 @@ final class CourseAdminController
         }
     }
 
+    /** Same fail-open contract as the course image column: an old schema simply hides the fields. */
+    private function lessonVideoColumnsAvailable(PDO $db): bool
+    {
+        try {
+            $db->query('SELECT video_url,video_provider,video_duration_seconds FROM lessons LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
+        }
+    }
+
     private function removeCourseImage(?string $relativePath): void
     {
         if ($relativePath === null || !preg_match('~^assets/uploads/courses/[a-f0-9]{32}\.(?:jpg|png|webp)$~', $relativePath)) return;
@@ -174,7 +188,21 @@ final class CourseAdminController
         $lessonTitle = trim((string)($_POST['lesson_title'] ?? ''));
         $body = trim((string)($_POST['body'] ?? ''));
         $status = (string)($_POST['status'] ?? 'draft');
+        $videoInput = trim((string)($_POST['video_url'] ?? ''));
+        $durationInput = trim((string)($_POST['video_duration'] ?? ''));
         if ($courseId < 1 || mb_strlen($moduleTitle) < 2 || mb_strlen($lessonTitle) < 2 || mb_strlen($lessonTitle) > 200 || !in_array($status, ['draft', 'published'], true) || mb_strlen($body) > 500000) throw new RuntimeException('Enter a valid module and lesson title, content, and publishing status.');
+        $videoColumns = $this->lessonVideoColumnsAvailable($db);
+        $videoUrl = LessonMedia::normaliseUrl($videoInput);
+        $videoDuration = LessonMedia::parseDuration($durationInput);
+        if (mb_strlen($videoInput) > 600) throw new RuntimeException('The lesson video link must stay under 600 characters.');
+        if ($durationInput !== '' && $videoDuration === null) throw new RuntimeException('Enter the video length as seconds, mm:ss, or h:mm:ss.');
+        if (($videoUrl !== null || $videoDuration !== null) && !$videoColumns) {
+            throw new RuntimeException('Lesson videos require the updated database/migrations/001_initial_schema.sql. Import it, then try again.');
+        }
+        if ($videoUrl === null) {
+            $videoDuration = null;
+        }
+        $videoProvider = $videoUrl === null ? 'none' : LessonMedia::detectProvider($videoUrl);
         $db->beginTransaction();
         try {
             $check = $db->prepare('SELECT id FROM courses WHERE id=?');
@@ -187,8 +215,18 @@ final class CourseAdminController
                 $lessonCheck = $db->prepare('SELECT id FROM lessons WHERE id=? AND module_id=?');
                 $lessonCheck->execute([$lessonId, $moduleId]);
                 if (!$lessonCheck->fetchColumn()) throw new RuntimeException('Lesson not found in the selected module.');
-                $update = $db->prepare('UPDATE lessons SET title=?,body=?,status=? WHERE id=? AND module_id=?');
-                $update->execute([$lessonTitle, $body ?: null, $status, $lessonId, $moduleId]);
+                $assignments = 'title=?,body=?,status=?';
+                $params = [$lessonTitle, $body ?: null, $status];
+                if ($videoColumns) {
+                    $assignments .= ',video_url=?,video_provider=?,video_duration_seconds=?';
+                    $params[] = $videoUrl;
+                    $params[] = $videoProvider;
+                    $params[] = $videoDuration;
+                }
+                $params[] = $lessonId;
+                $params[] = $moduleId;
+                $update = $db->prepare("UPDATE lessons SET $assignments WHERE id=? AND module_id=?");
+                $update->execute($params);
                 $action = 'lesson.updated';
             } else {
                 $module = $db->prepare('SELECT id FROM course_modules WHERE course_id=? AND title=? LIMIT 1');
@@ -199,8 +237,21 @@ final class CourseAdminController
                     $insert->execute([$courseId, $moduleTitle, $courseId]);
                     $moduleId = (int)$db->lastInsertId();
                 }
-                $lesson = $db->prepare('INSERT INTO lessons(module_id,title,body,status,sort_order) VALUES(?,?,?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM lessons existing WHERE existing.module_id=?))');
-                $lesson->execute([$moduleId, $lessonTitle, $body ?: null, $status, $moduleId]);
+                $columns = 'module_id,title,body,status';
+                $placeholders = '?,?,?,?';
+                $params = [$moduleId, $lessonTitle, $body ?: null, $status];
+                if ($videoColumns) {
+                    $columns .= ',video_url,video_provider,video_duration_seconds';
+                    $placeholders .= ',?,?,?';
+                    $params[] = $videoUrl;
+                    $params[] = $videoProvider;
+                    $params[] = $videoDuration;
+                }
+                $columns .= ',sort_order';
+                $placeholders .= ',(SELECT COALESCE(MAX(sort_order),0)+1 FROM lessons existing WHERE existing.module_id=?)';
+                $params[] = $moduleId;
+                $lesson = $db->prepare("INSERT INTO lessons($columns) VALUES($placeholders)");
+                $lesson->execute($params);
                 $lessonId = (int)$db->lastInsertId();
                 $action = 'lesson.created';
             }

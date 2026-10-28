@@ -8,6 +8,7 @@ $courses = isset($courses) && is_array($courses) ? $courses : [];
 $lessons = isset($lessons) && is_array($lessons) ? $lessons : [];
 $students = isset($students) && is_array($students) ? $students : [];
 $courseImagesAvailable = isset($courseImagesAvailable) && (bool) $courseImagesAvailable;
+$lessonVideosAvailable = isset($lessonVideosAvailable) && (bool) $lessonVideosAvailable;
 $message = $message ?? null;
 
 $totalCourses = count($courses);
@@ -257,6 +258,24 @@ $totalStudents = count($students);
                     <textarea class="admin-textarea" id="lesson-body" name="body" rows="4" placeholder="Draft lecture summary, reading materials, code snippets, or video links..."></textarea>
                 </div>
 
+                <?php if ($lessonVideosAvailable): ?>
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-video-url">
+                            Lesson video link
+                        </label>
+                        <input class="admin-input" id="lesson-video-url" name="video_url" maxlength="600" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4">
+                        <span class="admin-hint">Direct .mp4 / .webm files track the playhead exactly. YouTube and Vimeo links are re-written to an embed player.</span>
+                    </div>
+
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-video-duration">
+                            Video length
+                        </label>
+                        <input class="admin-input" id="lesson-video-duration" name="video_duration" maxlength="8" placeholder="e.g. 18:30">
+                        <span class="admin-hint">Needed for the watch-time rule. Accepts seconds, mm:ss or h:mm:ss.</span>
+                    </div>
+                <?php endif; ?>
+
                 <div class="admin-field">
                     <label class="admin-label" for="lesson-status">Publishing status</label>
                     <select class="admin-select" id="lesson-status" name="status">
@@ -300,7 +319,7 @@ $totalStudents = count($students);
             <div class="lesson-library-list">
                 <?php foreach ($lessons as $lesson): ?>
                     <details class="lesson-editor">
-                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst($lesson['status'])) ?></span></summary>
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($lessonVideosAvailable && !empty($lesson['video_url'])): ?> · video <?= $escape(\App\Services\LessonMedia::formatDuration((int) ($lesson['video_duration_seconds'] ?? 0))) ?><?php endif; ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst($lesson['status'])) ?></span></summary>
                         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
                             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                             <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
@@ -309,6 +328,10 @@ $totalStudents = count($students);
                             <input type="hidden" name="module_title" value="<?= $escape($lesson['module_title']) ?>">
                             <label class="admin-label">Lesson title<input class="admin-input" name="lesson_title" required maxlength="200" value="<?= $escape($lesson['title']) ?>"></label>
                             <label class="admin-label">Lesson content<textarea class="admin-textarea" name="body" rows="5" maxlength="500000"><?= $escape($lesson['body'] ?? '') ?></textarea></label>
+                            <?php if ($lessonVideosAvailable): ?>
+                                <label class="admin-label">Lesson video link<input class="admin-input" name="video_url" maxlength="600" value="<?= $escape($lesson['video_url'] ?? '') ?>" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4"></label>
+                                <label class="admin-label">Video length<input class="admin-input" name="video_duration" maxlength="8" value="<?= $escape($lesson['video_duration_seconds'] !== null && $lesson['video_duration_seconds'] !== '' ? \App\Services\LessonMedia::formatDuration((int) $lesson['video_duration_seconds']) : '') ?>" placeholder="18:30"><span class="admin-hint">Seconds, mm:ss or h:mm:ss. Leave empty when the length is unknown — the lesson then stays manually completable.</span></label>
+                            <?php endif; ?>
                             <label class="admin-label">Publishing status<select class="admin-select" name="status">
                                     <option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
                                     <option value="published" <?= $lesson['status'] === 'published' ? 'selected' : '' ?>>Published</option>

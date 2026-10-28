@@ -563,6 +563,126 @@
         update();
     });
 
+    /* Lesson video player. The browser only ever reports where the playhead has reached, and the */
+    /* server turns those reports into capped forward deltas, so nothing here can hand out         */
+    /* completion credit by itself. Heartbeats stop while the tab is hidden, because an embed      */
+    /* cannot expose its playhead and an unseen tab is not watching anything.                     */
+
+    document.querySelectorAll('[data-lesson-player]').forEach((player) => {
+        const endpoint = player.dataset.endpoint || '';
+        const lessonId = player.dataset.lessonId || '0';
+        if (!endpoint || lessonId === '0') return;
+
+        const trackable = player.dataset.trackable === '1';
+        const video = player.querySelector('.lesson-video');
+        const frame = player.querySelector('.lesson-iframe');
+        if (trackable && !video) return;
+        if (!trackable && !frame) return;
+
+        const fill = player.querySelector('[data-watch-fill]');
+        const track = player.querySelector('.lesson-watch-track');
+        const text = player.querySelector('[data-watch-text]');
+        const note = player.querySelector('[data-watch-note]');
+        const unlockHint = document.querySelector('[data-unlock-hint]');
+        const completeButton = document.querySelector('[data-complete-button]');
+        const completeForm = completeButton ? completeButton.closest('form') : null;
+        const completedLabel = document.querySelector('[data-completed-label]');
+        const interval = Math.max(5, Number.parseInt(player.dataset.heartbeat || '10', 10)) * 1000;
+        const duration = Math.max(0, Number.parseInt(player.dataset.duration || '0', 10));
+
+        let position = Math.max(0, Number.parseInt(player.dataset.position || '0', 10));
+        let activeSeconds = 0;
+        let sending = false;
+        let finished = player.dataset.completed === '1';
+        let ticker = 0;
+
+        const measured = () => (trackable && video ? Math.floor(video.currentTime) : position + activeSeconds);
+
+        const markCompleted = () => {
+            finished = true;
+            if (ticker) window.clearInterval(ticker);
+            if (completeForm) completeForm.hidden = true;
+            if (completedLabel) completedLabel.hidden = false;
+            if (note) note.textContent = 'Watch requirement met — this lesson is recorded as complete.';
+        };
+
+        const paint = (data) => {
+            const ratio = Math.max(0, Math.min(100, Number(data.ratio) || 0));
+            if (fill) fill.style.setProperty('--watch-width', `${ratio}%`);
+            if (track) track.setAttribute('aria-valuenow', String(Math.round(ratio)));
+            if (text) {
+                text.textContent = data.duration
+                    ? `${data.watched_label} / ${data.duration_label}`
+                    : data.watched_label;
+            }
+            if (data.completed && !finished) markCompleted();
+            if (!data.completed && unlockHint && data.required) {
+                const remaining = Math.max(0, Number(data.required) - Number(data.watched));
+                unlockHint.textContent = remaining > 0
+                    ? `Unlocks after ${Math.ceil(remaining / 60)} more minute${Math.ceil(remaining / 60) === 1 ? '' : 's'} of watch time`
+                    : 'Ready — confirm below.';
+            }
+        };
+
+        const report = (keepalive) => {
+            if (finished || sending) return;
+            const value = measured();
+            if (value <= 0) return;
+            if (trackable && video && (video.paused || video.ended)) return;
+            const body = new FormData();
+            body.append('_csrf', player.dataset.csrf || '');
+            body.append('lesson_id', lessonId);
+            body.append('position', String(value));
+            sending = true;
+            window.fetch(endpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body,
+                keepalive: Boolean(keepalive),
+            }).then((response) => (response.ok ? response.json() : null))
+                .then((data) => {
+                    sending = false;
+                    if (!data || !data.ok) return;
+                    position = Math.max(position, value);
+                    activeSeconds = 0;
+                    paint(data);
+                })
+                .catch(() => { sending = false; });
+        };
+
+        const tick = () => {
+            if (finished) return;
+            if (document.visibilityState !== 'visible') return;
+            if (!trackable) activeSeconds += Math.round(interval / 1000);
+            if (duration && position + activeSeconds > duration + 60) activeSeconds = Math.max(0, duration - position);
+            report(false);
+        };
+
+        if (!finished) {
+            ticker = window.setInterval(tick, interval);
+            if (video) {
+                // A returning student resumes where the server last saw the playhead.
+                if (position > 5) {
+                    video.addEventListener('loadedmetadata', () => {
+                        if (Number.isFinite(video.duration) && position < video.duration - 5) {
+                            video.currentTime = position;
+                        }
+                    }, { once: true });
+                }
+                video.addEventListener('seeked', () => { position = Math.max(position, Math.floor(video.currentTime)); });
+                video.addEventListener('ended', () => report(false));
+            }
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    activeSeconds = 0;
+                } else {
+                    report(false);
+                }
+            });
+            window.addEventListener('pagehide', () => report(true));
+        }
+    });
+
     /* =========================================================
        BODY SCROLL LOCK — one owner for every overlay
 

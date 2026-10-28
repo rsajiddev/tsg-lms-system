@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\LessonMedia;
 
 final class AdminManagementController
 {
@@ -23,6 +24,7 @@ final class AdminManagementController
         'password_reset_max_attempts' => ['Password reset requests per window', 1, 20, 'requests', 'Reset links one account may request inside the window below.'],
         'password_reset_window_minutes' => ['Password reset limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count password reset requests.'],
         'attendance_grace_minutes' => ['Attendance grace window', 1, 120, 'minutes', 'Minutes a student has to confirm presence after signing in before the day is recorded as absent.'],
+        'lesson_watch_completion_percent' => ['Lesson watch requirement', 10, 100, '%', 'Share of a lesson video a student must watch before the lesson can be marked complete.'],
     ];
 
     private const SETTING_GROUPS = [
@@ -51,7 +53,15 @@ final class AdminManagementController
             'description' => 'Every student sign-in opens a daily attendance record that the student must confirm inside this window.',
             'keys' => ['attendance_grace_minutes'],
         ],
+        [
+            'title' => 'Lesson video',
+            'description' => 'Recorded lessons track watch time, and this share of the video length must be watched before the lesson counts as complete.',
+            'keys' => ['lesson_watch_completion_percent'],
+        ],
     ];
+
+    /** Numeric fallbacks for keys a not-yet-imported schema has not seeded yet. */
+    private const SETTING_FALLBACKS = ['lesson_watch_completion_percent' => LessonMedia::DEFAULT_PERCENT];
 
     private const PAYMENT_SETTINGS = [
         'payment_account_title' => ['Account title', 150],
@@ -84,6 +94,9 @@ final class AdminManagementController
             foreach ($stored as $key => $value) {
                 if (isset(self::PAYMENT_SETTINGS[$key]) || $key === self::CERTIFICATE_PREFIX_KEY) continue;
                 $values[$key] = (int) $value;
+            }
+            foreach (self::SETTING_FALLBACKS as $key => $fallback) {
+                if (!isset($values[$key])) $values[$key] = $fallback;
             }
             $certificateValues = [
                 self::CERTIFICATE_PREFIX_KEY => $stored[self::CERTIFICATE_PREFIX_KEY] ?? self::CERTIFICATE_DEFAULT_PREFIX,

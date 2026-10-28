@@ -4093,6 +4093,110 @@ html.js [data-reveal].is-visible.dash-card:hover {
   font-weight: 800
 }
 
+.learning-actions form[hidden],
+.learning-completed-label[hidden] {
+  display: none
+}
+
+.learning-actions-hint {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600
+}
+
+/* Recorded lesson video and the watch-time rule */
+.lesson-player {
+  display: grid;
+  gap: 16px
+}
+
+.lesson-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+  border: 0;
+  border-radius: 14px
+}
+
+.lesson-video-frame {
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+  border-radius: 14px
+}
+
+.lesson-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0
+}
+
+.lesson-watch {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+  border-radius: 12px
+}
+
+.lesson-watch-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px
+}
+
+.lesson-watch-title {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase
+}
+
+.lesson-watch-text {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums
+}
+
+.lesson-watch-track {
+  overflow: hidden;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px
+}
+
+.lesson-watch-fill {
+  display: block;
+  width: var(--watch-width, 0%);
+  height: 100%;
+  background: linear-gradient(90deg, #34d399, #047857);
+  border-radius: 999px;
+  transition: width .3s ease
+}
+
+.lesson-watch-note {
+  margin: 0;
+  color: #475569;
+  font-size: 12.5px;
+  line-height: 1.6
+}
+
+.lesson-player-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.6
+}
+
 @media(max-width:600px) {
   .learning-heading {
     align-items: flex-start;
@@ -4103,6 +4207,11 @@ html.js [data-reveal].is-visible.dash-card:hover {
   .learning-actions form,
   .learning-actions .button {
     width: 100%
+  }
+
+  .lesson-video,
+  .lesson-video-frame {
+    aspect-ratio: 16 / 10
   }
 }
 

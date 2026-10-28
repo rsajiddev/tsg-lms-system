@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\LessonMedia;
 use PDO;
 use RuntimeException;
 
@@ -35,13 +36,67 @@ final class LearningController
     {
         $student = AuthMiddleware::requireRole('student');
         $lessonId = filter_input(INPUT_GET, 'lesson_id', FILTER_VALIDATE_INT) ?: 0;
-        $lesson = $this->accessibleLesson(Database::connection(), (int) $student['id'], $lessonId);
+        $db = Database::connection();
+        $lesson = $this->accessibleLesson($db, (int) $student['id'], $lessonId);
         if (!$lesson) {
             http_response_code(404);
             View::render('errors/404', ['title' => 'Lesson unavailable', 'user' => $student]);
             return;
         }
-        View::render('learning/lesson', ['title' => $lesson['lesson_title'], 'user' => $student, 'lesson' => $lesson]);
+        // Watch state comes from the service, so the player and the completion rule read the same row.
+        $state = (new LessonMedia($db))->state((int) $student['id'], $lessonId);
+        View::render('learning/lesson', [
+            'title' => $lesson['lesson_title'],
+            'user' => $student,
+            'lesson' => $lesson,
+            'media' => $state,
+            'message' => $_SESSION['_flash'] ?? null,
+            'error' => $_SESSION['_flash_error'] ?? null,
+        ]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Player heartbeat: credits forward playhead movement and completes the lesson when the
+     * watch-time rule is satisfied. Answers JSON for the player script in public/assets/js.
+     */
+    public function watch(): void
+    {
+        $student = AuthMiddleware::requireRole('student');
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            echo json_encode(['ok' => false, 'error' => 'session'], JSON_UNESCAPED_SLASHES);
+            return;
+        }
+        $lessonId = filter_var($_POST['lesson_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+        $position = filter_var($_POST['position'] ?? null, FILTER_VALIDATE_INT);
+        if ($position === false || $position < 0 || $position > 86400) {
+            echo json_encode(['ok' => false, 'error' => 'position'], JSON_UNESCAPED_SLASHES);
+            return;
+        }
+        $db = Database::connection();
+        if (!$this->accessibleLesson($db, (int) $student['id'], $lessonId)) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'unavailable'], JSON_UNESCAPED_SLASHES);
+            return;
+        }
+        $media = new LessonMedia($db);
+        $state = $media->record((int) $student['id'], $lessonId, (int) $position);
+        echo json_encode([
+            'ok' => true,
+            'watched' => (int) $state['watched'],
+            'watched_label' => $state['watched_label'],
+            'required' => (int) $state['required'],
+            'required_label' => $state['required_label'],
+            'duration' => $state['duration'],
+            'duration_label' => $state['duration_label'],
+            'ratio' => (float) $state['ratio'],
+            'percent' => (int) $state['percent'],
+            'completed' => (bool) $state['completed'],
+            'just_completed' => (bool) ($state['just_completed'] ?? false),
+            'rule_applies' => (bool) $state['rule_applies'],
+        ], JSON_UNESCAPED_SLASHES);
     }
 
     public function complete(): void
@@ -53,6 +108,13 @@ final class LearningController
         if (!$this->accessibleLesson($db, (int) $student['id'], $lessonId)) {
             http_response_code(404);
             View::render('errors/404', ['title' => 'Lesson unavailable', 'user' => $student]);
+            return;
+        }
+        $media = new LessonMedia($db);
+        $blocked = $media->completionBlock((int) $student['id'], $lessonId);
+        if ($blocked !== null) {
+            $_SESSION['_flash_error'] = $blocked;
+            $this->redirect('/learning/lesson?lesson_id=' . $lessonId);
             return;
         }
         $stmt = $db->prepare('INSERT INTO lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE completed_at=COALESCE(completed_at,VALUES(completed_at))');

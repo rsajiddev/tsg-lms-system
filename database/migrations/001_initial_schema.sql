@@ -83,12 +83,101 @@ CREATE TABLE IF NOT EXISTS lessons (
        title VARCHAR(200) NOT NULL,
        body MEDIUMTEXT NULL,
        resource_path VARCHAR(500) NULL,
+       video_url VARCHAR(600) NULL,
+       video_provider ENUM('none', 'file', 'youtube', 'vimeo', 'embed') NOT NULL DEFAULT 'none',
+       video_duration_seconds INT UNSIGNED NULL,
        sort_order INT UNSIGNED NOT NULL DEFAULT 0,
        status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        CONSTRAINT fk_lessons_module FOREIGN KEY(module_id) REFERENCES course_modules(id),
        INDEX idx_lessons_module(module_id, sort_order)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Keep existing installations compatible: lessons gain the recorded-video layer.
+SET
+       @add_lesson_video_url = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN video_url VARCHAR(600) NULL AFTER resource_path',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'video_url'
+       );
+
+PREPARE add_lesson_video_url_stmt
+FROM
+       @add_lesson_video_url;
+
+EXECUTE add_lesson_video_url_stmt;
+
+DEALLOCATE PREPARE add_lesson_video_url_stmt;
+
+SET
+       @add_lesson_video_provider = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN video_provider ENUM(''none'', ''file'', ''youtube'', ''vimeo'', ''embed'') NOT NULL DEFAULT ''none'' AFTER video_url',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'video_provider'
+       );
+
+PREPARE add_lesson_video_provider_stmt
+FROM
+       @add_lesson_video_provider;
+
+EXECUTE add_lesson_video_provider_stmt;
+
+DEALLOCATE PREPARE add_lesson_video_provider_stmt;
+
+SET
+       @add_lesson_video_duration = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN video_duration_seconds INT UNSIGNED NULL AFTER video_provider',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'video_duration_seconds'
+       );
+
+PREPARE add_lesson_video_duration_stmt
+FROM
+       @add_lesson_video_duration;
+
+EXECUTE add_lesson_video_duration_stmt;
+
+DEALLOCATE PREPARE add_lesson_video_duration_stmt;
+
+-- Backfill the provider for rows created before the column existed.
+UPDATE lessons
+SET
+       video_provider = CASE
+              WHEN video_url IS NULL OR TRIM(video_url) = '' THEN 'none'
+              WHEN video_url LIKE '%youtube.com%' OR video_url LIKE '%youtu.be%' THEN 'youtube'
+              WHEN video_url LIKE '%vimeo.com%' THEN 'vimeo'
+              ELSE 'file'
+       END
+WHERE
+       video_provider = 'none'
+       OR video_provider IS NULL;
 
 CREATE TABLE IF NOT EXISTS student_course_access (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -999,11 +1088,87 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        lesson_id BIGINT UNSIGNED NOT NULL,
+       watched_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+       last_position_seconds INT UNSIGNED NOT NULL DEFAULT 0,
        completed_at DATETIME NULL,
+       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_student_lesson(student_id, lesson_id),
        CONSTRAINT fk_progress_student FOREIGN KEY(student_id) REFERENCES users(id),
        CONSTRAINT fk_progress_lesson FOREIGN KEY(lesson_id) REFERENCES lessons(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Keep existing installations compatible: watch time is recorded before a lesson can complete.
+SET
+       @add_progress_watched_seconds = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lesson_progress ADD COLUMN watched_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER lesson_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lesson_progress'
+                     AND COLUMN_NAME = 'watched_seconds'
+       );
+
+PREPARE add_progress_watched_seconds_stmt
+FROM
+       @add_progress_watched_seconds;
+
+EXECUTE add_progress_watched_seconds_stmt;
+
+DEALLOCATE PREPARE add_progress_watched_seconds_stmt;
+
+SET
+       @add_progress_last_position = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lesson_progress ADD COLUMN last_position_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER watched_seconds',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lesson_progress'
+                     AND COLUMN_NAME = 'last_position_seconds'
+       );
+
+PREPARE add_progress_last_position_stmt
+FROM
+       @add_progress_last_position;
+
+EXECUTE add_progress_last_position_stmt;
+
+DEALLOCATE PREPARE add_progress_last_position_stmt;
+
+SET
+       @add_progress_updated_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lesson_progress ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER completed_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lesson_progress'
+                     AND COLUMN_NAME = 'updated_at'
+       );
+
+PREPARE add_progress_updated_at_stmt
+FROM
+       @add_progress_updated_at;
+
+EXECUTE add_progress_updated_at_stmt;
+
+DEALLOCATE PREPARE add_progress_updated_at_stmt;
 
 CREATE TABLE IF NOT EXISTS notifications (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1533,6 +1698,12 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 INSERT INTO app_settings(setting_key, setting_value)
 VALUES
        ('attendance_grace_minutes', '5')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
+-- Share of a lesson video that must be watched before the lesson may be marked complete.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('lesson_watch_completion_percent', '90')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 
 SET FOREIGN_KEY_CHECKS = 1;
