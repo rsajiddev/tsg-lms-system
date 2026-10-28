@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
+use App\Services\LessonMedia;
 
 /**
  * Dedicated workspace pages for signed-in students.
@@ -50,6 +51,108 @@ final class StudentPortalController
             'user' => $user,
             'courses' => $stmt->fetchAll(),
             'certificatesAvailable' => $certificatesAvailable,
+            'message' => $_SESSION['_flash'] ?? null,
+            'error' => $_SESSION['_flash_error'] ?? null,
+        ]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Every published lesson in the student's active courses, on one filterable page.
+     *
+     * The course page only shows one curriculum at a time, so comparing progress across
+     * several courses meant opening each of them. This list also surfaces how much of a
+     * lesson video the student has actually watched.
+     */
+    public function lessons(): void
+    {
+        $user = AuthMiddleware::requireRole('student');
+        $db = Database::connection();
+        $media = new LessonMedia($db);
+        // The video and watch columns ship in the same schema file, so one flag decides
+        // whether this page may talk about watch progress at all; without them the list works.
+        $watchAvailable = $media->available();
+        $studentId = (int) $user['id'];
+        $search = substr(trim((string) ($_GET['q'] ?? '')), 0, 120);
+        $courseId = max(0, (int) ($_GET['course_id'] ?? 0));
+        $status = (string) ($_GET['status'] ?? 'all');
+        if (!in_array($status, ['all', 'completed', 'in-progress', 'not-started'], true)) {
+            $status = 'all';
+        }
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $perPage = 25;
+
+        $access = "sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())";
+        $touched = $watchAvailable ? 'COALESCE(lp.watched_seconds, 0) > 0' : 'lp.id IS NOT NULL';
+        $conditions = ["l.status = 'published'", $access];
+        $params = [$studentId];
+        if ($search !== '') {
+            $conditions[] = '(l.title LIKE ? OR cm.title LIKE ? OR c.title LIKE ?)';
+            $needle = '%' . $search . '%';
+            array_push($params, $needle, $needle, $needle);
+        }
+        if ($courseId > 0) {
+            $conditions[] = 'c.id = ?';
+            $params[] = $courseId;
+        }
+        if ($status === 'completed') {
+            $conditions[] = 'lp.completed_at IS NOT NULL';
+        } elseif ($status === 'in-progress') {
+            $conditions[] = "(lp.completed_at IS NULL AND $touched)";
+        } elseif ($status === 'not-started') {
+            $conditions[] = "(lp.id IS NULL OR (lp.completed_at IS NULL AND NOT $touched))";
+        }
+        $where = ' WHERE ' . implode(' AND ', $conditions);
+        $joins = "FROM lessons l
+             JOIN course_modules cm ON cm.id = l.module_id
+             JOIN courses c ON c.id = cm.course_id
+             JOIN student_course_access sca ON sca.course_id = c.id
+             LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = sca.student_id";
+
+        $count = $db->prepare("SELECT COUNT(*) $joins$where");
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+
+        // The summary ignores the status filter so it always describes the whole enrolment.
+        $summaryStmt = $db->prepare("SELECT COUNT(*) AS total,
+                    COALESCE(SUM(lp.completed_at IS NOT NULL), 0) AS completed,
+                    COALESCE(SUM(lp.completed_at IS NULL AND $touched), 0) AS in_progress
+             $joins
+             WHERE l.status = 'published' AND $access");
+        $summaryStmt->execute([$studentId]);
+        $summary = $summaryStmt->fetch() ?: [];
+
+        $watchColumns = $watchAvailable
+            ? 'COALESCE(lp.watched_seconds, 0) AS watched_seconds,lp.updated_at AS last_watched'
+            : '0 AS watched_seconds,NULL AS last_watched';
+        $stmt = $db->prepare("SELECT l.id,l.title,l.status," . ($watchAvailable ? 'l.video_duration_seconds' : 'NULL AS video_duration_seconds') . ",
+                    cm.id AS module_id,cm.title AS module_title,
+                    c.id AS course_id,c.title AS course_title,sca.expires_at AS access_expires_at,
+                    lp.completed_at,$watchColumns
+             $joins$where
+             ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
+             LIMIT $perPage OFFSET $offset");
+        $stmt->execute($params);
+        $courses = $db->prepare("SELECT c.id,c.title $joins WHERE $access GROUP BY c.id,c.title ORDER BY c.title");
+        $courses->execute([$studentId]);
+
+        View::render('student/lessons', [
+            'title' => 'My lessons',
+            'user' => $user,
+            'lessons' => $stmt->fetchAll(),
+            'courses' => $courses->fetchAll(),
+            'summary' => $summary,
+            'watchAvailable' => $watchAvailable,
+            'watchPercent' => $media->watchPercent(),
+            'search' => $search,
+            'courseId' => $courseId,
+            'status' => $status,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);

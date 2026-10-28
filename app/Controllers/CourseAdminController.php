@@ -29,6 +29,114 @@ final class CourseAdminController
         unset($_SESSION['_flash']);
     }
 
+    /**
+     * Standalone lesson catalogue.
+     *
+     * The course page still owns the lesson editors, but finding one lesson meant opening
+     * every course accordion. This page lists every lesson across the academy with its
+     * publish state, registered video length and how many enrolled students finished it.
+     */
+    public function lessons(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $db = Database::connection();
+        $media = new LessonMedia($db);
+        $videosAvailable = $this->lessonVideoColumnsAvailable($db);
+        $watchAvailable = $media->available();
+        $search = substr(trim((string) ($_GET['q'] ?? '')), 0, 120);
+        $courseId = max(0, (int) ($_GET['course_id'] ?? 0));
+        $status = (string) ($_GET['status'] ?? 'all');
+        $videoFilter = (string) ($_GET['video'] ?? 'all');
+        if (!in_array($status, ['all', 'published', 'draft'], true)) {
+            $status = 'all';
+        }
+        if (!$videosAvailable || !in_array($videoFilter, ['all', 'with', 'without', 'no-length'], true)) {
+            $videoFilter = 'all';
+        }
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $perPage = 25;
+
+        $conditions = [];
+        $params = [];
+        if ($search !== '') {
+            $conditions[] = '(l.title LIKE ? OR cm.title LIKE ? OR c.title LIKE ?)';
+            $needle = '%' . $search . '%';
+            array_push($params, $needle, $needle, $needle);
+        }
+        if ($courseId > 0) {
+            $conditions[] = 'c.id = ?';
+            $params[] = $courseId;
+        }
+        if ($status !== 'all') {
+            $conditions[] = 'l.status = ?';
+            $params[] = $status;
+        }
+        if ($videoFilter === 'with') {
+            $conditions[] = "l.video_url IS NOT NULL AND l.video_url <> ''";
+        } elseif ($videoFilter === 'without') {
+            $conditions[] = "(l.video_url IS NULL OR l.video_url = '')";
+        } elseif ($videoFilter === 'no-length') {
+            $conditions[] = "l.video_url IS NOT NULL AND l.video_url <> '' AND l.video_duration_seconds IS NULL";
+        }
+        $where = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
+
+        $videoColumns = $videosAvailable
+            ? 'l.video_url,l.video_provider,l.video_duration_seconds'
+            : 'NULL AS video_url,\'none\' AS video_provider,NULL AS video_duration_seconds';
+        $from = 'FROM lessons l JOIN course_modules cm ON cm.id = l.module_id JOIN courses c ON c.id = cm.course_id';
+        $count = $db->prepare("SELECT COUNT(*) $from$where");
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+
+        $videoMetrics = $videosAvailable
+            ? ",COALESCE(SUM(l.video_url IS NOT NULL AND l.video_url <> ''),0) AS with_video
+              ,COALESCE(SUM(l.video_url IS NOT NULL AND l.video_url <> '' AND l.video_duration_seconds IS NULL),0) AS missing_length"
+            : ',0 AS with_video,0 AS missing_length';
+        $summary = $db->prepare("SELECT COUNT(*) AS total,COALESCE(SUM(l.status = 'published'),0) AS published$videoMetrics $from$where");
+        $summary->execute($params);
+        $metrics = $summary->fetch() ?: [];
+
+        // Watch columns arrive with the same schema as the video columns, so an older import
+        // still gets the lesson list - it simply reports no progress instead of failing.
+        $watchColumn = $watchAvailable
+            ? '(SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
+            : '0 AS watching_count';
+        $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,cm.id AS module_id,cm.title AS module_title,
+                    c.id AS course_id,c.title AS course_title,c.visibility AS course_visibility,
+                    (SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
+                    (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
+                    $watchColumn
+              $from$where
+              ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
+              LIMIT $perPage OFFSET $offset");
+        $stmt->execute($params);
+        $courses = $db->query('SELECT id, title FROM courses ORDER BY title')->fetchAll();
+
+        View::render('admin/lessons', [
+            'title' => 'Lesson library',
+            'user' => $admin,
+            'lessons' => $stmt->fetchAll(),
+            'courses' => $courses,
+            'metrics' => $metrics,
+            'videosAvailable' => $videosAvailable,
+            'watchAvailable' => $watchAvailable,
+            'watchPercent' => $media->watchPercent(),
+            'search' => $search,
+            'courseId' => $courseId,
+            'status' => $status,
+            'videoFilter' => $videoFilter,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'message' => $_SESSION['_flash'] ?? null,
+            'error' => $_SESSION['_flash_error'] ?? null,
+        ]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
     public function save(): void
     {
         $admin = AuthMiddleware::requireRole('admin');

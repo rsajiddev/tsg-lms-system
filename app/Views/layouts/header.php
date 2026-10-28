@@ -41,6 +41,7 @@ $dashboardNavIcon = static function (string $name): string {
     $contents = match ($name) {
         'overview' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="13" width="7" height="8" rx="1.5"/>',
         'book' => '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 5.5v13A2.5 2.5 0 0 1 6.5 16H20M8 7h8M8 11h7"/>',
+        'play' => '<rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/>',
         'grid' => '<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',
         'card' => '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 9h18M7 15h4"/>',
         'quiz' => '<path d="M8 3h8l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v5h5M8 13l2.2 2.2L15.5 10"/>',
@@ -59,34 +60,35 @@ $dashboardNavIcon = static function (string $name): string {
 };
 $dashboardNavItems = $dashboardRole === 'admin'
     ? [
-        ['number' => '01', 'label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
-        ['number' => '02', 'label' => 'Manage courses', 'href' => '/admin/courses', 'icon' => 'book', 'active' => $activePath === '/admin/courses'],
-        ['number' => '03', 'label' => 'Quiz management', 'href' => '/admin/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/admin/quizzes'],
-        ['number' => '04', 'label' => 'Coding challenges', 'href' => '/admin/coding-challenges', 'icon' => 'code', 'active' => $activePath === '/admin/coding-challenges'],
-        ['number' => '05', 'label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'active' => $activePath === '/admin/quiz-reports'],
-        ['number' => '06', 'label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
-        ['number' => '07', 'label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
-        ['number' => '08', 'label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
-        ['number' => '09', 'label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'active' => str_starts_with($activePath, '/admin/certificates')],
-        ['number' => '10', 'label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
-        ['number' => '11', 'label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
-        ['number' => '12', 'label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
+        ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
+        ['label' => 'Manage courses', 'href' => '/admin/courses', 'icon' => 'book', 'active' => $activePath === '/admin/courses'],
+        ['label' => 'Lesson library', 'href' => '/admin/lessons', 'icon' => 'play', 'active' => $activePath === '/admin/lessons'],
+        ['label' => 'Quiz management', 'href' => '/admin/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/admin/quizzes'],
+        ['label' => 'Coding challenges', 'href' => '/admin/coding-challenges', 'icon' => 'code', 'active' => $activePath === '/admin/coding-challenges'],
+        ['label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'active' => $activePath === '/admin/quiz-reports'],
+        ['label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
+        ['label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
+        ['label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
+        ['label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'active' => str_starts_with($activePath, '/admin/certificates')],
+        ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
+        ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
+        ['label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
     ]
     : [
-        ['number' => '01', 'label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
-        ['number' => '02', 'label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'active' => in_array($activePath, ['/student/courses', '/learning', '/learning/lesson'], true)],
-        ['number' => '03', 'label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
-        ['number' => '04', 'label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
+        ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
+        ['label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'active' => in_array($activePath, ['/student/courses', '/learning'], true)],
+        ['label' => 'Lessons', 'href' => '/student/lessons', 'icon' => 'play', 'active' => in_array($activePath, ['/student/lessons', '/learning/lesson'], true)],
+        ['label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
+        ['label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
         ['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges'],
         ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
         ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'badge' => 'notifications', 'active' => str_starts_with($activePath, '/notifications')],
     ];
-if ($dashboardRole !== 'admin') {
-    foreach ($dashboardNavItems as $index => &$dashboardNavItem) {
-        $dashboardNavItem['number'] = str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
-    }
-    unset($dashboardNavItem);
+// Sidebar numbering follows the list order so inserting an entry never leaves duplicate numbers behind.
+foreach ($dashboardNavItems as $index => &$dashboardNavItem) {
+    $dashboardNavItem['number'] = str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
 }
+unset($dashboardNavItem);
 ?>
 <!doctype html>
 <html lang="en">

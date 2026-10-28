@@ -117,6 +117,7 @@ $router->get('/learning/assignments', [\App\Controllers\AssignmentController::cl
 $router->post('/learning/assignments/submit', [\App\Controllers\AssignmentController::class, 'submit']);
 $router->get('/learning/assignments/file', [\App\Controllers\AssignmentController::class, 'file']);
 $router->get('/student/courses', [\App\Controllers\StudentPortalController::class, 'courses']);
+$router->get('/student/lessons', [\App\Controllers\StudentPortalController::class, 'lessons']);
 $router->get('/student/payments', [\App\Controllers\StudentPortalController::class, 'payments']);
 $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
@@ -150,6 +151,7 @@ $router->post('/admin/quizzes/delete', [\App\Controllers\QuizController::class, 
 $router->post('/admin/quizzes/questions/save', [\App\Controllers\QuizController::class, 'saveQuestion']);
 $router->post('/admin/quizzes/retake-decision', [\App\Controllers\QuizController::class, 'retakeDecision']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
+$router->get('/admin/lessons', [\App\Controllers\CourseAdminController::class, 'lessons']);
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
 $router->post('/admin/courses/delete', [\App\Controllers\CourseAdminController::class, 'delete']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);

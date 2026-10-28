@@ -198,7 +198,7 @@ $totalStudents = count($students);
         </section>
 
         <!-- Add Lesson Card -->
-        <section class="admin-card">
+        <section class="admin-card" id="lesson-add">
             <div class="admin-card-header">
                 <div class="admin-card-title-group">
                     <div class="admin-card-icon violet">
@@ -318,8 +318,8 @@ $totalStudents = count($students);
         <?php else: ?>
             <div class="lesson-library-list">
                 <?php foreach ($lessons as $lesson): ?>
-                    <details class="lesson-editor">
-                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($lessonVideosAvailable && !empty($lesson['video_url'])): ?> · video <?= $escape(\App\Services\LessonMedia::formatDuration((int) ($lesson['video_duration_seconds'] ?? 0))) ?><?php endif; ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst($lesson['status'])) ?></span></summary>
+                    <details class="lesson-editor" id="lesson-<?= (int) $lesson['id'] ?>">
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($lessonVideosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape(\App\Services\LessonMedia::formatDuration((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst($lesson['status'])) ?></span></summary>
                         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
                             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                             <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">

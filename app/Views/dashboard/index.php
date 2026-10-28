@@ -315,7 +315,10 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         <h2>Top courses</h2>
                         <small>Active enrolments</small>
                     </div>
-                    <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/courses">Manage <span aria-hidden="true">→</span></a>
+                    <div class="dashboard-heading-links">
+                        <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/lessons">Lessons <span aria-hidden="true">→</span></a>
+                        <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/courses">Manage <span aria-hidden="true">→</span></a>
+                    </div>
                 </div>
                 <?php if ($topCourses === []): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">📚</span>
@@ -556,7 +559,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     <div>
                         <p class="eyebrow">YOUR ENROLMENT</p>
                         <h2>My courses</h2>
-                    </div><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a>
+                    </div><div class="dashboard-heading-links"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/student/lessons">All lessons →</a><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a></div>
                 </div>
                 <?php if (($student['courses'] ?? []) === []): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>

@@ -828,6 +828,22 @@
     }
 
     /* =========================================================
+       LESSON EDITOR DEEP LINK — /admin/courses#lesson-7 opens
+       the matching accordion so the lesson library can send an
+       admin straight to the editor it came from.
+       ========================================================= */
+
+    if (window.location.hash.startsWith('#lesson-')) {
+        const deepLinkLesson = document.getElementById(window.location.hash.slice(1));
+
+        if (deepLinkLesson && deepLinkLesson.matches('.lesson-editor')) {
+            deepLinkLesson.open = true;
+            /* The browser scrolled before the panel grew, so bring it back into view. */
+            window.requestAnimationFrame(() => deepLinkLesson.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        }
+    }
+
+    /* =========================================================
        ESCAPE — closes only the top-most overlay layer
 
        The admin modal sits above the sidebar drawer in the

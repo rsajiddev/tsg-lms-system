@@ -1,0 +1,205 @@
+<?php
+
+use App\Core\Security;
+
+$baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+$escape = static fn(mixed $value): string => Security::escape((string) $value);
+$lessons = is_array($lessons ?? null) ? $lessons : [];
+$courses = is_array($courses ?? null) ? $courses : [];
+$metrics = is_array($metrics ?? null) ? $metrics : [];
+$videosAvailable = isset($videosAvailable) && (bool) $videosAvailable;
+$watchAvailable = isset($watchAvailable) && (bool) $watchAvailable;
+$watchPercent = max(0, (int) ($watchPercent ?? 90));
+$search = is_string($search ?? null) ? $search : '';
+$courseId = (int) ($courseId ?? 0);
+$status = is_string($status ?? null) ? $status : 'all';
+$videoFilter = is_string($videoFilter ?? null) ? $videoFilter : 'all';
+$total = max(0, (int) ($total ?? 0));
+$page = max(1, (int) ($page ?? 1));
+$pages = max(1, (int) ($pages ?? 1));
+$message = $message ?? null;
+$error = $error ?? null;
+
+$addedLabel = static function (?string $value): string {
+    if ($value === null || $value === '') {
+        return '—';
+    }
+    $timestamp = strtotime($value);
+    return $timestamp === false ? '—' : date('M j, Y', $timestamp);
+};
+$durationLabel = static fn(mixed $seconds): string => \App\Services\LessonMedia::formatDuration($seconds === null ? null : (int) $seconds);
+$providerLabels = ['file' => 'Uploaded file', 'youtube' => 'YouTube', 'vimeo' => 'Vimeo', 'embed' => 'Embedded player', 'none' => 'No video'];
+$queryUrl = static function (array $overrides = []) use ($search, $courseId, $status, $videoFilter): string {
+    $query = http_build_query(array_merge([
+        'q' => $search,
+        'course_id' => $courseId ?: null,
+        'status' => $status !== 'all' ? $status : null,
+        'video' => $videoFilter !== 'all' ? $videoFilter : null,
+    ], $overrides));
+    return $query;
+};
+$filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoFilter !== 'all';
+?>
+<section class="dashboard-page lesson-library-page" data-reveal>
+    <div class="dashboard-topbar">
+        <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
+        <div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><strong>Lessons</strong></div>
+        <form class="dashboard-search" method="get" action="<?= $escape($baseUrl) ?>/admin/lessons" role="search">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" name="q" value="<?= $escape($search) ?>" placeholder="Search lesson, module or course" aria-label="Search lessons">
+            <input type="hidden" name="course_id" value="<?= $courseId ?: '' ?>">
+            <input type="hidden" name="status" value="<?= $escape($status) ?>">
+            <input type="hidden" name="video" value="<?= $escape($videoFilter) ?>">
+        </form>
+    </div>
+
+    <header class="dashboard-heading">
+        <div>
+            <p class="eyebrow">ADMIN WORKSPACE</p>
+            <h1>Lesson library</h1>
+            <p>Every lesson across every course in one searchable list, with its publish state, recorded video and completion reach.</p>
+        </div>
+        <a class="button" href="<?= $escape($baseUrl) ?>/admin/courses#lesson-add">Add a lesson</a>
+    </header>
+
+    <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><span><?= $escape($message) ?></span></div><?php endif; ?>
+    <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><span><?= $escape($error) ?></span></div><?php endif; ?>
+    <?php if (!$videosAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Lesson video columns are missing from this database.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Lessons still appear here; video fields unlock after the import.</span></div><?php endif; ?>
+
+    <div class="admin-stats-grid lesson-lib-metrics" aria-label="Lesson totals for the current filters">
+        <article class="admin-stat-card">
+            <div class="admin-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['total'] ?? 0) ?>"><?= number_format((int) ($metrics['total'] ?? 0)) ?></span><span class="admin-stat-label">Lessons found</span></div>
+        </article>
+        <article class="admin-stat-card">
+            <div class="admin-stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
+            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['published'] ?? 0) ?>"><?= number_format((int) ($metrics['published'] ?? 0)) ?></span><span class="admin-stat-label">Published to students</span></div>
+        </article>
+        <article class="admin-stat-card">
+            <div class="admin-stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/></svg></div>
+            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['with_video'] ?? 0) ?>"><?= number_format((int) ($metrics['with_video'] ?? 0)) ?></span><span class="admin-stat-label">Lessons with a video</span></div>
+        </article>
+        <article class="admin-stat-card">
+            <div class="admin-stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['missing_length'] ?? 0) ?>"><?= number_format((int) ($metrics['missing_length'] ?? 0)) ?></span><span class="admin-stat-label">Videos missing a length</span></div>
+        </article>
+    </div>
+
+    <section class="dashboard-panel lesson-lib-panel" aria-label="Lesson list">
+        <div class="dashboard-panel-heading lesson-lib-heading">
+            <div>
+                <p class="eyebrow"><?= $filtersActive ? 'FILTERED RESULTS' : 'ALL COURSES' ?></p>
+                <h2><?= number_format($total) ?> lesson<?= $total === 1 ? '' : 's' ?></h2>
+            </div>
+            <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/courses">Manage courses</a>
+        </div>
+
+        <form class="lesson-lib-filters" method="get" action="<?= $escape($baseUrl) ?>/admin/lessons">
+            <label class="lesson-lib-search-field">Search
+                <input class="admin-input" type="search" name="q" value="<?= $escape($search) ?>" placeholder="Lesson, module or course title">
+            </label>
+            <label>Course
+                <select class="admin-select" name="course_id">
+                    <option value="0">All courses</option>
+                    <?php foreach ($courses as $course): ?><option value="<?= (int) $course['id'] ?>" <?= $courseId === (int) $course['id'] ? 'selected' : '' ?>><?= $escape($course['title']) ?></option><?php endforeach; ?>
+                </select>
+            </label>
+            <label>Status
+                <select class="admin-select" name="status">
+                    <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>Draft and published</option>
+                    <option value="published" <?= $status === 'published' ? 'selected' : '' ?>>Published</option>
+                    <option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>>Draft</option>
+                </select>
+            </label>
+            <?php if ($videosAvailable): ?><label>Video
+                <select class="admin-select" name="video">
+                    <option value="all" <?= $videoFilter === 'all' ? 'selected' : '' ?>>Any video state</option>
+                    <option value="with" <?= $videoFilter === 'with' ? 'selected' : '' ?>>Has a video</option>
+                    <option value="without" <?= $videoFilter === 'without' ? 'selected' : '' ?>>No video</option>
+                    <option value="no-length" <?= $videoFilter === 'no-length' ? 'selected' : '' ?>>Video without length</option>
+                </select>
+            </label><?php endif; ?>
+            <div class="lesson-lib-filter-actions"><button class="button" type="submit">Apply filters</button><?php if ($filtersActive): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/lessons">Clear</a><?php endif; ?></div>
+        </form>
+
+        <?php if ($lessons === []): ?>
+            <div class="dashboard-empty lesson-lib-empty">
+                <span class="dashboard-empty-icon" aria-hidden="true">◷</span>
+                <div>
+                    <h3><?= $filtersActive ? 'No lesson matches these filters' : 'No lessons have been written yet' ?></h3>
+                    <p><?= $filtersActive ? 'Try a different course, status or video filter.' : 'Lessons live inside course modules. Add the first one from the course management page.' ?></p>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="admin-table-wrapper">
+                <table class="admin-table lesson-lib-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Lesson</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Video</th>
+                            <th scope="col">Completion</th>
+                            <th scope="col">Added</th>
+                            <th scope="col"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($lessons as $lesson):
+                            $lessonId = (int) $lesson['id'];
+                            $videoUrl = is_string($lesson['video_url'] ?? null) && $lesson['video_url'] !== '' ? $lesson['video_url'] : null;
+                            $provider = (string) ($lesson['video_provider'] ?? 'none');
+                            $duration = $lesson['video_duration_seconds'] === null ? null : (int) $lesson['video_duration_seconds'];
+                            $enrolled = max(0, (int) $lesson['enrolled_count']);
+                            $completed = max(0, (int) $lesson['completed_count']);
+                            $rate = $enrolled > 0 ? (int) round($completed / $enrolled * 100) : 0;
+                        ?>
+                            <tr>
+                                <td data-label="Lesson">
+                                    <div class="lesson-lib-identity">
+                                        <strong><?= $escape($lesson['title']) ?></strong>
+                                        <small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?> · position <?= (int) $lesson['sort_order'] ?></small>
+                                    </div>
+                                </td>
+                                <td data-label="Status"><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></td>
+                                <td data-label="Video">
+                                    <?php if ($videoUrl === null): ?>
+                                        <span class="lesson-lib-video-none">No video</span>
+                                    <?php else: ?>
+                                        <div class="lesson-lib-video">
+                                            <strong><?= $escape($providerLabels[$provider] ?? 'Linked video') ?></strong>
+                                            <?php if ($duration !== null): ?>
+                                                <small><?= $escape($durationLabel($duration)) ?> · watch rule needs <?= $watchPercent ?>%</small>
+                                            <?php else: ?>
+                                                <small class="lesson-lib-video-warning">Length not set — completion stays manual</small>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td data-label="Completion">
+                                    <div class="lesson-lib-reach">
+                                        <span class="lesson-lib-reach-text"><strong><?= number_format($completed) ?></strong> of <?= number_format($enrolled) ?> enrolled</span>
+                                        <span class="lesson-lib-reach-track" style="--lesson-fill: <?= $rate ?>%" role="img" aria-label="<?= $rate ?>% of enrolled students completed this lesson"><span class="lesson-lib-reach-fill"></span></span>
+                                        <span class="lesson-lib-reach-value"><?= $enrolled > 0 ? $rate . '%' : '—' ?></span>
+                                    </div>
+                                    <?php if ($watchAvailable && (int) $lesson['watching_count'] > 0): ?><small class="lesson-lib-watching"><?= number_format((int) $lesson['watching_count']) ?> student<?= (int) $lesson['watching_count'] === 1 ? '' : 's' ?> part-way through</small><?php endif; ?>
+                                </td>
+                                <td data-label="Added"><small><?= $escape($addedLabel($lesson['created_at'] ?? null)) ?></small></td>
+                                <td data-label="Actions" class="lesson-lib-actions"><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/courses#lesson-<?= $lessonId ?>">Edit lesson <span aria-hidden="true">→</span></a></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if ($pages > 1): ?>
+                <nav class="lesson-lib-pagination" aria-label="Lesson pages">
+                    <span>Page <?= $page ?> of <?= $pages ?></span>
+                    <div>
+                        <?php if ($page > 1): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/lessons?<?= $escape($queryUrl(['page' => $page - 1])) ?>">Previous</a><?php endif; ?>
+                        <?php if ($page < $pages): ?><a class="button" href="<?= $escape($baseUrl) ?>/admin/lessons?<?= $escape($queryUrl(['page' => $page + 1])) ?>">Next</a><?php endif; ?>
+                    </div>
+                </nav>
+            <?php endif; ?>
+        <?php endif; ?>
+        <p class="dashboard-note"><strong>Watch-time rule</strong><span>Students must watch <?= $watchPercent ?>% of a lesson video before it can be marked complete. Change the percentage in <a href="<?= $escape($baseUrl) ?>/admin/settings">security settings</a>; it only applies to lessons that have a registered length.</span></p>
+    </section>
+</section>
