@@ -371,10 +371,10 @@ final class CourseAdminController
             throw $e;
         }
         $_SESSION['_flash'] = $status === 'published' ? 'Lesson published for students with active course access.' : 'Lesson saved as a draft.';
-        // Lesson authoring now lives on the Lesson library page, so a save from there must return there.
-        // Only the two known lesson screens are accepted - never a caller-supplied URL.
-        $returnTo = (string) ($_POST['return_to'] ?? '');
-        $this->redirect($returnTo === '/admin/lessons' ? '/admin/lessons' : '/admin/courses');
+        // The form only names which screen it came from; the paths below are the ones this
+        // controller owns, so no request value is ever placed in the Location header.
+        $destinations = ['library' => '/admin/lessons', 'courses' => '/admin/courses'];
+        $this->redirect($destinations[(string) ($_POST['return_to'] ?? '')] ?? '/admin/courses');
     }
 
     public function access(): void

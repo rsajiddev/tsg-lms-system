@@ -87,7 +87,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
 
         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-            <input type="hidden" name="return_to" value="/admin/lessons">
+            <input type="hidden" name="return_to" value="library">
 
             <div class="admin-form-row">
                 <div class="admin-field">
