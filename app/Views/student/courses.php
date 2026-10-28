@@ -6,6 +6,9 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $user = isset($user) && is_array($user) ? $user : [];
 $courses = is_array($courses ?? null) ? $courses : [];
+$certificatesAvailable = (bool) ($certificatesAvailable ?? false);
+$flashMessage = is_string($message ?? null) && $message !== '' ? $message : null;
+$flashError = is_string($error ?? null) && $error !== '' ? $error : null;
 $grantedLabel = static function (?string $value): string {
     if (!$value) {
         return '—';
@@ -29,6 +32,9 @@ $grantedLabel = static function (?string $value): string {
         <a class="button" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue</a>
     </header>
 
+    <?php if ($flashMessage !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($flashMessage) ?></div><?php endif; ?>
+    <?php if ($flashError !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($flashError) ?></div><?php endif; ?>
+
     <section class="dashboard-panel">
         <div class="dashboard-panel-heading">
             <div>
@@ -50,6 +56,12 @@ $grantedLabel = static function (?string $value): string {
                     $completed = (int) $course['completed_lessons'];
                     $progress = $lessons > 0 ? min(100, (int) round(($completed / $lessons) * 100)) : 0;
                     $courseImageFrameClass = 'dashboard-course-image';
+                    $certificateStatus = (string) ($course['certificate_status'] ?? '');
+                    $certificateNumber = (string) ($course['certificate_id'] ?? '');
+                    $certificateRemarks = (string) ($course['admin_remarks'] ?? '');
+                    $certificateExpiry = $course['certificate_expires_at'] ?? null;
+                    $certificateExpired = $certificateStatus === 'issued' && $certificateExpiry && strtotime((string) $certificateExpiry . ' UTC') <= time();
+                    $courseComplete = $lessons > 0 && $completed >= $lessons;
                 ?>
                     <article class="dashboard-course-card">
                         <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
@@ -61,6 +73,52 @@ $grantedLabel = static function (?string $value): string {
                         <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
                         <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?> · Access granted <?= $escape($grantedLabel($course['granted_at'] ?? null)) ?> · Expires <?= $escape($grantedLabel($course['expires_at'] ?? null)) ?></small>
                         <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $course['id'] ?>">Open course →</a>
+
+                        <?php if ($certificatesAvailable): ?>
+                            <div class="course-certificate">
+                                <?php if ($certificateStatus === 'issued' && !$certificateExpired): ?>
+                                    <span class="certificate-chip certificate-chip-issued"><span aria-hidden="true">✓</span> Certificate issued</span>
+                                    <p class="certificate-line"><small>Certificate ID</small><strong><?= $escape($certificateNumber) ?></strong></p>
+                                    <p class="certificate-line"><small>Valid until</small><strong><?= $escape($grantedLabel($certificateExpiry)) ?></strong></p>
+                                    <div class="certificate-actions">
+                                        <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($certificateNumber)) ?>">Download JPG</a>
+                                        <a class="certificate-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode($certificateNumber)) ?>" target="_blank" rel="noopener">Public verification page →</a>
+                                    </div>
+                                <?php elseif ($certificateStatus === 'issued' && $certificateExpired): ?>
+                                    <span class="certificate-chip certificate-chip-expired"><span aria-hidden="true">⏱</span> Certificate expired</span>
+                                    <p class="certificate-note">This certificate expired on <?= $escape($grantedLabel($certificateExpiry)) ?> and is no longer downloadable. Contact the academy team to renew it.</p>
+                                <?php elseif ($certificateStatus === 'requested'): ?>
+                                    <span class="certificate-chip certificate-chip-pending"><span aria-hidden="true">⏳</span> Awaiting review</span>
+                                    <p class="certificate-note">Your request is with the academy team. You will get an email once the certificate is issued.</p>
+                                <?php elseif ($certificateStatus === 'rejected'): ?>
+                                    <span class="certificate-chip certificate-chip-rejected"><span aria-hidden="true">✕</span> Request declined</span>
+                                    <?php if ($certificateRemarks !== ''): ?><p class="certificate-note"><?= $escape($certificateRemarks) ?></p><?php endif; ?>
+                                    <details class="certificate-request-details">
+                                        <summary>Request the certificate again</summary>
+                                        <form method="post" action="<?= $escape($baseUrl) ?>/student/certificates/request" class="certificate-request-form">
+                                            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                            <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                                            <label class="admin-label" for="certificate-remarks-<?= (int) $course['id'] ?>">Remarks for the review team (optional)</label>
+                                            <textarea class="admin-textarea" id="certificate-remarks-<?= (int) $course['id'] ?>" name="remarks" rows="3" maxlength="1000" placeholder="Anything the team should know about your submission."></textarea>
+                                            <button class="button certificate-button" type="submit">Send request</button>
+                                        </form>
+                                    </details>
+                                <?php elseif ($courseComplete): ?>
+                                    <details class="certificate-request-details">
+                                        <summary>Request certificate</summary>
+                                        <form method="post" action="<?= $escape($baseUrl) ?>/student/certificates/request" class="certificate-request-form">
+                                            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                            <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                                            <label class="admin-label" for="certificate-remarks-<?= (int) $course['id'] ?>">Remarks for the review team (optional)</label>
+                                            <textarea class="admin-textarea" id="certificate-remarks-<?= (int) $course['id'] ?>" name="remarks" rows="3" maxlength="1000" placeholder="For example: the name spelling to print on the certificate."></textarea>
+                                            <button class="button certificate-button" type="submit">Send request</button>
+                                        </form>
+                                    </details>
+                                <?php else: ?>
+                                    <p class="certificate-note certificate-note-muted">Complete all <?= number_format($lessons) ?> published lessons to unlock your certificate.</p>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>

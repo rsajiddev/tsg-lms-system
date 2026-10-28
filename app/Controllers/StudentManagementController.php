@@ -135,6 +135,32 @@ final class StudentManagementController
         $this->redirect('/admin/students?student_id=' . $studentId);
     }
 
+    public function clearActivity(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) throw new RuntimeException('Your session expired. Refresh and try again.');
+        $studentId = filter_var($_POST['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
+        if ($studentId < 1) throw new RuntimeException('Choose a valid student.');
+        $db = Database::connection();
+        $check = $db->prepare("SELECT id FROM users WHERE id=? AND role='student'");
+        $check->execute([$studentId]);
+        if (!$check->fetch()) throw new RuntimeException('Student was not found.');
+        try {
+            $delete = $db->prepare('DELETE FROM login_events WHERE user_id=?');
+            $delete->execute([$studentId]);
+        } catch (\PDOException $exception) {
+            if ((string) $exception->getCode() !== '42S02') throw $exception;
+            throw new RuntimeException('Login history table is not available yet. Import the updated schema first.');
+        }
+        $deleted = $delete->rowCount();
+        $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
+        $audit->execute([(int) $admin['id'], 'student.activity_cleared', 'user', $studentId, json_encode(['deleted_events' => $deleted], JSON_THROW_ON_ERROR)]);
+        $_SESSION['_flash'] = $deleted > 0
+            ? 'Cleared ' . number_format($deleted) . ' sign-in record(s) for this student.'
+            : 'There was no sign-in activity to clear.';
+        $this->redirect('/admin/students?student_id=' . $studentId);
+    }
+
     private function redirect(string $path): never
     {
         header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $path);

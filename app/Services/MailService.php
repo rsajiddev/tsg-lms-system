@@ -18,7 +18,8 @@ final class MailService
         $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
         $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
 
-        if ($host === '' || $username === '' || $password === '' || $from === ''
+        if (
+            $host === '' || $username === '' || $password === '' || $from === ''
             || !filter_var($email, FILTER_VALIDATE_EMAIL)
             || !filter_var($from, FILTER_VALIDATE_EMAIL)
             || !in_array($encryption, ['tls', 'ssl'], true)
@@ -48,43 +49,53 @@ final class MailService
 
     public function sendNewStudentAlert(string $studentName, string $studentEmail): bool
     {
-        $adminEmail = trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: ''));
-        $host = trim((string) (getenv('MAIL_HOST') ?: ''));
-        $port = (int) (getenv('MAIL_PORT') ?: 587);
-        $username = (string) (getenv('MAIL_USERNAME') ?: '');
-        $password = (string) (getenv('MAIL_PASSWORD') ?: '');
-        $encryption = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
-        $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
-        $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
-
-        if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL) || $host === '' || $username === '' || $password === ''
-            || !filter_var($from, FILTER_VALIDATE_EMAIL) || !in_array($encryption, ['tls', 'ssl'], true)
-            || $port < 1 || $port > 65535
-        ) {
-            error_log('[MAIL] New-student alert is unavailable; check MAIL_ADMIN_NOTIFICATION_ADDRESS and SMTP configuration.');
+        $recipients = array_unique(array_filter([
+            trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: '')),
+            trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: '')),
+        ]));
+        $safeName = $this->mailSafeText($studentName);
+        $safeEmail = $this->mailSafeText($studentEmail);
+        $body = "A student registration was submitted for TSG Academy.\r\n\r\nName: {$safeName}\r\nEmail: {$safeEmail}\r\n\r\nThe student must verify their email before signing in.";
+        if ($recipients === []) {
+            error_log('[MAIL] New-student alert is unavailable; configure a notification recipient and SMTP.');
             return false;
         }
+        $allSent = true;
+        foreach ($recipients as $recipient) {
+            $allSent = $this->sendConfiguredEmail($recipient, 'New student account registration', $body) && $allSent;
+        }
+        return $allSent;
+    }
 
-        $safeName = trim(str_replace(["\r", "\n"], '', $studentName));
-        $safeEmail = trim(str_replace(["\r", "\n"], '', $studentEmail));
-        try {
-            $this->deliver(
-                $host,
-                $port,
-                $username,
-                $password,
-                $encryption,
-                $from,
-                $fromName,
-                $adminEmail,
-                'New student account registration',
-                "A student registration was submitted for TSG Academy.\r\n\r\nName: {$safeName}\r\nEmail: {$safeEmail}\r\n\r\nThe student must verify their email before signing in."
+    public function sendDeveloperRevenueReport(array $report): bool
+    {
+        $recipient = trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: ''));
+        $period = $this->mailSafeText((string) ($report['period'] ?? 'Current month'));
+        $lines = [
+            'Revenue summary for ' . $period,
+            '',
+            'Approved student enrollments (all time): ' . (int) ($report['student_count'] ?? 0),
+            'Approved payments (all time): ' . (int) ($report['payment_count'] ?? 0),
+            '',
+            'Revenue and developer share for the selected month:',
+        ];
+        $rates = is_array($report['rates'] ?? null) ? $report['rates'] : [];
+        foreach ($rates as $row) {
+            if (!is_array($row)) continue;
+            $currency = preg_replace('/[^A-Za-z0-9 _-]/', '', (string) ($row['currency'] ?? '')) ?: 'Currency';
+            $lines[] = sprintf(
+                '%s: month revenue %s; month developer share (15%%) %s; all-time revenue %s; all-time developer share (15%%) %s; monthly payments %d; monthly students %d',
+                $currency,
+                number_format((float) ($row['monthly_revenue'] ?? 0), 2),
+                number_format((float) ($row['developer_share'] ?? 0), 2),
+                number_format((float) ($row['lifetime_revenue'] ?? 0), 2),
+                number_format((float) ($row['lifetime_developer_share'] ?? 0), 2),
+                (int) ($row['payment_count'] ?? 0),
+                (int) ($row['student_count'] ?? 0)
             );
-            return true;
-        } catch (\Throwable $exception) {
-            error_log('[MAIL] New-student alert delivery failed (' . $exception::class . '). Check MAIL_* settings.');
-            return false;
         }
+        if ($rates === []) $lines[] = 'No approved payments have been recorded yet.';
+        return $this->sendConfiguredEmail($recipient, 'TSG Academy monthly revenue summary', implode("\r\n", $lines));
     }
 
     public function sendPaymentSubmitted(string $studentEmail, string $studentName, string $courseTitle, string $amount, string $currency, string $reference): bool
@@ -120,6 +131,63 @@ final class MailService
         return $studentSent && $responsibleSent;
     }
 
+    /**
+     * Notify the academy inbox that a student has requested a course certificate.
+     * The recipient falls back to the general admin notification address when the
+     * dedicated certificate mailbox is not configured.
+     */
+    public function sendCertificateRequest(string $studentName, string $studentEmail, string $courseTitle, string $certificateRef, string $remarks = ''): bool
+    {
+        $recipient = trim((string) (getenv('MAIL_CERTIFICATE_REQUEST_ADDRESS') ?: ''));
+        if ($recipient === '') $recipient = trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: ''));
+        $name = $this->mailSafeText($studentName);
+        $email = $this->mailSafeText($studentEmail);
+        $course = $this->mailSafeText($courseTitle);
+        $reference = $this->mailSafeText($certificateRef);
+        $lines = [
+            'A student has requested a course certificate.',
+            '',
+            'Student: ' . $name,
+            'Email: ' . $email,
+            'Course: ' . $course,
+            'Request reference: #' . $reference,
+        ];
+        $safeRemarks = $this->mailSafeText($remarks);
+        if ($safeRemarks !== '') {
+            $lines[] = '';
+            $lines[] = 'Student remarks:';
+            $lines[] = $safeRemarks;
+        }
+        $lines[] = '';
+        $lines[] = 'Review the request in Admin workspace > Certificates to issue or reject it.';
+        return $this->sendConfiguredEmail($recipient, 'New certificate request awaiting review', implode("\r\n", $lines));
+    }
+
+    /** Tell a student their certificate has been issued and is ready in their workspace. */
+    public function sendCertificateIssued(string $studentEmail, string $studentName, string $courseTitle, string $certificateId, string $issuedOn, string $expiresOn, string $verifyUrl): bool
+    {
+        $name = $this->mailSafeText($studentName);
+        $course = $this->mailSafeText($courseTitle);
+        $reference = $this->mailSafeText($certificateId);
+        $body = implode("\r\n", [
+            'Hello ' . $name . ',',
+            '',
+            'Congratulations — your certificate for ' . $course . ' has been issued.',
+            '',
+            'Certificate ID: ' . $reference,
+            'Date of issue: ' . $this->mailSafeText($issuedOn),
+            'Valid until: ' . $this->mailSafeText($expiresOn),
+            '',
+            'You can download the certificate and share its verification link from your student workspace.',
+            'Anyone can confirm its authenticity at: ' . $this->mailSafeText($verifyUrl),
+            '',
+            'If any detail looks incorrect, reply to this email and the academy team will help.',
+            '',
+            'Tech SG Academy',
+        ]);
+        return $this->sendConfiguredEmail($studentEmail, 'Your TSG Academy certificate is ready', $body);
+    }
+
     private function sendConfiguredEmail(string $to, string $subject, string $body): bool
     {
         $host = trim((string) (getenv('MAIL_HOST') ?: ''));
@@ -129,9 +197,11 @@ final class MailService
         $encryption = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
         $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
         $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
-        if (!filter_var($to, FILTER_VALIDATE_EMAIL) || $host === '' || $username === '' || $password === ''
-            || !filter_var($from, FILTER_VALIDATE_EMAIL) || !in_array($encryption, ['tls','ssl'], true)
-            || $port < 1 || $port > 65535) {
+        if (
+            !filter_var($to, FILTER_VALIDATE_EMAIL) || $host === '' || $username === '' || $password === ''
+            || !filter_var($from, FILTER_VALIDATE_EMAIL) || !in_array($encryption, ['tls', 'ssl'], true)
+            || $port < 1 || $port > 65535
+        ) {
             error_log('[MAIL] Transactional email is unavailable; check recipient and MAIL_* configuration.');
             return false;
         }

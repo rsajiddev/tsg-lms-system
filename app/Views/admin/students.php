@@ -78,7 +78,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                 <?php if ($search !== '' || $statusFilter !== 'all'): ?><a class="button button-secondary student-filter-clear" href="<?= Security::escape($baseUrl) ?>/admin/students">Clear</a><?php endif; ?>
             </form>
         </div>
-        <p class="student-directory-hint">Login totals include events recorded after this feature is installed.</p>
+        <p class="student-directory-hint">Use <strong>View activity</strong> to see a student's account status and sign-in history.</p>
         <?php if ($students === []): ?>
             <div class="dashboard-empty">
                 <div>
@@ -92,29 +92,21 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                     <thead>
                         <tr>
                             <th>Student</th>
-                            <th>Email</th>
-                            <th>Registered</th>
-                            <th>Last login</th>
-                            <th>Successful logins</th>
-                            <th>Status</th>
-                            <th></th>
+                            <th class="student-col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($students as $student): ?><tr>
-                                <td data-label="Student"><div class="student-table-identity"><span><strong><?= Security::escape($student['full_name']) ?></strong><small>Student ID · <?= (int) $student['id'] ?></small></span></div></td>
-                                <td class="student-email-cell" data-label="Email"><?= Security::escape($student['email']) ?></td>
-                                <td data-label="Registered"><?= Security::escape($student['created_at']) ?></td>
-                                <td data-label="Last login"><?= Security::escape($student['last_login_at'] ?: 'No login yet') ?></td>
-                                <td data-label="Successful logins"><span class="student-login-count"><?= $student['successful_logins'] === null ? '—' : number_format((int) $student['successful_logins']) ?></span></td>
-                                <td data-label="Status"><span class="student-status-badge student-status-<?= Security::escape($student['status']) ?>"><?= Security::escape($student['status'] === 'suspended' ? 'Blocked' : ucfirst($student['status'])) ?></span></td>
-                                <td class="student-row-actions" data-label="Actions"><a class="student-activity-link" href="<?= Security::escape($baseUrl) ?>/admin/students?<?= Security::escape($queryUrl(['student_id' => (int) $student['id'], 'page' => $page])) ?>">View details <span aria-hidden="true">→</span></a><?php if (in_array($student['status'], ['active', 'suspended'], true)): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/status" class="student-status-form" onsubmit="return confirm('<?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?> this student account?')">
+                        <?php foreach ($students as $student): $studentName = (string) $student['full_name']; ?>
+                            <tr>
+                                <td data-label="Student"><div class="student-table-identity"><span><strong><?= Security::escape($studentName) ?></strong><small>ID · <?= (int) $student['id'] ?></small></span></div></td>
+                                <td class="student-row-actions" data-label="Actions"><a class="student-activity-link" href="<?= Security::escape($baseUrl) ?>/admin/students?<?= Security::escape($queryUrl(['student_id' => (int) $student['id'], 'page' => $page])) ?>">View activity <span aria-hidden="true">→</span></a><?php if (in_array($student['status'], ['active', 'suspended'], true)): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/status" class="student-status-form" onsubmit="return confirm('<?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?> this student account?')">
                                         <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
                                         <input type="hidden" name="student_id" value="<?= (int) $student['id'] ?>">
                                         <input type="hidden" name="status" value="<?= $student['status'] === 'active' ? 'suspended' : 'active' ?>">
                                         <button class="student-action-button <?= $student['status'] === 'active' ? 'is-block' : 'is-unblock' ?>" type="submit"><?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?></button>
                                     </form><?php endif; ?></td>
-                            </tr><?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
@@ -142,9 +134,18 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                 <span><strong>Successful sign-ins</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['successful'] ?? 0)) ?></span>
                 <span><strong>Failed / blocked attempts</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['failed'] ?? 0)) ?></span>
             </div>
-            <h3>Recent sign-in activity <small>Latest 50 records · server time in UTC</small></h3>
+            <div class="student-activity-toolbar">
+                <h3>Recent sign-in activity <small>Latest 50 records · server time in UTC</small></h3>
+                <?php if (!empty($loginHistoryAvailable) && $activity !== []): ?>
+                    <form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/clear-activity" class="student-status-form" onsubmit="return confirm('Clear all recorded sign-in activity for this student? This cannot be undone.')">
+                        <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+                        <input type="hidden" name="student_id" value="<?= (int) $selectedStudent['id'] ?>">
+                        <button class="student-action-button is-clear" type="submit">Clear activity</button>
+                    </form>
+                <?php endif; ?>
+            </div>
             <?php if ($activity === []): ?>
-                <div class="dashboard-empty"><div><h2><?= empty($loginHistoryAvailable) ? 'Login activity is not set up yet' : 'No sign-in history recorded yet' ?></h2><p><?= empty($loginHistoryAvailable) ? 'Import the updated 001_initial_schema.sql file into your existing database to enable sign-in history.' : 'New activity will appear after this feature is installed.' ?></p></div></div>
+                <div class="dashboard-empty"><div><h2><?= empty($loginHistoryAvailable) ? 'Login activity is not set up yet' : 'No sign-in history recorded yet' ?></h2><p><?= empty($loginHistoryAvailable) ? 'Import the updated 001_initial_schema.sql file into your existing database to enable sign-in history.' : 'New sign-in activity will appear here as it happens.' ?></p></div></div>
             <?php else: ?>
                 <div class="admin-table-wrapper"><table class="admin-table student-activity-table">
                     <thead><tr><th>Result</th><th>Date and time (UTC)</th><th>IP address</th></tr></thead>

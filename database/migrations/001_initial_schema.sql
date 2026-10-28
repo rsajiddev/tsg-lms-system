@@ -435,6 +435,30 @@ EXECUTE add_quiz_type_stmt;
 DEALLOCATE PREPARE add_quiz_type_stmt;
 
 SET
+       @add_quiz_practice_topic = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quizzes ADD COLUMN practice_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER quiz_type',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quizzes'
+                     AND COLUMN_NAME = 'practice_topic'
+       );
+
+PREPARE add_quiz_practice_topic_stmt
+FROM
+       @add_quiz_practice_topic;
+
+EXECUTE add_quiz_practice_topic_stmt;
+
+DEALLOCATE PREPARE add_quiz_practice_topic_stmt;
+
+SET
        @add_question_explanation = (
               SELECT
                      IF(
@@ -462,8 +486,16 @@ CREATE TABLE IF NOT EXISTS quiz_retake_approvals (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        quiz_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
-       approved_by BIGINT UNSIGNED NOT NULL,
-       approved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       request_status ENUM(
+              'pending',
+              'approved',
+              'rejected'
+       ) NOT NULL DEFAULT 'pending',
+       student_note VARCHAR(1000) NULL,
+       student_requested_at DATETIME NULL,
+       admin_note VARCHAR(1000) NULL,
+       approved_by BIGINT UNSIGNED NULL,
+       approved_at DATETIME NULL,
        used_at DATETIME NULL,
        UNIQUE KEY uq_quiz_retake_student(quiz_id, student_id),
        CONSTRAINT fk_retake_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
@@ -471,6 +503,152 @@ CREATE TABLE IF NOT EXISTS quiz_retake_approvals (
        CONSTRAINT fk_retake_admin FOREIGN KEY(approved_by) REFERENCES users(id),
        INDEX idx_quiz_retake_available(student_id, used_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Final-test retake workflow: students raise a request, an admin approves or rejects it, and only one extra attempt is unlocked.
+SET
+       @add_retake_request_status = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quiz_retake_approvals ADD COLUMN request_status ENUM(''pending'',''approved'',''rejected'') NOT NULL DEFAULT ''pending'' AFTER student_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'request_status'
+       );
+
+PREPARE add_retake_request_status_stmt
+FROM
+       @add_retake_request_status;
+
+EXECUTE add_retake_request_status_stmt;
+
+DEALLOCATE PREPARE add_retake_request_status_stmt;
+
+SET
+       @add_retake_student_note = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quiz_retake_approvals ADD COLUMN student_note VARCHAR(1000) NULL AFTER request_status',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'student_note'
+       );
+
+PREPARE add_retake_student_note_stmt
+FROM
+       @add_retake_student_note;
+
+EXECUTE add_retake_student_note_stmt;
+
+DEALLOCATE PREPARE add_retake_student_note_stmt;
+
+SET
+       @add_retake_student_requested_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quiz_retake_approvals ADD COLUMN student_requested_at DATETIME NULL AFTER student_note',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'student_requested_at'
+       );
+
+PREPARE add_retake_student_requested_at_stmt
+FROM
+       @add_retake_student_requested_at;
+
+EXECUTE add_retake_student_requested_at_stmt;
+
+DEALLOCATE PREPARE add_retake_student_requested_at_stmt;
+
+SET
+       @add_retake_admin_note = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE quiz_retake_approvals ADD COLUMN admin_note VARCHAR(1000) NULL AFTER student_requested_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'admin_note'
+       );
+
+PREPARE add_retake_admin_note_stmt
+FROM
+       @add_retake_admin_note;
+
+EXECUTE add_retake_admin_note_stmt;
+
+DEALLOCATE PREPARE add_retake_admin_note_stmt;
+
+-- Approver fields only populate once an admin decides, so relax the original NOT NULL definition for existing installs.
+SET
+       @retake_approver_nullable = (
+              SELECT
+                     IF(
+                            IS_NULLABLE = 'NO',
+                            'ALTER TABLE quiz_retake_approvals MODIFY COLUMN approved_by BIGINT UNSIGNED NULL',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'approved_by'
+       );
+
+PREPARE retake_approver_nullable_stmt
+FROM
+       @retake_approver_nullable;
+
+EXECUTE retake_approver_nullable_stmt;
+
+DEALLOCATE PREPARE retake_approver_nullable_stmt;
+
+SET
+       @retake_approved_at_nullable = (
+              SELECT
+                     IF(
+                            IS_NULLABLE = 'NO',
+                            'ALTER TABLE quiz_retake_approvals MODIFY COLUMN approved_at DATETIME NULL',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND COLUMN_NAME = 'approved_at'
+       );
+
+PREPARE retake_approved_at_nullable_stmt
+FROM
+       @retake_approved_at_nullable;
+
+EXECUTE retake_approved_at_nullable_stmt;
+
+DEALLOCATE PREPARE retake_approved_at_nullable_stmt;
 
 -- Snapshot randomized question and option order once per attempt so refreshes
 -- preserve order and submitted answers remain bound to the original question IDs.
@@ -510,6 +688,78 @@ CREATE TABLE IF NOT EXISTS assignments (
        CONSTRAINT fk_assignment_creator FOREIGN KEY(created_by) REFERENCES users(id),
        INDEX idx_assignment_course(course_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+SET
+       @add_assignment_type = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignments ADD COLUMN assignment_type ENUM(''exercise'',''mini_project'') NOT NULL DEFAULT ''exercise'' AFTER course_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignments'
+                     AND COLUMN_NAME = 'assignment_type'
+       );
+
+PREPARE add_assignment_type_stmt
+FROM
+       @add_assignment_type;
+
+EXECUTE add_assignment_type_stmt;
+
+DEALLOCATE PREPARE add_assignment_type_stmt;
+
+SET
+       @add_assignment_module = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignments ADD COLUMN module_id BIGINT UNSIGNED NULL AFTER assignment_type',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignments'
+                     AND COLUMN_NAME = 'module_id'
+       );
+
+PREPARE add_assignment_module_stmt
+FROM
+       @add_assignment_module;
+
+EXECUTE add_assignment_module_stmt;
+
+DEALLOCATE PREPARE add_assignment_module_stmt;
+
+SET
+       @add_assignment_topic = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE assignments ADD COLUMN assignment_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER module_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'assignments'
+                     AND COLUMN_NAME = 'assignment_topic'
+       );
+
+PREPARE add_assignment_topic_stmt
+FROM
+       @add_assignment_topic;
+
+EXECUTE add_assignment_topic_stmt;
+
+DEALLOCATE PREPARE add_assignment_topic_stmt;
 
 CREATE TABLE IF NOT EXISTS assignment_submissions (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1224,5 +1474,39 @@ CREATE TABLE IF NOT EXISTS coding_challenge_attempts (
        INDEX idx_coding_attempt_student(challenge_id, student_id, id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-SET
-       FOREIGN_KEY_CHECKS = 1;
+-- Certificate management and public verification. One request row per student and course;
+-- the academy-issued public identifier stays NULL until an admin approves the request.
+CREATE TABLE IF NOT EXISTS certificates (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       certificate_id VARCHAR(64) NULL,
+       student_id BIGINT UNSIGNED NOT NULL,
+       course_id BIGINT UNSIGNED NOT NULL,
+       status ENUM('requested', 'issued', 'rejected') NOT NULL DEFAULT 'requested',
+       student_remarks VARCHAR(1000) NULL,
+       admin_remarks VARCHAR(1000) NULL,
+       file_path VARCHAR(500) NULL,
+       issued_by BIGINT UNSIGNED NULL,
+       reviewed_by BIGINT UNSIGNED NULL,
+       requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       issued_at DATETIME NULL,
+       expires_at DATETIME NULL,
+       notified_at DATETIME NULL,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       UNIQUE KEY uq_certificate_student_course(student_id, course_id),
+       UNIQUE KEY uq_certificate_public_id(certificate_id),
+       CONSTRAINT fk_certificate_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_certificate_course FOREIGN KEY(course_id) REFERENCES courses(id),
+       CONSTRAINT fk_certificate_issuer FOREIGN KEY(issued_by) REFERENCES users(id),
+       CONSTRAINT fk_certificate_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
+       INDEX idx_certificate_status(status, requested_at),
+       INDEX idx_certificate_student(student_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Certificate defaults are seeded once and never overwritten by a re-import, so admin edits survive.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('certificate_id_prefix', 'TSG-CERT'),
+       ('certificate_available_days', '15')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
+SET FOREIGN_KEY_CHECKS = 1;

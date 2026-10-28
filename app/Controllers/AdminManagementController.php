@@ -57,19 +57,36 @@ final class AdminManagementController
         'payment_instructions' => ['Payment instructions', 255],
     ];
 
+    /** Certificate defaults keep the workspace usable before an admin edits anything. */
+    public const CERTIFICATE_PREFIX_KEY = 'certificate_id_prefix';
+    public const CERTIFICATE_DAYS_KEY = 'certificate_available_days';
+    public const CERTIFICATE_DEFAULT_PREFIX = 'TSG-CERT';
+    public const CERTIFICATE_DEFAULT_DAYS = 15;
+    public const CERTIFICATE_MIN_DAYS = 1;
+    public const CERTIFICATE_MAX_DAYS = 3650;
+
     public function settings(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         try {
-            $values = [];
+            $stored = [];
             foreach ($db->query('SELECT setting_key,setting_value FROM app_settings')->fetchAll() as $row) {
-                if (!isset(self::PAYMENT_SETTINGS[$row['setting_key']])) $values[$row['setting_key']] = (int)$row['setting_value'];
+                $stored[(string) $row['setting_key']] = (string) $row['setting_value'];
             }
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'message' => $_SESSION['_flash'] ?? null]);
+            $values = [];
+            foreach ($stored as $key => $value) {
+                if (isset(self::PAYMENT_SETTINGS[$key]) || $key === self::CERTIFICATE_PREFIX_KEY) continue;
+                $values[$key] = (int) $value;
+            }
+            $certificateValues = [
+                self::CERTIFICATE_PREFIX_KEY => $stored[self::CERTIFICATE_PREFIX_KEY] ?? self::CERTIFICATE_DEFAULT_PREFIX,
+                self::CERTIFICATE_DAYS_KEY => $stored[self::CERTIFICATE_DAYS_KEY] ?? (string) self::CERTIFICATE_DEFAULT_DAYS,
+            ];
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'certificateValues' => $certificateValues, 'message' => $_SESSION['_flash'] ?? null]);
         } catch (\PDOException $exception) {
             if ((string)$exception->getCode() !== '42S02') throw $exception;
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'message' => null, 'migrationRequired' => true]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'certificateValues' => [self::CERTIFICATE_PREFIX_KEY => self::CERTIFICATE_DEFAULT_PREFIX, self::CERTIFICATE_DAYS_KEY => (string) self::CERTIFICATE_DEFAULT_DAYS], 'message' => null, 'migrationRequired' => true]);
         }
         unset($_SESSION['_flash']);
     }
@@ -83,6 +100,9 @@ final class AdminManagementController
         }
         if (($_POST['form_type'] ?? '') === 'payment_details') {
             $this->savePaymentSettings($admin, '/admin/settings');
+        }
+        if (($_POST['form_type'] ?? '') === 'certificate_settings') {
+            $this->saveCertificateSettings($admin);
         }
         $db = Database::connection();
         $db->beginTransaction();
@@ -135,6 +155,38 @@ final class AdminManagementController
             throw $e;
         }
         header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $redirectPath);
+        exit;
+    }
+
+    /**
+     * Certificate branding is validated here rather than in the browser, so a
+     * crafted request can never store a prefix that would leak into public URLs.
+     */
+    private function saveCertificateSettings(array $admin): never
+    {
+        $prefix = strtoupper(trim((string) ($_POST[self::CERTIFICATE_PREFIX_KEY] ?? '')));
+        if ($prefix === '') $prefix = self::CERTIFICATE_DEFAULT_PREFIX;
+        if (mb_strlen($prefix) > 24 || preg_match('/^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/', $prefix) !== 1) {
+            throw new \RuntimeException('Certificate ID prefix must be 2-24 uppercase letters, digits, or single hyphens, starting with a letter (for example TSG-CERT).');
+        }
+        $rawDays = trim((string) ($_POST[self::CERTIFICATE_DAYS_KEY] ?? ''));
+        if (!ctype_digit($rawDays) || (int) $rawDays < self::CERTIFICATE_MIN_DAYS || (int) $rawDays > self::CERTIFICATE_MAX_DAYS) {
+            throw new \RuntimeException('Certificate availability must be between ' . self::CERTIFICATE_MIN_DAYS . ' and ' . self::CERTIFICATE_MAX_DAYS . ' days.');
+        }
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert->execute([self::CERTIFICATE_PREFIX_KEY, $prefix, (int) $admin['id']]);
+            $upsert->execute([self::CERTIFICATE_DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('prefix',?, 'days', ?))")->execute([(int) $admin['id'], $prefix, (int) $rawDays]);
+            $db->commit();
+            $_SESSION['_flash'] = 'Certificate settings saved.';
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
+        }
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
         exit;
     }
 

@@ -1,7 +1,6 @@
 <?php
 
 use App\Core\Security;
-use App\Core\Database;
 
 $title = isset($title) && is_string($title) ? $title : 'TSG Academy LMS';
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
@@ -17,15 +16,25 @@ $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
 $dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
-$studentHasCodingCourse = false;
-if ($dashboardArea && $dashboardRole === 'student' && isset($currentUser['id'])) {
-    try {
-        $codingAccess = Database::connection()->prepare("SELECT 1 FROM student_course_access sca JOIN courses c ON c.id = sca.course_id WHERE sca.student_id = ? AND c.slug = 'full-stack-web-development' AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP()) LIMIT 1");
-        $codingAccess->execute([(int) $currentUser['id']]);
-        $studentHasCodingCourse = (bool) $codingAccess->fetchColumn();
-    } catch (Throwable $exception) {
-        // A navigation eligibility lookup must not prevent the rest of the page from rendering.
-        error_log('[Dashboard navigation] Coding course access lookup failed: ' . $exception->getMessage());
+// Read/unread style counters for the student workspace nav (new announcements, assignments, tests).
+$navBadge = [];
+if ($dashboardArea && $dashboardRole !== 'admin') {
+    $navStudentId = (int)($currentUser['id'] ?? 0);
+    if ($navStudentId > 0) {
+        try {
+            $navDb = \App\Core\Database::connection();
+            $stmt = $navDb->prepare('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.student_id=? AND n.published_at IS NOT NULL AND nr.read_at IS NULL');
+            $stmt->execute([$navStudentId]);
+            $navBadge['notifications'] = (int)$stmt->fetchColumn();
+            $stmt = $navDb->prepare("SELECT COUNT(*) FROM assignments a JOIN student_course_access sca ON sca.course_id=a.course_id AND sca.student_id=? AND sca.status='active' AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE a.status='published' AND NOT EXISTS (SELECT 1 FROM assignment_submissions s WHERE s.assignment_id=a.id AND s.student_id=?)");
+            $stmt->execute([$navStudentId, $navStudentId]);
+            $navBadge['assignments'] = (int)$stmt->fetchColumn();
+            $stmt = $navDb->prepare("SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id=q.course_id AND sca.student_id=? AND sca.status='active' AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE q.status='released' AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) AND NOT EXISTS (SELECT 1 FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?)");
+            $stmt->execute([$navStudentId, $navStudentId]);
+            $navBadge['quizzes'] = (int)$stmt->fetchColumn();
+        } catch (\Throwable $exception) {
+            $navBadge = [];
+        }
     }
 }
 $dashboardNavIcon = static function (string $name): string {
@@ -40,6 +49,7 @@ $dashboardNavIcon = static function (string $name): string {
         'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
         'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6"/>',
         'megaphone' => '<path d="m3 11 18-6v14L3 13zM5 14l2 7h4l-2-8M21 9a3 3 0 0 1 0 6"/>',
+        'certificate' => '<circle cx="12" cy="9" r="6"/><path d="M8.5 14.5 7 22l5-2.6L17 22l-1.5-7.5"/>',
         'star' => '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',
         'settings' => '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-5"/>',
@@ -57,18 +67,19 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['number' => '06', 'label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
         ['number' => '07', 'label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
         ['number' => '08', 'label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
-        ['number' => '09', 'label' => 'Payment review', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
-        ['number' => '10', 'label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
-        ['number' => '11', 'label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
+        ['number' => '09', 'label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'active' => str_starts_with($activePath, '/admin/certificates')],
+        ['number' => '10', 'label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
+        ['number' => '11', 'label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
+        ['number' => '12', 'label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
     ]
     : [
         ['number' => '01', 'label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
         ['number' => '02', 'label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'active' => in_array($activePath, ['/student/courses', '/learning', '/learning/lesson'], true)],
         ['number' => '03', 'label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
-        ['number' => '04', 'label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
-        ...($studentHasCodingCourse ? [['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges']] : []),
-        ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
-        ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'active' => str_starts_with($activePath, '/notifications')],
+        ['number' => '04', 'label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
+        ['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges'],
+        ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
+        ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'badge' => 'notifications', 'active' => str_starts_with($activePath, '/notifications')],
     ];
 if ($dashboardRole !== 'admin') {
     foreach ($dashboardNavItems as $index => &$dashboardNavItem) {
@@ -101,7 +112,8 @@ if ($dashboardRole !== 'admin') {
             </div>
             <nav class="dashboard-side-nav" aria-label="Dashboard sections">
                 <?php foreach ($dashboardNavItems as $item): ?>
-                    <a<?= $item['active'] ? ' class="active" aria-current="page"' : '' ?> href="<?= Security::escape($baseUrl . $item['href']) ?>"><span class="dashboard-nav-number"><?= Security::escape($item['number']) ?></span><?= $dashboardNavIcon($item['icon']) ?><span class="dashboard-nav-label"><?= Security::escape($item['label']) ?></span></a>
+                    <?php $badgeCount = isset($item['badge']) ? (int)($navBadge[$item['badge']] ?? 0) : 0; ?>
+                    <a<?= $item['active'] ? ' class="active" aria-current="page"' : '' ?> href="<?= Security::escape($baseUrl . $item['href']) ?>"><span class="dashboard-nav-number"><?= Security::escape($item['number']) ?></span><?= $dashboardNavIcon($item['icon']) ?><span class="dashboard-nav-label"><?= Security::escape($item['label']) ?></span><?php if ($badgeCount > 0): ?><span class="dashboard-nav-badge" aria-label="<?= $badgeCount ?> new"><?= $badgeCount > 99 ? '99+' : $badgeCount ?></span><?php endif; ?></a>
                 <?php endforeach; ?>
                 <form class="dashboard-mobile-logout" method="post" action="<?= Security::escape($baseUrl) ?>/logout">
                     <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
@@ -122,6 +134,7 @@ if ($dashboardRole !== 'admin') {
         <nav class="top-nav" aria-label="Main navigation">
             <a<?= $navClass('/') ?> href="<?= Security::escape($baseUrl) ?>/">Home</a>
             <a<?= $navClass('/courses') ?> href="<?= Security::escape($baseUrl) ?>/courses">Courses</a>
+            <a<?= $navClass('/verify') ?> href="<?= Security::escape($baseUrl) ?>/verify">Certificate</a>
             <a<?= $navClass('/about') ?> href="<?= Security::escape($baseUrl) ?>/about">About</a>
             <a<?= $navClass('/contact') ?> href="<?= Security::escape($baseUrl) ?>/contact">Contact</a>
             <?php if ($currentUser !== []): ?>
@@ -140,6 +153,7 @@ if ($dashboardRole !== 'admin') {
             <nav aria-label="Mobile navigation">
                 <a<?= $navClass('/') ?> href="<?= Security::escape($baseUrl) ?>/">Home</a>
                 <a<?= $navClass('/courses') ?> href="<?= Security::escape($baseUrl) ?>/courses">Courses</a>
+                <a<?= $navClass('/verify') ?> href="<?= Security::escape($baseUrl) ?>/verify">Certificate</a>
                 <a<?= $navClass('/about') ?> href="<?= Security::escape($baseUrl) ?>/about">About</a>
                 <a<?= $navClass('/contact') ?> href="<?= Security::escape($baseUrl) ?>/contact">Contact</a>
                 <?php if ($currentUser !== []): ?>

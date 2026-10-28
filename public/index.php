@@ -16,6 +16,7 @@ foreach (
         '/app/Services/MailService.php',
         '/app/Services/CourseDuration.php',
         '/app/Services/PaymentReceiptPdf.php',
+        '/app/Services/PaymentReceiptJpg.php',
         '/app/Services/AuthService.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
@@ -31,6 +32,7 @@ foreach (
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/NotificationController.php',
         '/app/Controllers/StudentManagementController.php',
+        '/app/Controllers/CertificateController.php',
         '/app/Controllers/CodingChallengeController.php',
     ] as $file
 ) {
@@ -82,6 +84,8 @@ $router->get('/contact', [\App\Controllers\PublicPageController::class, 'contact
 $router->get('/terms', [\App\Controllers\PublicPageController::class, 'terms']);
 $router->get('/privacy', [\App\Controllers\PublicPageController::class, 'privacy']);
 $router->get('/refund-policy', [\App\Controllers\PublicPageController::class, 'refundPolicy']);
+$router->get('/verify', [\App\Controllers\CertificateController::class, 'verify']);
+$router->get('/certificate/download', [\App\Controllers\CertificateController::class, 'download']);
 $router->get('/health', [\App\Controllers\HealthController::class, 'show']);
 
 $auth = \App\Controllers\AuthController::class;
@@ -112,9 +116,14 @@ $router->get('/student/courses', [\App\Controllers\StudentPortalController::clas
 $router->get('/student/payments', [\App\Controllers\StudentPortalController::class, 'payments']);
 $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
+$router->post('/student/certificates/request', [\App\Controllers\CertificateController::class, 'request']);
+$router->get('/admin/certificates', [\App\Controllers\CertificateController::class, 'adminIndex']);
+$router->post('/admin/certificates/issue', [\App\Controllers\CertificateController::class, 'issue']);
+$router->post('/admin/certificates/reject', [\App\Controllers\CertificateController::class, 'reject']);
 $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
 $router->post('/admin/students/status', [\App\Controllers\StudentManagementController::class, 'setStatus']);
+$router->post('/admin/students/clear-activity', [\App\Controllers\StudentManagementController::class, 'clearActivity']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
 $router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
@@ -146,6 +155,8 @@ $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::clas
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
 $router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
+$router->get('/admin/payments/revenue-receipt', [\App\Controllers\PaymentController::class, 'revenueReceipt']);
+$router->post('/admin/payments/revenue-notify', [\App\Controllers\PaymentController::class, 'notifyDeveloper']);
 $router->post('/admin/payments/settings', [\App\Controllers\AdminManagementController::class, 'savePaymentDetails']);
 $router->get('/payments/new', [\App\Controllers\PaymentController::class, 'newPage']);
 $router->post('/payments', [\App\Controllers\PaymentController::class, 'submit']);
