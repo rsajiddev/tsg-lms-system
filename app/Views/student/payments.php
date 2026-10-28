@@ -77,7 +77,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                                 <td><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
                                 <td><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
                                 <td><?php if (!empty($payment['payment_proof_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View uploaded proof</a><?php else: ?><small>—</small><?php endif; ?></td>
-                                <td><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">Download JPG receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
+                                <td><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">View receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

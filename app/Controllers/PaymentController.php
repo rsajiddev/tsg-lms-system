@@ -179,29 +179,15 @@ final class PaymentController
         $this->redirect('/admin/payments');
     }
 
+    public function receiptView(): void
+    {
+        $payment = $this->approvedReceipt();
+        View::render('payments/receipt', ['title' => 'Payment receipt ' . $payment['receipt_number'], 'user' => $this->receiptUser(), 'payment' => $payment]);
+    }
+
     public function receipt(): void
     {
-        $sessionUser = $_SESSION['user'] ?? null;
-        if (!is_array($sessionUser) || !in_array($sessionUser['role'] ?? '', ['admin', 'student'], true)) {
-            $this->redirect('/login');
-        }
-        $user = AuthMiddleware::requireRole((string) $sessionUser['role']);
-        $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
-        $db = Database::connection();
-        $sql = "SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_number,p.receipt_issued_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=?";
-        $params = [$paymentId];
-        if ($user['role'] === 'student') {
-            $sql .= ' AND p.student_id=?';
-            $params[] = (int) $user['id'];
-        }
-        $sql .= " AND p.status='approved'";
-        $stmt = $db->prepare($sql . ' LIMIT 1');
-        $stmt->execute($params);
-        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$payment || !is_string($payment['receipt_number']) || $payment['receipt_number'] === '') {
-            http_response_code(404);
-            return;
-        }
+        $payment = $this->approvedReceipt();
         $jpg = PaymentReceiptJpg::renderReceipt($payment);
         header('Content-Type: image/jpeg');
         header('Content-Length: ' . strlen($jpg));
@@ -209,6 +195,38 @@ final class PaymentController
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
         echo $jpg;
+    }
+
+    private function receiptUser(): array
+    {
+        $sessionUser = $_SESSION['user'] ?? null;
+        if (!is_array($sessionUser) || !in_array($sessionUser['role'] ?? '', ['admin', 'student'], true)) {
+            $this->redirect('/login');
+        }
+        return AuthMiddleware::requireRole((string) $sessionUser['role']);
+    }
+
+    /** Load an approved, issued receipt; the student may only load their own. */
+    private function approvedReceipt(): array
+    {
+        $user = $this->receiptUser();
+        $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
+        $sql = "SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_number,p.receipt_issued_at,p.reviewed_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=?";
+        $params = [$paymentId];
+        if ($user['role'] === 'student') {
+            $sql .= ' AND p.student_id=?';
+            $params[] = (int) $user['id'];
+        }
+        $sql .= " AND p.status='approved'";
+        $stmt = Database::connection()->prepare($sql . ' LIMIT 1');
+        $stmt->execute($params);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$payment || !is_string($payment['receipt_number']) || $payment['receipt_number'] === '') {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Receipt unavailable', 'user' => $user]);
+            exit;
+        }
+        return $payment;
     }
 
     public function revenueReceipt(): void

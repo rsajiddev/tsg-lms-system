@@ -151,8 +151,10 @@ final class PaymentReceiptJpg
             $candidate = $line === '' ? $word : $line . ' ' . $word;
             $box = $font ? imagettfbbox($size, 0, $font, $candidate) : false;
             $width = is_array($box) ? abs($box[2] - $box[0]) : strlen($candidate) * 10;
-            if ($width > $maxWidth && $line !== '') { $lines[] = $line; $line = $word; }
-            else $line = $candidate;
+            if ($width > $maxWidth && $line !== '') {
+                $lines[] = $line;
+                $line = $word;
+            } else $line = $candidate;
         }
         if ($line !== '') $lines[] = $line;
         foreach (array_slice($lines, 0, $maxLines) as $index => $part) self::text($image, $part, $x, $baseline + ($index * ($size + 8)), $color, $size, $bold);

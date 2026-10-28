@@ -163,7 +163,8 @@ $router->post('/admin/payments/revenue-notify', [\App\Controllers\PaymentControl
 $router->post('/admin/payments/settings', [\App\Controllers\AdminManagementController::class, 'savePaymentDetails']);
 $router->get('/payments/new', [\App\Controllers\PaymentController::class, 'newPage']);
 $router->post('/payments', [\App\Controllers\PaymentController::class, 'submit']);
-$router->get('/payments/receipt', [\App\Controllers\PaymentController::class, 'receipt']);
+$router->get('/payments/receipt', [\App\Controllers\PaymentController::class, 'receiptView']);
+$router->get('/payments/receipt/download', [\App\Controllers\PaymentController::class, 'receipt']);
 $router->get('/payments/proof', [\App\Controllers\PaymentController::class, 'proof']);
 
 $requestMethod = is_string($_SERVER['REQUEST_METHOD'] ?? null) ? $_SERVER['REQUEST_METHOD'] : 'GET';
