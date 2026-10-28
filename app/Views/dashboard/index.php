@@ -367,6 +367,66 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 <?php endif; ?>
             </section>
 
+            <?php
+            $studentAwaiting = max(0, (int) ($students['total'] ?? 0) - (int) ($students['active'] ?? 0) - (int) ($students['blocked'] ?? 0));
+            $certificateTotal = array_sum($certificateSplit);
+            ?>
+            <section class="dashboard-panel chart-card">
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">ACCOUNTS</p>
+                        <h2>Student status</h2>
+                        <small><?= $num($students['total'] ?? 0) ?> registered</small>
+                    </div>
+                    <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/students">Manage <span aria-hidden="true">→</span></a>
+                </div>
+                <div class="donut-wrap">
+                    <div class="donut" style="--donut: <?= $escape($donut([
+                            ['value' => (int) ($students['active'] ?? 0), 'color' => 'var(--att-emerald)'],
+                            ['value' => $studentAwaiting, 'color' => 'var(--att-amber)'],
+                            ['value' => (int) ($students['blocked'] ?? 0), 'color' => 'var(--att-rose)'],
+                        ])) ?>") role="img" aria-label="Student account status distribution">
+                        <span class="donut-center"><strong><?= $num($students['active'] ?? 0) ?></strong><small>Active</small></span>
+                    </div>
+                    <ul class="donut-legend">
+                        <li><i class="legend-dot legend-emerald"></i><span>Active</span><strong><?= $num($students['active'] ?? 0) ?></strong></li>
+                        <li><i class="legend-dot legend-amber"></i><span>Awaiting verification</span><strong><?= $num($studentAwaiting) ?></strong></li>
+                        <li><i class="legend-dot legend-rose"></i><span>Suspended</span><strong><?= $num($students['blocked'] ?? 0) ?></strong></li>
+                    </ul>
+                </div>
+                <div class="chart-stats">
+                    <div><strong>+<?= $num($students['newThisMonth'] ?? 0) ?></strong><span>New this month</span></div>
+                    <div><strong><?= $num($students['withAccess'] ?? 0) ?></strong><span>With course access</span></div>
+                </div>
+            </section>
+
+            <section class="dashboard-panel chart-card">
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">CERTIFICATES</p>
+                        <h2>Issuance pipeline</h2>
+                        <small><?= $num($certificateTotal) ?> requests all time</small>
+                    </div>
+                    <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/certificates">Review <span aria-hidden="true">→</span></a>
+                </div>
+                <div class="meter-list">
+                    <?php
+                    $certificateMeters = [
+                        ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'tone' => 'violet'],
+                        ['label' => 'Requests awaiting review', 'value' => (int) ($certificateSplit['requested'] ?? 0), 'tone' => 'amber'],
+                        ['label' => 'Requests rejected', 'value' => (int) ($certificateSplit['rejected'] ?? 0), 'tone' => 'rose'],
+                    ];
+                    foreach ($certificateMeters as $meter):
+                        $ratio = $certificateTotal > 0 ? min(100, (int) round($meter['value'] / $certificateTotal * 100)) : 0; ?>
+                        <div class="meter-row">
+                            <div class="meter-head"><span><?= $escape($meter['label']) ?></span><strong><?= $num($meter['value']) ?> · <?= $ratio ?>%</strong></div>
+                            <div class="meter" role="progressbar" aria-label="<?= $escape($meter['label']) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ratio ?>"><span class="meter-fill meter-<?= $escape($meter['tone']) ?>" style="--meter-width: <?= $ratio ?>%"></span></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <p class="chart-footnote"><?= $num($certificates['expired'] ?? 0) ?> issued certificates are past their expiry date</p>
+            </section>
+
             <section class="dashboard-panel dashboard-searchable chart-card-wide" id="payments">
                 <div class="dashboard-panel-heading">
                     <div>

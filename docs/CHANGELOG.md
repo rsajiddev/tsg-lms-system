@@ -2,6 +2,12 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-28 (admin overview card layout)
+
+- Equalised the admin dashboard overview cards: every card in a row now shares that row's height, so the space underneath a column is identical instead of leaving a ragged gap below the shorter cards. Bars, sparklines, donuts, meters, rankings and alert lists grow to fill the card, while footnotes and stat tiles stay pinned to the bottom.
+- Filled the empty area beside OPERATIONS with two related cards: ACCOUNTS (student status donut with new-this-month and course-access counts) and CERTIFICATES (issued, requested and rejected meters with an expiry footnote), bringing the grid to nine equal cards and three clean rows on desktop.
+- Put the KPI tiles and the card grid on one 18 px rhythm so vertical and horizontal spacing match, and added a rose meter variant for rejected certificates.
+
 ## Unreleased — 2026-10-28 (student attendance and analytics dashboard)
 
 - Added student attendance: a successful student sign-in, or opening the dashboard on a day that has no record yet, creates one pending attendance record for the UTC day. The student confirms presence from the overview page; if the grace window elapses the record is closed as an absence. The deadline is re-checked inside the update statement, so a stale page or a manual request cannot mark an expired day present.

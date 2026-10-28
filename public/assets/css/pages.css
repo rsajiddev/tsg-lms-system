@@ -10527,8 +10527,8 @@ html.admin-modal-js .admin-modal.is-open {
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px;
-  margin: 22px 0
+  gap: 18px;
+  margin: 18px 0
 }
 
 .kpi-grid-student {
@@ -10673,17 +10673,103 @@ html.admin-modal-js .admin-modal.is-open {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
-  align-items: start
+  /* One shared row height per line keeps the space under every card in the row identical. */
+  align-items: stretch
 }
 
 .chart-card {
-  grid-column: span 4;
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  grid-column: span 4;
   padding: 20px
+}
+
+.chart-card > .dashboard-panel-heading {
+  flex: 0 0 auto
+}
+
+/* The main visual of a card swallows the spare height instead of leaving it under the content. */
+.chart-card > .alert-list,
+.chart-card > .chart-bars,
+.chart-card > .chart-spark,
+.chart-card > .donut-wrap,
+.chart-card > .meter-list,
+.chart-card > .rank-list {
+  flex: 1 1 auto
+}
+
+.chart-card > .chart-bars {
+  height: auto;
+  min-height: 212px
+}
+
+.chart-card > .chart-spark {
+  height: auto;
+  min-height: 74px
+}
+
+/* Grid bodies centre their rows; the alert queue keeps reading from the top. */
+.chart-card > .donut-wrap {
+  align-items: center
+}
+
+.chart-card > .meter-list,
+.chart-card > .rank-list {
+  align-content: center
+}
+
+.chart-card > .alert-list {
+  align-content: start
+}
+
+/* Footnotes, stat pairs and follow-up boxes are pinned to the bottom edge of the card. */
+.chart-card > .chart-footnote,
+.chart-card > .chart-stats,
+.chart-card > .attention-box {
+  flex: 0 0 auto;
+  margin-top: auto
+}
+
+.chart-card > .dashboard-empty {
+  flex: 0 0 auto;
+  margin: auto 0
 }
 
 .chart-card-wide {
   grid-column: span 12
+}
+
+/* ---------- compact stat pair inside a card ---------- */
+
+.chart-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px
+}
+
+.chart-stats > div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--att-border);
+  border-radius: 14px;
+  background: #f8fafc
+}
+
+.chart-stats strong {
+  color: var(--att-navy);
+  font-size: 18px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums
+}
+
+.chart-stats span {
+  color: var(--att-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em
 }
 
 .chart-badge {
@@ -11052,6 +11138,10 @@ html.admin-modal-js .admin-modal.is-open {
 
 .meter-indigo {
   background: linear-gradient(90deg, #818cf8, #4f46e5)
+}
+
+.meter-rose {
+  background: linear-gradient(90deg, #fb7185, #e11d48)
 }
 
 /* ---------- top course ranking ---------- */
