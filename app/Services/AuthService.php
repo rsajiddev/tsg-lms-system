@@ -109,9 +109,22 @@ final class AuthService
         }
         $this->limiter->clear('login_fail', $subjects);
         $this->db->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$user['id']]);
-        if ($user['role'] === 'student') $this->recordLoginEvent((int) $user['id'], 'success');
+        if ($user['role'] === 'student') {
+            $this->recordLoginEvent((int) $user['id'], 'success');
+            $this->openAttendanceSession((int) $user['id']);
+        }
         unset($user['password_hash'], $user['status'], $user['email_verified_at']);
         return $user;
+    }
+
+    /** Attendance must never block a valid login; history logging fails open. */
+    private function openAttendanceSession(int $studentId): void
+    {
+        try {
+            (new AttendanceService($this->db))->openDailySession($studentId);
+        } catch (\Throwable $exception) {
+            error_log('[ATTENDANCE] Sign-in record skipped: ' . $exception->getMessage());
+        }
     }
 
     /** Login must remain available during a rolling schema import; history logging fails open. */

@@ -1509,4 +1509,30 @@ VALUES
        ('certificate_available_days', '15')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 
+-- Student attendance. A successful student login opens one daily row in the pending state; the
+-- student must confirm presence before mark_deadline_at, otherwise the row is closed as absent.
+CREATE TABLE IF NOT EXISTS attendance_records (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       attendance_date DATE NOT NULL,
+       status ENUM('pending', 'present', 'absent') NOT NULL DEFAULT 'pending',
+       first_login_at DATETIME NOT NULL,
+       mark_deadline_at DATETIME NOT NULL,
+       marked_at DATETIME NULL,
+       closed_at DATETIME NULL,
+       login_ip VARCHAR(45) NULL,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       UNIQUE KEY uq_attendance_student_date(student_id, attendance_date),
+       CONSTRAINT fk_attendance_student FOREIGN KEY(student_id) REFERENCES users(id),
+       INDEX idx_attendance_date(attendance_date, status),
+       INDEX idx_attendance_student_date(student_id, attendance_date),
+       INDEX idx_attendance_pending(mark_deadline_at, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Attendance grace window is seeded once so an admin change survives a re-import.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('attendance_grace_minutes', '5')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
 SET FOREIGN_KEY_CHECKS = 1;

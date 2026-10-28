@@ -22,6 +22,7 @@ final class AdminManagementController
         'register_window_minutes' => ['Registration limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count registration requests.'],
         'password_reset_max_attempts' => ['Password reset requests per window', 1, 20, 'requests', 'Reset links one account may request inside the window below.'],
         'password_reset_window_minutes' => ['Password reset limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count password reset requests.'],
+        'attendance_grace_minutes' => ['Attendance grace window', 1, 120, 'minutes', 'Minutes a student has to confirm presence after signing in before the day is recorded as absent.'],
     ];
 
     private const SETTING_GROUPS = [
@@ -44,6 +45,11 @@ final class AdminManagementController
             'title' => 'Password reset limits',
             'description' => 'Restricts how many reset links can be generated for one account inside a rolling window.',
             'keys' => ['password_reset_max_attempts', 'password_reset_window_minutes'],
+        ],
+        [
+            'title' => 'Student attendance',
+            'description' => 'Every student sign-in opens a daily attendance record that the student must confirm inside this window.',
+            'keys' => ['attendance_grace_minutes'],
         ],
     ];
 

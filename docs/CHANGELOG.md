@@ -2,6 +2,18 @@
 
 All notable UI and feature changes made to the TSG Academy LMS public site, newest first.
 
+## Unreleased — 2026-10-28 (student attendance and analytics dashboard)
+
+- Added student attendance: a successful student sign-in, or opening the dashboard on a day that has no record yet, creates one pending attendance record for the UTC day. The student confirms presence from the overview page; if the grace window elapses the record is closed as an absence. The deadline is re-checked inside the update statement, so a stale page or a manual request cannot mark an expired day present.
+- Added `attendance_records` and the `attendance_grace_minutes` (5-minute default) setting to the end of the canonical `database/migrations/001_initial_schema.sql`. Import the updated file before expecting attendance; there is no cron in this environment, so overdue records are finalised lazily on read.
+- Added an Admin-only Attendance grace window control (1–120 minutes) to the security settings page, validated and audited with the other limits.
+- Rebuilt the Admin dashboard overview as an analytics surface: students, present/absent today, pending payments, quiz attempts, and assignments-to-review KPIs, enrolment and attendance trend bar charts, revenue with a six-month sparkline, payment-status and quiz-result donuts, course-visibility and assignment-submission meters, a top-courses ranking, an operations alert list, and recent payment/attempt activity, with 7/14/30-day ranges.
+- Rebuilt the Student dashboard overview with an attendance card (present, absent, pending and setup-missing states), a live countdown to the deadline, 30-day attendance strip, attendance stats and history, and course/lesson/quiz/assignment/payment KPIs.
+- Charts are pure CSS and SVG, so no chart library, CDN, or Composer dependency was introduced. Revenue totals are kept separated by currency instead of being summed across currencies.
+- Every analytics read fails open: a schema that has not been imported yet shows zeroed cards and a setup notice instead of an error page. Login continues even if the attendance record cannot be created.
+- Added `tests/attendance-flow-smoke.php` covering the whole grace-window lifecycle, duplicate protection, summaries, and setting clamping.
+- Browser validation of the rendered dashboards remains pending; responsive rules are provided for 1320/1050/903/760/560 px.
+
 ## Unreleased — 2026-10-24 (view data diagnostics)
 
 - Added explicit, guarded local defaults and PHPDoc data shapes to the Admin, Student, learning, and notification views flagged by Intelephense. This makes controller-to-view data contracts visible to the editor and keeps templates safe when optional data is absent.

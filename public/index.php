@@ -18,6 +18,7 @@ foreach (
         '/app/Services/PaymentReceiptPdf.php',
         '/app/Services/PaymentReceiptJpg.php',
         '/app/Services/AuthService.php',
+        '/app/Services/AttendanceService.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/HealthController.php',
@@ -33,6 +34,7 @@ foreach (
         '/app/Controllers/NotificationController.php',
         '/app/Controllers/StudentManagementController.php',
         '/app/Controllers/CertificateController.php',
+        '/app/Controllers/AttendanceController.php',
         '/app/Controllers/CodingChallengeController.php',
     ] as $file
 ) {
@@ -117,6 +119,7 @@ $router->get('/student/payments', [\App\Controllers\StudentPortalController::cla
 $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
 $router->post('/student/certificates/request', [\App\Controllers\CertificateController::class, 'request']);
+$router->post('/student/attendance/mark', [\App\Controllers\AttendanceController::class, 'mark']);
 $router->get('/admin/certificates', [\App\Controllers\CertificateController::class, 'adminIndex']);
 $router->post('/admin/certificates/issue', [\App\Controllers\CertificateController::class, 'issue']);
 $router->post('/admin/certificates/reject', [\App\Controllers\CertificateController::class, 'reject']);

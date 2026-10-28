@@ -18,7 +18,7 @@ $message = $message ?? null;
             <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Security settings</h1>
-            <p>Configure OTP expiry, resend timing, and authentication rate limits for the whole academy.</p>
+            <p>Configure OTP expiry, resend timing, authentication rate limits, and the attendance grace window for the whole academy.</p>
         </div>
     </header>
 
@@ -65,8 +65,8 @@ $message = $message ?? null;
                         </svg>
                     </div>
                     <div class="admin-card-titles">
-                        <h2>Authentication security</h2>
-                        <p>Every limit below applies to all new authentication requests.</p>
+                        <h2>Authentication &amp; attendance limits</h2>
+                        <p>Every limit below applies to all new requests from the moment you save it.</p>
                     </div>
                 </div>
                 <span class="count-pill"><?= count($settings) ?> controls</span>

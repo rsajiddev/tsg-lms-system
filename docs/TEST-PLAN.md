@@ -32,6 +32,13 @@
 - HTTP `POST /login` and `/register` without CSRF token — 419; no auth operation is performed.
 - Real OTP email delivery, admin CLI provisioning, and verified student/admin browser sessions — not tested; no mail provider is configured and no production/admin account was created.
 
+## Attendance and dashboard analytics checks
+- `attendance_records` and the `attendance_grace_minutes` seed are appended to `001_initial_schema.sql`; importing the file into a scratch database created 31 tables, and the guarded seed keeps an admin-edited value across re-imports.
+- `tests/attendance-flow-smoke.php` against a scratch database — passed: sign-in opens one pending row per UTC day, repeat sign-ins do not duplicate it, marking inside the window records present, an elapsed window is swept to absent and refuses a late mark, older pending rows are swept, the unique key blocks a second row for the same day, student and admin summaries stay consistent, and the grace value is honoured and clamped. The test student, its rows, and the stored grace value were restored afterwards.
+- Dashboard analytics rendered server-side against a scratch database seeded with demo records, covering the admin 7/14/30-day ranges plus the student present and pending states — no PHP warnings and no failed reads.
+- Countdown maths verified: a five-minute window renders 300 remaining seconds although PHP runs on Asia/Karachi while records are stored in UTC.
+- Not tested in a browser: the live admin and student overview pages, chart appearance at 1050/903/760/560 px, and the real sign-in → mark-attendance click flow.
+
 ## Required before quiz release
 - Deadline enforced on server even if client clock is changed.
 - Student cannot submit another student's attempt.

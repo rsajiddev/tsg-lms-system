@@ -536,6 +536,33 @@
         update();
     });
 
+    /* Attendance grace window. The deadline is stored server side and re-checked on submit, so    */
+    /* this timer only mirrors it visually and stops a student clicking after the window elapsed.  */
+
+    document.querySelectorAll('[data-attendance-countdown]').forEach((form) => {
+        const button = form.querySelector('.attendance-mark-button');
+        const timer = form.querySelector('.attendance-timer');
+        if (!button || !timer) return;
+        let remaining = Math.max(0, Number.parseInt(form.dataset.attendanceCountdown || '0', 10));
+        const close = () => {
+            button.disabled = true;
+            timer.classList.add('is-closed');
+            timer.textContent = 'Window closed · this day is recorded as absent';
+        };
+        const update = () => {
+            if (remaining <= 0) {
+                close();
+                return;
+            }
+            const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+            const seconds = String(remaining % 60).padStart(2, '0');
+            timer.textContent = `Time left ${minutes}:${seconds}`;
+            remaining -= 1;
+            window.setTimeout(update, 1000);
+        };
+        update();
+    });
+
     /* =========================================================
        BODY SCROLL LOCK — one owner for every overlay
 
