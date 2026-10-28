@@ -9,7 +9,7 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
-use App\Services\PaymentReceiptPdf;
+use App\Services\PaymentReceiptJpg;
 use PDO;
 use RuntimeException;
 
@@ -119,9 +119,21 @@ final class PaymentController
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $rows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.payment_proof_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
+        $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $revenueStmt = $db->prepare("SELECT currency, COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count, COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count, COALESCE(SUM(amount),0) AS lifetime_revenue, COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
+        $revenueStmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
+        $revenue = $revenueStmt->fetchAll(PDO::FETCH_ASSOC);
+        $totalsStmt = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'");
+        $totals = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: ['student_count' => 0, 'payment_count' => 0];
+        foreach ($revenue as &$currencyTotals) {
+            $currencyTotals['developer_share'] = (float) $currencyTotals['monthly_revenue'] * 0.15;
+            $currencyTotals['lifetime_developer_share'] = (float) $currencyTotals['lifetime_revenue'] * 0.15;
+        }
+        unset($currencyTotals);
         $paymentValues = [];
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
-        View::render('admin/payments', ['title' => 'Payment review', 'user' => $admin, 'payments' => $rows, 'paymentValues' => $paymentValues, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'paymentValues' => $paymentValues, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -190,13 +202,58 @@ final class PaymentController
             http_response_code(404);
             return;
         }
-        $pdf = PaymentReceiptPdf::render($payment);
-        header('Content-Type: application/pdf');
-        header('Content-Length: ' . strlen($pdf));
-        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.pdf"');
+        $jpg = PaymentReceiptJpg::renderReceipt($payment);
+        header('Content-Type: image/jpeg');
+        header('Content-Length: ' . strlen($jpg));
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.jpg"');
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
-        echo $pdf;
+        echo $jpg;
+    }
+
+    public function revenueReceipt(): void
+    {
+        AuthMiddleware::requireRole('admin');
+        $db = Database::connection();
+        $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $stmt = $db->prepare("SELECT currency,COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count,COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count,COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue,COALESCE(SUM(amount),0) AS lifetime_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
+        $stmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
+        $totals = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'")->fetch(PDO::FETCH_ASSOC) ?: [];
+        $report = ['period' => gmdate('F Y'), 'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC', 'student_count' => (int) ($totals['student_count'] ?? 0), 'payment_count' => (int) ($totals['payment_count'] ?? 0), 'rates' => []];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row['developer_share'] = (float) $row['monthly_revenue'] * 0.15;
+            $row['lifetime_developer_share'] = (float) $row['lifetime_revenue'] * 0.15;
+            $report['rates'][] = $row;
+        }
+        $jpg = PaymentReceiptJpg::renderRevenue($report);
+        header('Content-Type: image/jpeg');
+        header('Content-Length: ' . strlen($jpg));
+        header('Content-Disposition: attachment; filename="TSG-revenue-' . gmdate('Y-m') . '.jpg"');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        echo $jpg;
+    }
+
+    public function notifyDeveloper(): void
+    {
+        AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) throw new RuntimeException('Your session expired. Refresh and try again.');
+        $db = Database::connection();
+        $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $stmt = $db->prepare("SELECT currency,COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count,COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count,COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue,COALESCE(SUM(amount),0) AS lifetime_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
+        $stmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
+        $totals = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'")->fetch(PDO::FETCH_ASSOC) ?: [];
+        $report = ['period' => gmdate('F Y'), 'student_count' => (int) ($totals['student_count'] ?? 0), 'payment_count' => (int) ($totals['payment_count'] ?? 0), 'rates' => []];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row['developer_share'] = (float) $row['monthly_revenue'] * 0.15;
+            $row['lifetime_developer_share'] = (float) $row['lifetime_revenue'] * 0.15;
+            $report['rates'][] = $row;
+        }
+        $sent = (new MailService())->sendDeveloperRevenueReport($report);
+        $_SESSION['_flash'] = ['type' => $sent ? 'success' : 'error', 'text' => $sent ? 'Revenue summary sent to the configured developer email.' : 'Could not send the revenue summary. Check the developer notification address and SMTP settings.'];
+        $this->redirect('/admin/payments');
     }
 
     public function proof(): void
