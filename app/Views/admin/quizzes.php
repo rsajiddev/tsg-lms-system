@@ -94,6 +94,15 @@ $optionLetters = ['A', 'B', 'C', 'D'];
       </div>
 
       <div class="admin-form-row-3">
+        <div class="admin-field" data-quiz-practice-field hidden>
+          <label class="admin-label" for="quiz-new-practice-topic">Practice category</label>
+          <select class="admin-select" id="quiz-new-practice-topic" name="practice_topic" data-quiz-practice>
+            <option value="general">General practice</option>
+            <option value="php_mysql">PHP/MySQL practice</option>
+          </select>
+          <span class="admin-hint">Separates PHP/MySQL practice MCQs from general practice sets.</span>
+        </div>
+
         <div class="admin-field">
           <label class="admin-label" for="quiz-new-time">Time limit (minutes) <span class="req">*</span></label>
           <input class="admin-input" id="quiz-new-time" type="number" name="time_limit_minutes" min="1" max="600" value="20" data-quiz-time>
@@ -244,6 +253,14 @@ $optionLetters = ['A', 'B', 'C', 'D'];
             </div>
 
             <div class="admin-form-row-3">
+              <div class="admin-field" data-quiz-practice-field<?= ($quiz['quiz_type'] ?? 'lesson') === 'practice' ? '' : ' hidden' ?>>
+                <label class="admin-label" for="quiz-<?= $quizId ?>-practice-topic">Practice category</label>
+                <select class="admin-select" id="quiz-<?= $quizId ?>-practice-topic" name="practice_topic" data-quiz-practice>
+                  <option value="general" <?= ($quiz['practice_topic'] ?? 'general') === 'general' ? 'selected' : '' ?>>General practice</option>
+                  <option value="php_mysql" <?= ($quiz['practice_topic'] ?? 'general') === 'php_mysql' ? 'selected' : '' ?>>PHP/MySQL practice</option>
+                </select>
+              </div>
+
               <div class="admin-field">
                 <label class="admin-label" for="quiz-<?= $quizId ?>-time">Time limit (minutes) <span class="req">*</span></label>
                 <input class="admin-input" id="quiz-<?= $quizId ?>-time" type="number" name="time_limit_minutes" min="1" max="600" value="<?= max(1, (int) ceil((int) $quiz['time_limit_seconds'] / 60)) ?>" data-quiz-time>
@@ -456,6 +473,8 @@ $optionLetters = ['A', 'B', 'C', 'D'];
       const time = form.querySelector('[data-quiz-time]');
       const attempts = form.querySelector('[data-quiz-attempts]');
       const pass = form.querySelector('[name="pass_mark_percent"]');
+      const practiceField = form.querySelector('[data-quiz-practice-field]');
+      const practiceSelect = form.querySelector('[data-quiz-practice]');
       const sync = (resetCount = false) => {
         const policy = policies[select.value] || policies.lesson;
         count.min = String(policy.min);
@@ -465,6 +484,8 @@ $optionLetters = ['A', 'B', 'C', 'D'];
         time.disabled = !policy.timed;
         attempts.required = policy.attempts;
         attempts.disabled = !policy.attempts;
+        if (practiceField) practiceField.hidden = select.value !== 'practice';
+        if (practiceSelect) practiceSelect.disabled = select.value !== 'practice';
         if (pass) {
           pass.required = !policy.pass;
           pass.disabled = policy.pass;

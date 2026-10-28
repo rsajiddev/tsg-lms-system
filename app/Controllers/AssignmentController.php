@@ -20,9 +20,10 @@ final class AssignmentController
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $courses = $db->query("SELECT id,title FROM courses WHERE visibility IN ('published','draft','hidden') ORDER BY title")->fetchAll();
-        $assignments = $db->query('SELECT a.*,c.title AS course_title,(SELECT COUNT(*) FROM assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM assignments a JOIN courses c ON c.id=a.course_id ORDER BY a.id DESC')->fetchAll();
-        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,c.title AS course_title,u.full_name AS student_name,u.email AS student_email FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll();
-        View::render('admin/assignments', ['title' => 'Assignment management', 'user' => $admin, 'courses' => $courses, 'assignments' => $assignments, 'submissions' => $submissions, 'message' => $_SESSION['_flash'] ?? null]);
+        $modules = $db->query('SELECT id,course_id,title,sort_order FROM course_modules ORDER BY course_id,sort_order,id')->fetchAll();
+        $assignments = $db->query('SELECT a.*,c.title AS course_title,m.title AS module_title,(SELECT COUNT(*) FROM assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM assignments a JOIN courses c ON c.id=a.course_id LEFT JOIN course_modules m ON m.id=a.module_id ORDER BY a.id DESC')->fetchAll();
+        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.full_name AS student_name,u.email AS student_email FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll();
+        View::render('admin/assignments', ['title' => 'Assignment management', 'user' => $admin, 'courses' => $courses, 'modules' => $modules, 'assignments' => $assignments, 'submissions' => $submissions, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -32,6 +33,9 @@ final class AssignmentController
         $this->csrf();
         $id = (int)($_POST['id'] ?? 0);
         $courseId = (int)($_POST['course_id'] ?? 0);
+        $moduleId = (int)($_POST['module_id'] ?? 0);
+        $type = (string)($_POST['assignment_type'] ?? 'exercise');
+        $topic = (string)($_POST['assignment_topic'] ?? 'general');
         $weekRaw = trim((string)($_POST['week_number'] ?? ''));
         $week = $weekRaw === '' ? null : (int)$weekRaw;
         $title = trim((string)($_POST['title'] ?? ''));
@@ -39,17 +43,26 @@ final class AssignmentController
         $status = (string)($_POST['status'] ?? 'draft');
         $marks = (string)($_POST['max_marks'] ?? '100');
         $dueAt = $this->dateValue($_POST['due_at'] ?? '');
-        if ($courseId < 1 || ($week !== null && ($week < 1 || $week > 52)) || mb_strlen($title) < 3 || mb_strlen($title) > 200 || mb_strlen($instructions) > 10000 || !is_numeric($marks) || (float)$marks <= 0 || (float)$marks > 100000 || !in_array($status, ['draft', 'published', 'closed'], true)) throw new RuntimeException('Enter valid assignment details.');
+        $cutoffAt = $this->dateValue($_POST['admin_cutoff_at'] ?? '');
+        $deduction = trim((string)($_POST['late_deduction_percent'] ?? '0'));
+        if ($courseId < 1 || !in_array($type, ['exercise', 'mini_project'], true) || !in_array($topic, ['general', 'php_mysql'], true) || ($week !== null && ($week < 1 || $week > 52)) || mb_strlen($title) < 3 || mb_strlen($title) > 200 || mb_strlen($instructions) > 10000 || !is_numeric($marks) || (float)$marks <= 0 || (float)$marks > 100000 || !is_numeric($deduction) || (float)$deduction < 0 || (float)$deduction > 100 || ($cutoffAt !== null && $dueAt !== null && strtotime($cutoffAt . ' UTC') < strtotime($dueAt . ' UTC')) || !in_array($status, ['draft', 'published', 'closed'], true)) throw new RuntimeException('Enter valid assignment details. The Admin cutoff must be on or after the due date.');
         $db = Database::connection();
         $course = $db->prepare('SELECT id FROM courses WHERE id=?');
         $course->execute([$courseId]);
         if (!$course->fetchColumn()) throw new RuntimeException('Select an existing course.');
-        if ($id > 0) {
-            $stmt = $db->prepare('UPDATE assignments SET course_id=?,week_number=?,title=?,instructions=?,due_at=?,max_marks=?,status=? WHERE id=?');
-            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $dueAt, $marks, $status, $id]);
+        if ($moduleId > 0) {
+            $module = $db->prepare('SELECT id FROM course_modules WHERE id=? AND course_id=?');
+            $module->execute([$moduleId, $courseId]);
+            if (!$module->fetchColumn()) throw new RuntimeException('Select a module from the chosen course.');
         } else {
-            $stmt = $db->prepare('INSERT INTO assignments(course_id,week_number,title,instructions,due_at,max_marks,status,created_by) VALUES(?,?,?,?,?,?,?,?)');
-            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $dueAt, $marks, $status, (int)$admin['id']]);
+            $moduleId = 0;
+        }
+        if ($id > 0) {
+            $stmt = $db->prepare('UPDATE assignments SET course_id=?,assignment_type=?,module_id=?,assignment_topic=?,week_number=?,title=?,instructions=?,due_at=?,admin_cutoff_at=?,late_deduction_percent=?,max_marks=?,status=? WHERE id=?');
+            $stmt->execute([$courseId, $type, $moduleId ?: null, $topic, $week, $title, $instructions ?: null, $dueAt, $cutoffAt, $deduction, $marks, $status, $id]);
+        } else {
+            $stmt = $db->prepare('INSERT INTO assignments(course_id,assignment_type,module_id,assignment_topic,week_number,title,instructions,due_at,admin_cutoff_at,late_deduction_percent,max_marks,status,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([$courseId, $type, $moduleId ?: null, $topic, $week, $title, $instructions ?: null, $dueAt, $cutoffAt, $deduction, $marks, $status, (int)$admin['id']]);
             $id = (int)$db->lastInsertId();
         }
         $this->audit($db, (int)$admin['id'], 'assignment.saved', $id);
@@ -70,7 +83,7 @@ final class AssignmentController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $stmt = $db->prepare("SELECT a.id,a.week_number,a.title,a.instructions,a.due_at,a.max_marks,s.id AS submission_id,s.submission_text,s.submitted_at,s.status AS submission_status,s.marks_awarded,s.feedback FROM assignments a LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.course_id=? AND a.status IN ('published','closed') ORDER BY a.week_number,a.id");
+        $stmt = $db->prepare("SELECT a.id,a.assignment_type,a.assignment_topic,a.module_id,m.title AS module_title,a.week_number,a.title,a.instructions,a.due_at,a.admin_cutoff_at,a.late_deduction_percent,a.max_marks,a.status,s.id AS submission_id,s.submission_text,s.github_url,s.file_path,s.submitted_late,s.submitted_at,s.status AS submission_status,s.marks_awarded,s.feedback,s.rubric_technical,s.rubric_problem_solving,s.rubric_code_quality,s.rubric_timeliness,s.rubric_completeness FROM assignments a LEFT JOIN course_modules m ON m.id=a.module_id LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.course_id=? AND a.status IN ('published','closed') ORDER BY a.week_number,a.id");
         $stmt->execute([(int)$student['id'], $courseId]);
         $rows = [];
         foreach ($stmt->fetchAll() as $row) {
@@ -87,15 +100,20 @@ final class AssignmentController
         $this->csrf();
         $assignmentId = (int)($_POST['assignment_id'] ?? 0);
         $text = trim((string)($_POST['submission_text'] ?? ''));
+        $githubUrl = trim((string)($_POST['github_url'] ?? ''));
+        if ($githubUrl !== '' && !$this->validGithubUrl($githubUrl)) throw new RuntimeException('Enter a valid public GitHub repository URL.');
         if (mb_strlen($text) > 50000) throw new RuntimeException('Submission text must be under 50,000 characters.');
         $db = Database::connection();
         $db->beginTransaction();
         $stored = null;
         try {
-            $stmt = $db->prepare("SELECT a.course_id,a.status,a.due_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status='active' AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
+            $stmt = $db->prepare("SELECT a.course_id,a.status,a.assignment_topic,a.due_at,a.admin_cutoff_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status='active' AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
             $stmt->execute([(int)$student['id'], $assignmentId]);
             $assignment = $stmt->fetch();
-            if (!$assignment || $assignment['status'] !== 'published' || ($assignment['due_at'] !== null && strtotime($assignment['due_at'] . ' UTC') < time())) throw new RuntimeException('This assignment is unavailable or its deadline has passed.');
+            $now = time();
+            $effectiveCutoff = $assignment ? ($assignment['admin_cutoff_at'] ?: $assignment['due_at']) : null;
+            $pastCutoff = $effectiveCutoff !== null && strtotime($effectiveCutoff . ' UTC') < $now;
+            if (!$assignment || $assignment['status'] !== 'published' || $pastCutoff) throw new RuntimeException('This assignment is unavailable or its final submission cutoff has passed.');
             $revisionCount = $db->prepare('SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id=? AND student_id=?');
             $revisionCount->execute([$assignmentId, (int)$student['id']]);
             if ((int)$revisionCount->fetchColumn() >= 5) throw new RuntimeException('The maximum of five submissions for this assignment has been reached. Contact your instructor if you need help.');
@@ -105,9 +123,10 @@ final class AssignmentController
             if ($priorStatus !== false && $priorStatus !== 'resubmit_requested') throw new RuntimeException('Your latest submission is already under review or has been graded.');
             $upload = $_FILES['submission_file'] ?? null;
             if (is_array($upload) && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) $stored = $this->storeFile($upload);
-            if ($text === '' && $stored === null) throw new RuntimeException('Write a response or attach a file before submitting.');
-            $insert = $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status) VALUES(?,?,?,?,'submitted')");
-            $insert->execute([$assignmentId, (int)$student['id'], $text ?: null, $stored['relative'] ?? null]);
+            if (($assignment['assignment_topic'] === 'php_mysql' && $githubUrl === '') || ($text === '' && $githubUrl === '' && $stored === null)) throw new RuntimeException($assignment['assignment_topic'] === 'php_mysql' ? 'Add your PHP/MySQL practice repository as a GitHub link before submitting.' : 'Add a GitHub repository link, write a response, or attach a file before submitting.');
+            $late = $assignment['due_at'] !== null && strtotime($assignment['due_at'] . ' UTC') < $now;
+            $insert = $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,github_url,file_path,submitted_late,status) VALUES(?,?,?,?,?,?, 'submitted')");
+            $insert->execute([$assignmentId, (int)$student['id'], $text ?: null, $githubUrl ?: null, $stored['relative'] ?? null, $late ? 1 : 0]);
             $this->audit($db, (int)$student['id'], 'assignment.submitted', (int)$db->lastInsertId());
             $db->commit();
         } catch (\Throwable $e) {
@@ -125,16 +144,27 @@ final class AssignmentController
         $this->csrf();
         $id = (int)($_POST['submission_id'] ?? 0);
         $decision = (string)($_POST['decision'] ?? 'reviewed');
-        $marks = trim((string)($_POST['marks_awarded'] ?? ''));
         $feedback = trim((string)($_POST['feedback'] ?? ''));
-        if ($id < 1 || !in_array($decision, ['reviewed', 'resubmit_requested'], true) || !is_numeric($marks) || mb_strlen($feedback) > 5000) throw new RuntimeException('Enter a valid review, mark and feedback.');
+        $rubricNames = ['technical' => 'rubric_technical', 'problem_solving' => 'rubric_problem_solving', 'code_quality' => 'rubric_code_quality', 'timeliness' => 'rubric_timeliness', 'completeness' => 'rubric_completeness'];
+        if ($id < 1 || !in_array($decision, ['reviewed', 'resubmit_requested'], true) || mb_strlen($feedback) > 5000) throw new RuntimeException('Enter valid review feedback.');
+        $rubric = [];
+        foreach ($rubricNames as $key => $column) {
+            $value = trim((string)($_POST[$column] ?? ''));
+            if ($decision === 'reviewed' && (!is_numeric($value) || (float)$value < 0 || (float)$value > 5)) throw new RuntimeException('Score each rubric criterion from zero to five before saving a review.');
+            $rubric[$column] = $value === '' ? null : (float)$value;
+        }
         $db = Database::connection();
-        $find = $db->prepare('SELECT a.max_marks FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
+        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,s.submitted_late FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
         $find->execute([$id]);
-        $max = $find->fetchColumn();
-        if ($max === false || (float)$marks < 0 || (float)$marks > (float)$max) throw new RuntimeException('Marks must be between zero and the assignment maximum.');
-        $update = $db->prepare('UPDATE assignment_submissions SET status=?,marks_awarded=?,feedback=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?');
-        $update->execute([$decision, $marks, $feedback ?: null, (int)$admin['id'], $id]);
+        $assignment = $find->fetch();
+        if (!$assignment) throw new RuntimeException('Submission was not found.');
+        $marks = null;
+        if ($decision === 'reviewed') {
+            $raw = array_sum(array_map(static fn($value): float => (float)$value, $rubric));
+            $marks = round(((float)$assignment['max_marks'] * $raw / 25) * ((int)$assignment['submitted_late'] === 1 ? 1 - (float)$assignment['late_deduction_percent'] / 100 : 1), 2);
+        }
+        $update = $db->prepare('UPDATE assignment_submissions SET status=?,marks_awarded=?,feedback=?,rubric_technical=?,rubric_problem_solving=?,rubric_code_quality=?,rubric_timeliness=?,rubric_completeness=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?');
+        $update->execute([$decision, $marks, $feedback ?: null, ...array_values($rubric), (int)$admin['id'], $id]);
         $this->audit($db, (int)$admin['id'], 'assignment.' . $decision, $id);
         $_SESSION['_flash'] = $decision === 'reviewed' ? 'Submission reviewed and marks saved.' : 'Resubmission requested with feedback.';
         $this->redirect('/admin/assignments#submission-' . $id);
@@ -212,6 +242,16 @@ final class AssignmentController
         $errors = \DateTimeImmutable::getLastErrors();
         if (!$date || ($errors !== false && ($errors['warning_count'] || $errors['error_count']))) throw new RuntimeException('Enter a valid due date.');
         return $date->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    }
+    private function validGithubUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        return is_array($parts)
+            && strtolower((string)($parts['scheme'] ?? '')) === 'https'
+            && strtolower((string)($parts['host'] ?? '')) === 'github.com'
+            && !isset($parts['user'], $parts['pass'], $parts['port'])
+            && preg_match('#^/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/?$#', (string)($parts['path'] ?? '')) === 1
+            && !isset($parts['query'], $parts['fragment']);
     }
     private function audit(PDO $db, int $actor, string $action, int $id): void
     {

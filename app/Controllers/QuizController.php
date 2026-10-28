@@ -105,6 +105,7 @@ final class QuizController
         $title = trim((string)($_POST['title'] ?? ''));
         $instructions = trim((string)($_POST['instructions'] ?? ''));
         $quizType = (string)($_POST['quiz_type'] ?? 'lesson');
+        $practiceTopic = (string)($_POST['practice_topic'] ?? 'general');
         $status = (string)($_POST['status'] ?? 'draft');
         $minutes = (int)($_POST['time_limit_minutes'] ?? 20);
         $questionCount = (int)($_POST['question_count'] ?? 75);
@@ -112,7 +113,8 @@ final class QuizController
         $attemptLimit = (int)($_POST['attempt_limit'] ?? 1);
         $unlock = $this->dateValue($_POST['unlock_at'] ?? '');
         $close = $this->dateValue($_POST['close_at'] ?? '');
-        if (!in_array($quizType, ['practice', 'lesson', 'module', 'final'], true)) throw new RuntimeException('Choose a valid assessment type.');
+        if (!in_array($quizType, ['practice', 'lesson', 'module', 'final'], true) || !in_array($practiceTopic, ['general', 'php_mysql'], true)) throw new RuntimeException('Choose a valid assessment type and practice category.');
+        if ($quizType !== 'practice') $practiceTopic = 'general';
         if ($quizType === 'lesson') {
             if ($questionCount < 5 || $questionCount > 10) throw new RuntimeException('Lesson quizzes must contain 5–10 questions.');
             $minutes = 0;
@@ -153,12 +155,12 @@ final class QuizController
             $existing->execute([$id]);
             $prior = $existing->fetch();
             if (!$prior) throw new RuntimeException('Quiz not found.');
-            $stmt = $db->prepare('UPDATE quizzes SET course_id=?,week_number=?,title=?,instructions=?,quiz_type=?,status=?,time_limit_seconds=?,question_count=?,pass_mark_percent=?,attempt_limit=?,unlock_at=?,close_at=? WHERE id=?');
-            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $quizType, $status, $minutes * 60, $questionCount, $passMark, $attemptLimit, $unlock, $close, $id]);
+            $stmt = $db->prepare('UPDATE quizzes SET course_id=?,week_number=?,title=?,instructions=?,quiz_type=?,practice_topic=?,status=?,time_limit_seconds=?,question_count=?,pass_mark_percent=?,attempt_limit=?,unlock_at=?,close_at=? WHERE id=?');
+            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $quizType, $practiceTopic, $status, $minutes * 60, $questionCount, $passMark, $attemptLimit, $unlock, $close, $id]);
             $quizId = $id;
         } else {
-            $stmt = $db->prepare('INSERT INTO quizzes(course_id,week_number,title,instructions,quiz_type,status,time_limit_seconds,question_count,pass_mark_percent,attempt_limit,unlock_at,close_at,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
-            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $quizType, $status, $minutes * 60, $questionCount, $passMark, $attemptLimit, $unlock, $close, (int)$admin['id']]);
+            $stmt = $db->prepare('INSERT INTO quizzes(course_id,week_number,title,instructions,quiz_type,practice_topic,status,time_limit_seconds,question_count,pass_mark_percent,attempt_limit,unlock_at,close_at,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([$courseId, $week, $title, $instructions ?: null, $quizType, $practiceTopic, $status, $minutes * 60, $questionCount, $passMark, $attemptLimit, $unlock, $close, (int)$admin['id']]);
             $quizId = (int)$db->lastInsertId();
         }
         $this->audit($db, (int)$admin['id'], 'quiz.saved', $quizId, ['course_id' => $courseId, 'week_number' => $week, 'status' => $status]);
@@ -295,7 +297,7 @@ final class QuizController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $stmt = $db->prepare("SELECT q.id,q.week_number,q.title,q.instructions,q.quiz_type,q.time_limit_seconds,q.question_count,q.attempt_limit,q.unlock_at,q.close_at,(SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id=q.id) AS actual_question_count,(SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?) AS used_attempts,(SELECT qa.id FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=? AND qa.status='in_progress' ORDER BY qa.id DESC LIMIT 1) AS active_attempt,ra.request_status AS retake_status,ra.used_at AS retake_used_at FROM quizzes q LEFT JOIN quiz_retake_approvals ra ON ra.quiz_id=q.id AND ra.student_id=? WHERE q.course_id=? AND ((q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND (SELECT COUNT(*) FROM quiz_attempts prior WHERE prior.quiz_id=q.id AND prior.student_id=? AND prior.status<>'in_progress')=1 AND ra.used_at IS NULL)) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND ((q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND ra.used_at IS NULL)) ORDER BY q.week_number,q.id");
+        $stmt = $db->prepare("SELECT q.id,q.week_number,q.title,q.instructions,q.quiz_type,q.practice_topic,q.time_limit_seconds,q.question_count,q.attempt_limit,q.unlock_at,q.close_at,(SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id=q.id) AS actual_question_count,(SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?) AS used_attempts,(SELECT qa.id FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=? AND qa.status='in_progress' ORDER BY qa.id DESC LIMIT 1) AS active_attempt,ra.request_status AS retake_status,ra.used_at AS retake_used_at FROM quizzes q LEFT JOIN quiz_retake_approvals ra ON ra.quiz_id=q.id AND ra.student_id=? WHERE q.course_id=? AND ((q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND (SELECT COUNT(*) FROM quiz_attempts prior WHERE prior.quiz_id=q.id AND prior.student_id=? AND prior.status<>'in_progress')=1 AND ra.used_at IS NULL)) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND ((q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND ra.used_at IS NULL)) ORDER BY q.week_number,q.id");
         $stmt->execute([(int)$student['id'], (int)$student['id'], (int)$student['id'], $courseId, (int)$student['id']]);
         View::render('learning/quizzes', ['title' => 'Course quizzes', 'user' => $student, 'course' => $courseRow, 'quizzes' => $stmt->fetchAll()]);
     }

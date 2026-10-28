@@ -20,6 +20,7 @@
   let activeToken = '';
   let ready = false;
   let timeoutId = 0;
+  let previewTimer = 0;
   let runId = 0;
   let checks = [];
   try {
@@ -40,7 +41,29 @@
       const send = (message) => parent.postMessage(message, '*');
       send({ type: 'ready' });
       window.addEventListener('message', (event) => {
-        if (event.source !== parent || !event.data || event.data.type !== 'run') return;
+        if (event.source !== parent || !event.data || !['preview', 'run'].includes(event.data.type)) return;
+        if (event.data.type === 'preview') {
+          document.body.replaceChildren();
+          document.head.querySelectorAll('[data-student-style], [data-student-script]').forEach((node) => node.remove());
+          const parsed = new DOMParser().parseFromString(String(event.data.html || ''), 'text/html');
+          parsed.querySelectorAll('script, iframe, object, embed, base, meta[http-equiv="refresh"]').forEach((node) => node.remove());
+          parsed.querySelectorAll('*').forEach((node) => {
+            [...node.attributes].forEach((attribute) => {
+              if (/^on/i.test(attribute.name) || /^(href|src|xlink:href|action|formaction)$/i.test(attribute.name) && /^\s*javascript:/i.test(attribute.value)) {
+                node.removeAttribute(attribute.name);
+              }
+            });
+          });
+          const content = document.createElement('div');
+          content.setAttribute('data-student-content', '');
+          content.append(...parsed.body.childNodes);
+          document.body.append(content);
+          const style = document.createElement('style');
+          style.dataset.studentStyle = '';
+          style.textContent = String(event.data.css || '');
+          document.head.append(style);
+          return;
+        }
         const { token, id, html, css, js, tests } = event.data;
         if (typeof token !== 'string' || !Array.isArray(tests) || tests.length > 20) return;
         document.body.replaceChildren();
@@ -99,9 +122,32 @@
     });
   };
 
+  const invalidateResults = () => {
+    // A result only describes the exact source snapshot that was run. Once the
+    // learner edits any file, prevent saving that old result against new code.
+    runId += 1;
+    activeToken = '';
+    window.clearTimeout(timeoutId);
+    saveButton.disabled = true;
+    resultsBox.replaceChildren();
+    setStatus('Code changed. Run JavaScript and checks again before saving.');
+  };
+
+  const refreshPreview = () => {
+    window.clearTimeout(previewTimer);
+    previewTimer = window.setTimeout(() => {
+      if (ready) frame.contentWindow.postMessage({ type: 'preview', html: inputs.html.value, css: inputs.css.value }, '*');
+    }, 250);
+  };
+  Object.values(inputs).forEach((input) => input.addEventListener('input', () => {
+    invalidateResults();
+    refreshPreview();
+  }));
+
   frame.addEventListener('load', () => {
     ready = true;
-    setStatus('Editor ready. Run the preview and checks when you are ready.');
+    setStatus('HTML and CSS preview updates as you edit. Run JavaScript and checks when ready.');
+    refreshPreview();
   });
 
   window.addEventListener('message', (event) => {
@@ -138,7 +184,7 @@
     resultsBox.replaceChildren();
     runId += 1;
     activeToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    setStatus('Running your preview and practice checks…');
+    setStatus('Running your JavaScript and practice checks…');
     frame.contentWindow.postMessage({ type: 'run', token: activeToken, id: runId, html: inputs.html.value, css: inputs.css.value, js: inputs.js.value, tests: checks }, '*');
     const expectedRun = runId;
     timeoutId = window.setTimeout(() => {

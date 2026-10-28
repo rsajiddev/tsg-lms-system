@@ -33,7 +33,7 @@ $quizzes = $quizzes ?? []; ?>
       $remaining = $type === 'practice' ? null : ($type === 'final' ? (($used === 0 || $retakeUnused) ? 1 : 0) : max(0, (int)$quiz['attempt_limit'] - $used)); ?>
         <article class="dashboard-panel quiz-student-card">
           <div>
-            <p class="eyebrow"><?= $escape(strtoupper($type)) ?> · WEEK <?= (int)$quiz['week_number'] ?> · <?= (int)$quiz['actual_question_count'] ?> QUESTIONS</p>
+            <p class="eyebrow"><?= $escape(strtoupper($type)) ?><?= ($type === 'practice' && ($quiz['practice_topic'] ?? 'general') === 'php_mysql') ? ' · PHP/MYSQL' : '' ?> · WEEK <?= (int)$quiz['week_number'] ?> · <?= (int)$quiz['actual_question_count'] ?> QUESTIONS</p>
             <h2><?= $escape($quiz['title']) ?></h2>
             <p><?= $escape($quiz['instructions'] ?: ($type === 'practice' ? 'Retry these questions as often as you need.' : 'Complete this assessment before its closing time.')) ?></p>
             <div class="quiz-meta"><span><?= in_array($type, ['module', 'final'], true) ? (int)ceil((int)$quiz['time_limit_seconds'] / 60) . ' min · timed' : 'No time limit' ?></span><span><?= $remaining === null ? 'Unlimited retries' : $remaining . ' graded attempt(s) available' ?></span><?php if ($type === 'lesson'): ?><span>60% to pass</span><?php endif; ?></div>
