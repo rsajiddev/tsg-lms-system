@@ -2,6 +2,15 @@
 
 use App\Core\Security;
 
+/**
+ * View::render() injects these values from CourseAdminController::lessons().
+ * @var array<int, array<string, mixed>> $lessons
+ * @var array<int, array<string, mixed>> $courses
+ * @var array<string, mixed> $metrics
+ * @var int $watchPercent
+ * @var int $watchMinPercent
+ * @var int $watchMaxPercent
+ */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $lessons = is_array($lessons ?? null) ? $lessons : [];
@@ -10,6 +19,8 @@ $metrics = is_array($metrics ?? null) ? $metrics : [];
 $videosAvailable = isset($videosAvailable) && (bool) $videosAvailable;
 $watchAvailable = isset($watchAvailable) && (bool) $watchAvailable;
 $watchPercent = max(0, (int) ($watchPercent ?? 90));
+$watchMin = max(1, (int) ($watchMinPercent ?? 10));
+$watchMax = max($watchMin, (int) ($watchMaxPercent ?? 100));
 $search = is_string($search ?? null) ? $search : '';
 $courseId = (int) ($courseId ?? 0);
 $status = is_string($status ?? null) ? $status : 'all';
@@ -87,7 +98,6 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
 
         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-            <input type="hidden" name="return_to" value="library">
 
             <div class="admin-form-row">
                 <div class="admin-field">
@@ -156,7 +166,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                     </svg>
                     Save lesson
                 </button>
-                <span class="lesson-add-note">Saved lessons appear in the library below and stay editable from <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/courses">Manage courses</a>.</span>
+                <span class="form-action-note">Saved lessons appear in the library below and can be edited there without leaving this page.</span>
             </div>
         </form>
     </section>
@@ -179,6 +189,52 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['missing_length'] ?? 0) ?>"><?= number_format((int) ($metrics['missing_length'] ?? 0)) ?></span><span class="admin-stat-label">Videos missing a length</span></div>
         </article>
     </div>
+
+    <!-- Completion rule for the videos listed below, kept here because only this page manages them. -->
+    <section class="admin-card lesson-rule-card">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon amber">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <polyline points="12 7 12 12 15 14"></polyline>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2>Watch-time rule</h2>
+                    <p>The share of a lesson video a student must watch before the lesson can be marked complete. It only applies to lessons that have a registered length.</p>
+                </div>
+            </div>
+            <span class="count-pill">Currently <?= $watchPercent ?>%</span>
+        </div>
+
+        <form method="post" action="<?= $escape($baseUrl) ?>/admin/lessons/watch-rule" class="admin-form">
+            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+            <div class="admin-setting-row">
+                <div class="admin-setting-row-text">
+                    <span class="admin-label">Lesson watch requirement</span>
+                    <span class="admin-hint">Saved changes apply to the next heartbeat a student sends, without editing any lesson.</span>
+                </div>
+                <div class="admin-setting-row-control">
+                    <div class="admin-number-field">
+                        <input class="admin-input" type="number" name="lesson_watch_completion_percent" min="<?= $watchMin ?>" max="<?= $watchMax ?>" required value="<?= $watchPercent ?>" aria-label="Lesson watch requirement in percent">
+                        <span class="admin-number-unit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="button" type="submit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save watch rule
+                </button>
+                <span class="form-action-note">A lower percentage lets students complete lessons sooner; the completion timestamps already recorded are never recalculated.</span>
+            </div>
+        </form>
+    </section>
 
     <section class="dashboard-panel lesson-lib-panel" aria-label="Lesson list">
         <div class="dashboard-panel-heading lesson-lib-heading">
@@ -222,7 +278,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                 <span class="dashboard-empty-icon" aria-hidden="true">◷</span>
                 <div>
                     <h3><?= $filtersActive ? 'No lesson matches these filters' : 'No lessons have been written yet' ?></h3>
-                    <p><?= $filtersActive ? 'Try a different course, status or video filter.' : 'Lessons live inside course modules. Add the first one from the course management page.' ?></p>
+                    <p><?= $filtersActive ? 'Try a different course, status or video filter.' : 'Lessons live inside course modules. Add the first one with the form at the top of this page.' ?></p>
                 </div>
             </div>
         <?php else: ?>
@@ -279,7 +335,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                                     <?php if ($watchAvailable && (int) $lesson['watching_count'] > 0): ?><small class="lesson-lib-watching"><?= number_format((int) $lesson['watching_count']) ?> student<?= (int) $lesson['watching_count'] === 1 ? '' : 's' ?> part-way through</small><?php endif; ?>
                                 </td>
                                 <td data-label="Added"><small><?= $escape($addedLabel($lesson['created_at'] ?? null)) ?></small></td>
-                                <td data-label="Actions" class="lesson-lib-actions"><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/courses#lesson-<?= $lessonId ?>">Edit lesson <span aria-hidden="true">→</span></a></td>
+                                <td data-label="Actions" class="lesson-lib-actions"><a class="dashboard-inline-link" href="#lesson-<?= $lessonId ?>">Edit lesson <span aria-hidden="true">↓</span></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -295,6 +351,57 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                 </nav>
             <?php endif; ?>
         <?php endif; ?>
-        <p class="dashboard-note"><strong>Watch-time rule</strong><span>Students must watch <?= $watchPercent ?>% of a lesson video before it can be marked complete. Change the percentage in <a href="<?= $escape($baseUrl) ?>/admin/settings">security settings</a>; it only applies to lessons that have a registered length.</span></p>
+    </section>
+
+    <!-- Inline editors for the lessons listed above. They used to sit on the course page, which
+         meant opening every course accordion to find one lesson. -->
+    <section class="admin-card lesson-editor-card">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon violet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2>Lesson editing &amp; publishing</h2>
+                    <p>Edit lesson content or change whether students can access it. This list follows the filters above — <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons">clear them</a> to reach every lesson.</p>
+                </div>
+            </div>
+            <span class="count-pill"><?= count($lessons) ?> <?= count($lessons) === 1 ? 'lesson' : 'lessons' ?></span>
+        </div>
+        <?php if ($lessons === []): ?>
+            <div class="admin-empty-state">
+                <h3>No lessons to edit</h3>
+                <p>Add a lesson with the form above, or clear the filters, to see the lesson editors here.</p>
+            </div>
+        <?php else: ?>
+            <div class="lesson-library-list">
+                <?php foreach ($lessons as $lesson): ?>
+                    <details class="lesson-editor" id="lesson-<?= (int) $lesson['id'] ?>">
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($videosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape($durationLabel((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></summary>
+                        <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
+                            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                            <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
+                            <input type="hidden" name="course_id" value="<?= (int) $lesson['course_id'] ?>">
+                            <input type="hidden" name="module_id" value="<?= (int) $lesson['module_id'] ?>">
+                            <input type="hidden" name="module_title" value="<?= $escape($lesson['module_title']) ?>">
+                            <label class="admin-label">Lesson title<input class="admin-input" name="lesson_title" required maxlength="200" value="<?= $escape($lesson['title']) ?>"></label>
+                            <label class="admin-label">Lesson content<textarea class="admin-textarea" name="body" rows="5" maxlength="500000"><?= $escape($lesson['body'] ?? '') ?></textarea></label>
+                            <?php if ($videosAvailable): ?>
+                                <label class="admin-label">Lesson video link<input class="admin-input" name="video_url" maxlength="600" value="<?= $escape($lesson['video_url'] ?? '') ?>" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4"></label>
+                                <label class="admin-label">Video length<input class="admin-input" name="video_duration" maxlength="8" value="<?= $escape($lesson['video_duration_seconds'] !== null && $lesson['video_duration_seconds'] !== '' ? $durationLabel((int) $lesson['video_duration_seconds']) : '') ?>" placeholder="18:30"><span class="admin-hint">Seconds, mm:ss or h:mm:ss. Leave empty when the length is unknown — the lesson then stays manually completable.</span></label>
+                            <?php endif; ?>
+                            <label class="admin-label">Publishing status<select class="admin-select" name="status">
+                                    <option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
+                                    <option value="published" <?= $lesson['status'] === 'published' ? 'selected' : '' ?>>Published</option>
+                                </select></label>
+                            <button class="button" type="submit">Save lesson changes</button>
+                        </form>
+                    </details>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </section>
 </section>

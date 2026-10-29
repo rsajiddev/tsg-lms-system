@@ -125,12 +125,14 @@ $router->get('/student/assignments', [\App\Controllers\StudentPortalController::
 $router->post('/student/certificates/request', [\App\Controllers\CertificateController::class, 'request']);
 $router->post('/student/attendance/mark', [\App\Controllers\AttendanceController::class, 'mark']);
 $router->get('/admin/certificates', [\App\Controllers\CertificateController::class, 'adminIndex']);
+$router->post('/admin/certificates/settings', [\App\Controllers\CertificateController::class, 'saveSettings']);
 $router->post('/admin/certificates/issue', [\App\Controllers\CertificateController::class, 'issue']);
 $router->post('/admin/certificates/reject', [\App\Controllers\CertificateController::class, 'reject']);
 $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
 $router->post('/admin/students/status', [\App\Controllers\StudentManagementController::class, 'setStatus']);
 $router->post('/admin/students/clear-activity', [\App\Controllers\StudentManagementController::class, 'clearActivity']);
+$router->post('/admin/students/attendance', [\App\Controllers\StudentManagementController::class, 'saveAttendance']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
 $router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
@@ -156,6 +158,7 @@ $router->get('/admin/lessons', [\App\Controllers\CourseAdminController::class, '
 $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::class, 'save']);
 $router->post('/admin/courses/delete', [\App\Controllers\CourseAdminController::class, 'delete']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);
+$router->post('/admin/lessons/watch-rule', [\App\Controllers\CourseAdminController::class, 'saveWatchRule']);
 $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::class, 'access']);
 $router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);
 $router->post('/admin/settings', [\App\Controllers\AdminManagementController::class, 'saveSettings']);

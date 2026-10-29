@@ -29,12 +29,12 @@ This README is the single catalogue of what is implemented. Every feature that s
 - Student and admin registration with email OTP verification, resend with rate limits.
 - Login/logout with per-IP and per-account throttling, password reset by OTP, session CSRF tokens on every mutating request.
 - Role-aware middleware (`student` / `admin`), password hashing, output escaping, upload and file-download guards.
-- Security settings page for the admin: OTP window, login protection, registration limits, password-reset limits.
+- Security settings page for the admin: authentication limits only — OTP window, login protection, registration limits, password-reset limits. Controls that belong to another feature were moved to that feature's page (attendance window → Students, lesson watch rule → Lesson library, certificate prefix/validity → Certificates), each saved by its own endpoint that validates just its own keys.
 
 ### Courses, modules and lessons
 - Admin course builder: course records with slug, category, visibility, cover image upload, duration, level, pricing, plus explicit module/lesson sort order and publish/draft state.
-- Lesson editor (per lesson, under Lessons & publishing on the course page) for content, video link and length, and publishing status.
-- **Lesson library** (`/admin/lessons`): the lesson home page — the **Add lesson** authoring form (target course, module, title, content, video link and length, status) plus every lesson across all courses in one searchable list with filters by course / status / video state, KPI cards (total, published, with video, missing length), completion reach per lesson, pagination, and deep links into the owning lesson editor.
+- **Lesson editing & publishing** card on the Lesson library: one collapsible editor per lesson in the current list for content, video link and length, and publish/draft state — editing stays on the library page instead of the course page.
+- **Lesson library** (`/admin/lessons`): the lesson home page — the **Add lesson** authoring form (target course, module, title, content, video link and length, status), the **Watch-time rule** card, every lesson across all courses in one searchable list with filters by course / status / video state, KPI cards (total, published, with video, missing length), completion reach per lesson, pagination, and *Edit lesson* anchors that jump to that lesson's editor below.
 - Student enrolment management per course (grant/revoke access, expiry), with access enforced on every learning page.
 
 ### Course grading and completion
@@ -50,7 +50,7 @@ This README is the single catalogue of what is implemented. Every feature that s
 ### Lesson videos and watch time
 - Video player on the lesson page, with resume-from-last-position and provider-aware embeds.
 - Server-side watch-time accounting: the browser sends a heartbeat to `POST /learning/lesson/watch`, and the server only credits forward movement, capped per ping, with a minimum ping gap.
-- Configurable completion rule: a student must watch `lesson_watch_completion_percent` (default 90%) of the video duration before the lesson can be marked complete. Setting lives in Admin → Security settings → **Lesson video**.
+- Configurable completion rule: a student must watch `lesson_watch_completion_percent` (default 90%) of the video duration before the lesson can be marked complete. Setting lives in Admin → **Lesson library** → *Watch-time rule* (`POST /admin/lessons/watch-rule`, 10–100%).
 - **Lessons** page for students (`/student/lessons`): all published lessons of active courses with a progress ribbon, course/status filters, per-lesson watched percentage, last-watched time, and Open / Resume / Review actions.
 - Every video/watch column is probed at runtime: on a database that predates the video layer the pages still render and simply report no video data, with a migration notice for the admin.
 
@@ -60,14 +60,15 @@ This README is the single catalogue of what is implemented. Every feature that s
 - Assignments with student submission, file upload and admin grading.
 
 ### Attendance
-- A successful student login opens the day's attendance row as pending; the student confirms presence before the deadline, otherwise the row closes as absent. Grace window is configurable (`attendance_grace_minutes`).
+- A successful student login opens the day's attendance row as pending; the student confirms presence before the deadline, otherwise the row closes as absent. Grace window is configurable (`attendance_grace_minutes`, 1–120 minutes) from the *Attendance confirmation window* card on Admin → **Students** (`POST /admin/students/attendance`).
 
 ### Payments
 - Manual payment flow: student submits proof, admin approves or rejects, revenue notifications, receipt PDF download for both sides, payment settings.
 
 ### Certificates
-- Admin issues and rejects certificates, students request them, prefix and availability window configurable, verification and download public endpoints.
-- A request is gated on grade and attendance, not just lesson completion: the overall grade must reach `certificate_min_grade_percent` (default 50) and attendance — present as a share of decided days since access was granted — must reach `certificate_min_attendance_percent` (default 75). The refusal states the exact shortfall ("Overall grade is 46.33% (F); you need at least 50%."), and the course page lists the same requirements before the student submits.
+- Admin issues and rejects certificates, students request them, verification and download public endpoints.
+- The **Certificates** page (`/admin/certificates`) owns its own settings: the *Certificate settings* card edits `certificate_id_prefix` and `certificate_available_days` (`POST /admin/certificates/settings`), and an *Eligibility requirements* card above the queue states the three bars an admin is enforcing.
+- A request is gated on grade and attendance, not just lesson completion: the overall grade must reach `certificate_min_grade_percent` (default 50) and attendance — present as a share of decided days since access was granted — must reach `certificate_min_attendance_percent` (default 75). The refusal states the exact shortfall ("Overall grade is 46.33% (F); you need at least 50%."), and the same requirements are published on both sides: read-only on the Certificates page for the admin and in a collapsible *What you need for a certificate* panel on the student **My courses** page, plus on the course page before the student submits.
 - Attendance is only enforced once at least one day has been decided, so a student who just enrolled is not blocked by an unmeasurable 0%. Pending days are ignored; only present and absent count.
 - The grade, letter and attendance percentage achieved at request time are snapshotted onto the certificate row, so the record shows what the student had earned when they asked, and issuing sets the enrollment to `certified`.
 

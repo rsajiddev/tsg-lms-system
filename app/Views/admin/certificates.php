@@ -10,6 +10,8 @@ use App\Core\Security;
  * @var string $search
  * @var bool $schemaAvailable
  * @var string $contactAddress
+ * @var array{prefix:string,days:int,max_prefix_length:int,min_days:int,max_days:int} $certificateValues
+ * @var array{grade:int,attendance:int,validDays:int} $criteria
  * @var string|null $message
  * @var string|null $error
  */
@@ -21,6 +23,8 @@ $status = is_string($status ?? null) ? $status : 'all';
 $search = is_string($search ?? null) ? $search : '';
 $schemaAvailable = (bool) ($schemaAvailable ?? true);
 $contactAddress = is_string($contactAddress ?? null) && $contactAddress !== '' ? $contactAddress : 'info@techsgstudio.com';
+$certificateValues = is_array($certificateValues ?? null) ? $certificateValues : [];
+$criteria = is_array($criteria ?? null) ? $criteria : ['grade' => 50, 'attendance' => 75, 'validDays' => 15];
 $message = is_string($message ?? null) && $message !== '' ? $message : null;
 $error = is_string($error ?? null) && $error !== '' ? $error : null;
 $label = static function (?string $value): string {
@@ -56,13 +60,47 @@ $filters = [
         <div>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Certificates</h1>
-            <p>Review student certificate requests, issue signed JPG certificates, and publish public verification.</p>
+            <p>Review student certificate requests, issue signed JPG certificates, publish public verification, and set the identifier rules below.</p>
         </div>
-        <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/settings">Certificate settings</a>
+        <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/settings">Security settings</a>
     </header>
 
     <?php if ($message !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
     <?php if ($error !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+
+    <section class="admin-card certificate-eligibility-card" aria-labelledby="certificate-eligibility-title">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon emerald">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 11l3 3 8-8"></path>
+                        <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2 id="certificate-eligibility-title">Eligibility requirements</h2>
+                    <p>A request is accepted only when a student clears all three bars. The same rules are published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page, so nobody has to guess.</p>
+                </div>
+            </div>
+        </div>
+        <div class="certificate-eligibility-grid">
+            <article class="certificate-eligibility-item">
+                <span class="certificate-eligibility-value"><?= (int) $criteria['grade'] ?>%</span>
+                <strong>Overall grade</strong>
+                <small>The weighted grade across video, quizzes, exercises, project and the final test must reach <?= (int) $criteria['grade'] ?>% or better.</small>
+            </article>
+            <article class="certificate-eligibility-item">
+                <span class="certificate-eligibility-value"><?= (int) $criteria['attendance'] ?>%</span>
+                <strong>Attendance</strong>
+                <small>Days marked present, as a share of decided days since access was granted, must reach <?= (int) $criteria['attendance'] ?>%. Days still pending are ignored.</small>
+            </article>
+            <article class="certificate-eligibility-item">
+                <span class="certificate-eligibility-value">100%</span>
+                <strong>Lesson completion</strong>
+                <small>Every published lesson in the course must be completed. Draft or removed lessons are never counted.</small>
+            </article>
+        </div>
+    </section>
 
     <?php if (!$schemaAvailable): ?>
         <div class="student-schema-notice" role="status"><strong>The certificates table is not installed yet.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. Requests and issued certificates appear here straight after.</span></div>
@@ -161,7 +199,7 @@ $filters = [
                                                     <div class="certificate-review-actions">
                                                         <button class="button certificate-button" type="submit">Issue certificate</button>
                                                     </div>
-                                                    <span class="admin-hint">The ID and expiry are generated from Certificate settings, and the student is emailed automatically.</span>
+                                                    <span class="admin-hint">The ID and expiry are generated from the Certificate settings section further down this page, and the student is emailed automatically.</span>
                                                 </form>
                                                 <form class="certificate-review-form certificate-reject-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/reject" onsubmit="return confirm('Reject this certificate request?')">
                                                     <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
@@ -185,4 +223,51 @@ $filters = [
         </section>
 
     <?php endif; ?>
+
+    <section class="admin-card certificate-settings-card">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon violet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="9" r="6"></circle>
+                        <path d="M8.5 14.5 7 22l5-2.6L17 22l-1.5-7.5"></path>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2>Certificate settings</h2>
+                    <p>Control the identifier format and validity period used when an admin issues a student certificate.</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/settings" class="admin-form">
+            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+            <div class="admin-form-row">
+                <div class="admin-field">
+                    <label class="admin-label" for="certificate-id-prefix">Certificate ID prefix</label>
+                    <input class="admin-input" id="certificate-id-prefix" name="certificate_id_prefix" maxlength="<?= (int) ($certificateValues['max_prefix_length'] ?? 24) ?>" required autocomplete="off" spellcheck="false" value="<?= $escape($certificateValues['prefix'] ?? 'TSG-CERT') ?>" placeholder="TSG-CERT">
+                    <span class="admin-hint">Up to <?= (int) ($certificateValues['max_prefix_length'] ?? 24) ?> uppercase letters, digits or single hyphens, starting with a letter. New IDs are issued as PREFIX-YEAR-SEQUENCE.</span>
+                </div>
+                <div class="admin-field">
+                    <label class="admin-label" for="certificate-available-days">Available for</label>
+                    <div class="admin-number-field">
+                        <input class="admin-input" id="certificate-available-days" name="certificate_available_days" type="number" min="<?= (int) ($certificateValues['min_days'] ?? 1) ?>" max="<?= (int) ($certificateValues['max_days'] ?? 3650) ?>" required value="<?= (int) ($certificateValues['days'] ?? 15) ?>" aria-label="Certificate availability in days">
+                        <span class="admin-number-unit">days</span>
+                    </div>
+                    <span class="admin-hint">Counted from the issue date; verification and download stop working after expiry.</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="button" type="submit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save certificate settings
+                </button>
+                <span class="form-action-note">Changes apply to certificates issued from now on; already-issued IDs and expiry dates are never rewritten.</span>
+            </div>
+        </form>
+    </section>
 </section>

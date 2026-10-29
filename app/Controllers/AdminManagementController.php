@@ -8,8 +8,14 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
-use App\Services\LessonMedia;
 
+/**
+ * Security, payment and moderation settings.
+ *
+ * Attendance and lesson watch-time limits used to live here. They now belong to the pages that
+ * use them (Students and the Lesson library), so this controller only owns the authentication
+ * rate limits below, which no other screen has a natural home for.
+ */
 final class AdminManagementController
 {
     private const SETTINGS = [
@@ -23,8 +29,6 @@ final class AdminManagementController
         'register_window_minutes' => ['Registration limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count registration requests.'],
         'password_reset_max_attempts' => ['Password reset requests per window', 1, 20, 'requests', 'Reset links one account may request inside the window below.'],
         'password_reset_window_minutes' => ['Password reset limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count password reset requests.'],
-        'attendance_grace_minutes' => ['Attendance grace window', 1, 120, 'minutes', 'Minutes a student has to confirm presence after signing in before the day is recorded as absent.'],
-        'lesson_watch_completion_percent' => ['Lesson watch requirement', 10, 100, '%', 'Share of a lesson video a student must watch before the lesson can be marked complete.'],
     ];
 
     private const SETTING_GROUPS = [
@@ -48,20 +52,7 @@ final class AdminManagementController
             'description' => 'Restricts how many reset links can be generated for one account inside a rolling window.',
             'keys' => ['password_reset_max_attempts', 'password_reset_window_minutes'],
         ],
-        [
-            'title' => 'Student attendance',
-            'description' => 'Every student sign-in opens a daily attendance record that the student must confirm inside this window.',
-            'keys' => ['attendance_grace_minutes'],
-        ],
-        [
-            'title' => 'Lesson video',
-            'description' => 'Recorded lessons track watch time, and this share of the video length must be watched before the lesson counts as complete.',
-            'keys' => ['lesson_watch_completion_percent'],
-        ],
     ];
-
-    /** Numeric fallbacks for keys a not-yet-imported schema has not seeded yet. */
-    private const SETTING_FALLBACKS = ['lesson_watch_completion_percent' => LessonMedia::DEFAULT_PERCENT];
 
     private const PAYMENT_SETTINGS = [
         'payment_account_title' => ['Account title', 150],
@@ -73,14 +64,10 @@ final class AdminManagementController
         'payment_instructions' => ['Payment instructions', 255],
     ];
 
-    /** Certificate defaults keep the workspace usable before an admin edits anything. */
-    public const CERTIFICATE_PREFIX_KEY = 'certificate_id_prefix';
-    public const CERTIFICATE_DAYS_KEY = 'certificate_available_days';
-    public const CERTIFICATE_DEFAULT_PREFIX = 'TSG-CERT';
-    public const CERTIFICATE_DEFAULT_DAYS = 15;
-    public const CERTIFICATE_MIN_DAYS = 1;
-    public const CERTIFICATE_MAX_DAYS = 3650;
-
+    /**
+     * Other screens (payments, certificates, students, lesson library) share the app_settings
+     * table with this page, so only the keys declared in SETTINGS are read or written here.
+     */
     public function settings(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
@@ -91,21 +78,13 @@ final class AdminManagementController
                 $stored[(string) $row['setting_key']] = (string) $row['setting_value'];
             }
             $values = [];
-            foreach ($stored as $key => $value) {
-                if (isset(self::PAYMENT_SETTINGS[$key]) || $key === self::CERTIFICATE_PREFIX_KEY) continue;
-                $values[$key] = (int) $value;
+            foreach (array_keys(self::SETTINGS) as $key) {
+                if (isset($stored[$key])) $values[$key] = (int) $stored[$key];
             }
-            foreach (self::SETTING_FALLBACKS as $key => $fallback) {
-                if (!isset($values[$key])) $values[$key] = $fallback;
-            }
-            $certificateValues = [
-                self::CERTIFICATE_PREFIX_KEY => $stored[self::CERTIFICATE_PREFIX_KEY] ?? self::CERTIFICATE_DEFAULT_PREFIX,
-                self::CERTIFICATE_DAYS_KEY => $stored[self::CERTIFICATE_DAYS_KEY] ?? (string) self::CERTIFICATE_DEFAULT_DAYS,
-            ];
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'certificateValues' => $certificateValues, 'message' => $_SESSION['_flash'] ?? null]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'message' => $_SESSION['_flash'] ?? null]);
         } catch (\PDOException $exception) {
             if ((string)$exception->getCode() !== '42S02') throw $exception;
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'certificateValues' => [self::CERTIFICATE_PREFIX_KEY => self::CERTIFICATE_DEFAULT_PREFIX, self::CERTIFICATE_DAYS_KEY => (string) self::CERTIFICATE_DEFAULT_DAYS], 'message' => null, 'migrationRequired' => true]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'message' => null, 'migrationRequired' => true]);
         }
         unset($_SESSION['_flash']);
     }
@@ -116,12 +95,6 @@ final class AdminManagementController
         if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
             http_response_code(419);
             return;
-        }
-        if (($_POST['form_type'] ?? '') === 'payment_details') {
-            $this->savePaymentSettings($admin, '/admin/settings');
-        }
-        if (($_POST['form_type'] ?? '') === 'certificate_settings') {
-            $this->saveCertificateSettings($admin);
         }
         $db = Database::connection();
         $db->beginTransaction();
@@ -174,38 +147,6 @@ final class AdminManagementController
             throw $e;
         }
         header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $redirectPath);
-        exit;
-    }
-
-    /**
-     * Certificate branding is validated here rather than in the browser, so a
-     * crafted request can never store a prefix that would leak into public URLs.
-     */
-    private function saveCertificateSettings(array $admin): never
-    {
-        $prefix = strtoupper(trim((string) ($_POST[self::CERTIFICATE_PREFIX_KEY] ?? '')));
-        if ($prefix === '') $prefix = self::CERTIFICATE_DEFAULT_PREFIX;
-        if (mb_strlen($prefix) > 24 || preg_match('/^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/', $prefix) !== 1) {
-            throw new \RuntimeException('Certificate ID prefix must be 2-24 uppercase letters, digits, or single hyphens, starting with a letter (for example TSG-CERT).');
-        }
-        $rawDays = trim((string) ($_POST[self::CERTIFICATE_DAYS_KEY] ?? ''));
-        if (!ctype_digit($rawDays) || (int) $rawDays < self::CERTIFICATE_MIN_DAYS || (int) $rawDays > self::CERTIFICATE_MAX_DAYS) {
-            throw new \RuntimeException('Certificate availability must be between ' . self::CERTIFICATE_MIN_DAYS . ' and ' . self::CERTIFICATE_MAX_DAYS . ' days.');
-        }
-        $db = Database::connection();
-        $db->beginTransaction();
-        try {
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
-            $upsert->execute([self::CERTIFICATE_PREFIX_KEY, $prefix, (int) $admin['id']]);
-            $upsert->execute([self::CERTIFICATE_DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('prefix',?, 'days', ?))")->execute([(int) $admin['id'], $prefix, (int) $rawDays]);
-            $db->commit();
-            $_SESSION['_flash'] = 'Certificate settings saved.';
-        } catch (\Throwable $e) {
-            if ($db->inTransaction()) $db->rollBack();
-            throw $e;
-        }
-        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
         exit;
     }
 

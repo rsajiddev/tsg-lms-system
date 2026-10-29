@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
+use App\Services\CourseGrading;
 use App\Services\LessonMedia;
 
 /**
@@ -61,6 +62,9 @@ final class StudentPortalController
             'courses' => $stmt->fetchAll(),
             'certificatesAvailable' => $certificatesAvailable,
             'gradesAvailable' => $gradesAvailable,
+            // Quoted live from the same settings the request gate uses, so the student always sees
+            // the bar they are actually measured against.
+            'certificateCriteria' => (new CourseGrading($db))->thresholds(),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);

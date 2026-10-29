@@ -4249,7 +4249,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
   margin-top: 4px
 }
 
-.lesson-add-note {
+.form-action-note {
   margin-right: auto;
   color: #64748b;
   font-size: 13px;
@@ -4258,7 +4258,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
 }
 
 @media(max-width:820px) {
-  .lesson-add-note {
+  .form-action-note {
     width: 100%;
     margin-right: 0
   }
@@ -8252,6 +8252,10 @@ body.dashboard-shell>main.dashboard-container {
   font-weight: 600;
 }
 
+/* A count pill that navigates (e.g. a course row pointing at its lessons in the library). */
+.count-pill-link {text-decoration:none}
+.count-pill-link:hover {background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+
 .access-banner {
   display: flex;
   align-items: center;
@@ -10682,8 +10686,50 @@ html.admin-modal-js .admin-modal.is-open {
 .certificate-file-input {padding:8px 10px;border:1px dashed #cfdcf0;border-radius:10px;background:#fff;font-size:12px}
 .certificate-file-input::file-selector-button {margin-right:10px;padding:6px 10px;border:0;border-radius:8px;background:#eff5ff;color:#1d4ed8;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 
-/* Admin settings: certificate card reuses the security layout. */
+/* Certificate workspace: settings and eligibility now live on the certificates page itself. */
+.certificate-admin-page>.admin-alert {margin-bottom:20px}
 .certificate-settings-card {margin-top:22px}
+.certificate-eligibility-card {margin-bottom:22px}
+.certificate-eligibility-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.certificate-eligibility-item {display:grid;align-content:start;gap:5px;min-width:0;padding:16px 18px;border:1px solid #e6ecf6;border-radius:14px;background:#fbfcfe}
+.certificate-eligibility-value {color:#1d4ed8;font-size:22px;font-weight:900;letter-spacing:-.02em}
+.certificate-eligibility-item strong {color:#17233d;font-size:13px}
+.certificate-eligibility-item small {color:#718096;font-size:11.5px;line-height:1.6;overflow-wrap:anywhere}
+
+/* Students workspace: the attendance window is a student-facing tool, so it sits on this page. */
+.student-attendance-card {margin-bottom:22px}
+
+/* Security settings page: the note is a flex child of .admin-workspace, so it needs no top margin. */
+.settings-scope-note {margin-top:0}
+
+/* Lesson library: watch-time rule and the inline lesson editors moved here from other pages. */
+.lesson-rule-card {margin-bottom:22px}
+.lesson-rule-card .admin-form {margin-top:2px}
+.lesson-editor-card {margin-top:22px}
+.lesson-editor-card .lesson-library-list {margin-top:2px}
+
+/* Student portal: the certificate bars, quoted live from the grading settings. */
+.my-courses-page>.admin-alert {margin-bottom:20px}
+.certificate-criteria-panel {margin-bottom:22px;padding:0}
+.certificate-criteria-panel>summary {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 20px;cursor:pointer;list-style:none}
+.certificate-criteria-panel>summary::-webkit-details-marker {display:none}
+.certificate-criteria-summary {display:grid;gap:3px;min-width:0}
+.certificate-criteria-summary strong {color:#17233d;font-size:14px}
+.certificate-criteria-summary small {color:#718096;font-size:12px}
+.certificate-criteria-toggle {flex:0 0 auto;color:#1d4ed8;font-size:16px;font-weight:900}
+.certificate-criteria-panel[open]>summary {border-bottom:1px solid #edf1f6}
+.certificate-criteria-panel[open]>summary .certificate-criteria-toggle {transform:rotate(45deg)}
+.certificate-criteria-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:16px 20px 0}
+.certificate-criteria-item {display:grid;align-content:start;gap:4px;min-width:0;padding:14px 16px;border:1px solid #eaf0f8;border-radius:13px;background:#f8fbff}
+.certificate-criteria-value {color:#1d4ed8;font-size:19px;font-weight:900;letter-spacing:-.02em}
+.certificate-criteria-item strong {color:#17233d;font-size:12.5px}
+.certificate-criteria-item small {color:#718096;font-size:11.5px;line-height:1.55}
+.certificate-criteria-note {margin:14px 20px 16px;color:#52627a;font-size:12px;line-height:1.6}
+
+@media(max-width:903px) {
+  .certificate-eligibility-grid,
+  .certificate-criteria-grid {grid-template-columns:1fr}
+}
 
 /* Public verification page. */
 .verify-hero {overflow:hidden;margin-top:8px;padding:clamp(36px,7vw,68px) 22px clamp(58px,9vw,88px);border-radius:24px;background:linear-gradient(140deg,#0f172a 0%,#1e3a8a 55%,#2563eb 100%);color:#fff;text-align:center}

@@ -9,13 +9,14 @@ use App\Core\Database;
 use App\Core\RateLimiter;
 use App\Core\Security;
 use App\Core\View;
-use App\Services\MailService;
 use App\Services\CourseGrading;
+use App\Services\MailService;
 use PDO;
 use RuntimeException;
 
 /**
- * Certificate requests, admin issuing, and public verification.
+ * Certificate requests, admin issuing, public verification, and the certificate settings
+ * that shape an issued identifier.
  *
  * Certificate images live below storage/uploads/private, which is outside the
  * document root and blocked by .htaccess. Every reader goes through this
@@ -28,6 +29,16 @@ final class CertificateController
     private const FILE_PATTERN = '#^certificates/[a-f0-9]{48}\.jpg$#';
     private const PUBLIC_ID_PATTERN = '/^[A-Z][A-Z0-9-]{3,63}$/';
     private const CONTACT_FALLBACK = 'info@techsgstudio.com';
+
+    /** Certificate defaults keep the workspace usable before an admin edits anything. */
+    public const PREFIX_KEY = 'certificate_id_prefix';
+    public const DAYS_KEY = 'certificate_available_days';
+    public const DEFAULT_PREFIX = 'TSG-CERT';
+    public const DEFAULT_DAYS = 15;
+    public const MIN_DAYS = 1;
+    public const MAX_DAYS = 3650;
+    public const MAX_PREFIX_LENGTH = 24;
+    public const PREFIX_PATTERN = '/^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/';
 
     /** A student asks for the certificate of a course they have finished. */
     public function request(): void
@@ -121,8 +132,9 @@ final class CertificateController
     /** Admin queue of every certificate request and issued certificate. */
     public function adminIndex(): void
     {
-        $user = AuthMiddleware::requireRole('admin');
+        $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
+        $settings = $this->certificateSettings($db);
         $status = (string) ($_GET['status'] ?? 'all');
         if (!in_array($status, ['all', 'requested', 'issued', 'expired', 'rejected'], true)) $status = 'all';
         $search = trim((string) ($_GET['q'] ?? ''));
@@ -194,17 +206,82 @@ final class CertificateController
 
         View::render('admin/certificates', [
             'title' => 'Certificates',
-            'user' => $user,
+            'user' => $admin,
             'certificates' => $certificates,
             'counts' => $counts,
             'status' => $status,
             'search' => $search,
             'schemaAvailable' => $schemaAvailable,
             'contactAddress' => $this->contactAddress(),
+            'certificateValues' => [
+                'prefix' => $settings[0],
+                'days' => $settings[1],
+                'max_prefix_length' => self::MAX_PREFIX_LENGTH,
+                'min_days' => self::MIN_DAYS,
+                'max_days' => self::MAX_DAYS,
+            ],
+            'criteria' => $this->eligibilityCriteria($db, (int) $settings[1]),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Saves the identifier prefix and validity period. Branding is validated here rather than in
+     * the browser, so a crafted request can never store a prefix that would leak into public URLs.
+     */
+    public function saveSettings(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performSaveSettings($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/certificates');
+        }
+    }
+
+    private function performSaveSettings(array $admin): void
+    {
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            throw new RuntimeException('Your session expired. Refresh the page and try again.');
+        }
+        $prefix = strtoupper(trim((string) ($_POST[self::PREFIX_KEY] ?? '')));
+        if ($prefix === '') $prefix = self::DEFAULT_PREFIX;
+        if (mb_strlen($prefix) > self::MAX_PREFIX_LENGTH || preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
+            throw new RuntimeException('Certificate ID prefix must be up to ' . self::MAX_PREFIX_LENGTH . ' characters: uppercase letters, digits or single hyphens, starting with a letter (for example TSG-CERT).');
+        }
+        $rawDays = trim((string) ($_POST[self::DAYS_KEY] ?? ''));
+        if (!ctype_digit($rawDays) || (int) $rawDays < self::MIN_DAYS || (int) $rawDays > self::MAX_DAYS) {
+            throw new RuntimeException('Certificate availability must be between ' . self::MIN_DAYS . ' and ' . self::MAX_DAYS . ' days.');
+        }
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert->execute([self::PREFIX_KEY, $prefix, (int) $admin['id']]);
+            $upsert->execute([self::DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('prefix',?, 'days', ?))")->execute([(int) $admin['id'], $prefix, (int) $rawDays]);
+            $db->commit();
+            $_SESSION['_flash'] = 'Certificate settings saved.';
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
+        }
+        $this->redirect('/admin/certificates');
+    }
+
+    /**
+     * The three bars a student must clear before a certificate can be requested, read live from
+     * the same settings the grading engine enforces, so this page never quotes a stale number.
+     *
+     * @return array{grade:int,attendance:int,validDays:int}
+     */
+    private function eligibilityCriteria(PDO $db, int $validDays): array
+    {
+        $thresholds = (new CourseGrading($db))->thresholds();
+        return ['grade' => $thresholds['grade'], 'attendance' => $thresholds['attendance'], 'validDays' => $validDays];
     }
 
     /** Approve a request: store the JPG, mint the public ID, and start the validity window. */
@@ -456,23 +533,23 @@ final class CertificateController
 
     private function certificateSettings(PDO $db): array
     {
-        $prefix = AdminManagementController::CERTIFICATE_DEFAULT_PREFIX;
-        $days = AdminManagementController::CERTIFICATE_DEFAULT_DAYS;
+        $prefix = self::DEFAULT_PREFIX;
+        $days = self::DEFAULT_DAYS;
         try {
             $statement = $db->prepare('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?)');
-            $statement->execute([AdminManagementController::CERTIFICATE_PREFIX_KEY, AdminManagementController::CERTIFICATE_DAYS_KEY]);
+            $statement->execute([self::PREFIX_KEY, self::DAYS_KEY]);
             foreach ($statement->fetchAll() as $row) {
-                if ($row['setting_key'] === AdminManagementController::CERTIFICATE_PREFIX_KEY) $prefix = strtoupper(trim((string) $row['setting_value']));
-                if ($row['setting_key'] === AdminManagementController::CERTIFICATE_DAYS_KEY) $days = (int) $row['setting_value'];
+                if ($row['setting_key'] === self::PREFIX_KEY) $prefix = strtoupper(trim((string) $row['setting_value']));
+                if ($row['setting_key'] === self::DAYS_KEY) $days = (int) $row['setting_value'];
             }
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
         }
-        if (preg_match('/^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/', $prefix) !== 1 || mb_strlen($prefix) > 24) {
-            $prefix = AdminManagementController::CERTIFICATE_DEFAULT_PREFIX;
+        if (preg_match(self::PREFIX_PATTERN, $prefix) !== 1 || mb_strlen($prefix) > self::MAX_PREFIX_LENGTH) {
+            $prefix = self::DEFAULT_PREFIX;
         }
-        if ($days < AdminManagementController::CERTIFICATE_MIN_DAYS || $days > AdminManagementController::CERTIFICATE_MAX_DAYS) {
-            $days = AdminManagementController::CERTIFICATE_DEFAULT_DAYS;
+        if ($days < self::MIN_DAYS || $days > self::MAX_DAYS) {
+            $days = self::DEFAULT_DAYS;
         }
         return [$prefix, $days];
     }

@@ -15,17 +15,19 @@ use RuntimeException;
 
 final class CourseAdminController
 {
+    /**
+     * Course catalogue and enrolment. Lesson editing lives on the lesson library page, which
+     * already loads the same rows with filters, so this page no longer queries lessons at all.
+     */
     public function index(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $courseImagesAvailable = $this->courseImageColumnAvailable($db);
-        $videoColumns = $this->lessonVideoColumnsAvailable($db);
         $imageColumn = $courseImagesAvailable ? 'c.image_path' : 'NULL AS image_path';
         $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM courses c LEFT JOIN course_modules cm ON cm.course_id=c.id LEFT JOIN lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
-        $lessons = $db->query('SELECT l.id,l.title,l.body,l.status,l.sort_order,' . ($videoColumns ? 'l.video_url,l.video_duration_seconds' : 'NULL AS video_url,NULL AS video_duration_seconds') . ',cm.id AS module_id,cm.title AS module_title,c.id AS course_id,c.title AS course_title FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id')->fetchAll();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
-        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'lessons' => $lessons, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'lessonVideosAvailable' => $videoColumns, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -125,6 +127,8 @@ final class CourseAdminController
             'videosAvailable' => $videosAvailable,
             'watchAvailable' => $watchAvailable,
             'watchPercent' => $media->watchPercent(),
+            'watchMinPercent' => LessonMedia::MIN_PERCENT,
+            'watchMaxPercent' => LessonMedia::MAX_PERCENT,
             'search' => $search,
             'courseId' => $courseId,
             'status' => $status,
@@ -371,10 +375,47 @@ final class CourseAdminController
             throw $e;
         }
         $_SESSION['_flash'] = $status === 'published' ? 'Lesson published for students with active course access.' : 'Lesson saved as a draft.';
-        // The form only names which screen it came from; the paths below are the ones this
-        // controller owns, so no request value is ever placed in the Location header.
-        $destinations = ['library' => '/admin/lessons', 'courses' => '/admin/courses'];
-        $this->redirect($destinations[(string) ($_POST['return_to'] ?? '')] ?? '/admin/courses');
+        // Lesson editing now lives only on the lesson library, so the admin always returns there.
+        $this->redirect('/admin/lessons');
+    }
+
+    /**
+     * Stores the share of a lesson video a student must watch before the lesson can be completed.
+     * The rule is kept next to the library it governs, and validated server-side. A rejected value
+     * comes back to the library as a readable error instead of a blank failure page, because the
+     * control is a single number field an admin can simply correct.
+     */
+    public function saveWatchRule(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performSaveWatchRule($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/lessons');
+        }
+    }
+
+    private function performSaveWatchRule(array $admin): void
+    {
+        $this->csrf();
+        $raw = trim((string) ($_POST[LessonMedia::WATCH_KEY] ?? ''));
+        if (!ctype_digit($raw) || (int) $raw < LessonMedia::MIN_PERCENT || (int) $raw > LessonMedia::MAX_PERCENT) {
+            throw new RuntimeException('The lesson watch requirement must be between ' . LessonMedia::MIN_PERCENT . ' and ' . LessonMedia::MAX_PERCENT . '%.');
+        }
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+                ->execute([LessonMedia::WATCH_KEY, $raw, (int) $admin['id']]);
+            $this->audit($db, (int) $admin['id'], 'lesson.watch_rule_updated', 'app_settings', 0, ['percent' => (int) $raw]);
+            $db->commit();
+            $_SESSION['_flash'] = 'Watch-time rule saved. Lessons now need ' . (int) $raw . '% of the video.';
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
+        }
+        $this->redirect('/admin/lessons');
     }
 
     public function access(): void

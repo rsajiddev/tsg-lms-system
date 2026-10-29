@@ -8,9 +8,17 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\AttendanceService;
 use RuntimeException;
 use PDO;
 
+/**
+ * Student directory, account actions and the attendance window students confirm inside.
+ *
+ * The attendance grace window used to sit in the security settings form. It is a student-facing
+ * rule with no place on that page any more, so it is read and written here, next to the roster
+ * it applies to, through the same AttendanceService the sign-in flow uses.
+ */
 final class StudentManagementController
 {
     private const PAGE_SIZE = 20;
@@ -99,9 +107,50 @@ final class StudentManagementController
             'selectedLoginCounts' => $selectedLoginCounts,
             'activity' => $activity,
             'loginHistoryAvailable' => $loginHistoryAvailable,
+            'graceMinutes' => (new AttendanceService($db))->graceMinutes(),
+            'graceMinMinutes' => AttendanceService::MIN_GRACE_MINUTES,
+            'graceMaxMinutes' => AttendanceService::MAX_GRACE_MINUTES,
+            'error' => $_SESSION['_flash_error'] ?? null,
             'message' => $_SESSION['_flash'] ?? null,
         ]);
-        unset($_SESSION['_flash']);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /** Stores the attendance confirmation window. Validation is server-side, never in the browser alone. */
+    public function saveAttendance(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performSaveAttendance($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/students');
+        }
+    }
+
+    private function performSaveAttendance(array $admin): void
+    {
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            throw new RuntimeException('Your session expired. Refresh the page and try again.');
+        }
+        $raw = trim((string) ($_POST[AttendanceService::GRACE_KEY] ?? ''));
+        if (!ctype_digit($raw) || (int) $raw < AttendanceService::MIN_GRACE_MINUTES || (int) $raw > AttendanceService::MAX_GRACE_MINUTES) {
+            throw new RuntimeException('Attendance grace window must be between ' . AttendanceService::MIN_GRACE_MINUTES . ' and ' . AttendanceService::MAX_GRACE_MINUTES . ' minutes.');
+        }
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+                ->execute([AttendanceService::GRACE_KEY, $raw, (int) $admin['id']]);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'attendance.grace_updated','app_settings',JSON_OBJECT('minutes',?))")
+                ->execute([(int) $admin['id'], (int) $raw]);
+            $db->commit();
+            $_SESSION['_flash'] = 'Attendance window saved. New sign-ins use ' . (int) $raw . ' minutes.';
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+        $this->redirect('/admin/students');
     }
 
     public function setStatus(): void

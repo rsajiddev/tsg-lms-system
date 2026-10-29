@@ -7,7 +7,6 @@ $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $settings = $settings ?? [];
 $groups = $groups ?? [];
 $values = $values ?? [];
-$certificateValues = is_array($certificateValues ?? null) ? $certificateValues : [];
 $message = $message ?? null;
 ?>
 
@@ -18,7 +17,7 @@ $message = $message ?? null;
             <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Security settings</h1>
-            <p>Configure OTP expiry, resend timing, authentication rate limits, and the attendance grace window for the whole academy.</p>
+            <p>Configure OTP expiry, resend timing and the authentication rate limits that apply to the whole academy. Everything on this page is enforced by the sign-in, registration and password-reset flows.</p>
         </div>
     </header>
 
@@ -65,7 +64,7 @@ $message = $message ?? null;
                         </svg>
                     </div>
                     <div class="admin-card-titles">
-                        <h2>Authentication &amp; attendance limits</h2>
+                        <h2>Authentication limits</h2>
                         <p>Every limit below applies to all new requests from the moment you save it.</p>
                     </div>
                 </div>
@@ -115,53 +114,8 @@ $message = $message ?? null;
             </form>
         </section>
 
-        <section class="admin-card certificate-settings-card">
-            <div class="admin-card-header">
-                <div class="admin-card-title-group">
-                    <div class="admin-card-icon emerald">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <circle cx="12" cy="9" r="6"></circle>
-                            <path d="M8.5 14.5 7 22l5-2.6L17 22l-1.5-7.5"></path>
-                        </svg>
-                    </div>
-                    <div class="admin-card-titles">
-                        <h2>Certificate settings</h2>
-                        <p>Control the identifier format and validity period used when an admin issues a student certificate.</p>
-                    </div>
-                </div>
-            </div>
-
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/settings" class="admin-form">
-                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-                <input type="hidden" name="form_type" value="certificate_settings">
-                <div class="admin-form-row">
-                    <div class="admin-field">
-                        <label class="admin-label" for="certificate-id-prefix">Certificate ID prefix</label>
-                        <input class="admin-input" id="certificate-id-prefix" name="certificate_id_prefix" maxlength="24" required autocomplete="off" spellcheck="false" value="<?= $escape($certificateValues['certificate_id_prefix'] ?? 'TSG-CERT') ?>" placeholder="TSG-CERT">
-                        <span class="admin-hint">2-24 uppercase letters, digits, or single hyphens. New IDs are issued as PREFIX-YEAR-SEQUENCE.</span>
-                    </div>
-                    <div class="admin-field">
-                        <label class="admin-label" for="certificate-available-days">Available for</label>
-                        <div class="admin-number-field">
-                            <input class="admin-input" id="certificate-available-days" name="certificate_available_days" type="number" min="1" max="3650" required value="<?= (int) ($certificateValues['certificate_available_days'] ?? 15) ?>" aria-label="Certificate availability in days">
-                            <span class="admin-number-unit">days</span>
-                        </div>
-                        <span class="admin-hint">Counted from the issue date; verification and download stop working after expiry.</span>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button class="button" type="submit">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                        Save certificate settings
-                    </button>
-                </div>
-            </form>
-        </section>
-
     <?php endif; ?>
+
+    <div class="dashboard-note settings-scope-note"><strong>Looking for a rule you used to set here?</strong><span>Feature settings now live with the page that uses them: the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">attendance confirmation window on Students</a>, the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons">lesson watch-time requirement on the Lesson library</a>, and the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/certificates">certificate prefix and validity on Certificates</a>.</span></div>
 
 </section>

@@ -2,10 +2,16 @@
 
 use App\Core\Security;
 
+/**
+ * View::render() injects these values from StudentPortalController::courses().
+ * @var array<int, array<string, mixed>> $courses
+ * @var array{grade:int,attendance:int} $certificateCriteria
+ */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $user = isset($user) && is_array($user) ? $user : [];
 $courses = is_array($courses ?? null) ? $courses : [];
+$certificateCriteria = is_array($certificateCriteria ?? null) ? $certificateCriteria : ['grade' => 50, 'attendance' => 75];
 $certificatesAvailable = (bool) ($certificatesAvailable ?? false);
 $gradesAvailable = (bool) ($gradesAvailable ?? false);
 $flashMessage = is_string($message ?? null) && $message !== '' ? $message : null;
@@ -18,7 +24,7 @@ $grantedLabel = static function (?string $value): string {
     return $timestamp === false ? '—' : date('M j, Y', $timestamp);
 };
 ?>
-<section class="dashboard-page" data-reveal>
+<section class="dashboard-page my-courses-page" data-reveal>
     <div class="dashboard-topbar">
         <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
         <div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><strong>My courses</strong></div>
@@ -35,6 +41,33 @@ $grantedLabel = static function (?string $value): string {
 
     <?php if ($flashMessage !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($flashMessage) ?></div><?php endif; ?>
     <?php if ($flashError !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($flashError) ?></div><?php endif; ?>
+
+    <?php if ($certificatesAvailable): ?>
+        <details class="dashboard-panel certificate-criteria-panel">
+            <summary>
+                <span class="certificate-criteria-summary"><strong>What you need for a certificate</strong><small>Three requirements per course — click to see the exact bars</small></span>
+                <span class="certificate-criteria-toggle" aria-hidden="true">＋</span>
+            </summary>
+            <div class="certificate-criteria-grid">
+                <article class="certificate-criteria-item">
+                    <span class="certificate-criteria-value"><?= (int) $certificateCriteria['grade'] ?>%</span>
+                    <strong>Overall grade</strong>
+                    <small>Weighted from lesson videos, quizzes, exercises, your project and the final test.</small>
+                </article>
+                <article class="certificate-criteria-item">
+                    <span class="certificate-criteria-value"><?= (int) $certificateCriteria['attendance'] ?>%</span>
+                    <strong>Attendance</strong>
+                    <small>Present days as a share of the days decided since your access was granted.</small>
+                </article>
+                <article class="certificate-criteria-item">
+                    <span class="certificate-criteria-value">100%</span>
+                    <strong>Lesson completion</strong>
+                    <small>Every published lesson in the course must be marked complete.</small>
+                </article>
+            </div>
+            <p class="certificate-criteria-note">Request the certificate from the course card below once all three are met. The academy reviews each request before issuing.</p>
+        </details>
+    <?php endif; ?>
 
     <section class="dashboard-panel">
         <div class="dashboard-panel-heading">

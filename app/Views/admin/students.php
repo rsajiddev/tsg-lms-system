@@ -15,7 +15,11 @@ use App\Core\Security;
  * @var array<string, mixed>|null $selectedStudent
  * @var array<string, int|string|null> $selectedLoginCounts
  * @var bool $loginHistoryAvailable
+ * @var int $graceMinutes
+ * @var int $graceMinMinutes
+ * @var int $graceMaxMinutes
  * @var string|null $message
+ * @var string|null $error
  */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $students = is_array($students ?? null) ? $students : [];
@@ -27,7 +31,11 @@ $pages = max(1, (int) ($pages ?? 1));
 $selectedStudent = is_array($selectedStudent ?? null) ? $selectedStudent : null;
 $statusCounts = is_array($statusCounts ?? null) ? $statusCounts : [];
 $selectedLoginCounts = is_array($selectedLoginCounts ?? null) ? $selectedLoginCounts : [];
+$graceMinutes = max(1, (int) ($graceMinutes ?? 5));
+$graceMin = max(1, (int) ($graceMinMinutes ?? 1));
+$graceMax = max($graceMin, (int) ($graceMaxMinutes ?? 120));
 $message = is_string($message ?? null) ? $message : null;
+$error = is_string($error ?? null) && $error !== '' ? $error : null;
 $queryUrl = static function (array $overrides = []) use ($search, $statusFilter): string {
     return http_build_query(array_merge(['q' => $search, 'status' => $statusFilter], $overrides));
 };
@@ -51,6 +59,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
     </header>
 
     <?php if ($message !== null && $message !== ''): ?><div class="admin-alert admin-alert-success" role="status"><?= Security::escape($message) ?></div><?php endif; ?>
+    <?php if ($error !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= Security::escape($error) ?></div><?php endif; ?>
 
     <div class="student-overview-grid" aria-label="Student account totals">
         <article class="student-overview-card student-overview-card-primary"><span class="student-overview-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m17-11a4 4 0 0 1 0 8m-6-12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm5 14v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><span>Total students</span><strong><?= number_format((int) ($statusCounts['total'] ?? 0)) ?></strong><small>Accounts registered in the Academy</small></div></article>
@@ -62,6 +71,49 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
     <?php if (empty($loginHistoryAvailable)): ?>
         <div class="student-schema-notice" role="status"><strong>Login history needs its database table.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. The student directory is available now; login totals and activity will appear after import.</span></div>
     <?php endif; ?>
+
+    <section class="admin-card student-attendance-card">
+        <div class="admin-card-header">
+            <div class="admin-card-title-group">
+                <div class="admin-card-icon amber">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <polyline points="12 7 12 12 15 14"></polyline>
+                    </svg>
+                </div>
+                <div class="admin-card-titles">
+                    <h2>Attendance confirmation window</h2>
+                    <p>How long a student has to confirm presence after signing in before the day is recorded as absent. Attendance feeds the certificate eligibility bar.</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/attendance" class="admin-form">
+            <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+            <div class="admin-setting-row">
+                <div class="admin-setting-row-text">
+                    <span class="admin-label">Attendance grace window</span>
+                    <span class="admin-hint">Applies from the next sign-in. Shorter windows make the daily attendance record close sooner. Allowed: <?= $graceMin ?> to <?= $graceMax ?> minutes.</span>
+                </div>
+                <div class="admin-setting-row-control">
+                    <div class="admin-number-field">
+                        <input class="admin-input" type="number" name="attendance_grace_minutes" min="<?= $graceMin ?>" max="<?= $graceMax ?>" required value="<?= $graceMinutes ?>" aria-label="Attendance grace window in minutes">
+                        <span class="admin-number-unit">minutes</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="button" type="submit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    Save attendance window
+                </button>
+            </div>
+        </form>
+    </section>
 
     <section class="dashboard-panel student-directory-panel" aria-label="Student directory">
         <div class="dashboard-panel-heading student-directory-heading">
