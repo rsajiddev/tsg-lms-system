@@ -9,7 +9,7 @@ This README is the single catalogue of what is implemented. Every feature that s
 1. Copy this folder into `htdocs/`.
 2. Create the MySQL database `tsg_academy_lms` in phpMyAdmin.
 3. Import `database/migrations/001_initial_schema.sql`.
-4. Copy `.env.example` to `.env` and set `APP_URL`, the DB values, and approved `MAIL_*` SMTP sender/transport settings.
+4. Copy `.env.example` to `.env` and set `APP_URL`, the DB values, and the `MAIL_*` block (the sending mailbox, its app password and the internal inboxes). Every comment in `.env.example` states what its variable is for, so a new owner can configure the installation without reading any PHP.
 5. Start Apache and MySQL, then open the project URL.
 6. Create the first admin with `php bin/create-admin.php`.
 
@@ -74,6 +74,30 @@ This README is the single catalogue of what is implemented. Every feature that s
 
 ### Communication and moderation
 - Announcements (admin publish, threaded replies), student notifications inbox, review moderation queue.
+
+### Outgoing email (SMTP, no mail libraries)
+- `App\Services\MailService` speaks SMTP itself over `stream_socket_client` — STARTTLS or SSL, `AUTH LOGIN`, then a `multipart/alternative` message carrying the HTML body and a plain-text alternative. There is no Composer dependency and no reliance on PHP's `mail()`.
+- **Everything a handover needs is in the `MAIL_*` block of `.env`.** Put the company mailbox in `MAIL_USERNAME` and `MAIL_FROM_ADDRESS` and its 16-character Google App Password (spaces removed) in `MAIL_PASSWORD`, and every automated message — student OTP, payment requests and decisions, certificate alerts, developer revenue summary — starts going out as that address. No address, name or password is written anywhere in the code, so the client changes credentials, tests and deploys without touching a template.
+- Internal inboxes resolve through one cascade, so the sending address is never repeated: `MAIL_ADMIN_NOTIFICATION_ADDRESS` (the HR queue: new registrations and payment approvals) and `DEVELOPER_NOTIFICATION_MAIL_ADDRESS` (all three developer events — registration, approved share, monthly summary) each fall back to `MAIL_FROM_ADDRESS` when left blank, and `MAIL_CERTIFICATE_REQUEST_ADDRESS` falls back to the HR inbox. `MAIL_DEVELOPER_NAME` is the greeting on developer mail; a blank inbox skips that one copy without failing the event.
+- `app/Services/EmailMessages.php` holds the wording, `app/Services/EmailLayout.php` the design. Each event is written per role, in the tone a company would send it: the student gets the approval-request acknowledgement and the approval welcome with the *Your Login Credentials* block (email, Student ID, password reference), HR and the developer get the detail tables, and the developer's monthly summary carries the per-student `No. / Name / Student ID / Course / Amount / Your share (15%)` table with totals. Signature blocks switch between the HR Department and the LMS Automated System, and the legal links are built from `COMPANY_SITE_URL`.
+- Events covered: `otp.verify_email`, `otp.reset_password`, `otp.change_email`, registration (HR + developer), payment submitted (student, HR, developer with the 15% share), payment approved (student, the approving admin, developer), payment rejected (student), monthly revenue summary, certificate requested / issued / rejected.
+- **Every attempt is logged.** One `email_logs` row per message with its template key, recipient, subject, `sent`/`failed` and `related_user_id`, so a delivery problem is visible in the admin workspace instead of only in the PHP error log. `related_user_id` names the student for every copy of that student's event — including the HR and developer copies — so one account's full mail history is queryable. The log is the *Email delivery log* card on Admin → **Announcements**.
+
+### In-app notifications and sidebar badges
+- `App\Services\NotificationService` publishes to eight categories (announcement, lesson, quiz, assignment, course, payment, grade, certificate) and maps each to one of six sidebar areas: `notifications`, `lessons`, `courses`, `assignments`, `quizzes`, `payments`.
+- Fan-out happens on the admin's own action, not on a cron: publishing or updating a lesson (`/admin/lessons`), a quiz (`/admin/quizzes`), an assignment (`/admin/assignments`) or a course (`/admin/courses`) notifies every enrolled student of that course; a payment submission or decision, an assignment review, a retake decision and a certificate request/issue/rejection notify that student alone. Each call carries the deep link the student should land on.
+- The sidebar renders the unread count for its area on the entry itself (`dashboard-nav-badge` in `app/Views/layouts/header.php`), computed once per request by `unreadByArea()`, with the **Assignments** count additionally covering published assignments the student has not yet submitted. A zero renders no badge at all, and counts above 99 show `99+`.
+- Re-publishing the same source within `COALESCE_MINUTES` (30) refreshes the existing notification instead of stacking duplicates, so an admin editing one lesson five times does not flood the inbox. Deleting a lesson, quiz, assignment or retake record — singly or through a bulk purge — retires the notifications that pointed at it, so no badge ever leads a student to a dead page.
+
+### Account settings (student and admin)
+- Student: `/student/settings`. Admin: `/admin/account`. Both render `app/Views/account/settings.php` inside the normal dashboard shell.
+- What a user may change is the profile: display name (`POST /account/name`, 2–150 characters), password (`POST /account/password` — the current password must verify, the new one must be at least 12 characters and differ from the old one, failures are rate-limited per account, and the change is written to `audit_logs`) and email address, which is only applied after a six-digit OTP delivered to the new address (`POST /account/email/request`, `POST /account/email/confirm`); the pending change is shown on the page until it expires.
+- The account reference shown at the top — `TSG-STU-00004` / `TSG-ADM-00001` — is derived from the immutable primary key and rendered `readonly`: it is quoted in emails, receipts and certificates, so it is never editable and never rewritten. Admin → **Settings** (`/admin/settings`) stays what it was: authentication limits only.
+
+### Testing tools: bulk delete
+- Admin → **Assignments**, **Quizzes** and **Lesson library** each carry a *Delete all* card (`app/Views/components/purge-zone.php`) posting to `/admin/assignments/purge`, `/admin/quizzes/purge` and `/admin/lessons/purge`. The card can scope the delete to one course or leave it at "every course".
+- The safety is confirmation, not concealment: `App\Core\PurgeGuard` requires the phrase typed exactly (`DELETE ALL ASSIGNMENTS` / `DELETE ALL QUIZZES` / `DELETE ALL LESSONS`), a permanent-deletion checkbox and a server-side re-check, because a form can be bypassed with curl and a mistyped phrase must delete nothing.
+- A purge removes the dependants with the records — submissions and uploaded files, attempts, answers and grades, stored private files — rebuilds the affected students' grades, retires the matching notifications and writes an audit row recording the scale of the deletion. Use it to clear data built up while content was being written before real student work begins.
 
 ### Dashboards and navigation
 - Admin overview with KPI cards, top courses and operation panels; student overview with enrolments, progress and pending actions.
@@ -170,7 +194,21 @@ Numbers to trust: attendance counts only decided days since `granted_at` (pendin
 | --- | --- | --- |
 | `lesson-watch-flow-smoke.php` | video providers, duration parsing, watch accrual caps, threshold auto-completion, replay safety | passes |
 | `attendance-flow-smoke.php` | sign-in window, present mark, expiry sweep, duplicate guard, summaries, settings | passes |
-| `auth-flow-smoke.php` | registration, OTP verify, password reset | **stale** — it stubs PHP `mail()`, which `MailService` no longer uses since OTPs moved to the SMTP socket transport, so its "one verification message" assertion always fails. Needs a mailer stub instead of a `mail()` override. |
+| `auth-flow-smoke.php` | registration, delivery, OTP activation, replay rejection, login, password reset, duplicate rejection, `email_logs`, rate limiting | passes |
+| `email-notification-smoke.php` | every `MAIL_*` recipient resolves, all email events render as HTML and plain text, notification fan-out, badge counts, coalescing, source retirement | passes |
+| `purge-tools-smoke.php` | wrong phrase deletes nothing, the three bulk deletes empty every dependant in foreign-key order, files/notifications/grades/audit handled | passes |
+| `interface-render-smoke.php` | dashboard, announcements, student inbox, both account settings pages and the three purge workspaces render; sidebar badges count real unread work; `.env` / `.env.example` keys agree | passes |
+
+The two destructive scripts only ever run against a scratch database, and the guard is part of the design: each refuses any `--database=` value that does not contain `tmp`, `check`, `scratch` or `test`, and creates and imports the schema itself when the database does not exist yet. The other scripts run on the development database and delete the fixture rows they create.
+
+```bash
+/Applications/XAMPP/xamppfiles/bin/php tests/auth-flow-smoke.php
+/Applications/XAMPP/xamppfiles/bin/php tests/email-notification-smoke.php
+/Applications/XAMPP/xamppfiles/bin/php tests/purge-tools-smoke.php --database=tsg_purge_check_tmp
+/Applications/XAMPP/xamppfiles/bin/php tests/interface-render-smoke.php --database=tsg_render_check_tmp --drop=1
+```
+
+`auth-flow-smoke.php` does not stub the mailer. It starts a throwaway SMTP server on `127.0.0.1`, points `MAIL_*` at it and reads the messages the application actually puts on the wire, so the handshake, the login, the MIME envelope and the `email_logs` row are all exercised for real. Nothing leaves the machine. The `MAIL_*` values it needs are overridden inside the script, so it runs unchanged on a development `.env`.
 
 `tests/TEST-PLAN.md` lists the manual regression matrix that goes with the scripts above.
 
@@ -178,4 +216,4 @@ Numbers to trust: attendance counts only decided days since `granted_at` (pendin
 
 This README is the single feature catalogue for the project: what exists, where each control lives, and how to prove it works. Earlier planning, audit and decision records were kept in `docs/` and have been retired — recover any of them from git history (`git log --diff-filter=D -- docs/` to find the commit, then `git show <commit>:docs/OPEN-DECISIONS.md`).
 
-**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, admin settings and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the outstanding business decisions (quiz policy, payment and access grants, commission, certificate and invoice details, email delivery, authentication limits — the retired open-decisions list names them in full) are closed. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser.
+**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, account settings, automated email with delivery logging, notification badges and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the outstanding business decisions (quiz policy, payment and access grants, commission, certificate and invoice details, authentication limits — the retired open-decisions list names them in full) are closed, and before the `MAIL_*` block has been filled in with the company mailbox and tested end to end against a real SMTP server: the automated messages have been verified against a loopback server, not against Gmail. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser.

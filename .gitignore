@@ -3,6 +3,8 @@
 !/storage/logs/.gitkeep
 /storage/uploads/private/*
 !/storage/uploads/private/.gitkeep
+/storage/tmp/*
+!/storage/tmp/.gitkeep
 .DS_Store
 Thumbs.db
 /vendor/
