@@ -1706,4 +1706,93 @@ VALUES
        ('lesson_watch_completion_percent', '90')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 
+-- Per-student, per-course grade matrix. Written by App\Services\CourseGrading and read by the
+-- student portals, the admin roster and certificate eligibility. Recompute upserts this row.
+CREATE TABLE IF NOT EXISTS course_grades (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       course_id BIGINT UNSIGNED NOT NULL,
+       video_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       quiz_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       exercise_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       project_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       final_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       overall_pct DECIMAL(5, 2) NOT NULL DEFAULT 0,
+       letter_grade VARCHAR(2) NOT NULL DEFAULT 'F',
+       components_mask SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+       computed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       UNIQUE KEY uq_course_grade_student_course(student_id, course_id),
+       CONSTRAINT fk_course_grade_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_course_grade_course FOREIGN KEY(course_id) REFERENCES courses(id),
+       INDEX idx_course_grade_course(course_id, overall_pct)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Widen access status so a finished course can read Completed and an issued certificate Certified.
+-- The check looks for the newest value; when it is already present the ALTER is skipped, so a
+-- re-import never warns and active/revoked rows are untouched.
+SET
+       @widen_access_status = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE student_course_access MODIFY status ENUM(''active'',''revoked'',''completed'',''certified'') NOT NULL DEFAULT ''active''',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'student_course_access'
+                     AND COLUMN_NAME = 'status'
+                     AND COLUMN_TYPE LIKE '%certified%'
+       );
+
+PREPARE widen_access_status_stmt
+FROM
+       @widen_access_status;
+
+EXECUTE widen_access_status_stmt;
+
+DEALLOCATE PREPARE widen_access_status_stmt;
+
+-- Snapshot the grade and attendance that justified a certificate request, so an admin sees the
+-- same numbers the student was held to even if learning activity changes afterwards.
+SET
+       @add_certificate_snapshot = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE certificates ADD COLUMN overall_percent DECIMAL(5,2) NULL AFTER admin_remarks, ADD COLUMN letter_grade VARCHAR(2) NULL AFTER overall_percent, ADD COLUMN attendance_percent DECIMAL(5,2) NULL AFTER letter_grade',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND COLUMN_NAME = 'overall_percent'
+       );
+
+PREPARE add_certificate_snapshot_stmt
+FROM
+       @add_certificate_snapshot;
+
+EXECUTE add_certificate_snapshot_stmt;
+
+DEALLOCATE PREPARE add_certificate_snapshot_stmt;
+
+-- Grading weights and certificate thresholds. Seeded once and never overwritten by a re-import,
+-- so admin adjustments survive. Weights are percentages of the overall course score.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('grade_weight_video', '30'),
+       ('grade_weight_quiz', '28'),
+       ('grade_weight_exercise', '14'),
+       ('grade_weight_project', '14'),
+       ('grade_weight_final', '14'),
+       ('certificate_min_grade_percent', '50'),
+       ('certificate_min_attendance_percent', '75')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -31,8 +31,16 @@ final class StudentPortalController
         $certificateJoin = $certificatesAvailable
             ? 'LEFT JOIN certificates cert ON cert.student_id = sca.student_id AND cert.course_id = c.id'
             : '';
+        // Course grades come from the same migration; probe so an un-imported schema still renders.
+        $gradesAvailable = $this->courseGradesAvailable($db);
+        $gradeColumns = $gradesAvailable
+            ? 'cg.overall_pct, cg.letter_grade'
+            : 'NULL AS overall_pct, NULL AS letter_grade';
+        $gradeJoin = $gradesAvailable
+            ? 'LEFT JOIN course_grades cg ON cg.student_id = sca.student_id AND cg.course_id = c.id'
+            : '';
         $stmt = $db->prepare(
-            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, $certificateColumns,
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, sca.status AS access_status, $gradeColumns, $certificateColumns,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
@@ -40,8 +48,9 @@ final class StudentPortalController
                      WHERE lp.student_id = sca.student_id AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
              FROM student_course_access sca
              JOIN courses c ON c.id = sca.course_id
+             $gradeJoin
              $certificateJoin
-             WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
+             WHERE sca.student_id = ? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              ORDER BY sca.granted_at DESC, c.title ASC"
         );
         $stmt->execute([(int) $user['id']]);
@@ -51,6 +60,7 @@ final class StudentPortalController
             'user' => $user,
             'courses' => $stmt->fetchAll(),
             'certificatesAvailable' => $certificatesAvailable,
+            'gradesAvailable' => $gradesAvailable,
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
@@ -82,7 +92,7 @@ final class StudentPortalController
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $perPage = 25;
 
-        $access = "sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())";
+        $access = "sca.student_id = ? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())";
         $touched = $watchAvailable ? 'COALESCE(lp.watched_seconds, 0) > 0' : 'lp.id IS NOT NULL';
         $conditions = ["l.status = 'published'", $access];
         $params = [$studentId];
@@ -200,7 +210,7 @@ final class StudentPortalController
                     (SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id = q.id AND qa.student_id = ?) AS used_attempts
              FROM quizzes q
              JOIN courses c ON c.id = q.course_id
-             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
+             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              WHERE 1=1 {$released}
              ORDER BY q.course_id ASC, q.week_number ASC, q.id DESC"
         );
@@ -237,7 +247,7 @@ final class StudentPortalController
                     s.marks_awarded, s.feedback, s.submitted_at
              FROM assignments a
              JOIN courses c ON c.id = a.course_id
-             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
+             JOIN student_course_access sca ON sca.course_id = c.id AND sca.student_id = ? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              LEFT JOIN assignment_submissions s ON s.id = (
                  SELECT latest.id FROM assignment_submissions latest
                  WHERE latest.assignment_id = a.id AND latest.student_id = ?
@@ -281,6 +291,18 @@ final class StudentPortalController
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
             return false;
+        }
+    }
+
+    private function courseGradesAvailable(\PDO $db): bool
+    {
+        try {
+            $db->query('SELECT overall_pct FROM course_grades LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            // 42S02 = the grade table is not imported yet, 1054 = it exists without this column.
+            if ((string) $exception->getCode() === '42S02' || ($exception->errorInfo[1] ?? null) === 1054) return false;
+            throw $exception;
         }
     }
 }

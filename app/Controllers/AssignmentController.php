@@ -75,7 +75,7 @@ final class AssignmentController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int)$student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -107,7 +107,7 @@ final class AssignmentController
         $db->beginTransaction();
         $stored = null;
         try {
-            $stmt = $db->prepare("SELECT a.course_id,a.status,a.assignment_topic,a.due_at,a.admin_cutoff_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status='active' AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
+            $stmt = $db->prepare("SELECT a.course_id,a.status,a.assignment_topic,a.due_at,a.admin_cutoff_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status IN ('active','completed','certified') AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
             $stmt->execute([(int)$student['id'], $assignmentId]);
             $assignment = $stmt->fetch();
             $now = time();
@@ -154,7 +154,7 @@ final class AssignmentController
             $rubric[$column] = $value === '' ? null : (float)$value;
         }
         $db = Database::connection();
-        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,s.submitted_late FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
+        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,a.course_id,s.submitted_late,s.student_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
         $find->execute([$id]);
         $assignment = $find->fetch();
         if (!$assignment) throw new RuntimeException('Submission was not found.');
@@ -166,6 +166,14 @@ final class AssignmentController
         $update = $db->prepare('UPDATE assignment_submissions SET status=?,marks_awarded=?,feedback=?,rubric_technical=?,rubric_problem_solving=?,rubric_code_quality=?,rubric_timeliness=?,rubric_completeness=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?');
         $update->execute([$decision, $marks, $feedback ?: null, ...array_values($rubric), (int)$admin['id'], $id]);
         $this->audit($db, (int)$admin['id'], 'assignment.' . $decision, $id);
+        // A reviewed rubric changes the course grade matrix; keep it current without risking the review.
+        if ($decision === 'reviewed') {
+            try {
+                (new \App\Services\CourseGrading($db))->recompute((int)$assignment['student_id'], (int)$assignment['course_id']);
+            } catch (\Throwable $exception) {
+                error_log('[COURSE GRADING] Assignment review hook skipped: ' . $exception->getMessage());
+            }
+        }
         $_SESSION['_flash'] = $decision === 'reviewed' ? 'Submission reviewed and marks saved.' : 'Resubmission requested with feedback.';
         $this->redirect('/admin/assignments#submission-' . $id);
     }

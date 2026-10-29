@@ -76,7 +76,7 @@ final class CodingChallengeController
         $courseRow = null;
         $hasCodingCourseAccess = false;
         if ($courseId > 0) {
-            $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND c.slug=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+            $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND c.slug=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
             $course->execute([$courseId, self::ELIGIBLE_COURSE_SLUG, (int)$student['id']]);
             $courseRow = $course->fetch();
             if (!$courseRow) {
@@ -88,14 +88,14 @@ final class CodingChallengeController
             $stmt = $db->prepare("SELECT cc.id,cc.course_id,cc.title,cc.instructions,cc.tests_json,c.title AS course_title,(SELECT COUNT(*) FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=?) AS attempt_count,(SELECT ca.reported_status FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=? ORDER BY ca.id DESC LIMIT 1) AS latest_status FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id WHERE cc.course_id=? AND c.slug=? AND cc.status='published' ORDER BY cc.id");
             $stmt->execute([(int)$student['id'], (int)$student['id'], $courseId, self::ELIGIBLE_COURSE_SLUG]);
         } else {
-            $access = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.slug=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+            $access = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.slug=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
             $access->execute([self::ELIGIBLE_COURSE_SLUG, (int)$student['id']]);
             $courseRow = $access->fetch();
             $hasCodingCourseAccess = is_array($courseRow);
             if (!$hasCodingCourseAccess) {
                 $courseRow = ['id' => 0, 'title' => 'Code Challenges'];
             }
-            $stmt = $db->prepare("SELECT cc.id,cc.course_id,cc.title,cc.instructions,cc.tests_json,c.title AS course_title,(SELECT COUNT(*) FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=?) AS attempt_count,(SELECT ca.reported_status FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=? ORDER BY ca.id DESC LIMIT 1) AS latest_status FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE c.slug=? AND cc.status='published' ORDER BY c.title,cc.id");
+            $stmt = $db->prepare("SELECT cc.id,cc.course_id,cc.title,cc.instructions,cc.tests_json,c.title AS course_title,(SELECT COUNT(*) FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=?) AS attempt_count,(SELECT ca.reported_status FROM coding_challenge_attempts ca WHERE ca.challenge_id=cc.id AND ca.student_id=? ORDER BY ca.id DESC LIMIT 1) AS latest_status FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE c.slug=? AND cc.status='published' ORDER BY c.title,cc.id");
             $stmt->execute([(int)$student['id'], (int)$student['id'], (int)$student['id'], self::ELIGIBLE_COURSE_SLUG]);
         }
         $challenges = $stmt->fetchAll();
@@ -113,7 +113,7 @@ final class CodingChallengeController
         $student = AuthMiddleware::requireRole('student');
         $challengeId = filter_input(INPUT_GET, 'challenge_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $stmt = $db->prepare("SELECT cc.*,c.title AS course_title FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE cc.id=? AND c.slug=? AND cc.status='published' LIMIT 1");
+        $stmt = $db->prepare("SELECT cc.*,c.title AS course_title FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE cc.id=? AND c.slug=? AND cc.status='published' LIMIT 1");
         $stmt->execute([(int)$student['id'], $challengeId, self::ELIGIBLE_COURSE_SLUG]);
         $challenge = $stmt->fetch();
         if (!$challenge) {
@@ -141,7 +141,7 @@ final class CodingChallengeController
             throw new RuntimeException('Run the challenge checks first, then save a valid attempt.');
         }
         $db = Database::connection();
-        $allowed = $db->prepare("SELECT cc.tests_json FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=cc.course_id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE cc.id=? AND c.slug=? AND cc.status='published' LIMIT 1");
+        $allowed = $db->prepare("SELECT cc.tests_json FROM coding_challenges cc JOIN courses c ON c.id=cc.course_id JOIN student_course_access a ON a.course_id=cc.course_id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE cc.id=? AND c.slug=? AND cc.status='published' LIMIT 1");
         $allowed->execute([(int)$student['id'], $challengeId, self::ELIGIBLE_COURSE_SLUG]);
         $challengeTests = $allowed->fetchColumn();
         if (!is_string($challengeTests)) throw new RuntimeException('This challenge is unavailable for your account.');

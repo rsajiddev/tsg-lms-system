@@ -289,7 +289,7 @@ final class QuizController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int)$student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -311,7 +311,7 @@ final class QuizController
         $studentId = (int)$student['id'];
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare("SELECT q.* FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE q.id=? AND ((q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND EXISTS (SELECT 1 FROM quiz_retake_approvals allowed WHERE allowed.quiz_id=q.id AND allowed.student_id=? AND allowed.request_status='approved' AND allowed.used_at IS NULL))) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND ((q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND EXISTS (SELECT 1 FROM quiz_retake_approvals allowed WHERE allowed.quiz_id=q.id AND allowed.student_id=? AND allowed.request_status='approved' AND allowed.used_at IS NULL))) FOR UPDATE");
+            $stmt = $db->prepare("SELECT q.* FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE q.id=? AND ((q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND EXISTS (SELECT 1 FROM quiz_retake_approvals allowed WHERE allowed.quiz_id=q.id AND allowed.student_id=? AND allowed.request_status='approved' AND allowed.used_at IS NULL))) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND ((q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND EXISTS (SELECT 1 FROM quiz_retake_approvals allowed WHERE allowed.quiz_id=q.id AND allowed.student_id=? AND allowed.request_status='approved' AND allowed.used_at IS NULL))) FOR UPDATE");
             $stmt->execute([$studentId, $quizId, $studentId, $studentId]);
             $quiz = $stmt->fetch();
             if (!$quiz) throw new RuntimeException('This quiz is unavailable or you do not have course access.');
@@ -421,14 +421,24 @@ final class QuizController
         $answers = is_array($raw) ? $raw : [];
         $db = Database::connection();
         $db->beginTransaction();
+        $gradedCourseId = null;
         try {
             $attempt = $this->ownedAttempt($db, $attemptId, (int)$student['id'], true, true);
             if (!$attempt) throw new RuntimeException('Quiz attempt not found.');
             if ($attempt['status'] === 'in_progress') $this->finishAttempt($db, $attemptId, $answers, $reason, false);
+            $gradedCourseId = (int)($attempt['course_id'] ?? 0);
             $db->commit();
         } catch (\Throwable $exception) {
             if ($db->inTransaction()) $db->rollBack();
             throw $exception;
+        }
+        // Refresh the course grade matrix after a graded attempt; never let it break the result page.
+        if ($gradedCourseId > 0) {
+            try {
+                (new \App\Services\CourseGrading($db))->recompute((int)$student['id'], $gradedCourseId);
+            } catch (\Throwable $exception) {
+                error_log('[COURSE GRADING] Quiz submit hook skipped: ' . $exception->getMessage());
+            }
         }
         $this->redirect('/learning/quiz/result?attempt_id=' . $attemptId);
     }
@@ -460,7 +470,7 @@ final class QuizController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $quiz = $db->prepare("SELECT q.id,q.quiz_type,q.course_id FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE q.id=? AND q.quiz_type='final' AND q.status IN ('released','closed') FOR UPDATE");
+            $quiz = $db->prepare("SELECT q.id,q.quiz_type,q.course_id FROM quizzes q JOIN student_course_access a ON a.course_id=q.course_id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE q.id=? AND q.quiz_type='final' AND q.status IN ('released','closed') FOR UPDATE");
             $quiz->execute([(int)$student['id'], $quizId]);
             $quizRow = $quiz->fetch();
             if (!$quizRow) throw new RuntimeException('This final test is unavailable.');
@@ -550,7 +560,7 @@ final class QuizController
 
     private function ownedAttempt(PDO $db, int $attemptId, int $studentId, bool $lock = false, bool $requireCurrentAccess = false): ?array
     {
-        $accessJoin = $requireCurrentAccess ? " JOIN student_course_access a ON a.student_id=qa.student_id AND a.course_id=q.course_id AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP())" : '';
+        $accessJoin = $requireCurrentAccess ? " JOIN student_course_access a ON a.student_id=qa.student_id AND a.course_id=q.course_id AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP())" : '';
         $stmt = $db->prepare('SELECT qa.*,q.title,q.week_number,q.course_id,q.quiz_type,q.time_limit_seconds,q.question_count,q.pass_mark_percent,c.title AS course_title,u.full_name AS student_name FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id JOIN users u ON u.id=qa.student_id' . $accessJoin . ' WHERE qa.id=? AND qa.student_id=?' . ($lock ? ' FOR UPDATE' : ''));
         $stmt->execute([$attemptId, $studentId]);
         return $stmt->fetch() ?: null;

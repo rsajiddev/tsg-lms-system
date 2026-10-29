@@ -20,6 +20,7 @@ foreach (
         '/app/Services/AuthService.php',
         '/app/Services/AttendanceService.php',
         '/app/Services/LessonMedia.php',
+        '/app/Services/CourseGrading.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/HealthController.php',

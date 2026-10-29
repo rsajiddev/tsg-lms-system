@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\LessonMedia;
+use App\Services\CourseGrading;
 use PDO;
 use RuntimeException;
 
@@ -19,7 +20,7 @@ final class LearningController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title,c.category,c.duration_label,c.level_label,c.short_description,a.expires_at FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title,c.category,c.duration_label,c.level_label,c.short_description,a.expires_at,a.status AS access_status FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int) $student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -29,7 +30,9 @@ final class LearningController
         }
         $lessons = $db->prepare("SELECT cm.id AS module_id,cm.title AS module_title,cm.sort_order AS module_order,l.id AS lesson_id,l.title AS lesson_title,l.sort_order AS lesson_order,CASE WHEN lp.completed_at IS NULL THEN 0 ELSE 1 END AS completed FROM course_modules cm JOIN lessons l ON l.module_id=cm.id AND l.status='published' LEFT JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.student_id=? WHERE cm.course_id=? ORDER BY cm.sort_order,cm.id,l.sort_order,l.id");
         $lessons->execute([(int) $student['id'], $courseId]);
-        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll()]);
+        $grading = new CourseGrading($db);
+        $grade = $grading->refresh((int) $student['id'], $courseId);
+        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll(), 'grade' => $grade, 'weights' => $grading->weights(), 'eligibility' => $grading->eligibility((int) $student['id'], $courseId)]);
     }
 
     public function lesson(): void
@@ -105,7 +108,8 @@ final class LearningController
         if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) throw new RuntimeException('Your session expired. Refresh and try again.');
         $lessonId = filter_var($_POST['lesson_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        if (!$this->accessibleLesson($db, (int) $student['id'], $lessonId)) {
+        $lesson = $this->accessibleLesson($db, (int) $student['id'], $lessonId);
+        if (!$lesson) {
             http_response_code(404);
             View::render('errors/404', ['title' => 'Lesson unavailable', 'user' => $student]);
             return;
@@ -119,12 +123,18 @@ final class LearningController
         }
         $stmt = $db->prepare('INSERT INTO lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE completed_at=COALESCE(completed_at,VALUES(completed_at))');
         $stmt->execute([(int) $student['id'], $lessonId]);
+        // Keep the course grade matrix current; grading must never block the completion itself.
+        try {
+            (new CourseGrading($db))->recompute((int) $student['id'], (int) $lesson['course_id']);
+        } catch (\Throwable $exception) {
+            error_log('[COURSE GRADING] Completion hook skipped: ' . $exception->getMessage());
+        }
         $this->redirect('/learning/lesson?lesson_id=' . $lessonId . '&completed=1');
     }
 
     private function accessibleLesson(PDO $db, int $studentId, int $lessonId): ?array
     {
-        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status='active' AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
+        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
         $stmt->execute([$studentId, $studentId, $lessonId]);
         return $stmt->fetch() ?: null;
     }
