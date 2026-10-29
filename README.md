@@ -37,6 +37,16 @@ This README is the single catalogue of what is implemented. Every feature that s
 - **Lesson library** (`/admin/lessons`): the lesson home page — the **Add lesson** authoring form (target course, module, title, content, video link and length, status) plus every lesson across all courses in one searchable list with filters by course / status / video state, KPI cards (total, published, with video, missing length), completion reach per lesson, pagination, and deep links into the owning lesson editor.
 - Student enrolment management per course (grant/revoke access, expiry), with access enforced on every learning page.
 
+### Course grading and completion
+- A weighted grade matrix (`course_grades`) is stored per student and course and rebuilt automatically: **video 30%** (average watched share of published lessons, or completion when a lesson has no video), **quizzes 28%** (best submitted score across the course's lesson and module quizzes), **exercises 14%** and **project 14%** (best reviewed score per `exercise` / `mini_project` assignment), **final test 14%** (best score on the `final` quiz).
+- A component the course does not offer is dropped and its weight is redistributed across the components that do exist, so a course without a project can still reach 100%. Which components were present is kept as a bitmask, and the course page labels an absent component "Not offered in this course" instead of showing it as 0%.
+- Letter scale: `A+ ≥ 90`, `A ≥ 80`, `B+ ≥ 70`, `B ≥ 60`, `C ≥ 50`, `F < 50`. `C` is the pass bar.
+- Weights and pass thresholds live in `app_settings` (`grade_weight_video|quiz|exercise|project|final`, `certificate_min_grade_percent`, `certificate_min_attendance_percent`) and are seeded once, so a manual edit survives a re-import. There is no admin edit UI for them yet.
+- Recompute hooks run after *Complete lesson*, after a quiz is graded, after an assignment review, and whenever a student opens a course page. Every hook is fail-open: grading logs a failure and lets the student action succeed, and a database that predates the migration still renders (grades simply read as unavailable).
+- Enrollment rows now carry a completion state: `active` → `completed` (set automatically once the pass bar is met and every published lesson is done) → `certified` (set when an admin issues the certificate). `revoked` is unchanged. All student-facing pages — course home, lessons, quizzes, assignments, coding challenges, sidebar badges and certificate requests — accept `active`, `completed` and `certified`, so finishing a course never locks the student out of it.
+- Student surfaces: a status chip (Access active / Completed / Certified) plus the overall percentage and letter grade on each **My courses** card, and a *Completion & grading* panel on the course page with one bar per component, its weight, the overall grade and the certificate eligibility verdict.
+- Admin surface: the grade and attendance captured at request time are shown on **Certificates** ("At request: A · 86.4% · attendance 100%"). The student roster page (`/admin/students`) has no enrollment table, so it carries no grade column.
+
 ### Lesson videos and watch time
 - Video player on the lesson page, with resume-from-last-position and provider-aware embeds.
 - Server-side watch-time accounting: the browser sends a heartbeat to `POST /learning/lesson/watch`, and the server only credits forward movement, capped per ping, with a minimum ping gap.
@@ -57,6 +67,9 @@ This README is the single catalogue of what is implemented. Every feature that s
 
 ### Certificates
 - Admin issues and rejects certificates, students request them, prefix and availability window configurable, verification and download public endpoints.
+- A request is gated on grade and attendance, not just lesson completion: the overall grade must reach `certificate_min_grade_percent` (default 50) and attendance — present as a share of decided days since access was granted — must reach `certificate_min_attendance_percent` (default 75). The refusal states the exact shortfall ("Overall grade is 46.33% (F); you need at least 50%."), and the course page lists the same requirements before the student submits.
+- Attendance is only enforced once at least one day has been decided, so a student who just enrolled is not blocked by an unmeasurable 0%. Pending days are ignored; only present and absent count.
+- The grade, letter and attendance percentage achieved at request time are snapshotted onto the certificate row, so the record shows what the student had earned when they asked, and issuing sets the enrollment to `certified`.
 
 ### Communication and moderation
 - Announcements (admin publish, threaded replies), student notifications inbox, review moderation queue.
@@ -123,6 +136,31 @@ Honest limit: the guards (`MAX_DELTA_SECONDS = 20`, `MIN_PING_SECONDS = 8`) mean
 
 **Step 8 — downstream effect.** Finish the last lesson of a course, then confirm lesson completion feeds the course progress used by the certificate request flow.
 
+## Testing the grading engine and certificate eligibility
+
+Re-import the schema first (back up the database), otherwise every grade read fails open and the panels stay empty:
+
+```bash
+/Applications/XAMPP/xamppfiles/bin/mysql -u root tsg_academy_lms < database/migrations/001_initial_schema.sql
+```
+
+Then, in order:
+
+| Step | Action | Expected |
+| --- | --- | --- |
+| 1 | Open a course as an enrolled student | The *Completion & grading* panel shows five bars; components the course has no items for read **Not offered in this course** with a `—`, not 0% |
+| 2 | Watch part of a video lesson, then finish it | The video bar rises with the watched share; `course_grades.video_pct` matches the average across published lessons |
+| 3 | Submit a quiz attempt | The quiz bar updates without a page reload of your own — the next course page load recomputes it. Best attempt per quiz counts |
+| 4 | Have an admin review an assignment | Exercise or project bar updates according to `assignment_type`; un-reviewed submissions do not count |
+| 5 | Check **My courses** | Chip still reads *Access active* while the pass bar or lesson completion is unmet |
+| 6 | Meet the bar (overall ≥ `certificate_min_grade_percent`, every published lesson complete) | Chip becomes **Completed**, the grade badge shows `86.4% · A`, and the course, lessons, quizzes and assignments remain open to the student |
+| 7 | Request a certificate below the grade or attendance bar | Refused with the exact shortfall quoted on the page, and no certificate row created |
+| 8 | Request it once eligible | Certificate row stores the snapshot (`overall_percent`, `letter_grade`, `attendance_percent`); **Certificates** shows "At request: …" |
+| 9 | Admin issues it | Enrollment chip becomes **Certified**; the student keeps full access to the course |
+| 10 | Verify weight redistribution | Remove/hide the only final quiz, reload the course page: `components_mask` loses that bit and the overall is recalculated over the remaining weights (it does not drop by 14%) |
+
+Numbers to trust: attendance counts only decided days since `granted_at` (pending is ignored), and legacy `lesson_progress` rows written before the watch-time layer have no logged seconds, so an old completed lesson contributes 0% video unless it has no video length (then completion counts as 100%).
+
 ## Automated tests
 
 `tests/` holds CLI smoke scripts that need only PHP and the database:
@@ -144,4 +182,4 @@ Honest limit: the guards (`MAX_DELTA_SECONDS = 20`, `MIN_PING_SECONDS = 8`) mean
 - [XAMPP setup guide](docs/SETUP-XAMPP.md) — local environment walkthrough.
 - [Week 1 notes](docs/WEEK-1-AUDIT-AND-REQUIREMENTS.md) and [Week 2 notes](docs/WEEK-2-MVC-FOUNDATION.md) — the original audit and MVC foundation records.
 
-**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, admin settings and both dashboards are implemented. Do not deploy to production or load real student data before the pending security review and the open company decisions in `docs/OPEN-DECISIONS.md` are closed.
+**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, admin settings and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the open company decisions in `docs/OPEN-DECISIONS.md` are closed. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser.
