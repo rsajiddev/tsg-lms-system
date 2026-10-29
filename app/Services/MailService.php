@@ -4,191 +4,210 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use PDO;
 use RuntimeException;
 
+/**
+ * Sends every transactional email in the platform and records the attempt in email_logs.
+ *
+ * Configuration comes from the environment only, so a client installs the platform by
+ * filling in the MAIL_* block: SMTP host/port/encryption, the mailbox and app password,
+ * the display name, the sender address and the internal notification inboxes. Nothing in
+ * this class hardcodes a personal address — unset notification inboxes fall back to the
+ * sender address, so a single credential pair still reaches the right people.
+ */
 final class MailService
 {
-    public function sendOtp(string $email, string $code, string $purpose, int $validForSeconds = 600): bool
+    /** Developer revenue-share percentage quoted in internal emails. */
+    public const DEVELOPER_SHARE_PERCENT = 15;
+
+    private ?PDO $resolved = null;
+
+    public function __construct(private ?PDO $db = null)
     {
-        $host = trim((string) (getenv('MAIL_HOST') ?: ''));
-        $port = (int) (getenv('MAIL_PORT') ?: 587);
-        $username = (string) (getenv('MAIL_USERNAME') ?: '');
-        $password = (string) (getenv('MAIL_PASSWORD') ?: '');
-        $encryption = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
-        $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
-        $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
-
-        if (
-            $host === '' || $username === '' || $password === '' || $from === ''
-            || !filter_var($email, FILTER_VALIDATE_EMAIL)
-            || !filter_var($from, FILTER_VALIDATE_EMAIL)
-            || !in_array($encryption, ['tls', 'ssl'], true)
-            || $port < 1 || $port > 65535
-        ) {
-            error_log('[MAIL] SMTP is not configured with a valid host, credentials, encryption mode, and sender.');
-            return false;
-        }
-
-        $subject = $purpose === 'verify_email'
-            ? 'Verify your TSG Academy account'
-            : 'Reset your TSG Academy password';
-        $intro = $purpose === 'verify_email'
-            ? 'Use this code to verify your TSG Academy account:'
-            : 'Use this code to reset your TSG Academy password:';
-        $body = $intro . "\r\n\r\n{$code}\r\n\r\nThis code expires in {$validForSeconds} seconds and can be used once. If you did not request this, you can ignore this message.";
-
-        try {
-            $this->deliver($host, $port, $username, $password, $encryption, $from, $fromName, $email, $subject, $body);
-            return true;
-        } catch (\Throwable $exception) {
-            // Do not log the recipient, OTP, SMTP credentials, or server response.
-            error_log('[MAIL] SMTP OTP delivery failed (' . $exception::class . '). Check MAIL_* settings and the local PHP error log.');
-            return false;
-        }
     }
 
-    public function sendNewStudentAlert(string $studentName, string $studentEmail): bool
+    /* ------------------------------------------------------- event entry points */
+
+    /**
+     * One-time code for email verification, password reset or an email-address change.
+     * The account id is optional but worth passing: it is what lets the admin email log,
+     * and any later cleanup, tie the message back to one student instead of one address.
+     */
+    public function sendOtp(string $email, string $code, string $purpose, int $validForSeconds = 600, string $name = '', int $studentId = 0): bool
     {
-        $recipients = array_unique(array_filter([
-            trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: '')),
-            trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: '')),
+        $messages = EmailMessages::otp($purpose, $name, $code, max(1, (int) ceil($validForSeconds / 60)));
+        $messages[0]['to'] = $email;
+        $messages[0]['student'] = $studentId;
+        return $this->sendAll($messages);
+    }
+
+    /** Internal alert that a student completed registration, before any payment exists. */
+    public function sendNewStudentAlert(string $studentName, string $studentEmail, int $studentId = 0): bool
+    {
+        return $this->sendAll(EmailMessages::registration([
+            'student_id' => $studentId,
+            'student_name' => $studentName,
+            'student_email' => $studentEmail,
         ]));
-        $safeName = $this->mailSafeText($studentName);
-        $safeEmail = $this->mailSafeText($studentEmail);
-        $body = "A student registration was submitted for TSG Academy.\r\n\r\nName: {$safeName}\r\nEmail: {$safeEmail}\r\n\r\nThe student must verify their email before signing in.";
-        if ($recipients === []) {
-            error_log('[MAIL] New-student alert is unavailable; configure a notification recipient and SMTP.');
-            return false;
-        }
-        $allSent = true;
-        foreach ($recipients as $recipient) {
-            $allSent = $this->sendConfiguredEmail($recipient, 'New student account registration', $body) && $allSent;
-        }
-        return $allSent;
     }
 
+    /** Payment approval request received: student, HR/admin and developer each get a message. */
+    public function sendPaymentSubmitted(array $payment): bool
+    {
+        return $this->sendAll(EmailMessages::paymentSubmitted($payment));
+    }
+
+    /** Admin decision: approval mails student, approving admin and developer; rejection mails the student. */
+    public function sendPaymentDecision(array $payment): bool
+    {
+        return $this->sendAll(EmailMessages::paymentDecision($payment));
+    }
+
+    /** Monthly revenue summary with the per-student share breakdown. */
     public function sendDeveloperRevenueReport(array $report): bool
     {
-        $recipient = trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: ''));
-        $period = $this->mailSafeText((string) ($report['period'] ?? 'Current month'));
-        $lines = [
-            'Revenue summary for ' . $period,
-            '',
-            'Approved student enrollments (all time): ' . (int) ($report['student_count'] ?? 0),
-            'Approved payments (all time): ' . (int) ($report['payment_count'] ?? 0),
-            '',
-            'Revenue and developer share for the selected month:',
-        ];
-        $rates = is_array($report['rates'] ?? null) ? $report['rates'] : [];
-        foreach ($rates as $row) {
-            if (!is_array($row)) continue;
-            $currency = preg_replace('/[^A-Za-z0-9 _-]/', '', (string) ($row['currency'] ?? '')) ?: 'Currency';
-            $lines[] = sprintf(
-                '%s: month revenue %s; month developer share (15%%) %s; all-time revenue %s; all-time developer share (15%%) %s; monthly payments %d; monthly students %d',
-                $currency,
-                number_format((float) ($row['monthly_revenue'] ?? 0), 2),
-                number_format((float) ($row['developer_share'] ?? 0), 2),
-                number_format((float) ($row['lifetime_revenue'] ?? 0), 2),
-                number_format((float) ($row['lifetime_developer_share'] ?? 0), 2),
-                (int) ($row['payment_count'] ?? 0),
-                (int) ($row['student_count'] ?? 0)
-            );
-        }
-        if ($rates === []) $lines[] = 'No approved payments have been recorded yet.';
-        return $this->sendConfiguredEmail($recipient, 'TSG Academy monthly revenue summary', implode("\r\n", $lines));
+        return $this->sendAll(EmailMessages::monthlyRevenue($report));
     }
 
-    public function sendPaymentSubmitted(string $studentEmail, string $studentName, string $courseTitle, string $amount, string $currency, string $reference): bool
+    /** Certificate request raised by a student, sent to the certificate inbox. */
+    public function sendCertificateRequest(array $request): bool
     {
-        $name = $this->mailSafeText($studentName);
-        $course = $this->mailSafeText($courseTitle);
-        $reference = $this->mailSafeText($reference);
-        $summary = "Student: {$name}\r\nCourse: {$course}\r\nAmount: {$currency} {$amount}\r\nTransaction reference: {$reference}";
-        $studentSent = $this->sendConfiguredEmail($studentEmail, 'Payment submission received', "Hello {$name},\r\n\r\nYour payment details for {$course} have been received and are awaiting verification. We will notify you when the review is complete.");
-        $adminAddress = trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: ''));
-        $adminSent = $this->sendConfiguredEmail($adminAddress, 'Course payment awaiting review', "A student submitted a course payment for manual verification.\r\n\r\n{$summary}");
-        return $studentSent && $adminSent;
+        return $this->sendAll(EmailMessages::certificateRequest($request));
     }
 
-    public function sendPaymentDecision(string $studentEmail, string $studentName, string $courseTitle, string $amount, string $currency, bool $approved, string $note = ''): bool
+    /** Certificate issued and waiting in the student workspace. */
+    public function sendCertificateIssued(array $certificate): bool
     {
-        $name = $this->mailSafeText($studentName);
-        $course = $this->mailSafeText($courseTitle);
-        $note = $this->mailSafeText($note);
-        if ($approved) {
-            $studentBody = "Hello {$name},\r\n\r\nYour payment of {$currency} {$amount} for {$course} has been verified. Course access is now active in your student dashboard.";
-            $studentSubject = 'Payment verified — course access is active';
-        } else {
-            $studentBody = "Hello {$name},\r\n\r\nYour payment for {$course} could not be verified. You may submit corrected payment details from the course catalogue.";
-            if ($note !== '') $studentBody .= "\r\n\r\nReview note: {$note}";
-            $studentSubject = 'Update about your course payment';
-        }
-        $studentSent = $this->sendConfiguredEmail($studentEmail, $studentSubject, $studentBody);
-        if (!$approved) return $studentSent;
-        $responsibleAddress = trim((string) (getenv('MAIL_PAYMENT_APPROVAL_NOTIFICATION_ADDRESS') ?: ''));
-        $adminBody = "A student course payment has been verified and course access granted.\r\n\r\nStudent: {$name}\r\nEmail: " . $this->mailSafeText($studentEmail) . "\r\nCourse: {$course}\r\nVerified amount: {$currency} {$amount}";
-        $responsibleSent = $this->sendConfiguredEmail($responsibleAddress, 'Course payment verified and enrollment activated', $adminBody);
-        return $studentSent && $responsibleSent;
+        return $this->sendAll(EmailMessages::certificateIssued($certificate));
+    }
+
+    /** Certificate request rejected, with the reason the student must correct. */
+    public function sendCertificateRejected(array $certificate): bool
+    {
+        return $this->sendAll(EmailMessages::certificateRejected($certificate));
     }
 
     /**
-     * Notify the academy inbox that a student has requested a course certificate.
-     * The recipient falls back to the general admin notification address when the
-     * dedicated certificate mailbox is not configured.
+     * Sends one event's messages in order. A message with no recipient is skipped: that
+     * is how optional copies (for example the approving admin's record) stay silent when
+     * the address is not configured, without reporting a failure to the caller.
      */
-    public function sendCertificateRequest(string $studentName, string $studentEmail, string $courseTitle, string $certificateRef, string $remarks = ''): bool
+    private function sendAll(array $messages): bool
     {
-        $recipient = trim((string) (getenv('MAIL_CERTIFICATE_REQUEST_ADDRESS') ?: ''));
-        if ($recipient === '') $recipient = trim((string) (getenv('MAIL_ADMIN_NOTIFICATION_ADDRESS') ?: ''));
-        $name = $this->mailSafeText($studentName);
-        $email = $this->mailSafeText($studentEmail);
-        $course = $this->mailSafeText($courseTitle);
-        $reference = $this->mailSafeText($certificateRef);
-        $lines = [
-            'A student has requested a course certificate.',
-            '',
-            'Student: ' . $name,
-            'Email: ' . $email,
-            'Course: ' . $course,
-            'Request reference: #' . $reference,
-        ];
-        $safeRemarks = $this->mailSafeText($remarks);
-        if ($safeRemarks !== '') {
-            $lines[] = '';
-            $lines[] = 'Student remarks:';
-            $lines[] = $safeRemarks;
+        $delivered = true;
+        $seen = [];
+        foreach ($messages as $message) {
+            if (!is_array($message)) continue;
+            $to = trim((string) ($message['to'] ?? ''));
+            if ($to === '') continue;
+            $key = $to . '|' . (string) ($message['subject'] ?? '');
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $delivered = $this->send($to, (string) ($message['subject'] ?? ''), (array) ($message['view'] ?? []), (string) ($message['template'] ?? 'unknown'), isset($message['student']) ? (int) $message['student'] : null) && $delivered;
         }
-        $lines[] = '';
-        $lines[] = 'Review the request in Admin workspace > Certificates to issue or reject it.';
-        return $this->sendConfiguredEmail($recipient, 'New certificate request awaiting review', implode("\r\n", $lines));
+        return $delivered;
     }
 
-    /** Tell a student their certificate has been issued and is ready in their workspace. */
-    public function sendCertificateIssued(string $studentEmail, string $studentName, string $courseTitle, string $certificateId, string $issuedOn, string $expiresOn, string $verifyUrl): bool
+    /* ------------------------------------------------------- recipients & formatting */
+
+    public static function hrAddress(): string
     {
-        $name = $this->mailSafeText($studentName);
-        $course = $this->mailSafeText($courseTitle);
-        $reference = $this->mailSafeText($certificateId);
-        $body = implode("\r\n", [
-            'Hello ' . $name . ',',
-            '',
-            'Congratulations — your certificate for ' . $course . ' has been issued.',
-            '',
-            'Certificate ID: ' . $reference,
-            'Date of issue: ' . $this->mailSafeText($issuedOn),
-            'Valid until: ' . $this->mailSafeText($expiresOn),
-            '',
-            'You can download the certificate and share its verification link from your student workspace.',
-            'Anyone can confirm its authenticity at: ' . $this->mailSafeText($verifyUrl),
-            '',
-            'If any detail looks incorrect, reply to this email and the academy team will help.',
-            '',
-            'Tech SG Academy',
-        ]);
-        return $this->sendConfiguredEmail($studentEmail, 'Your TSG Academy certificate is ready', $body);
+        return self::address(['MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
     }
 
-    private function sendConfiguredEmail(string $to, string $subject, string $body): bool
+    /**
+     * The developer inbox, named after the environment key so there is one place to look.
+     * Blank means the company's own sending mailbox already receives these alerts.
+     */
+    public static function developerAddress(): string
+    {
+        return self::address(['DEVELOPER_NOTIFICATION_MAIL_ADDRESS', 'MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
+    }
+
+    public static function certificateAddress(): string
+    {
+        return self::address(['MAIL_CERTIFICATE_REQUEST_ADDRESS', 'MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
+    }
+
+    /** Greeting used in developer-facing mail; the name lives in the environment. */
+    public static function developerGreeting(): string
+    {
+        $name = trim((string) (getenv('MAIL_DEVELOPER_NAME') ?: ''));
+        return 'Dear ' . ($name !== '' ? $name : 'Development Partner') . ',';
+    }
+
+    /** Display form of a student account id, matching the ID shown in the dashboards. */
+    public static function studentId(int $studentId): string
+    {
+        return self::accountReference($studentId, 'student');
+    }
+
+    /** Permanent human-readable account reference for any role; ids are never rewritten. */
+    public static function accountReference(int $userId, string $role = 'student'): string
+    {
+        if ($userId < 1) return '—';
+        $prefix = $role === 'admin' ? 'TSG-ADM-' : 'TSG-STU-';
+        return $prefix . str_pad((string) $userId, 5, '0', STR_PAD_LEFT);
+    }
+
+    /** Amount wording used in email bodies: "Rs 45,000" locally, currency codes elsewhere. */
+    public static function money(float $amount, string $currency): string
+    {
+        $code = strtoupper(trim($currency));
+        $label = match ($code) {
+            'PKR' => 'Rs ',
+            '' => '',
+            default => $code . ' ',
+        };
+        return $label . number_format($amount, $amount < 1000 && $amount != (int) $amount ? 2 : 0);
+    }
+
+    private static function address(array $keys): string
+    {
+        foreach ($keys as $key) {
+            $value = trim((string) (getenv($key) ?: ''));
+            if (filter_var($value, FILTER_VALIDATE_EMAIL)) return $value;
+        }
+        return '';
+    }
+
+    /* ---------------------------------------------------------------------- internals */
+
+    /**
+     * Renders the view as HTML with a plain-text alternative and hands it to SMTP.
+     * Every attempt is recorded in email_logs so delivery problems are visible in the
+     * admin workspace instead of only in the PHP error log.
+     */
+    private function send(string $to, string $subject, array $view, string $template, ?int $relatedUserId = null): bool
+    {
+        $to = trim($to);
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $this->log($template, $to, $subject, 'failed', 'No valid recipient address is configured.', $relatedUserId);
+            return false;
+        }
+        $config = $this->config();
+        if ($config['error'] !== '') {
+            $this->log($template, $to, $subject, 'failed', $config['error'], $relatedUserId);
+            return false;
+        }
+        $safeSubject = $this->oneLine($subject);
+        try {
+            $html = EmailLayout::html($safeSubject, $this->sanitizeView($view));
+            $text = EmailLayout::text($safeSubject, $this->sanitizeView($view));
+            [$boundary, $payload] = $this->multipart($text, $html);
+            $this->deliver($config, $to, $safeSubject, $boundary, $payload);
+            $this->log($template, $to, $safeSubject, 'sent', '', $relatedUserId);
+            return true;
+        } catch (\Throwable $exception) {
+            // Never log the recipient, message body, OTP or SMTP credentials.
+            $this->log($template, $to, $safeSubject, 'failed', $this->oneLine($exception->getMessage()), $relatedUserId);
+            error_log('[MAIL] Delivery failed for template "' . $template . '" (' . $exception::class . '). Check MAIL_* settings and the PHP error log.');
+            return false;
+        }
+    }
+
+    private function config(): array
     {
         $host = trim((string) (getenv('MAIL_HOST') ?: ''));
         $port = (int) (getenv('MAIL_PORT') ?: 587);
@@ -196,52 +215,88 @@ final class MailService
         $password = (string) (getenv('MAIL_PASSWORD') ?: '');
         $encryption = strtolower(trim((string) (getenv('MAIL_ENCRYPTION') ?: 'tls')));
         $from = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
-        $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: 'TSG Academy'));
-        if (
-            !filter_var($to, FILTER_VALIDATE_EMAIL) || $host === '' || $username === '' || $password === ''
-            || !filter_var($from, FILTER_VALIDATE_EMAIL) || !in_array($encryption, ['tls', 'ssl'], true)
-            || $port < 1 || $port > 65535
-        ) {
-            error_log('[MAIL] Transactional email is unavailable; check recipient and MAIL_* configuration.');
-            return false;
-        }
-        try {
-            $this->deliver($host, $port, $username, $password, $encryption, $from, $fromName, $to, $subject, $body);
-            return true;
-        } catch (\Throwable $exception) {
-            error_log('[MAIL] Transactional email delivery failed (' . $exception::class . '). Check SMTP configuration.');
-            return false;
-        }
+        $fromName = trim((string) (getenv('MAIL_FROM_NAME') ?: EmailLayout::company()['short']));
+        $replyTo = trim((string) (getenv('MAIL_REPLY_TO_ADDRESS') ?: ''));
+        $error = '';
+        if ($host === '' || $username === '' || $password === '') $error = 'SMTP is not configured; set MAIL_HOST, MAIL_USERNAME and MAIL_PASSWORD.';
+        elseif (!filter_var($from, FILTER_VALIDATE_EMAIL)) $error = 'MAIL_FROM_ADDRESS is not a valid email address.';
+        elseif (!in_array($encryption, ['tls', 'ssl', 'none'], true)) $error = 'MAIL_ENCRYPTION must be tls, ssl or none.';
+        elseif ($port < 1 || $port > 65535) $error = 'MAIL_PORT is out of range.';
+        elseif ($replyTo !== '' && !filter_var($replyTo, FILTER_VALIDATE_EMAIL)) $error = 'MAIL_REPLY_TO_ADDRESS is not a valid email address.';
+        return [
+            'error' => $error,
+            'host' => $host,
+            'port' => $port,
+            'username' => $username,
+            'password' => $password,
+            'encryption' => $encryption,
+            'from' => $from,
+            'from_name' => $fromName !== '' ? $fromName : EmailLayout::company()['short'],
+            'reply_to' => $replyTo,
+        ];
     }
 
-    private function mailSafeText(string $value): string
+    /** HTML plus plain-text alternative as one MIME payload; returns its boundary too. */
+    private function multipart(string $text, string $html): array
+    {
+        $boundary = 'tsg-' . bin2hex(random_bytes(12));
+        $encode = static fn(string $body): string => chunk_split(base64_encode($body), 76, "\r\n");
+        return [$boundary, '--' . $boundary . "\r\n"
+            . 'Content-Type: text/plain; charset=UTF-8\r\n'
+            . 'Content-Transfer-Encoding: base64\r\n\r\n' . $encode($text) . "\r\n"
+            . '--' . $boundary . "\r\n"
+            . 'Content-Type: text/html; charset=UTF-8\r\n'
+            . 'Content-Transfer-Encoding: base64\r\n\r\n' . $encode($html) . "\r\n"
+            . '--' . $boundary . '--' . "\r\n"];
+    }
+
+    /** Strips newlines from every string in a view so no value can inject headers. */
+    private function sanitizeView(array $view): array
+    {
+        array_walk_recursive($view, function (&$value): void {
+            if (is_string($value)) $value = $this->oneLine($value);
+        });
+        return $view;
+    }
+
+    private function oneLine(string $value): string
     {
         return trim(str_replace(["\r", "\n", "\0"], ' ', $value));
     }
 
-    private function deliver(
-        string $host,
-        int $port,
-        string $username,
-        string $password,
-        string $encryption,
-        string $from,
-        string $fromName,
-        string $to,
-        string $subject,
-        string $body
-    ): void {
+    /** Inserts one email_logs row. Logging must never break delivery. */
+    private function log(string $template, string $to, string $subject, string $status, string $error, ?int $relatedUserId = null): void
+    {
+        try {
+            $db = $this->db();
+            $db->prepare('INSERT INTO email_logs(template_key,recipient_email,subject,status,error_message,related_user_id) VALUES(?,?,?,?,?,?)')
+                ->execute([substr($template, 0, 64), substr($this->oneLine($to), 0, 190), substr($this->oneLine($subject), 0, 200), $status, $error !== '' ? substr($error, 0, 255) : null, $relatedUserId !== null && $relatedUserId > 0 ? $relatedUserId : null]);
+        } catch (\Throwable $exception) {
+            error_log('[MAIL] email_logs write failed (' . $exception::class . ').');
+        }
+    }
+
+    private function db(): PDO
+    {
+        if ($this->resolved instanceof PDO) return $this->resolved;
+        $this->resolved = $this->db ?? \App\Core\Database::connection();
+        return $this->resolved;
+    }
+
+    private function deliver(array $config, string $to, string $subject, string $boundary, string $body): void
+    {
+        $encryption = (string) $config['encryption'];
         $transport = $encryption === 'ssl' ? 'ssl://' : 'tcp://';
         $context = stream_context_create([
             'ssl' => [
                 'verify_peer' => true,
                 'verify_peer_name' => true,
-                'peer_name' => $host,
+                'peer_name' => (string) $config['host'],
                 'SNI_enabled' => true,
             ],
         ]);
         $socket = @stream_socket_client(
-            $transport . $host . ':' . $port,
+            $transport . $config['host'] . ':' . (int) $config['port'],
             $errorNumber,
             $errorMessage,
             15,
@@ -268,32 +323,28 @@ final class MailService
             }
 
             $this->command($socket, 'AUTH LOGIN', [334]);
-            $this->command($socket, base64_encode($username), [334]);
-            $this->command($socket, base64_encode($password), [235]);
-            $this->command($socket, 'MAIL FROM:<' . $from . '>', [250]);
+            $this->command($socket, base64_encode((string) $config['username']), [334]);
+            $this->command($socket, base64_encode((string) $config['password']), [235]);
+            $this->command($socket, 'MAIL FROM:<' . $config['from'] . '>', [250]);
             $this->command($socket, 'RCPT TO:<' . $to . '>', [250, 251]);
             $this->command($socket, 'DATA', [354]);
 
-            $safeFromName = str_replace(["\r", "\n"], '', $fromName);
-            $encodedName = function_exists('mb_encode_mimeheader')
-                ? mb_encode_mimeheader($safeFromName, 'UTF-8', 'B', "\r\n")
-                : $safeFromName;
-            $encodedSubject = function_exists('mb_encode_mimeheader')
-                ? mb_encode_mimeheader($subject, 'UTF-8', 'B', "\r\n")
-                : $subject;
+            $encodedName = $this->headerText((string) $config['from_name']);
             $headers = [
                 'Date: ' . date(DATE_RFC2822),
-                'From: ' . $encodedName . ' <' . $from . '>',
+                'From: ' . $encodedName . ' <' . $config['from'] . '>',
                 'To: <' . $to . '>',
-                'Subject: ' . $encodedSubject,
+                'Subject: ' . $this->headerText($subject),
+                'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . (preg_replace('/^smtp\./', '', (string) $config['host']) ?: 'localhost') . '>',
                 'MIME-Version: 1.0',
-                'Content-Type: text/plain; charset=UTF-8',
-                'Content-Transfer-Encoding: 8bit',
+                'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+                'Auto-Submitted: auto-generated',
+                'X-Mailer: TSG Academy LMS',
             ];
-            $normalizedBody = str_replace(["\r\n", "\r"], "\n", $body);
-            $normalizedBody = str_replace("\n", "\r\n", $normalizedBody);
-            $normalizedBody = preg_replace('/^\./m', '..', $normalizedBody) ?? $normalizedBody;
-            $payload = implode("\r\n", $headers) . "\r\n\r\n" . $normalizedBody;
+            if ((string) $config['reply_to'] !== '') {
+                array_splice($headers, 4, 0, ['Reply-To: <' . $config['reply_to'] . '>']);
+            }
+            $payload = implode("\r\n", $headers) . "\r\n\r\n" . $body;
             if (!str_ends_with($payload, "\r\n")) $payload .= "\r\n";
             $this->write($socket, $payload . ".\r\n");
             $this->expect($socket, [250]);
@@ -301,6 +352,14 @@ final class MailService
         } finally {
             fclose($socket);
         }
+    }
+
+    private function headerText(string $value): string
+    {
+        $clean = str_replace(["\r", "\n"], '', $value);
+        return function_exists('mb_encode_mimeheader')
+            ? mb_encode_mimeheader($clean, 'UTF-8', 'B', "\r\n")
+            : $clean;
     }
 
     private function command($socket, string $command, array $expectedCodes): void

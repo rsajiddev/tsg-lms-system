@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
 
@@ -18,8 +19,33 @@ final class NotificationController
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
-        $items = $db->query('SELECT n.id,n.title,n.body,n.audience,n.published_at,n.created_at,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id) AS recipient_count,(SELECT COUNT(*) FROM notification_replies r WHERE r.notification_id=n.id) AS reply_count FROM notifications n ORDER BY n.created_at DESC,n.id DESC LIMIT 100')->fetchAll();
-        View::render('admin/notifications', ['title' => 'Announcements', 'user' => $admin, 'students' => $students, 'notifications' => $items, 'message' => $_SESSION['_flash'] ?? null]);
+        $items = $db->query("SELECT n.id,n.title,n.body,n.category,n.audience,n.published_at,n.created_at,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id) AS recipient_count,(SELECT COUNT(*) FROM notification_replies r WHERE r.notification_id=n.id) AS reply_count FROM notifications n WHERE n.category = 'announcement' OR n.category = '' OR n.category IS NULL ORDER BY n.created_at DESC,n.id DESC LIMIT 100")->fetchAll();
+        // Automated fan-out (lessons, tests, assignments, payments, grades, certificates) is
+        // listed separately so the admin can see what the workspace has already delivered.
+        $automated = $db->query("SELECT n.id,n.title,n.category,n.link,n.published_at,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id) AS recipient_count,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id AND nr.read_at IS NULL) AS unread_count FROM notifications n WHERE n.category <> 'announcement' AND n.category <> '' AND n.category IS NOT NULL ORDER BY n.published_at DESC,n.id DESC LIMIT 60")->fetchAll();
+        $emailLog = [];
+        try {
+            $emailLog = $db->query('SELECT template_key,recipient_email,subject,status,error_message,created_at FROM email_logs ORDER BY id DESC LIMIT 50')->fetchAll();
+        } catch (\Throwable $exception) {
+            // A database imported before the email_logs table simply shows no delivery history.
+        }
+        $unreadTotal = 0;
+        try {
+            $unreadTotal = (int) $db->query('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.read_at IS NULL AND n.published_at IS NOT NULL')->fetchColumn();
+        } catch (\Throwable $exception) {
+            $unreadTotal = 0;
+        }
+        View::render('admin/notifications', [
+            'title' => 'Announcements',
+            'user' => $admin,
+            'students' => $students,
+            'notifications' => $items,
+            'automated' => $automated,
+            'emailLog' => $emailLog,
+            'unreadTotal' => $unreadTotal,
+            'categories' => NotificationService::AREAS,
+            'message' => $_SESSION['_flash'] ?? null,
+        ]);
         unset($_SESSION['_flash']);
     }
 
@@ -39,7 +65,7 @@ final class NotificationController
         $db->beginTransaction();
         try {
             if ($audience === 'selected_students' && $ids === []) throw new RuntimeException('Select at least one verified student.');
-            $insert = $db->prepare('INSERT INTO notifications(created_by,title,body,audience,published_at) VALUES(?,?,?,?,UTC_TIMESTAMP())');
+            $insert = $db->prepare("INSERT INTO notifications(created_by,title,body,audience,category,published_at) VALUES(?,?,?,?, 'announcement',UTC_TIMESTAMP())");
             $insert->execute([(int)$admin['id'], $title, $body, $audience]);
             $notificationId = (int)$db->lastInsertId();
             if ($audience === 'all_students') {
@@ -66,7 +92,7 @@ final class NotificationController
     public function studentIndex(): void
     {
         $student = AuthMiddleware::requireRole('student');
-        $stmt = Database::connection()->prepare('SELECT n.id,n.title,n.body,n.published_at,nr.read_at FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.student_id=? AND n.published_at IS NOT NULL ORDER BY n.published_at DESC,n.id DESC LIMIT 100');
+        $stmt = Database::connection()->prepare('SELECT n.id,n.title,n.body,n.category,n.link,n.published_at,nr.read_at FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.student_id=? AND n.published_at IS NOT NULL ORDER BY n.published_at DESC,n.id DESC LIMIT 100');
         $stmt->execute([(int)$student['id']]);
         View::render('notifications/index', ['title' => 'My notifications', 'user' => $student, 'notifications' => $stmt->fetchAll(), 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
@@ -88,7 +114,7 @@ final class NotificationController
             }
             $db->prepare('UPDATE notification_recipients SET read_at=COALESCE(read_at,UTC_TIMESTAMP()) WHERE notification_id=? AND student_id=?')->execute([$id, $recipientId]);
         }
-        $stmt = $db->prepare('SELECT n.id,n.title,n.body,n.published_at,u.full_name AS author_name FROM notifications n JOIN users u ON u.id=n.created_by WHERE n.id=? AND n.published_at IS NOT NULL');
+        $stmt = $db->prepare('SELECT n.id,n.title,n.body,n.category,n.link,n.published_at,u.full_name AS author_name FROM notifications n JOIN users u ON u.id=n.created_by WHERE n.id=? AND n.published_at IS NOT NULL');
         $stmt->execute([$id]);
         $notification = $stmt->fetch();
         if (!$notification) {

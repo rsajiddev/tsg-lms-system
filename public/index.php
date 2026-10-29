@@ -13,7 +13,11 @@ foreach (
         '/app/Core/Database.php',
         '/app/Core/RateLimiter.php',
         '/app/Core/AuthMiddleware.php',
+        '/app/Core/PurgeGuard.php',
+        '/app/Services/EmailLayout.php',
+        '/app/Services/EmailMessages.php',
         '/app/Services/MailService.php',
+        '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
         '/app/Services/PaymentReceiptPdf.php',
         '/app/Services/PaymentReceiptJpg.php',
@@ -25,6 +29,7 @@ foreach (
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/HealthController.php',
         '/app/Controllers/AuthController.php',
+        '/app/Controllers/AccountController.php',
         '/app/Controllers/DashboardController.php',
         '/app/Controllers/LearningController.php',
         '/app/Controllers/StudentPortalController.php',
@@ -122,6 +127,13 @@ $router->get('/student/lessons', [\App\Controllers\StudentPortalController::clas
 $router->get('/student/payments', [\App\Controllers\StudentPortalController::class, 'payments']);
 $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
+$router->get('/student/settings', [\App\Controllers\AccountController::class, 'studentSettings']);
+$router->get('/admin/account', [\App\Controllers\AccountController::class, 'adminSettings']);
+$account = \App\Controllers\AccountController::class;
+$router->post('/account/name', [$account, 'saveName']);
+$router->post('/account/password', [$account, 'savePassword']);
+$router->post('/account/email/request', [$account, 'requestEmailChange']);
+$router->post('/account/email/confirm', [$account, 'confirmEmailChange']);
 $router->post('/student/certificates/request', [\App\Controllers\CertificateController::class, 'request']);
 $router->post('/student/attendance/mark', [\App\Controllers\AttendanceController::class, 'mark']);
 $router->get('/admin/certificates', [\App\Controllers\CertificateController::class, 'adminIndex']);
@@ -135,6 +147,7 @@ $router->post('/admin/students/clear-activity', [\App\Controllers\StudentManagem
 $router->post('/admin/students/attendance', [\App\Controllers\StudentManagementController::class, 'saveAttendance']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
 $router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
+$router->post('/admin/assignments/purge', [\App\Controllers\AssignmentController::class, 'purgeAll']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
 $router->post('/admin/announcements/publish', [\App\Controllers\NotificationController::class, 'publish']);
 $router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
@@ -151,6 +164,7 @@ $router->post('/admin/coding-challenges/save', [\App\Controllers\CodingChallenge
 $router->get('/admin/quiz-reports', [\App\Controllers\QuizController::class, 'adminReports']);
 $router->post('/admin/quizzes/save', [\App\Controllers\QuizController::class, 'saveQuiz']);
 $router->post('/admin/quizzes/delete', [\App\Controllers\QuizController::class, 'deleteQuiz']);
+$router->post('/admin/quizzes/purge', [\App\Controllers\QuizController::class, 'purgeAll']);
 $router->post('/admin/quizzes/questions/save', [\App\Controllers\QuizController::class, 'saveQuestion']);
 $router->post('/admin/quizzes/retake-decision', [\App\Controllers\QuizController::class, 'retakeDecision']);
 $router->get('/admin/courses', [\App\Controllers\CourseAdminController::class, 'index']);
@@ -159,6 +173,7 @@ $router->post('/admin/courses/save', [\App\Controllers\CourseAdminController::cl
 $router->post('/admin/courses/delete', [\App\Controllers\CourseAdminController::class, 'delete']);
 $router->post('/admin/courses/lessons/save', [\App\Controllers\CourseAdminController::class, 'saveLesson']);
 $router->post('/admin/lessons/watch-rule', [\App\Controllers\CourseAdminController::class, 'saveWatchRule']);
+$router->post('/admin/lessons/purge', [\App\Controllers\CourseAdminController::class, 'purgeLessons']);
 $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::class, 'access']);
 $router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);
 $router->post('/admin/settings', [\App\Controllers\AdminManagementController::class, 'saveSettings']);

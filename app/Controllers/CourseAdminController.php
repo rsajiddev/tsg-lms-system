@@ -6,10 +6,12 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseDuration;
 use App\Services\LessonMedia;
+use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
 
@@ -136,6 +138,7 @@ final class CourseAdminController
             'total' => $total,
             'page' => $page,
             'pages' => $pages,
+            'purgeCount' => (int) $db->query('SELECT COUNT(*) FROM lessons')->fetchColumn(),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
@@ -212,6 +215,10 @@ final class CourseAdminController
             throw $exception;
         }
         if ($newImagePath !== null && $oldImagePath !== null) $this->removeCourseImage($oldImagePath);
+        // Students already enrolled must see a published course change, not just read it in the catalogue.
+        if ($id > 0 && $visibility === 'published') {
+            (new NotificationService($db))->notifyCourse($courseId, NotificationService::COURSE, 'Course updated: ' . $title, 'The course page for “' . $title . '” has been updated by your instructors. Check the outline, dates and pricing details in My courses.', 'course', $courseId, '/learning?course_id=' . $courseId, (int) $admin['id']);
+        }
         $_SESSION['_flash'] = 'Course saved.';
         $this->redirect('/admin/courses');
     }
@@ -318,9 +325,10 @@ final class CourseAdminController
         $videoProvider = $videoUrl === null ? 'none' : LessonMedia::detectProvider($videoUrl);
         $db->beginTransaction();
         try {
-            $check = $db->prepare('SELECT id FROM courses WHERE id=?');
+            $check = $db->prepare('SELECT id, title FROM courses WHERE id=?');
             $check->execute([$courseId]);
-            if (!$check->fetchColumn()) throw new RuntimeException('Course not found.');
+            $courseRow = $check->fetch();
+            if (!$courseRow) throw new RuntimeException('Course not found.');
             if ($lessonId > 0) {
                 $moduleCheck = $db->prepare('SELECT id FROM course_modules WHERE id=? AND course_id=?');
                 $moduleCheck->execute([$moduleId, $courseId]);
@@ -375,6 +383,15 @@ final class CourseAdminController
             throw $e;
         }
         $_SESSION['_flash'] = $status === 'published' ? 'Lesson published for students with active course access.' : 'Lesson saved as a draft.';
+        // A published lesson is new course material, so the enrolled students are told about it
+        // and their sidebar badge lights up; drafts stay invisible to them.
+        if ($status === 'published') {
+            $courseTitle = (string) ($courseRow['title'] ?? 'your course');
+            $notificationBody = $action === 'lesson.created'
+                ? 'A new lesson, “' . $lessonTitle . '”, is now available in ' . $courseTitle . '. Open it from your Lessons page to keep your progress moving.'
+                : 'The lesson “' . $lessonTitle . '” in ' . $courseTitle . ' has been updated. Read the latest version before you mark it complete.';
+            (new NotificationService($db))->notifyCourse($courseId, NotificationService::LESSON, ($action === 'lesson.created' ? 'New lesson: ' : 'Lesson updated: ') . $lessonTitle, $notificationBody, 'lesson', $lessonId, '/learning/lesson?lesson_id=' . $lessonId, (int) $admin['id']);
+        }
         // Lesson editing now lives only on the lesson library, so the admin always returns there.
         $this->redirect('/admin/lessons');
     }
@@ -498,6 +515,69 @@ final class CourseAdminController
         }
         $_SESSION['_flash'] = 'Course deleted. Courses with student or payment history must be archived to retain their records.';
         $this->redirect('/admin/courses');
+    }
+
+    /**
+     * Testing tool: clear the lesson library, or one course worth of it, in a single action.
+     *
+     * Learner progress is filed under each lesson, so it is removed first and the stored grade
+     * rows are recalculated afterwards; a lesson that vanished silently would otherwise leave a
+     * student looking at a percentage they can no longer earn back.
+     */
+    public function purgeLessons(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performPurgeLessons($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/lessons');
+        }
+    }
+
+    private function performPurgeLessons(array $admin): void
+    {
+        $this->csrf();
+        PurgeGuard::assertConfirmed('DELETE ALL LESSONS');
+        $courseId = PurgeGuard::scopeCourseId();
+        $db = Database::connection();
+        $list = $db->prepare('SELECT l.id FROM lessons l JOIN course_modules cm ON cm.id=l.module_id' . ($courseId > 0 ? ' WHERE cm.course_id=?' : '') . ' ORDER BY l.id');
+        $list->execute($courseId > 0 ? [$courseId] : []);
+        $lessonIds = array_map('intval', $list->fetchAll(PDO::FETCH_COLUMN));
+        if ($lessonIds === []) {
+            $_SESSION['_flash'] = 'There are no lessons left to delete.';
+            $this->redirect('/admin/lessons');
+        }
+        $in = implode(',', array_fill(0, count($lessonIds), '?'));
+        $progress = $db->prepare("SELECT lp.student_id, cm.course_id, COUNT(*) AS c FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id WHERE lp.lesson_id IN ($in) GROUP BY lp.student_id, cm.course_id");
+        $progress->execute($lessonIds);
+        $affected = array_map(static fn(array $row): array => ['student_id' => (int) $row['student_id'], 'course_id' => (int) $row['course_id']], $progress->fetchAll());
+        $progressRows = 0;
+        $db->beginTransaction();
+        try {
+            $drop = $db->prepare("DELETE lp FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id WHERE lp.lesson_id IN ($in)");
+            $drop->execute($lessonIds);
+            $progressRows = $drop->rowCount();
+            $db->prepare("DELETE FROM lessons WHERE id IN ($in)")->execute($lessonIds);
+            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,NULL,?)')
+                ->execute([(int) $admin['id'], 'lesson.bulk_deleted', 'lesson', json_encode([
+                    'course_id' => $courseId,
+                    'lessons_deleted' => count($lessonIds),
+                    'progress_deleted' => $progressRows,
+                ], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
+        }
+        (new NotificationService($db))->forgetSource('lesson', $lessonIds);
+        PurgeGuard::refreshGrades($affected);
+        $_SESSION['_flash'] = sprintf(
+            'Deleted %d lesson(s) and %d progress record(s). Module counts and student grades were recalculated.',
+            count($lessonIds),
+            $progressRows
+        );
+        $this->redirect('/admin/lessons');
     }
 
     private function csrf(): void

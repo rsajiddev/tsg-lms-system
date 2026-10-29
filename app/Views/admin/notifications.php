@@ -6,6 +6,9 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $v): string => Security::escape((string)$v);
 $students = is_array($students ?? null) ? $students : [];
 $notifications = is_array($notifications ?? null) ? $notifications : [];
+$automated = is_array($automated ?? null) ? $automated : [];
+$emailLog = is_array($emailLog ?? null) ? $emailLog : [];
+$unreadTotal = (int) ($unreadTotal ?? 0);
 $message = $message ?? null; ?>
 <section class="dashboard-page admin-workspace">
     <header class="admin-header">
@@ -55,5 +58,45 @@ $message = $message ?? null; ?>
                         </div>
                         <div class="notification-admin-meta"><span><?= $escape($n['recipient_count']) ?> recipients</span><span><?= $escape($n['reply_count']) ?> replies</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$n['id'] ?>">Open conversation</a></div>
                     </article><?php endforeach; ?></div><?php endif; ?>
+    </section>
+    <section class="admin-card">
+        <div class="admin-card-header">
+            <div class="admin-card-titles">
+                <h2>Automated student updates</h2>
+                <p><?= $unreadTotal > 0 ? $unreadTotal . ' unread notification(s) are still waiting in student workspaces.' : 'Every notification sent so far has been read.' ?> Lessons, tests, assignments, payments, grades and certificates announce themselves here.</p>
+            </div>
+        </div>
+        <?php if ($automated === []): ?><div class="admin-empty-state">
+                <h3>No automated updates yet</h3>
+                <p>Publish a lesson, test, assignment or payment decision and the enrolled students are notified automatically.</p>
+            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Update</th><th>Area</th><th>Recipients</th><th>Unread</th><th>Published</th></tr></thead><tbody>
+                    <?php foreach ($automated as $row): ?><tr>
+                            <td><a href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $row['id'] ?>"><?= $escape($row['title']) ?></a></td>
+                            <td><span class="dashboard-status"><?= $escape(ucfirst((string) $row['category'])) ?></span></td>
+                            <td><?= (int) $row['recipient_count'] ?></td>
+                            <td><?= (int) $row['unread_count'] ?></td>
+                            <td><?= $escape(date('M j, Y H:i', strtotime((string) $row['published_at']))) ?> UTC</td>
+                        </tr><?php endforeach; ?>
+                </tbody></table></div><?php endif; ?>
+    </section>
+    <section class="admin-card">
+        <div class="admin-card-header">
+            <div class="admin-card-titles">
+                <h2>Email delivery log</h2>
+                <p>The latest <?= count($emailLog) ?> automated emails and whether SMTP accepted them. Message bodies are never stored.</p>
+            </div>
+        </div>
+        <?php if ($emailLog === []): ?><div class="admin-empty-state">
+                <h3>No emails recorded yet</h3>
+                <p>Every message the platform sends is logged here once the email_logs table is imported.</p>
+            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Event</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Sent</th></tr></thead><tbody>
+                    <?php foreach ($emailLog as $row): ?><tr>
+                            <td><code><?= $escape($row['template_key']) ?></code></td>
+                            <td><?= $escape($row['recipient_email']) ?></td>
+                            <td title="<?= $escape($row['error_message'] ?? '') ?>"><?= $escape($row['subject']) ?></td>
+                            <td><span class="dashboard-status status-<?= $row['status'] === 'sent' ? 'approved' : 'rejected' ?>"><?= $escape(strtoupper((string) $row['status'])) ?></span></td>
+                            <td><?= $escape(date('M j, Y H:i', strtotime((string) $row['created_at']))) ?> UTC</td>
+                        </tr><?php endforeach; ?>
+                </tbody></table></div><?php endif; ?>
     </section>
 </section>

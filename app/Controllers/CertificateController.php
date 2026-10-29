@@ -11,6 +11,7 @@ use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseGrading;
 use App\Services\MailService;
+use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
 
@@ -117,12 +118,24 @@ final class CertificateController
         $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
             ->execute([$studentId, 'certificate.requested', 'certificate', $certificateId, json_encode(['course_id' => $courseId], JSON_THROW_ON_ERROR)]);
 
-        (new MailService())->sendCertificateRequest(
-            (string) $user['name'],
-            (string) $user['email'],
-            (string) $course['title'],
-            (string) $certificateId,
-            $remarks
+        (new MailService($db))->sendCertificateRequest([
+            'student_id' => $studentId,
+            'student_name' => (string) $user['name'],
+            'student_email' => (string) $user['email'],
+            'course_title' => (string) $course['title'],
+            'reference' => (string) $certificateId,
+            'remarks' => $remarks,
+        ]);
+        // Confirmation in the workspace as well as the inbox, so the student can see the queue.
+        (new NotificationService($db))->notifyStudents(
+            [$studentId],
+            NotificationService::CERTIFICATE,
+            'Certificate request submitted',
+            'Your certificate request for ' . $course['title'] . ' has been received and is now awaiting review. You will be notified here as soon as it is issued, or if anything needs to be corrected.',
+            'certificate_request',
+            $certificateId,
+            '/student/courses',
+            $studentId
         );
 
         $_SESSION['_flash'] = 'Your certificate request was submitted and is now awaiting review.';
@@ -353,18 +366,30 @@ final class CertificateController
         $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
             ->execute([(int) $admin['id'], 'certificate.issued', 'certificate', $certificateRowId, json_encode(['certificate_id' => $publicId, 'valid_days' => $days], JSON_THROW_ON_ERROR)]);
 
-        $notified = (new MailService())->sendCertificateIssued(
-            (string) $certificate['email'],
-            (string) $certificate['full_name'],
-            (string) $certificate['course_title'],
-            $publicId,
-            gmdate('j F Y'),
-            (new \DateTimeImmutable('+' . $days . ' days', new \DateTimeZone('UTC')))->format('j F Y'),
-            $this->verifyUrl($publicId)
-        );
+        $notified = (new MailService($db))->sendCertificateIssued([
+            'student_id' => (int) $certificate['student_id'],
+            'student_email' => (string) $certificate['email'],
+            'student_name' => (string) $certificate['full_name'],
+            'course_title' => (string) $certificate['course_title'],
+            'certificate_id' => $publicId,
+            'issued_on' => gmdate('j F Y'),
+            'expires_on' => (new \DateTimeImmutable('+' . $days . ' days', new \DateTimeZone('UTC')))->format('j F Y'),
+            'verify_url' => $this->verifyUrl($publicId),
+        ]);
         if ($notified) {
             $db->prepare('UPDATE certificates SET notified_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$certificateRowId]);
         }
+        // The badge has to light up even when the email could not be delivered.
+        (new NotificationService($db))->notifyStudents(
+            [(int) $certificate['student_id']],
+            NotificationService::CERTIFICATE,
+            'Your certificate is ready',
+            'Congratulations! Your certificate for ' . $certificate['course_title'] . ' has been issued as ' . $publicId . ' and is ready to download from your courses page.',
+            'certificate',
+            $certificateRowId,
+            '/certificate/download?cert_id=' . rawurlencode($publicId),
+            (int) $admin['id']
+        );
 
         $_SESSION['_flash'] = 'Certificate ' . $publicId . ' issued' . ($notified ? ' and the student has been notified.' : '. The notification email could not be delivered — check MAIL_* settings.');
         $this->redirect('/admin/certificates');
@@ -394,12 +419,42 @@ final class CertificateController
         if (mb_strlen($remarks) > 1000) throw new RuntimeException('Admin remarks must be 1000 characters or fewer.');
 
         $db = Database::connection();
+        $find = $db->prepare(
+            'SELECT cert.student_id, cert.course_id, u.full_name, u.email, c.title AS course_title
+             FROM certificates cert
+             JOIN users u ON u.id = cert.student_id
+             JOIN courses c ON c.id = cert.course_id
+             WHERE cert.id = ? LIMIT 1'
+        );
+        $find->execute([$certificateRowId]);
+        $certificate = $find->fetch();
         $stmt = $db->prepare("UPDATE certificates SET status = 'rejected', admin_remarks = ?, reviewed_by = ? WHERE id = ? AND status = 'requested'");
         $stmt->execute([$remarks, (int) $admin['id'], $certificateRowId]);
         if ($stmt->rowCount() !== 1) throw new RuntimeException('Only pending requests can be rejected.');
 
         $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'certificate\',?)')
             ->execute([(int) $admin['id'], 'certificate.rejected', $certificateRowId]);
+
+        // A rejection needs an action from the student, so it must reach them twice over.
+        if (is_array($certificate)) {
+            (new MailService($db))->sendCertificateRejected([
+                'student_id' => (int) $certificate['student_id'],
+                'student_email' => (string) $certificate['email'],
+                'student_name' => (string) $certificate['full_name'],
+                'course_title' => (string) $certificate['course_title'],
+                'remarks' => $remarks,
+            ]);
+            (new NotificationService($db))->notifyStudents(
+                [(int) $certificate['student_id']],
+                NotificationService::CERTIFICATE,
+                'Certificate request needs attention',
+                'Your certificate request for ' . $certificate['course_title'] . ' could not be approved yet. Reason from the review team: ' . $remarks . ' Correct the outstanding requirement and submit a new request from your courses page.',
+                'certificate_request',
+                $certificateRowId,
+                '/student/courses',
+                (int) $admin['id']
+            );
+        }
 
         $_SESSION['_flash'] = 'Certificate request rejected. The student can correct the issue and request again.';
         $this->redirect('/admin/certificates');

@@ -404,4 +404,15 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             </div>
         <?php endif; ?>
     </section>
+
+  <?php
+  // Testing tool: the lesson library is where draft content piles up fastest while a course is
+  // being written, so it gets the same guarded bulk delete as assignments and quizzes.
+  $purgeAction = '/admin/lessons/purge';
+  $purgePhrase = 'DELETE ALL LESSONS';
+  $purgeTitle = 'Delete all lessons';
+  $purgeDescription = 'Removes every lesson with its module placement and the student watch progress recorded against it.';
+  $purgeScopeCourses = $courses;
+  require BASE_PATH . '/app/Views/components/purge-zone.php';
+  ?>
 </section>

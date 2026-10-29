@@ -9,6 +9,8 @@ $quizzes = $quizzes ?? [];
 $questions = $questions ?? [];
 $retakeRequests = is_array($retakeRequests ?? null) ? $retakeRequests : [];
 $message = $message ?? null;
+$error = $error ?? null;
+$purgeCount = count($quizzes);
 $questionsByQuiz = [];
 foreach ($questions as $question) {
   $questionsByQuiz[(int) $question['quiz_id']][] = $question;
@@ -34,6 +36,12 @@ $optionLetters = ['A', 'B', 'C', 'D'];
         <polyline points="22 4 12 14.01 9 11.01"></polyline>
       </svg>
       <span><?= $escape($message) ?></span>
+    </div>
+  <?php endif; ?>
+
+  <?php if (!empty($error)): ?>
+    <div class="admin-alert admin-alert-error" role="alert">
+      <span><?= $escape($error) ?></span>
     </div>
   <?php endif; ?>
 
@@ -457,6 +465,16 @@ $optionLetters = ['A', 'B', 'C', 'D'];
       <form method="post" action="<?= $escape($baseUrl) ?>/admin/quizzes/retake-decision" class="admin-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>"><div class="admin-field"><label class="admin-label" for="retake-note-<?= (int)$request['id'] ?>">Admin note</label><textarea class="admin-textarea" id="retake-note-<?= (int)$request['id'] ?>" name="admin_note" rows="2" maxlength="1000"></textarea></div><div class="form-actions"><button class="button" name="decision" value="approved" type="submit">Approve retake</button><button class="button button-secondary" name="decision" value="rejected" type="submit">Reject request</button></div></form>
     </article><?php endforeach; ?></div><?php endif; ?>
   </section>
+
+  <?php
+  // Testing tool: clears the question banks written while the course was being built.
+  $purgeAction = '/admin/quizzes/purge';
+  $purgePhrase = 'DELETE ALL QUIZZES';
+  $purgeTitle = 'Delete all quizzes';
+  $purgeDescription = 'Removes every quiz with its questions, attempts, results and retake requests. Attempt history cannot be recovered afterwards.';
+  $purgeScopeCourses = $courses;
+  require BASE_PATH . '/app/Views/components/purge-zone.php';
+  ?>
 
 </section>
 <script>

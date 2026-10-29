@@ -9,6 +9,8 @@ $modules = is_array($modules ?? null) ? $modules : [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $submissions = is_array($submissions ?? null) ? $submissions : [];
 $message = $message ?? null;
+$error = $error ?? null;
+$purgeCount = count($assignments);
 ?>
 <section class="dashboard-page admin-workspace assignment-admin-page">
   <header class="admin-header">
@@ -19,6 +21,7 @@ $message = $message ?? null;
     </div>
   </header>
   <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
+  <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
   <section class="admin-card">
     <div class="admin-card-header">
       <div class="admin-card-titles">
@@ -114,6 +117,15 @@ $message = $message ?? null;
             </form>
           </article><?php endforeach; ?></div><?php endif; ?>
   </section>
+  <?php
+  // Testing tool: clears the assignment bank built up while the course content was being written.
+  $purgeAction = '/admin/assignments/purge';
+  $purgePhrase = 'DELETE ALL ASSIGNMENTS';
+  $purgeTitle = 'Delete all assignments';
+  $purgeDescription = 'Removes every assignment with its submissions, reviews and uploaded files. Use it to clear test data before student work begins.';
+  $purgeScopeCourses = $courses;
+  require BASE_PATH . '/app/Views/components/purge-zone.php';
+  ?>
 </section>
 <script>
   (() => {

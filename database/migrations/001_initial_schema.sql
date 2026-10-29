@@ -1795,4 +1795,147 @@ VALUES
        ('certificate_min_attendance_percent', '75')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 
+-- Automated in-app notifications need to say what they are about, so the reader can group
+-- them per workspace area and the sidebar can count unread items by category. Added in one
+-- guarded ALTER so a re-import of an existing database only runs it once.
+SET
+       @add_notification_metadata = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE notifications ADD COLUMN category VARCHAR(40) NOT NULL DEFAULT ''announcement'' AFTER created_by, ADD COLUMN source_type VARCHAR(40) NULL AFTER audience, ADD COLUMN source_id BIGINT UNSIGNED NULL AFTER source_type, ADD COLUMN link VARCHAR(190) NULL AFTER source_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notifications'
+                     AND COLUMN_NAME = 'category'
+       );
+
+PREPARE add_notification_metadata_stmt
+FROM
+       @add_notification_metadata;
+
+EXECUTE add_notification_metadata_stmt;
+
+DEALLOCATE PREPARE add_notification_metadata_stmt;
+
+SET
+       @add_notification_category_index = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'CREATE INDEX idx_notification_category ON notifications(category, published_at)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notifications'
+                     AND INDEX_NAME = 'idx_notification_category'
+       );
+
+PREPARE add_notification_category_index_stmt
+FROM
+       @add_notification_category_index;
+
+EXECUTE add_notification_category_index_stmt;
+
+DEALLOCATE PREPARE add_notification_category_index_stmt;
+
+SET
+       @add_notification_source_index = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'CREATE INDEX idx_notification_source ON notifications(source_type, source_id)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notifications'
+                     AND INDEX_NAME = 'idx_notification_source'
+       );
+
+PREPARE add_notification_source_index_stmt
+FROM
+       @add_notification_source_index;
+
+EXECUTE add_notification_source_index_stmt;
+
+DEALLOCATE PREPARE add_notification_source_index_stmt;
+
+-- An address change is confirmed with a one-time code sent to the new address, so the OTP
+-- purpose list gains change_email and each code can remember the address it was issued for.
+SET
+       @add_otp_change_email_purpose = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE email_otps MODIFY COLUMN purpose ENUM(''verify_email'', ''reset_password'', ''change_email'') NOT NULL',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'email_otps'
+                     AND COLUMN_NAME = 'purpose'
+                     AND COLUMN_TYPE LIKE '%change_email%'
+       );
+
+PREPARE add_otp_change_email_purpose_stmt
+FROM
+       @add_otp_change_email_purpose;
+
+EXECUTE add_otp_change_email_purpose_stmt;
+
+DEALLOCATE PREPARE add_otp_change_email_purpose_stmt;
+
+SET
+       @add_otp_target_email = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE email_otps ADD COLUMN target_email VARCHAR(190) NULL AFTER purpose',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'email_otps'
+                     AND COLUMN_NAME = 'target_email'
+       );
+
+PREPARE add_otp_target_email_stmt
+FROM
+       @add_otp_target_email;
+
+EXECUTE add_otp_target_email_stmt;
+
+DEALLOCATE PREPARE add_otp_target_email_stmt;
+
+-- Every automated email is recorded here so delivery problems are visible in the admin
+-- workspace instead of only in the PHP error log.
+CREATE TABLE IF NOT EXISTS email_logs (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       template_key VARCHAR(64) NOT NULL,
+       recipient_email VARCHAR(190) NOT NULL,
+       subject VARCHAR(200) NULL,
+       status ENUM('sent', 'failed') NOT NULL,
+       error_message VARCHAR(255) NULL,
+       related_user_id BIGINT UNSIGNED NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_email_logs_user FOREIGN KEY(related_user_id) REFERENCES users(id),
+       INDEX idx_email_logs_created(created_at, id),
+       INDEX idx_email_logs_status(status, created_at),
+       INDEX idx_email_logs_template(template_key)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

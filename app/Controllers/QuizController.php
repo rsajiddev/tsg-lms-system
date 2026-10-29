@@ -6,8 +6,10 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
 
@@ -27,8 +29,8 @@ final class QuizController
             $question['options'] = $optionStmt->fetchAll();
         }
         unset($question);
-        View::render('admin/quizzes', ['title' => 'Quiz management', 'user' => $admin, 'courses' => $courses, 'quizzes' => $quizzes, 'questions' => $questions, 'retakeRequests' => $retakeRequests, 'message' => $_SESSION['_flash'] ?? null]);
-        unset($_SESSION['_flash']);
+        View::render('admin/quizzes', ['title' => 'Quiz management', 'user' => $admin, 'courses' => $courses, 'quizzes' => $quizzes, 'questions' => $questions, 'retakeRequests' => $retakeRequests, 'purgeCount' => count($quizzes), 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function adminReports(): void
@@ -141,9 +143,10 @@ final class QuizController
             throw new RuntimeException('Check the assessment settings. Lesson quizzes use 5–10 questions, module tests 15–20 timed questions, and final tests exactly 30 timed questions.');
         }
         $db = Database::connection();
-        $course = $db->prepare('SELECT id FROM courses WHERE id=?');
+        $course = $db->prepare('SELECT id, title FROM courses WHERE id=?');
         $course->execute([$courseId]);
-        if (!$course->fetchColumn()) throw new RuntimeException('Select an existing course.');
+        $courseRow = $course->fetch();
+        if (!$courseRow) throw new RuntimeException('Select an existing course.');
         if ($id > 0) {
             $questionTotal = $db->prepare('SELECT COUNT(*) FROM quiz_questions WHERE quiz_id=?');
             $questionTotal->execute([$id]);
@@ -164,6 +167,18 @@ final class QuizController
             $quizId = (int)$db->lastInsertId();
         }
         $this->audit($db, (int)$admin['id'], 'quiz.saved', $quizId, ['course_id' => $courseId, 'week_number' => $week, 'status' => $status]);
+        // A released or scheduled test is something the student has to act on, so it is announced
+        // to the enrolled students; drafts stay private to the admin workspace.
+        if (in_array($status, ['released', 'scheduled'], true)) {
+            $courseTitle = (string) ($courseRow['title'] ?? 'your course');
+            $labels = ['practice' => 'Practice test', 'lesson' => 'Lesson quiz', 'module' => 'Module test', 'final' => 'Final test'];
+            $kind = $labels[$quizType] ?? 'Assessment';
+            $timing = $status === 'scheduled' && $unlock !== null
+                ? ' It opens on ' . gmdate('j F Y, g:i a', strtotime($unlock . ' UTC')) . ' UTC.' . ($close !== null ? ' It closes on ' . gmdate('j F Y, g:i a', strtotime($close . ' UTC')) . ' UTC.' : '')
+                : ($close !== null ? ' It closes on ' . gmdate('j F Y, g:i a', strtotime($close . ' UTC')) . ' UTC.' : '');
+            $body = 'A ' . strtolower($kind) . ', “' . $title . '”, is ' . ($status === 'released' ? 'now open' : 'scheduled to open') . ' in ' . $courseTitle . '. Questions: ' . $questionCount . '; pass mark: ' . rtrim(rtrim(number_format((float)$passMark, 2), '0'), '.') . '%.' . $timing . ' Find it under Quizzes & results in your workspace.';
+            (new NotificationService($db))->notifyCourse($courseId, NotificationService::QUIZ, $kind . ' ' . ($status === 'released' ? 'open' : 'scheduled') . ': ' . $title, $body, 'quiz', $quizId, '/learning/quizzes?course_id=' . $courseId, (int)$admin['id']);
+        }
         $_SESSION['_flash'] = 'Quiz saved.';
         $this->redirect('/admin/quizzes#quiz-' . $quizId);
     }
@@ -186,6 +201,9 @@ final class QuizController
             $attemptStmt = $db->prepare('SELECT COUNT(*) FROM quiz_attempts WHERE quiz_id=?');
             $attemptStmt->execute([$quizId]);
             $attemptCount = (int) $attemptStmt->fetchColumn();
+            $retakeStmt = $db->prepare('SELECT id FROM quiz_retake_approvals WHERE quiz_id=?');
+            $retakeStmt->execute([$quizId]);
+            $retakeIds = array_map('intval', $retakeStmt->fetchAll(PDO::FETCH_COLUMN));
 
             // Keep an audit record while removing learner data tied to the quiz.
             $this->audit($db, (int) $admin['id'], 'quiz.deleted', (int) $quiz['id'], [
@@ -210,6 +228,9 @@ final class QuizController
             $db->prepare('DELETE FROM quiz_questions WHERE quiz_id=?')->execute([$quizId]);
             $db->prepare('DELETE FROM quizzes WHERE id=?')->execute([$quizId]);
             $db->commit();
+            // Remove the announcements that pointed at this quiz so no dead link is left behind.
+            (new NotificationService($db))->forgetSource('quiz', [(int) $quizId]);
+            (new NotificationService($db))->forgetSource('quiz_retake', $retakeIds);
 
             $_SESSION['_flash'] = sprintf(
                 'Quiz deleted. %d linked student attempt record(s) and their results were also removed.',
@@ -220,6 +241,97 @@ final class QuizController
             throw $error;
         }
 
+        $this->redirect('/admin/quizzes');
+    }
+
+    /**
+     * Testing tool: delete every quiz, its question bank and all learner attempts with it.
+     *
+     * The single-quiz delete already proved the order the foreign keys demand; this is the same
+     * walk repeated over the whole set, so nothing is left half-removed and no attempt history
+     * survives without its quiz.
+     */
+    public function purgeAll(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performPurgeAll($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/quizzes');
+        }
+    }
+
+    private function performPurgeAll(array $admin): void
+    {
+        $this->csrf();
+        PurgeGuard::assertConfirmed('DELETE ALL QUIZZES');
+        $courseId = PurgeGuard::scopeCourseId();
+        $db = Database::connection();
+        $list = $db->prepare('SELECT id,title FROM quizzes' . ($courseId > 0 ? ' WHERE course_id=?' : '') . ' ORDER BY id');
+        $list->execute($courseId > 0 ? [$courseId] : []);
+        $quizIds = array_map('intval', $list->fetchAll(PDO::FETCH_COLUMN));
+        if ($quizIds === []) {
+            $_SESSION['_flash'] = 'There are no quizzes left to delete.';
+            $this->redirect('/admin/quizzes');
+        }
+        $in = implode(',', array_fill(0, count($quizIds), '?'));
+        $attemptStmt = $db->prepare("SELECT qa.id, qa.student_id, q.course_id FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id WHERE qa.quiz_id IN ($in)");
+        $attemptStmt->execute($quizIds);
+        $attempts = $attemptStmt->fetchAll();
+        $retakeStmt = $db->prepare("SELECT id FROM quiz_retake_approvals WHERE quiz_id IN ($in)");
+        $retakeStmt->execute($quizIds);
+        $retakeIds = array_map('intval', $retakeStmt->fetchAll(PDO::FETCH_COLUMN));
+        $questionStmt = $db->prepare("SELECT COUNT(*) FROM quiz_questions WHERE quiz_id IN ($in)");
+        $questionStmt->execute($quizIds);
+        $questionCount = (int) $questionStmt->fetchColumn();
+        $affected = [];
+        foreach ($attempts as $attempt) {
+            $affected[(int) $attempt['student_id'] . ':' . (int) $attempt['course_id']] = [
+                'student_id' => (int) $attempt['student_id'],
+                'course_id' => (int) $attempt['course_id'],
+            ];
+        }
+        $db->beginTransaction();
+        try {
+            // Attempts hold the only reference to the graded answers, and the answer rows point at
+            // questions and options, so the history has to leave before the bank it describes.
+            $answers = $db->prepare("DELETE FROM quiz_answers
+                WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id IN ($in))
+                   OR question_id IN (SELECT id FROM quiz_questions WHERE quiz_id IN ($in))
+                   OR selected_option_id IN (
+                       SELECT qo.id FROM quiz_options qo JOIN quiz_questions qq ON qq.id=qo.question_id WHERE qq.quiz_id IN ($in)
+                   )");
+            $answers->execute(array_merge($quizIds, $quizIds, $quizIds));
+            // The randomised question and option snapshots follow their attempt automatically.
+            $db->prepare("DELETE FROM quiz_attempts WHERE quiz_id IN ($in)")->execute($quizIds);
+            $db->prepare("DELETE qo FROM quiz_options qo JOIN quiz_questions qq ON qq.id=qo.question_id WHERE qq.quiz_id IN ($in)")->execute($quizIds);
+            $db->prepare("DELETE FROM quiz_retake_approvals WHERE quiz_id IN ($in)")->execute($quizIds);
+            $db->prepare("DELETE FROM quiz_questions WHERE quiz_id IN ($in)")->execute($quizIds);
+            $db->prepare("DELETE FROM quizzes WHERE id IN ($in)")->execute($quizIds);
+            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,NULL,?)')
+                ->execute([(int) $admin['id'], 'quiz.bulk_deleted', 'quiz', json_encode([
+                    'course_id' => $courseId,
+                    'quizzes_deleted' => count($quizIds),
+                    'questions_deleted' => $questionCount,
+                    'attempts_deleted' => count($attempts),
+                    'retake_requests_deleted' => count($retakeIds),
+                ], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
+        }
+        // Retire the announcements that told students about this work.
+        (new NotificationService($db))->forgetSource('quiz', $quizIds);
+        (new NotificationService($db))->forgetSource('quiz_retake', $retakeIds);
+        PurgeGuard::refreshGrades(array_values($affected));
+        $_SESSION['_flash'] = sprintf(
+            'Deleted %d quiz(s), %d question(s) and %d attempt record(s). Student grades that depended on these results were recalculated.',
+            count($quizIds),
+            $questionCount,
+            count($attempts)
+        );
         $this->redirect('/admin/quizzes');
     }
 
@@ -516,6 +628,23 @@ final class QuizController
             throw $exception;
         }
         $_SESSION['_flash'] = 'Final-test retake request ' . $decision . '.';
+        // The student asked for this and is waiting on the answer.
+        $quizTitle = '';
+        $titleStmt = $db->prepare('SELECT title FROM quizzes WHERE id=?');
+        $titleStmt->execute([(int) $request['quiz_id']]);
+        $quizTitle = (string) ($titleStmt->fetchColumn() ?: 'your assessment');
+        (new NotificationService($db))->notifyStudents(
+            [(int) $request['student_id']],
+            NotificationService::QUIZ,
+            $decision === 'approved' ? 'Retake approved: ' . $quizTitle : 'Retake request declined',
+            $decision === 'approved'
+                ? 'Your request to retake “' . $quizTitle . '” has been approved. Start the new attempt from Quizzes & results.'
+                : 'Your request to retake “' . $quizTitle . '” was not approved.' . ($note !== '' ? ' Note from your instructor: ' . $note : ' Speak to your instructor if you believe this was a mistake.'),
+            'quiz_retake',
+            $requestId,
+            '/learning/quizzes',
+            (int) $admin['id']
+        );
         $this->redirect('/admin/quizzes#retake-requests');
     }
 

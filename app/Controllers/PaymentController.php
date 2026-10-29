@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
+use App\Services\NotificationService;
 use App\Services\PaymentReceiptJpg;
 use PDO;
 use RuntimeException;
@@ -96,6 +97,7 @@ final class PaymentController
             $this->paymentError($courseId, $exception->getMessage());
         }
 
+        $submittedAt = gmdate('Y-m-d H:i:s');
         $db->beginTransaction();
         try {
             $insert = $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
@@ -109,7 +111,28 @@ final class PaymentController
             @unlink($proof['absolute_path']);
             throw $exception;
         }
-        (new MailService())->sendPaymentSubmitted($student['email'], $student['name'], $course['title'], (string) $course['price'], (string) ($course['currency'] ?: $course['course_currency']), $reference);
+        $currency = (string) ($course['currency'] ?: $course['course_currency']);
+        (new MailService($db))->sendPaymentSubmitted([
+            'student_id' => (int) $student['id'],
+            'student_name' => (string) $student['name'],
+            'student_email' => (string) $student['email'],
+            'course_title' => (string) $course['title'],
+            'amount' => (float) $course['price'],
+            'currency' => $currency,
+            'reference' => $reference,
+            'submitted_at' => $submittedAt,
+        ]);
+        // The student is waiting on this review, so the workspace shows the same state change.
+        (new NotificationService($db))->notifyStudents(
+            [(int) $student['id']],
+            NotificationService::PAYMENT,
+            'Payment approval requested',
+            'Your payment of ' . MailService::money((float) $course['price'], $currency) . ' for ' . $course['title'] . ' has been submitted for verification. You will be notified here and by email as soon as an administrator approves it. Our team aims to respond within 24 hours.',
+            'payment',
+            $paymentId,
+            '/student/payments',
+            (int) $student['id']
+        );
         $_SESSION['_flash'] = ['type' => 'success', 'text' => 'Payment details submitted. Course access will be enabled after admin verification.'];
         $this->redirect('/payments/new?course_id=' . $courseId);
     }
@@ -148,11 +171,12 @@ final class PaymentController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
+            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.transaction_reference,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
             $lookup->execute([$paymentId]);
             $payment = $lookup->fetch();
             if (!$payment || $payment['status'] !== 'pending') throw new RuntimeException('This payment is no longer awaiting review.');
             $receiptNumber = $decision === 'approved' ? 'TSG-RCP-' . gmdate('Y') . '-' . str_pad((string) $paymentId, 6, '0', STR_PAD_LEFT) : null;
+            $decidedAt = gmdate('Y-m-d H:i:s');
             $update = $db->prepare('UPDATE payments SET status=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=?,receipt_number=?,receipt_issued_at=IF(?=\'approved\',UTC_TIMESTAMP(),NULL) WHERE id=? AND status=\'pending\'');
             $update->execute([$decision, (int) $admin['id'], $note !== '' ? $note : null, $receiptNumber, $decision, $paymentId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('This payment could not be updated. Refresh the queue and try again.');
@@ -174,7 +198,37 @@ final class PaymentController
             if ($db->inTransaction()) $db->rollBack();
             throw $exception;
         }
-        (new MailService())->sendPaymentDecision($payment['student_email'], $payment['student_name'], $payment['course_title'], (string) $payment['amount'], (string) $payment['currency'], $decision === 'approved', $note);
+        $mailContext = [
+            'student_id' => (int) $payment['student_id'],
+            'student_name' => (string) $payment['student_name'],
+            'student_email' => (string) $payment['student_email'],
+            'course_title' => (string) $payment['course_title'],
+            'amount' => (float) $payment['amount'],
+            'currency' => (string) $payment['currency'],
+            'reference' => (string) ($payment['transaction_reference'] ?? ''),
+            'decision' => $decision,
+            'note' => $note,
+            'decided_at' => $decidedAt,
+            'receipt_number' => (string) ($receiptNumber ?? '—'),
+            'reviewer_name' => (string) $admin['name'],
+            'reviewer_email' => (string) $admin['email'],
+        ];
+        (new MailService($db))->sendPaymentDecision($mailContext);
+        // Approval grants access and rejection asks for a correction; either way the student
+        // must see it in the workspace, not only in their inbox.
+        $money = MailService::money((float) $payment['amount'], (string) $payment['currency']);
+        (new NotificationService($db))->notifyStudents(
+            [(int) $payment['student_id']],
+            NotificationService::PAYMENT,
+            $decision === 'approved' ? 'Payment approved — access granted' : 'Payment needs a correction',
+            $decision === 'approved'
+                ? 'Your payment of ' . $money . ' for ' . $payment['course_title'] . ' has been approved and your course access is now active. Your receipt number is ' . ($receiptNumber ?: '—') . '. Sign in and start your first lesson whenever you are ready.'
+                : 'Your payment of ' . $money . ' for ' . $payment['course_title'] . ' could not be verified.' . ($note !== '' ? ' Note from the review team: ' . $note : ' Please submit corrected payment details from the course catalogue or contact the Academy.') . ' Your access will be granted as soon as the payment is verified.',
+            'payment',
+            $paymentId,
+            $decision === 'approved' ? '/student/courses' : '/payments/new?course_id=' . (int) $payment['course_id'],
+            (int) $admin['id']
+        );
         $_SESSION['_flash'] = $decision === 'approved' ? 'Payment approved. Course access is active until ' . $expiresAt . ' UTC.' : 'Payment rejected; the student can submit corrected payment details.';
         $this->redirect('/admin/payments');
     }
@@ -260,17 +314,43 @@ final class PaymentController
         $db = Database::connection();
         $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
-        $stmt = $db->prepare("SELECT currency,COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count,COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count,COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue,COALESCE(SUM(amount),0) AS lifetime_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
-        $stmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
-        $totals = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'")->fetch(PDO::FETCH_ASSOC) ?: [];
-        $report = ['period' => gmdate('F Y'), 'student_count' => (int) ($totals['student_count'] ?? 0), 'payment_count' => (int) ($totals['payment_count'] ?? 0), 'rates' => []];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $row['developer_share'] = (float) $row['monthly_revenue'] * 0.15;
-            $row['lifetime_developer_share'] = (float) $row['lifetime_revenue'] * 0.15;
-            $report['rates'][] = $row;
+        // One report per currency, because amounts in different currencies cannot be added.
+        $rowsStmt = $db->prepare("SELECT p.amount,p.currency,p.student_id,u.full_name AS student_name,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' AND COALESCE(p.reviewed_at,p.created_at)>=? AND COALESCE(p.reviewed_at,p.created_at)<? ORDER BY p.currency,p.id");
+        $rowsStmt->execute([$monthStart, $nextMonth]);
+        $groups = [];
+        foreach ($rowsStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $groups[strtoupper((string) ($row['currency'] ?: 'PKR'))][] = $row;
         }
-        $sent = (new MailService())->sendDeveloperRevenueReport($report);
-        $_SESSION['_flash'] = ['type' => $sent ? 'success' : 'error', 'text' => $sent ? 'Revenue summary sent to the configured developer email.' : 'Could not send the revenue summary. Check the developer notification address and SMTP settings.'];
+        if ($groups === []) {
+            $_SESSION['_flash'] = ['type' => 'error', 'text' => 'No approved payments were recorded this month, so there is nothing to report.'];
+            $this->redirect('/admin/payments');
+        }
+        $mail = new MailService($db);
+        $sent = true;
+        $reports = 0;
+        foreach ($groups as $currency => $rows) {
+            $total = 0.0;
+            foreach ($rows as $row) $total += (float) $row['amount'];
+            $sent = $mail->sendDeveloperRevenueReport([
+                'period' => gmdate('F Y'),
+                'start_date' => $monthStart,
+                'end_date' => (new \DateTimeImmutable($nextMonth, new \DateTimeZone('UTC')))->modify('-1 second')->format('Y-m-d H:i:s'),
+                'currency' => $currency,
+                'student_count' => count(array_unique(array_column($rows, 'student_id'))),
+                'total_revenue' => $total,
+                'developer_share' => $total * MailService::DEVELOPER_SHARE_PERCENT / 100,
+                'rows' => array_map(static fn(array $row): array => [
+                    'student_name' => (string) $row['student_name'],
+                    'student_id' => (int) $row['student_id'],
+                    'course_title' => (string) $row['course_title'],
+                    'amount' => (float) $row['amount'],
+                ], $rows),
+            ]) && $sent;
+            $reports++;
+        }
+        $_SESSION['_flash'] = ['type' => $sent ? 'success' : 'error', 'text' => $sent
+            ? 'Monthly revenue summary sent to the developer inbox (' . $reports . ' ' . ($reports === 1 ? 'currency' : 'currencies') . ').'
+            : 'Could not send the revenue summary. Check the developer notification address and SMTP settings in the email log.'];
         $this->redirect('/admin/payments');
     }
 

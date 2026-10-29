@@ -241,3 +241,62 @@ button.button:active {
         padding: 0 20px
     }
 }
+
+/* Bulk delete zone for the testing tools on the assignment, quiz and lesson workspaces. These
+   rules live in app.css because the card is shared by three admin pages, and they are written
+   as compound selectors so pages.css, which loads after this file, cannot override them. */
+.button.button-danger {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #b42318
+}
+
+.button.button-danger:hover {
+    border-color: #fda4af;
+    background: #ffe4e6;
+    color: #991b1b
+}
+
+.button.button-danger:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    transform: none
+}
+
+.admin-card.admin-card-testing {
+    border-color: #fecdd3;
+    background: linear-gradient(180deg, #fff7f7, var(--surface) 45%)
+}
+
+.admin-card-testing .admin-card-titles h2 {
+    color: #9f1239
+}
+
+.admin-card-testing code {
+    padding: 2px 6px;
+    border: 1px solid #fecdd3;
+    border-radius: 6px;
+    background: var(--surface);
+    color: #9f1239;
+    font: 700 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: .02em
+}
+
+.purge-acknowledgement {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 42px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer
+}
+
+.purge-acknowledgement input {
+    width: 18px;
+    height: 18px;
+    margin: 3px 0 0;
+    accent-color: #b42318;
+    cursor: pointer
+}

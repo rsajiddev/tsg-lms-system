@@ -16,24 +16,24 @@ $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
 $dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
-// Read/unread style counters for the student workspace nav (new announcements, assignments, tests).
-$navBadge = [];
+// Sidebar counters: unread notifications grouped per workspace area, plus any course item
+// that still needs the student's own action, so a badge never hides real outstanding work.
+$navBadge = array_fill_keys(array_keys(\App\Services\NotificationService::AREAS), 0);
 if ($dashboardArea && $dashboardRole !== 'admin') {
     $navStudentId = (int)($currentUser['id'] ?? 0);
     if ($navStudentId > 0) {
         try {
             $navDb = \App\Core\Database::connection();
-            $stmt = $navDb->prepare('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.student_id=? AND n.published_at IS NOT NULL AND nr.read_at IS NULL');
-            $stmt->execute([$navStudentId]);
-            $navBadge['notifications'] = (int)$stmt->fetchColumn();
+            $navBadge = (new \App\Services\NotificationService($navDb))->unreadByArea($navStudentId);
             $stmt = $navDb->prepare("SELECT COUNT(*) FROM assignments a JOIN student_course_access sca ON sca.course_id=a.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE a.status='published' AND NOT EXISTS (SELECT 1 FROM assignment_submissions s WHERE s.assignment_id=a.id AND s.student_id=?)");
             $stmt->execute([$navStudentId, $navStudentId]);
-            $navBadge['assignments'] = (int)$stmt->fetchColumn();
+            $navBadge['assignments'] = max((int)($navBadge['assignments'] ?? 0), (int)$stmt->fetchColumn());
             $stmt = $navDb->prepare("SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id=q.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE q.status='released' AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) AND NOT EXISTS (SELECT 1 FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?)");
             $stmt->execute([$navStudentId, $navStudentId]);
-            $navBadge['quizzes'] = (int)$stmt->fetchColumn();
+            $navBadge['quizzes'] = max((int)($navBadge['quizzes'] ?? 0), (int)$stmt->fetchColumn());
         } catch (\Throwable $exception) {
-            $navBadge = [];
+            // Navigation must keep rendering even when the notification schema is mid-import.
+            $navBadge = array_fill_keys(array_keys(\App\Services\NotificationService::AREAS), 0);
         }
     }
 }
@@ -73,16 +73,18 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
         ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
         ['label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
+        ['label' => 'My account', 'href' => '/admin/account', 'icon' => 'users', 'active' => $activePath === '/admin/account'],
     ]
     : [
         ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
-        ['label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'active' => in_array($activePath, ['/student/courses', '/learning'], true)],
-        ['label' => 'Lessons', 'href' => '/student/lessons', 'icon' => 'play', 'active' => in_array($activePath, ['/student/lessons', '/learning/lesson'], true)],
-        ['label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
+        ['label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'badge' => 'courses', 'active' => in_array($activePath, ['/student/courses', '/learning'], true)],
+        ['label' => 'Lessons', 'href' => '/student/lessons', 'icon' => 'play', 'badge' => 'lessons', 'active' => in_array($activePath, ['/student/lessons', '/learning/lesson'], true)],
+        ['label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'badge' => 'payments', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
         ['label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],
         ['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges'],
         ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
         ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'badge' => 'notifications', 'active' => str_starts_with($activePath, '/notifications')],
+        ['label' => 'Account settings', 'href' => '/student/settings', 'icon' => 'settings', 'active' => $activePath === '/student/settings'],
     ];
 // Sidebar numbering follows the list order so inserting an entry never leaves duplicate numbers behind.
 foreach ($dashboardNavItems as $index => &$dashboardNavItem) {

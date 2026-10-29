@@ -6,8 +6,10 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
 
@@ -23,8 +25,8 @@ final class AssignmentController
         $modules = $db->query('SELECT id,course_id,title,sort_order FROM course_modules ORDER BY course_id,sort_order,id')->fetchAll();
         $assignments = $db->query('SELECT a.*,c.title AS course_title,m.title AS module_title,(SELECT COUNT(*) FROM assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM assignments a JOIN courses c ON c.id=a.course_id LEFT JOIN course_modules m ON m.id=a.module_id ORDER BY a.id DESC')->fetchAll();
         $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.full_name AS student_name,u.email AS student_email FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll();
-        View::render('admin/assignments', ['title' => 'Assignment management', 'user' => $admin, 'courses' => $courses, 'modules' => $modules, 'assignments' => $assignments, 'submissions' => $submissions, 'message' => $_SESSION['_flash'] ?? null]);
-        unset($_SESSION['_flash']);
+        View::render('admin/assignments', ['title' => 'Assignment management', 'user' => $admin, 'courses' => $courses, 'modules' => $modules, 'assignments' => $assignments, 'submissions' => $submissions, 'purgeCount' => count($assignments), 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function save(): void
@@ -47,9 +49,11 @@ final class AssignmentController
         $deduction = trim((string)($_POST['late_deduction_percent'] ?? '0'));
         if ($courseId < 1 || !in_array($type, ['exercise', 'mini_project'], true) || !in_array($topic, ['general', 'php_mysql'], true) || ($week !== null && ($week < 1 || $week > 52)) || mb_strlen($title) < 3 || mb_strlen($title) > 200 || mb_strlen($instructions) > 10000 || !is_numeric($marks) || (float)$marks <= 0 || (float)$marks > 100000 || !is_numeric($deduction) || (float)$deduction < 0 || (float)$deduction > 100 || ($cutoffAt !== null && $dueAt !== null && strtotime($cutoffAt . ' UTC') < strtotime($dueAt . ' UTC')) || !in_array($status, ['draft', 'published', 'closed'], true)) throw new RuntimeException('Enter valid assignment details. The Admin cutoff must be on or after the due date.');
         $db = Database::connection();
-        $course = $db->prepare('SELECT id FROM courses WHERE id=?');
+        $isUpdate = $id > 0;
+        $course = $db->prepare('SELECT id, title FROM courses WHERE id=?');
         $course->execute([$courseId]);
-        if (!$course->fetchColumn()) throw new RuntimeException('Select an existing course.');
+        $courseRow = $course->fetch();
+        if (!$courseRow) throw new RuntimeException('Select an existing course.');
         if ($moduleId > 0) {
             $module = $db->prepare('SELECT id FROM course_modules WHERE id=? AND course_id=?');
             $module->execute([$moduleId, $courseId]);
@@ -66,6 +70,15 @@ final class AssignmentController
             $id = (int)$db->lastInsertId();
         }
         $this->audit($db, (int)$admin['id'], 'assignment.saved', $id);
+        // Only a published assignment is news to the students; drafts and closed work stay quiet.
+        if ($status === 'published') {
+            $courseTitle = (string) ($courseRow['title'] ?? 'your course');
+            $deadline = $dueAt !== null ? ' It is due on ' . gmdate('j F Y', strtotime($dueAt . ' UTC')) . '.' : '';
+            $body = ($isUpdate
+                ? 'The assignment “' . $title . '” in ' . $courseTitle . ' has been updated.'
+                : 'A new assignment, “' . $title . '”, is available in ' . $courseTitle . '.') . $deadline . ' Available marks: ' . rtrim(rtrim(number_format((float)$marks, 2), '0'), '.') . '. Open it from your Assignments page to read the full brief.';
+            (new NotificationService($db))->notifyCourse($courseId, NotificationService::ASSIGNMENT, ($isUpdate ? 'Assignment updated: ' : 'New assignment: ') . $title, $body, 'assignment', $id, '/learning/assignments?course_id=' . $courseId, (int)$admin['id']);
+        }
         $_SESSION['_flash'] = 'Assignment saved.';
         $this->redirect('/admin/assignments#assignment-' . $id);
     }
@@ -154,7 +167,7 @@ final class AssignmentController
             $rubric[$column] = $value === '' ? null : (float)$value;
         }
         $db = Database::connection();
-        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,a.course_id,s.submitted_late,s.student_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
+        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,a.course_id,a.title AS assignment_title,s.submitted_late,s.student_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
         $find->execute([$id]);
         $assignment = $find->fetch();
         if (!$assignment) throw new RuntimeException('Submission was not found.');
@@ -175,7 +188,89 @@ final class AssignmentController
             }
         }
         $_SESSION['_flash'] = $decision === 'reviewed' ? 'Submission reviewed and marks saved.' : 'Resubmission requested with feedback.';
+        // The student must see the outcome of a review without opening the workspace to look for it.
+        $assignmentTitle = (string) ($assignment['assignment_title'] ?? 'your assignment');
+        (new NotificationService($db))->notifyStudents(
+            [(int) $assignment['student_id']],
+            NotificationService::GRADE,
+            $decision === 'reviewed' ? 'Assignment graded: ' . $assignmentTitle : 'Feedback on ' . $assignmentTitle,
+            $decision === 'reviewed'
+                ? 'Your submission for “' . $assignmentTitle . '” has been reviewed. Marks awarded: ' . rtrim(rtrim(number_format((float) $marks, 2), '0'), '.') . ' of ' . rtrim(rtrim(number_format((float) $assignment['max_marks'], 2), '0'), '.') . '. Read the feedback and rubric scores in your Assignments page.'
+                : 'Your instructor asked for a resubmission of “' . $assignmentTitle . '”. Read the feedback and upload your updated work from your Assignments page.',
+            'assignment_submission',
+            $id,
+            '/learning/assignments?course_id=' . (int) $assignment['course_id'],
+            (int) $admin['id']
+        );
         $this->redirect('/admin/assignments#submission-' . $id);
+    }
+
+    /**
+     * Testing tool: remove every assignment, and the submissions hanging off it, in one action.
+     *
+     * The wrapper keeps a failed purge on the page instead of dropping the admin on a blank
+     * error screen, so the reason (wrong phrase, missing tick, expired session) can be read and
+     * corrected without losing the work that is still there.
+     */
+    public function purgeAll(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performPurgeAll($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/assignments');
+        }
+    }
+
+    private function performPurgeAll(array $admin): void
+    {
+        $this->csrf();
+        PurgeGuard::assertConfirmed('DELETE ALL ASSIGNMENTS');
+        $courseId = PurgeGuard::scopeCourseId();
+        $db = Database::connection();
+        $list = $db->prepare('SELECT id,title FROM assignments' . ($courseId > 0 ? ' WHERE course_id=?' : '') . ' ORDER BY id');
+        $list->execute($courseId > 0 ? [$courseId] : []);
+        $assignmentIds = array_map('intval', array_column($list->fetchAll(), 'id'));
+        if ($assignmentIds === []) {
+            $_SESSION['_flash'] = 'There are no assignments left to delete.';
+            $this->redirect('/admin/assignments');
+        }
+        $in = implode(',', array_fill(0, count($assignmentIds), '?'));
+        $submitted = $db->prepare("SELECT id,file_path FROM assignment_submissions WHERE assignment_id IN ($in)");
+        $submitted->execute($assignmentIds);
+        $submissions = $submitted->fetchAll();
+        $files = PurgeGuard::removeStoredFiles(array_column($submissions, 'file_path'));
+        $pairs = $db->prepare("SELECT DISTINCT s.student_id,a.course_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.assignment_id IN ($in)");
+        $pairs->execute($assignmentIds);
+        $affected = $pairs->fetchAll();
+        $db->beginTransaction();
+        try {
+            $db->prepare("DELETE FROM assignment_submissions WHERE assignment_id IN ($in)")->execute($assignmentIds);
+            $db->prepare("DELETE FROM assignments WHERE id IN ($in)")->execute($assignmentIds);
+            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'assignment\',NULL,?)')
+                ->execute([(int)$admin['id'], 'assignment.bulk_deleted', json_encode([
+                    'course_id' => $courseId,
+                    'assignments_deleted' => count($assignmentIds),
+                    'submissions_deleted' => count($submissions),
+                    'files_removed' => $files,
+                ], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
+        }
+        // Announcements that pointed at the removed work would lead students to a dead page.
+        (new NotificationService($db))->forgetSource('assignment', $assignmentIds);
+        (new NotificationService($db))->forgetSource('assignment_submission', array_map('intval', array_column($submissions, 'id')));
+        PurgeGuard::refreshGrades($affected);
+        $_SESSION['_flash'] = sprintf(
+            'Deleted %d assignment(s) and %d submission(s).%s Student grades that depended on this work were recalculated.',
+            count($assignmentIds),
+            count($submissions),
+            $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
+        );
+        $this->redirect('/admin/assignments');
     }
 
     public function file(): void
