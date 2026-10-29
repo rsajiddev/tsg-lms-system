@@ -172,15 +172,10 @@ Numbers to trust: attendance counts only decided days since `granted_at` (pendin
 | `attendance-flow-smoke.php` | sign-in window, present mark, expiry sweep, duplicate guard, summaries, settings | passes |
 | `auth-flow-smoke.php` | registration, OTP verify, password reset | **stale** — it stubs PHP `mail()`, which `MailService` no longer uses since OTPs moved to the SMTP socket transport, so its "one verification message" assertion always fails. Needs a mailer stub instead of a `mail()` override. |
 
-`docs/TEST-PLAN.md` and `tests/TEST-PLAN.md` list the manual regression matrix.
+`tests/TEST-PLAN.md` lists the manual regression matrix that goes with the scripts above.
 
 ## Documentation
 
-- [Project audit](docs/PROJECT-AUDIT.md) — findings against the original codebase.
-- [Implementation plan](docs/IMPLEMENTATION-PLAN.md) — the phased build order.
-- [Open company decisions](docs/OPEN-DECISIONS.md) — items still waiting on a business answer.
-- [Test plan](docs/TEST-PLAN.md) — manual and automated test matrix.
-- [XAMPP setup guide](docs/SETUP-XAMPP.md) — local environment walkthrough.
-- [Week 1 notes](docs/WEEK-1-AUDIT-AND-REQUIREMENTS.md) and [Week 2 notes](docs/WEEK-2-MVC-FOUNDATION.md) — the original audit and MVC foundation records.
+This README is the single feature catalogue for the project: what exists, where each control lives, and how to prove it works. Earlier planning, audit and decision records were kept in `docs/` and have been retired — recover any of them from git history (`git log --diff-filter=D -- docs/` to find the commit, then `git show <commit>:docs/OPEN-DECISIONS.md`).
 
-**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, admin settings and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the open company decisions in `docs/OPEN-DECISIONS.md` are closed. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser.
+**Status:** public site, authentication, courses/lessons, lesson video watch time, quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, review moderation, admin settings and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the outstanding business decisions (quiz policy, payment and access grants, commission, certificate and invoice details, email delivery, authentication limits — the retired open-decisions list names them in full) are closed. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser.
