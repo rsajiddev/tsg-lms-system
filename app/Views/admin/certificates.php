@@ -127,6 +127,9 @@ $filters = [
                                         <div class="certificate-request">
                                             <span><?= $escape($label((string) $certificate['requested_at'])) ?></span>
                                             <?php if (!empty($certificate['student_remarks'])): ?><small title="<?= $escape($certificate['student_remarks']) ?>">“<?= $escape(mb_strimwidth((string) $certificate['student_remarks'], 0, 70, '…')) ?>”</small><?php endif; ?>
+                                            <?php if (($certificate['overall_percent'] ?? null) !== null): $gradeNum = rtrim(rtrim(number_format((float) $certificate['overall_percent'], 1, '.', ''), '0'), '.'); $attNum = ($certificate['attendance_percent'] ?? null) !== null ? rtrim(rtrim(number_format((float) $certificate['attendance_percent'], 1, '.', ''), '0'), '.') : null; ?>
+                                                <small class="certificate-grade">At request: <strong><?= $escape((string) ($certificate['letter_grade'] ?? '')) ?> · <?= $escape($gradeNum) ?>%</strong><?= $attNum !== null ? ' · attendance ' . $escape($attNum) . '%' : '' ?></small>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                     <td data-label="Certificate">

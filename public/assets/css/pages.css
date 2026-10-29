@@ -3610,6 +3610,17 @@ html.js [data-reveal].is-visible.dash-card:hover {
   color: #047857
 }
 
+/* Completion states added by the grading engine sit between active and rejected on the accent scale. */
+.status-completed {
+  background: #eff6ff;
+  color: #1d4ed8
+}
+
+.status-certified {
+  background: #f5f3ff;
+  color: #6d28d9
+}
+
 .status-rejected,
 .status-timed_out {
   background: #fef2f2;
@@ -12372,5 +12383,157 @@ html.admin-modal-js .admin-modal.is-open {
   .attendance-dot {
     width: 11px;
     height: 11px
+  }
+}
+
+/* ---- Course grading panel, grade badge and certificate grade snapshot ---- */
+.grade-panel {
+  margin-bottom: 22px
+}
+
+.grade-overall {
+  align-self: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #0b1220;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap
+}
+
+.grade-overall strong {
+  color: #fbbf24
+}
+
+.grade-empty {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6
+}
+
+.grade-rows {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px
+}
+
+.grade-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 150px) minmax(0, 1fr) 54px;
+  align-items: center;
+  gap: 12px
+}
+
+.grade-row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a
+}
+
+.grade-row-label small {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b
+}
+
+.grade-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9eff8
+}
+
+.grade-bar span {
+  display: block;
+  height: 100%;
+  width: var(--grade-fill, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: width .35s ease
+}
+
+.grade-row-value {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a
+}
+
+.grade-row-absent .grade-row-label,
+.grade-row-absent .grade-row-value {
+  color: #94a3b8
+}
+
+.grade-eligibility {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #e6ecf6;
+  border-radius: 14px;
+  background: #f8fbff
+}
+
+.grade-eligibility-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a
+}
+
+.grade-eligibility-ok {
+  border-color: #bbf7d0;
+  background: #ecfdf5
+}
+
+.grade-eligibility-ok .grade-eligibility-title {
+  color: #047857
+}
+
+.grade-eligibility-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7
+}
+
+.course-grade-badge {
+  align-self: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #0b1220;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap
+}
+
+.course-grade-badge strong {
+  color: #fbbf24
+}
+
+.certificate-grade {
+  color: #475569;
+  font-size: 12px
+}
+
+.certificate-grade strong {
+  color: #0f172a
+}
+
+@media(max-width:720px) {
+  .grade-row {
+    grid-template-columns: minmax(0, 1fr) 48px;
+    row-gap: 6px
+  }
+
+  .grade-bar {
+    grid-column: 1 / -1
   }
 }

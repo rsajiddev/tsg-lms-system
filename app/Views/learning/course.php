@@ -9,6 +9,18 @@ $modules = [];
 foreach ($lessons as $lesson) $modules[$lesson['module_id']]['title'] = $lesson['module_title'];
 foreach ($lessons as $lesson) $modules[$lesson['module_id']]['lessons'][] = $lesson;
 $completedCount = count(array_filter($lessons, static fn(array $lesson): bool => (int) $lesson['completed'] === 1));
+$grade = is_array($grade ?? null) ? $grade : null;
+$weights = is_array($weights ?? null) ? $weights : [];
+$eligibility = is_array($eligibility ?? null) ? $eligibility : null;
+$fmtPct = static fn($value): string => rtrim(rtrim(number_format((float) $value, 1, '.', ''), '0'), '.');
+$gradeMask = $grade !== null ? (int) $grade['components_mask'] : 0;
+$gradeRows = [
+    ['Video lessons', 'video_pct', 'video', 1],
+    ['Quizzes', 'quiz_pct', 'quiz', 2],
+    ['Exercises', 'exercise_pct', 'exercise', 4],
+    ['Project', 'project_pct', 'project', 8],
+    ['Final test', 'final_pct', 'final', 16],
+];
 ?>
 <section class="dashboard-page learning-page">
   <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
@@ -21,6 +33,39 @@ $completedCount = count(array_filter($lessons, static fn(array $lesson): bool =>
       <p><?= $escape($course['short_description'] ?: 'Continue through your published course lessons.') ?></p>
     </div><span class="learning-progress-count"><?= $completedCount ?> / <?= count($lessons) ?> lessons complete</span>
   </header>
+  <section class="dashboard-panel grade-panel">
+    <div class="dashboard-panel-heading">
+      <div><p class="eyebrow">COMPLETION &amp; GRADING</p><h2>Your progress &amp; grade</h2></div>
+      <?php if ($grade !== null): ?><span class="grade-overall">Overall <strong><?= $escape($grade['letter_grade']) ?></strong> · <?= $escape($fmtPct($grade['overall_pct'])) ?>%</span><?php endif; ?>
+    </div>
+    <?php if ($grade === null): ?>
+      <p class="grade-empty">Your grade updates automatically as you watch lessons, submit quizzes and get assignments reviewed.</p>
+    <?php else: ?>
+      <div class="grade-rows">
+        <?php foreach ($gradeRows as $row): [$label, $column, $key, $bit] = $row; $present = ($gradeMask & $bit) === $bit; $pct = (float) $grade[$column]; ?>
+          <div class="grade-row<?= $present ? '' : ' grade-row-absent' ?>">
+            <span class="grade-row-label"><?= $escape($label) ?><small><?= $present ? $escape((string) (int) ($weights[$key] ?? 0)) . '% weight' : 'Not offered in this course' ?></small></span>
+            <div class="grade-bar" role="progressbar" aria-valuenow="<?= (int) round($present ? $pct : 0) ?>" aria-valuemin="0" aria-valuemax="100" aria-label="<?= $escape($label) ?> completion"><span style="--grade-fill: <?= $present ? (int) max(0, min(100, round($pct))) : 0 ?>%"></span></div>
+            <strong class="grade-row-value"><?= $present ? $escape($fmtPct($pct)) . '%' : '—' ?></strong>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <?php if ($eligibility !== null): ?>
+        <div class="grade-eligibility<?= $eligibility['ok'] ? ' grade-eligibility-ok' : '' ?>">
+          <?php if ($eligibility['ok']): ?>
+            <p class="grade-eligibility-title">You are eligible for a certificate.</p>
+            <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/student/courses">Request it in My courses</a>
+          <?php else: ?>
+            <p class="grade-eligibility-title">Your certificate unlocks once you meet every requirement:</p>
+            <ul class="grade-eligibility-list">
+              <?php foreach ($eligibility['missing'] as $reason): ?><li><?= $escape($reason) ?></li><?php endforeach; ?>
+              <?php if ($eligibility['attendance'] === null): ?><li>Attendance is measured from your first confirmed sign-in.</li><?php endif; ?>
+            </ul>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
+    <?php endif; ?>
+  </section>
   <section class="dashboard-panel learning-quiz-cta">
     <div>
       <p class="eyebrow">WEEKLY ASSESSMENTS</p>

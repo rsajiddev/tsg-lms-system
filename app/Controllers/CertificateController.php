@@ -10,6 +10,7 @@ use App\Core\RateLimiter;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
+use App\Services\CourseGrading;
 use PDO;
 use RuntimeException;
 
@@ -61,7 +62,7 @@ final class CertificateController
                      WHERE lp.student_id = ? AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
              FROM student_course_access sca
              JOIN courses c ON c.id = sca.course_id
-             WHERE sca.student_id = ? AND sca.course_id = ? AND sca.status = 'active'
+             WHERE sca.student_id = ? AND sca.course_id = ? AND sca.status IN ('active','completed','certified')
                    AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              LIMIT 1"
         );
@@ -71,6 +72,17 @@ final class CertificateController
         if ((int) $course['lesson_count'] < 1 || (int) $course['completed_lessons'] < (int) $course['lesson_count']) {
             throw new RuntimeException('Complete every published lesson in this course before requesting a certificate.');
         }
+        // Grade and attendance are now the real bar for a certificate, not just lesson completion.
+        $grading = new CourseGrading($db);
+        $eligibility = $grading->eligibility($studentId, $courseId);
+        if (!$eligibility['ok']) {
+            throw new RuntimeException('You are not eligible for a certificate yet. ' . implode(' ', $eligibility['missing']));
+        }
+        $snapshot = [
+            'overall' => round($eligibility['overall'], 2),
+            'letter' => $eligibility['letter'],
+            'attendance' => $eligibility['attendance'] === null ? null : round($eligibility['attendance'], 2),
+        ];
 
         $existing = $db->prepare('SELECT id, status FROM certificates WHERE student_id = ? AND course_id = ? LIMIT 1');
         $existing->execute([$studentId, $courseId]);
@@ -82,12 +94,12 @@ final class CertificateController
         }
 
         if (is_array($row)) {
-            $db->prepare("UPDATE certificates SET status = 'requested', student_remarks = ?, admin_remarks = NULL, requested_at = UTC_TIMESTAMP() WHERE id = ?")
-                ->execute([$remarks !== '' ? $remarks : null, (int) $row['id']]);
+            $db->prepare("UPDATE certificates SET status = 'requested', student_remarks = ?, admin_remarks = NULL, overall_percent = ?, letter_grade = ?, attendance_percent = ?, requested_at = UTC_TIMESTAMP() WHERE id = ?")
+                ->execute([$remarks !== '' ? $remarks : null, $snapshot['overall'], $snapshot['letter'], $snapshot['attendance'], (int) $row['id']]);
             $certificateId = (int) $row['id'];
         } else {
-            $db->prepare('INSERT INTO certificates(student_id, course_id, status, student_remarks, requested_at) VALUES(?,?,\'requested\',?,UTC_TIMESTAMP())')
-                ->execute([$studentId, $courseId, $remarks !== '' ? $remarks : null]);
+            $db->prepare("INSERT INTO certificates(student_id, course_id, status, student_remarks, overall_percent, letter_grade, attendance_percent, requested_at) VALUES(?,?,'requested',?,?,?,?,UTC_TIMESTAMP())")
+                ->execute([$studentId, $courseId, $remarks !== '' ? $remarks : null, $snapshot['overall'], $snapshot['letter'], $snapshot['attendance']]);
             $certificateId = (int) $db->lastInsertId();
         }
 
@@ -154,9 +166,15 @@ final class CertificateController
             if ($status !== 'all') $conditions[] = $statusFilters[$status];
             $filterClause = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
 
+            // The grade snapshot ships in the same migration; render blanks if an older import lacks it.
+            $snapshotColumns = $this->certificateSnapshotAvailable($db)
+                ? 'cert.overall_percent, cert.letter_grade, cert.attendance_percent,'
+                : 'NULL AS overall_percent, NULL AS letter_grade, NULL AS attendance_percent,';
+
             $list = $db->prepare(
                 "SELECT cert.id, cert.certificate_id, cert.status, cert.requested_at, cert.issued_at, cert.expires_at,
                         cert.student_remarks, cert.admin_remarks, cert.notified_at, cert.file_path IS NOT NULL AS has_file,
+                        {$snapshotColumns}
                         u.full_name AS student_name, u.email AS student_email,
                         c.title AS course_title, c.duration_label, c.level_label,
                         reviewer.full_name AS reviewed_by_name
@@ -250,6 +268,10 @@ final class CertificateController
             @unlink(BASE_PATH . '/storage/uploads/private/' . $storedPath);
             throw new RuntimeException('The certificate could not be issued. Reload the page and try again.');
         }
+
+        // Issuing lifts the enrollment to certified so the student portal and roster reflect it.
+        $db->prepare("UPDATE student_course_access SET status = 'certified' WHERE student_id = ? AND course_id = ? AND status IN ('active','completed')")
+            ->execute([(int) $certificate['student_id'], (int) $certificate['course_id']]);
 
         $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
             ->execute([(int) $admin['id'], 'certificate.issued', 'certificate', $certificateRowId, json_encode(['certificate_id' => $publicId, 'valid_days' => $days], JSON_THROW_ON_ERROR)]);
@@ -511,6 +533,17 @@ final class CertificateController
     private function verifyUrl(string $certificateId): string
     {
         return rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/verify?cert_id=' . rawurlencode($certificateId);
+    }
+
+    private function certificateSnapshotAvailable(PDO $db): bool
+    {
+        try {
+            $db->query('SELECT overall_percent FROM certificates LIMIT 0');
+            return true;
+        } catch (\PDOException $exception) {
+            if (($exception->errorInfo[1] ?? null) === 1054 || (string) $exception->getCode() === '42S02') return false;
+            throw $exception;
+        }
     }
 
     private function notFound(): void

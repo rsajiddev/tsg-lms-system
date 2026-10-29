@@ -7,6 +7,7 @@ $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $user = isset($user) && is_array($user) ? $user : [];
 $courses = is_array($courses ?? null) ? $courses : [];
 $certificatesAvailable = (bool) ($certificatesAvailable ?? false);
+$gradesAvailable = (bool) ($gradesAvailable ?? false);
 $flashMessage = is_string($message ?? null) && $message !== '' ? $message : null;
 $flashError = is_string($error ?? null) && $error !== '' ? $error : null;
 $grantedLabel = static function (?string $value): string {
@@ -62,10 +63,18 @@ $grantedLabel = static function (?string $value): string {
                     $certificateExpiry = $course['certificate_expires_at'] ?? null;
                     $certificateExpired = $certificateStatus === 'issued' && $certificateExpiry && strtotime((string) $certificateExpiry . ' UTC') <= time();
                     $courseComplete = $lessons > 0 && $completed >= $lessons;
+                    $accessStatus = (string) ($course['access_status'] ?? 'active');
+                    $statusMap = [
+                        'completed' => ['Completed', 'status-completed'],
+                        'certified' => ['Certified', 'status-certified'],
+                    ];
+                    [$statusLabel, $statusClass] = $statusMap[$accessStatus] ?? ['Access active', 'status-active'];
+                    $overallPct = $gradesAvailable && isset($course['overall_pct']) && $course['overall_pct'] !== null ? (float) $course['overall_pct'] : null;
+                    $overallLabel = $overallPct === null ? '' : rtrim(rtrim(number_format($overallPct, 1, '.', ''), '0'), '.') . '%';
                 ?>
                     <article class="dashboard-course-card">
                         <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
-                        <div class="dashboard-course-top"><span class="dashboard-status status-active">Access active</span></div>
+                        <div class="dashboard-course-top"><span class="dashboard-status <?= $escape($statusClass) ?>"><?= $escape($statusLabel) ?></span><?php if ($overallPct !== null): ?><span class="course-grade-badge" title="Weighted course grade"><?= $escape($overallLabel) ?> · <strong><?= $escape($course['letter_grade'] ?? '') ?></strong></span><?php endif; ?></div>
                         <p class="dashboard-course-category"><?= $escape($course['category'] ?: 'Academy course') ?></p>
                         <h3><?= $escape($course['title']) ?></h3>
                         <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>
