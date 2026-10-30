@@ -9,30 +9,39 @@ $courseCategories = array_values(array_unique(array_filter(array_map(
     static fn(array $course): string => trim((string) ($course['category'] ?? '')),
     $courses
 ))));
+$heroImages = [
+    ['file' => 'course-hero1.jpg', 'alt' => 'Learner studying a new skill'],
+    ['file' => 'course-hero2.jpg', 'alt' => 'Learner practising and taking notes'],
+    ['file' => 'course-hero3.jpg', 'alt' => 'Learners collaborating on a project'],
+    ['file' => 'course-hero4.jpg', 'alt' => 'Student building a real-world project'],
+    ['file' => 'course-hero5.jpg', 'alt' => 'Mentor guiding learners through a lesson'],
+    ['file' => 'course-hero6.jpg', 'alt' => 'Graduate working with new skills'],
+];
 ?>
 <section class="catalog-hero" data-reveal>
     <div class="catalog-hero-copy">
         <p class="eyebrow">TECH SG ACADEMY · COURSE CATALOGUE</p>
-        <h1>Learn future-ready skills.<br><span>Build your career.</span></h1>
+        <h1>Learn <span>future-ready skills.</span><br>Build your <span class="catalog-hero-highlight">career.</span></h1>
         <p class="catalog-hero-lead">Practical, project-based learning from people who build real software. Find a course, build your skills, and put them to work.</p>
         <div class="catalog-hero-actions">
             <a class="button" href="#course-list">Explore courses <span aria-hidden="true">→</span></a>
             <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">How we teach</a>
         </div>
-        <div class="catalog-hero-stats" aria-label="Academy course highlights">
-            <div><strong><?= number_format(count($courses)) ?></strong><span>published courses</span></div>
-            <div><strong>Project based</strong><span>learn by building</span></div>
-        </div>
+        <p class="catalog-hero-trust"><span><b aria-hidden="true">✓</b> Verified certificates</span><span><b aria-hidden="true">✓</b> Live + recorded formats</span><span><b aria-hidden="true">✓</b> Academy support</span></p>
     </div>
     <div class="catalog-hero-art" aria-label="Learn with Tech SG Academy">
-        <figure class="catalog-hero-photo catalog-hero-photo-one" data-image-frame>
-            <div class="course-image-placeholder" aria-live="polite"><span class="course-image-spinner" aria-hidden="true"></span><span class="course-image-status">Loading learning image…</span></div>
-            <img src="<?= Security::escape($baseUrl) ?>/public/assets/images/course-hero1.jpg" alt="Learner studying a new skill" loading="eager" decoding="async" fetchpriority="high" data-course-image>
-        </figure>
-        <figure class="catalog-hero-photo catalog-hero-photo-two" data-image-frame>
-            <div class="course-image-placeholder" aria-live="polite"><span class="course-image-spinner" aria-hidden="true"></span><span class="course-image-status">Loading learning image…</span></div>
-            <img src="<?= Security::escape($baseUrl) ?>/public/assets/images/course-hero2.jpg" alt="Learner practising and taking notes" loading="eager" decoding="async" data-course-image>
-        </figure>
+        <span class="catalog-hero-dot-grid catalog-hero-dot-grid-one" aria-hidden="true"></span>
+        <span class="catalog-hero-dot-grid catalog-hero-dot-grid-two" aria-hidden="true"></span>
+        <span class="catalog-hero-orb catalog-hero-orb-one" aria-hidden="true"></span>
+        <span class="catalog-hero-orb catalog-hero-orb-two" aria-hidden="true"></span>
+        <div class="catalog-hero-gallery">
+            <?php foreach ($heroImages as $heroIndex => $heroImage): ?>
+                <figure class="catalog-hero-tile catalog-hero-tile-<?= (int) $heroIndex + 1 ?>" data-image-frame>
+                    <div class="course-image-placeholder" aria-live="polite"><span class="course-image-spinner" aria-hidden="true"></span><span class="course-image-status">Loading learning image…</span></div>
+                    <img src="<?= Security::escape($baseUrl) ?>/public/assets/images/<?= Security::escape($heroImage['file']) ?>" alt="<?= Security::escape($heroImage['alt']) ?>" loading="<?= $heroIndex < 3 ? 'eager' : 'lazy' ?>" decoding="async"<?= $heroIndex === 0 ? ' fetchpriority="high"' : '' ?> data-course-image>
+                </figure>
+            <?php endforeach; ?>
+        </div>
         <?php if ($courseCategories !== []): ?>
             <div class="catalog-hero-categories"><p>Explore skills</p><div><?php foreach (array_slice($courseCategories, 0, 6) as $category): ?><span><?= Security::escape($category) ?></span><?php endforeach; ?></div></div>
         <?php endif; ?>
