@@ -143,12 +143,14 @@ final class MailService
         return self::accountReference($studentId, 'student');
     }
 
-    /** Permanent human-readable account reference for any role; ids are never rewritten. */
+    /**
+     * The ID to print for an account. It reads the stored reference, so a student sees the same
+     * number in an email that they see on their settings page and verify their certificate with;
+     * an account that predates the column still falls back to the old derived form.
+     */
     public static function accountReference(int $userId, string $role = 'student'): string
     {
-        if ($userId < 1) return '—';
-        $prefix = $role === 'admin' ? 'TSG-ADM-' : 'TSG-STU-';
-        return $prefix . str_pad((string) $userId, 5, '0', STR_PAD_LEFT);
+        return AccountIdentity::reference($userId, $role);
     }
 
     /** Amount wording used in email bodies: "Rs 45,000" locally, currency codes elsewhere. */

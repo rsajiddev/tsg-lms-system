@@ -16,6 +16,7 @@ foreach (
         '/app/Core/PurgeGuard.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
+        '/app/Services/AccountIdentity.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
@@ -134,6 +135,8 @@ $router->post('/account/name', [$account, 'saveName']);
 $router->post('/account/password', [$account, 'savePassword']);
 $router->post('/account/email/request', [$account, 'requestEmailChange']);
 $router->post('/account/email/confirm', [$account, 'confirmEmailChange']);
+$router->post('/admin/account/identity-scheme', [$account, 'saveIdentityScheme']);
+$router->post('/admin/account/id', [$account, 'saveAdminId']);
 $router->post('/student/certificates/request', [\App\Controllers\CertificateController::class, 'request']);
 $router->post('/student/attendance/mark', [\App\Controllers\AttendanceController::class, 'mark']);
 $router->get('/admin/certificates', [\App\Controllers\CertificateController::class, 'adminIndex']);

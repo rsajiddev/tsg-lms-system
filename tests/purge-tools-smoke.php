@@ -29,6 +29,7 @@ foreach (
         '/app/Core/PurgeGuard.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
+        '/app/Services/AccountIdentity.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',

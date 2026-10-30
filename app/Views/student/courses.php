@@ -123,7 +123,7 @@ $grantedLabel = static function (?string $value): string {
                                     <p class="certificate-line"><small>Certificate ID</small><strong><?= $escape($certificateNumber) ?></strong></p>
                                     <p class="certificate-line"><small>Valid until</small><strong><?= $escape($grantedLabel($certificateExpiry)) ?></strong></p>
                                     <div class="certificate-actions">
-                                        <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($certificateNumber)) ?>">Download JPG</a>
+                                        <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($certificateNumber)) ?>&course_id=<?= (int) ($course['id'] ?? 0) ?>">Download JPG</a>
                                         <a class="certificate-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode($certificateNumber)) ?>" target="_blank" rel="noopener">Public verification page →</a>
                                     </div>
                                 <?php elseif ($certificateStatus === 'issued' && $certificateExpired): ?>

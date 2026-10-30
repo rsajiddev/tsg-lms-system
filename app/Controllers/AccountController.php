@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\AuthService;
+use App\Services\AccountIdentity;
 use App\Services\MailService;
 
 /**
@@ -16,8 +17,11 @@ use App\Services\MailService;
  *
  * One controller and one template serve both roles, because the fields, the validation and
  * the confirmation flow are identical — only the labels differ (Student ID versus Admin ID)
- * and the destination each form returns to. The account id itself is never editable: it is
- * the primary key the whole platform references, so it is displayed read-only by design.
+ * and the destination each form returns to. The database id behind the account is never
+ * editable: it is the primary key the whole platform references, so it is displayed read-only
+ * by design. The public ID is a different matter. An admin sets the scheme every new student ID
+ * is minted from, and may rename their own, because those two numbers are printed on documents
+ * and typed into a verification box rather than joined against.
  *
  * Email changes are the one field that cannot simply be written. A code is sent to the new
  * address and the change is applied only when that code is confirmed, so a typo can never
@@ -105,6 +109,75 @@ final class AccountController
         $this->back($user);
     }
 
+    /**
+     * Admin-only: the prefix and the first number every new student ID is minted from.
+     *
+     * Saved together with the optional re-numbering of the students already on the roll in one
+     * transaction, so the scheme can never be half-applied - a prefix saved without the counter
+     * would hand out IDs in a format nobody asked for.
+     */
+    public function saveIdentityScheme(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $this->assertCsrf();
+        try {
+            $this->performSaveScheme($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+        }
+        $this->redirect('/admin/account');
+    }
+
+    private function performSaveScheme(array $admin): void
+    {
+        $prefix = AccountIdentity::cleanPrefix((string) ($_POST['student_id_prefix'] ?? ''));
+        $start = trim((string) ($_POST['student_id_start'] ?? ''));
+        if (!ctype_digit($start) || (int) $start < 1) {
+            throw new RuntimeException('Enter the number the next student ID starts at, for example 1.');
+        }
+        $reissue = ((string) ($_POST['apply_to_existing'] ?? '')) === '1';
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $scheme = AccountIdentity::saveScheme($db, $prefix, (int) $start, (int) $admin['id']);
+            $tally = $reissue ? AccountIdentity::reissueStudents($db, (int) $admin['id']) : ['students' => 0, 'certificates' => 0];
+            $next = $reissue ? AccountIdentity::scheme($db)['next'] : $scheme['next'];
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'account.identity_scheme_updated','app_settings',?)")
+                ->execute([(int) $admin['id'], json_encode(['prefix' => $scheme['prefix'], 'start' => (int) $start, 'reissued_students' => $tally['students'], 'reissued_certificates' => $tally['certificates']], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+        $example = AccountIdentity::format($scheme['prefix'], $next);
+        $_SESSION['_flash'] = $tally['students'] > 0
+            ? 'Student ID scheme saved. ' . $tally['students'] . ' student' . ($tally['students'] === 1 ? '' : 's') . ' re-numbered from ' . AccountIdentity::format($scheme['prefix'], (int) $start) . ', ' . $tally['certificates'] . ' issued certificate' . ($tally['certificates'] === 1 ? '' : 's') . ' carried across. The next sign-up gets ' . $example . '.'
+            : 'Student ID scheme saved. The next student to sign up is issued ' . $example . '.';
+    }
+
+    /**
+     * Admin-only: rename the ID this account is quoted by. Confirmed in a dialog first, because
+     * the number is on every receipt and certificate this account has already handed out.
+     */
+    public function saveAdminId(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $this->assertCsrf();
+        try {
+            $db = Database::connection();
+            $before = AccountIdentity::reference((int) $admin['id'], 'admin');
+            $reference = AccountIdentity::setReference($db, (int) $admin['id'], (string) ($_POST['account_reference'] ?? ''));
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
+                ->execute([(int) $admin['id'], 'account.id_updated', 'user', (int) $admin['id'], json_encode(['from' => $before, 'to' => $reference], JSON_THROW_ON_ERROR)]);
+            $_SESSION['_flash'] = $before === $reference
+                ? 'Your Admin ID is still ' . $reference . ' - nothing needed changing.'
+                : 'Your Admin ID is now ' . $reference . '. Anything already issued under ' . $before . ' points at it too.';
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+        }
+        $this->redirect('/admin/account');
+    }
+
     /* -------------------------------------------------------------------------- helpers */
 
     private function renderPage(string $role): void
@@ -128,12 +201,35 @@ final class AccountController
         } catch (\Throwable $exception) {
             $account = [];
         }
+        // Only an admin sees the scheme card, and the page still renders on its defaults if the
+        // settings table is missing, so a half-imported database cannot blank the workspace.
+        $scheme = [
+            'prefix' => AccountIdentity::DEFAULT_PREFIX,
+            'start' => 1,
+            'example' => AccountIdentity::format(AccountIdentity::DEFAULT_PREFIX, 1),
+            'students' => 0,
+        ];
+        if ($role === 'admin') {
+            try {
+                $db = Database::connection();
+                $current = AccountIdentity::scheme($db);
+                $scheme = [
+                    'prefix' => $current['prefix'],
+                    'start' => $current['next'],
+                    'example' => AccountIdentity::format($current['prefix'], $current['next']),
+                    'students' => AccountIdentity::countStudents($db),
+                ];
+            } catch (\Throwable $exception) {
+                // The defaults above are what an un-seeded install would hand out anyway.
+            }
+        }
         View::render('account/settings', [
             'title' => $role === 'admin' ? 'My account' : 'Account settings',
             'user' => $user,
             'role' => $role,
             'idLabel' => $role === 'admin' ? 'Admin ID' : 'Student ID',
             'publicId' => MailService::accountReference((int) $user['id'], $role),
+            'scheme' => $scheme,
             'pendingEmail' => $auth->pendingEmailChange((int) $user['id']),
             'account' => $account,
             'minPassword' => self::MIN_PASSWORD_LENGTH,

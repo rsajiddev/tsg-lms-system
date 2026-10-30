@@ -28,6 +28,7 @@ foreach (
         '/app/Core/PurgeGuard.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
+        '/app/Services/AccountIdentity.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/AuthService.php',
@@ -56,6 +57,7 @@ use App\Controllers\CourseAdminController;
 use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
+use App\Services\AccountIdentity;
 use App\Services\NotificationService;
 
 Env::load(BASE_PATH . '/.env');
@@ -298,7 +300,17 @@ $checkPage('Admin account settings', '/admin/account', static fn() => (new Accou
     'Admin ID',
     'current_password',
     'TSG-ADM-',
+    'account-settings-page',
+    'Student ID scheme',
+    'student_id_prefix',
+    'student_id_start',
+    'admin-id-form',
+    'data-admin-modal-open="admin-id-change"',
+    'data-admin-modal-open="student-id-scheme-confirm"',
 ]);
+$html = $render(static fn() => (new AccountController())->adminSettings());
+$assert(str_contains($html, 'Confirm new ID') && str_contains($html, 'Confirm and save'),
+    'Both ID dialogs ask for an explicit confirmation.', 'An ID change can be submitted without a confirmation dialog.');
 
 $signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
 $checkPage('Student dashboard badges', '/dashboard', static fn() => (new DashboardController())->show(), [
@@ -316,7 +328,13 @@ $checkPage('Student account settings', '/student/settings', static fn() => (new 
     'TSG-STU-',
     'new_password',
     'readonly',
+    'account-settings-page',
 ]);
+$html = $render(static fn() => (new AccountController())->studentSettings());
+$assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered the ID scheme card.',
+    'The student settings page exposes the scheme an admin owns.');
+$assert(stripos($html, 'account-id-input') === false, 'A student sees their ID as read-only text.',
+    'The student settings page renders an editable ID field.');
 
 /* ------------------------------------------------------------------------ badge wiring */
 echo "\n-- sidebar badge wiring\n";
@@ -330,6 +348,65 @@ $quizLink = $matches['body'][0] ?? '';
 $assert(str_contains($quizLink, 'dashboard-nav-badge'), 'The quizzes link carries a badge next to its label.',
     'The quizzes link carries no badge although unread quiz notifications exist.');
 $assert(!str_contains($quizLink, '>0<'), 'No badge on the quizzes link renders a zero.', 'A badge renders a literal zero on the quizzes link.');
+
+/* -------------------------------------------------------------------- account identity */
+echo "\n-- student ID scheme\n";
+$schemeBefore = AccountIdentity::scheme($db);
+$firstMint = AccountIdentity::issue($db);
+$assert(str_starts_with($firstMint, $schemeBefore['prefix'] . '-'), 'A new sign-up is issued an ID in the saved format: ' . $firstMint . '.',
+    'Issuing an ID ignored the saved prefix and produced ' . $firstMint . '.');
+$held = $db->prepare('SELECT COUNT(*) FROM users WHERE account_reference = ?');
+$held->execute([$firstMint]);
+$assert((int) $held->fetchColumn() === 0, 'The minted ID belongs to nobody yet, so two sign-ups cannot share it.',
+    'Issuing an ID handed back a number that is already on an account.');
+$assert(AccountIdentity::scheme($db)['next'] > $schemeBefore['next'], 'The counter moved past ' . $firstMint . ' instead of reusing it.',
+    'Issuing an ID left the counter where it was.');
+
+// A row that predates the column has to be given a real scheme ID, not a derived guess, because
+// the certificate is issued under the number the student can see on their own settings page.
+$db->exec('UPDATE users SET account_reference = NULL WHERE email = ' . $db->quote($studentEmail));
+$ensured = AccountIdentity::ensure($db, $studentId);
+$assert(str_starts_with($ensured, $schemeBefore['prefix'] . '-'), 'An account with no ID is issued one from the scheme: ' . $ensured . '.',
+    'ensure() did not mint a scheme ID for an account that had none.');
+
+$renamed = AccountIdentity::setReference($db, $adminId, 'tsg-adm-smoke');
+$assert($renamed === 'TSG-ADM-SMOKE', 'A typed Admin ID is stored upper-cased: ' . $renamed . '.',
+    'setReference() stored ' . $renamed . ' instead of TSG-ADM-SMOKE.');
+$clash = '';
+try {
+    AccountIdentity::setReference($db, $studentId, 'TSG-ADM-SMOKE');
+} catch (\Throwable $exception) {
+    $clash = $exception->getMessage();
+}
+$assert(stripos($clash, 'unique') !== false, 'A second account cannot take an ID that is already in use.',
+    'Two accounts were allowed to answer to the same ID.');
+
+$saved = AccountIdentity::saveScheme($db, 'tsg-smoke', 700, $adminId);
+$assert($saved['prefix'] === 'TSG-SMOKE' && AccountIdentity::scheme($db)['next'] === 700,
+    'The settings page stores the prefix and the first number it was given.',
+    'saveScheme() did not persist both halves of the scheme.');
+$db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at) VALUES(?,?,?,'issued',UTC_TIMESTAMP())")
+    ->execute([$ensured, $studentId, $courseId]);
+$tally = AccountIdentity::reissueStudents($db, $adminId);
+$rank = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'student' AND id <= " . (int) $studentId)->fetchColumn();
+$expected = AccountIdentity::format('TSG-SMOKE', 700 + $rank - 1);
+$actual = (string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn();
+$assert($actual === $expected, 'Re-issuing numbered the fixture student as ' . $actual . ', oldest account first.',
+    'Re-issuing left the fixture student at ' . $actual . ' instead of ' . $expected . '.');
+$carried = (string) $db->query('SELECT certificate_id FROM certificates WHERE student_id = ' . (int) $studentId)->fetchColumn();
+$assert($carried === $actual, 'A certificate already issued follows its owner to the new number.',
+    'The issued certificate stayed at ' . $carried . ' while the account moved to ' . $actual . '.');
+$assert((int) $tally['students'] >= 1 && AccountIdentity::scheme($db)['next'] === 700 + (int) $tally['students'],
+    'The counter leaves the re-numbered set behind at ' . AccountIdentity::scheme($db)['next'] . '.',
+    'The counter did not clear the students that were just re-numbered.');
+
+// Leave the scratch database as this section found it: the fixture accounts are deleted at the
+// start of every run anyway, and no later assertion should have to know about these numbers.
+$db->exec('DELETE FROM certificates WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE users SET account_reference = NULL WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ')');
+AccountIdentity::saveScheme($db, $schemeBefore['prefix'], $schemeBefore['next'], $adminId);
+$assert(AccountIdentity::scheme($db) === $schemeBefore, 'The scheme the run found is the scheme it left behind.',
+    'The identity section did not restore the saved scheme.');
 
 echo "\n";
 if ($failures !== []) {

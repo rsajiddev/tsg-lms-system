@@ -21,6 +21,7 @@ namespace {
     require BASE_PATH . '/app/Core/RateLimiter.php';
     require BASE_PATH . '/app/Services/EmailLayout.php';
     require BASE_PATH . '/app/Services/EmailMessages.php';
+    require BASE_PATH . '/app/Services/AccountIdentity.php';
     require BASE_PATH . '/app/Services/MailService.php';
     require BASE_PATH . '/app/Services/AttendanceService.php';
     require BASE_PATH . '/app/Services/AuthService.php';

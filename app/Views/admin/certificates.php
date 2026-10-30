@@ -10,7 +10,7 @@ use App\Core\Security;
  * @var string $search
  * @var bool $schemaAvailable
  * @var string $contactAddress
- * @var array{prefix:string,days:int,max_prefix_length:int,min_days:int,max_days:int} $certificateValues
+ * @var array{days:int,min_days:int,max_days:int,idExample:string} $certificateValues
  * @var array{grade:int,attendance:int,validDays:int} $criteria
  * @var string|null $message
  * @var string|null $error
@@ -183,7 +183,7 @@ $filters = [
                                     <td class="certificate-row-actions" data-label="Actions">
                                         <?php if ($rowStatus === 'issued'): ?>
                                             <?php if (!empty($certificate['has_file'])): ?>
-                                                <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($publicId)) ?>">Download JPG <span aria-hidden="true">↓</span></a>
+                                                <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($publicId)) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">Download JPG <span aria-hidden="true">↓</span></a>
                                             <?php endif; ?>
                                             <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode($publicId)) ?>" target="_blank" rel="noopener">View public record <span aria-hidden="true">→</span></a>
                                         <?php else: ?>
@@ -235,7 +235,7 @@ $filters = [
                 </div>
                 <div class="admin-card-titles">
                     <h2>Certificate settings</h2>
-                    <p>Control the identifier format and validity period used when an admin issues a student certificate.</p>
+                    <p>Control how long an issued certificate stays verifiable.</p>
                 </div>
             </div>
         </div>
@@ -244,9 +244,9 @@ $filters = [
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
             <div class="admin-form-row">
                 <div class="admin-field">
-                    <label class="admin-label" for="certificate-id-prefix">Certificate ID prefix</label>
-                    <input class="admin-input" id="certificate-id-prefix" name="certificate_id_prefix" maxlength="<?= (int) ($certificateValues['max_prefix_length'] ?? 24) ?>" required autocomplete="off" spellcheck="false" value="<?= $escape($certificateValues['prefix'] ?? 'TSG-CERT') ?>" placeholder="TSG-CERT">
-                    <span class="admin-hint">Up to <?= (int) ($certificateValues['max_prefix_length'] ?? 24) ?> uppercase letters, digits or single hyphens, starting with a letter. New IDs are issued as PREFIX-YEAR-SEQUENCE.</span>
+                    <label class="admin-label" for="certificate-id-scheme">Certificate ID</label>
+                    <input class="admin-input" id="certificate-id-scheme" type="text" value="Issued as <?= $escape($certificateValues['idExample'] ?? 'TSG-CER-001') ?>" readonly>
+                    <span class="admin-hint">A certificate carries its owner's own account ID, so the student verifies it with the number they were given. The prefix and the number new students start at are set on your <a href="<?= $escape($baseUrl) ?>/admin/account">account settings</a> page.</span>
                 </div>
                 <div class="admin-field">
                     <label class="admin-label" for="certificate-available-days">Available for</label>

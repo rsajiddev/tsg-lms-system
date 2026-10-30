@@ -20,6 +20,7 @@ foreach (
         '/app/Core/Database.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
+        '/app/Services/AccountIdentity.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
     ] as $file
@@ -115,7 +116,9 @@ try {
     $check($approved, 'payment.approved', 3);
     $assert($legalLinksForStudent($approved), 'The student approval mail must carry the three legal links.');
     $approvedHtml = EmailLayout::html((string) $approved[0]['subject'], (array) $approved[0]['view']);
-    $assert(str_contains($approvedHtml, 'TSG-STU-00042'), 'The approval mail must show the Student ID.');
+    // The mail quotes whatever ID the account carries, so the assertion asks the same service the
+    // template asks instead of hard-coding a number that only holds for an account with no ID yet.
+    $assert(str_contains($approvedHtml, \App\Services\AccountIdentity::reference(42, 'student')), 'The approval mail must show the Student ID.');
     $assert(str_contains($approvedHtml, 'student@example.test'), 'The approval mail must repeat the sign-in email address.');
     $check(EmailMessages::paymentDecision($payment + ['decision' => 'rejected', 'note' => 'The receipt is unreadable.', 'decided_at' => gmdate('Y-m-d H:i:s'), 'receipt_number' => '—', 'reviewer_name' => 'Admin', 'reviewer_email' => 'admin@example.test']), 'payment.rejected', 1);
     $check(EmailMessages::monthlyRevenue([
@@ -136,7 +139,17 @@ try {
         $assert((bool) $db->query('SHOW TABLES LIKE ' . $db->quote($table))->fetchColumn(), $table . ' is missing; import database/migrations/001_initial_schema.sql.');
     }
     $studentId = 0;
+    $adminId = 0;
     try {
+        // Publishing with no actor of its own falls back to the senior admin, so a database that
+        // has never had one - a scratch schema straight from the migration - needs an admin before
+        // the fan-out can be asked for anything at all.
+        $seniorAdmin = (int) ($db->query("SELECT id FROM users WHERE role = 'admin' AND status = 'active' AND email_verified_at IS NOT NULL ORDER BY id LIMIT 1")->fetchColumn() ?: 0);
+        if ($seniorAdmin === 0) {
+            $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Notification Smoke Admin',?, 'unusable-hash','admin','active', UTC_TIMESTAMP())")
+                ->execute(['mail-smoke-admin-' . bin2hex(random_bytes(6)) . '@example.test']);
+            $adminId = (int) $db->lastInsertId();
+        }
         $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?, 'active', UTC_TIMESTAMP())")
             ->execute(['Notification Smoke Test', 'mail-smoke-' . bin2hex(random_bytes(6)) . '@example.test', 'unusable-hash', 'student']);
         $studentId = (int) $db->lastInsertId();
@@ -172,9 +185,16 @@ try {
     } finally {
         if ($studentId > 0) {
             $db->prepare('DELETE FROM notification_recipients WHERE student_id=?')->execute([$studentId]);
-            $db->prepare('DELETE FROM users WHERE id=?')->execute([$studentId]);
         }
         $db->prepare('DELETE FROM notifications WHERE source_id IN (901,902,903,904,905,906) AND title LIKE ?')->execute(['Smoke %']);
+        // The accounts answer foreign keys of their own, so they go last - the admin holds the
+        // notifications it just published until those rows are gone.
+        if ($studentId > 0) {
+            $db->prepare('DELETE FROM users WHERE id=?')->execute([$studentId]);
+        }
+        if ($adminId > 0) {
+            $db->prepare('DELETE FROM users WHERE id=?')->execute([$adminId]);
+        }
     }
 } catch (Throwable $exception) {
     $failures = 1;

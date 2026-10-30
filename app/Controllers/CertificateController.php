@@ -10,6 +10,7 @@ use App\Core\RateLimiter;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseGrading;
+use App\Services\AccountIdentity;
 use App\Services\MailService;
 use App\Services\NotificationService;
 use PDO;
@@ -17,7 +18,12 @@ use RuntimeException;
 
 /**
  * Certificate requests, admin issuing, public verification, and the certificate settings
- * that shape an issued identifier.
+ * that shape the validity window.
+ *
+ * A certificate is issued under its owner's account ID rather than a number of its own, so the
+ * ID printed on the document is the one the student was given at sign-up and the one they type
+ * into the verification page. A student with two courses therefore has two certificates that
+ * share one ID, and the public page lists them together.
  *
  * Certificate images live below storage/uploads/private, which is outside the
  * document root and blocked by .htaccess. Every reader goes through this
@@ -32,14 +38,10 @@ final class CertificateController
     private const CONTACT_FALLBACK = 'info@techsgstudio.com';
 
     /** Certificate defaults keep the workspace usable before an admin edits anything. */
-    public const PREFIX_KEY = 'certificate_id_prefix';
     public const DAYS_KEY = 'certificate_available_days';
-    public const DEFAULT_PREFIX = 'TSG-CERT';
     public const DEFAULT_DAYS = 15;
     public const MIN_DAYS = 1;
     public const MAX_DAYS = 3650;
-    public const MAX_PREFIX_LENGTH = 24;
-    public const PREFIX_PATTERN = '/^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$/';
 
     /** A student asks for the certificate of a course they have finished. */
     public function request(): void
@@ -147,7 +149,10 @@ final class CertificateController
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
-        $settings = $this->certificateSettings($db);
+        $days = $this->validityDays($db);
+        // Shown on the settings card so the admin can see which ID the next certificate takes.
+        $scheme = AccountIdentity::scheme($db);
+        $nextStudentId = AccountIdentity::format($scheme['prefix'], $scheme['next']);
         $status = (string) ($_GET['status'] ?? 'all');
         if (!in_array($status, ['all', 'requested', 'issued', 'expired', 'rejected'], true)) $status = 'all';
         $search = trim((string) ($_GET['q'] ?? ''));
@@ -197,7 +202,7 @@ final class CertificateController
                 : 'NULL AS overall_percent, NULL AS letter_grade, NULL AS attendance_percent,';
 
             $list = $db->prepare(
-                "SELECT cert.id, cert.certificate_id, cert.status, cert.requested_at, cert.issued_at, cert.expires_at,
+                "SELECT cert.id, cert.course_id, cert.certificate_id, cert.status, cert.requested_at, cert.issued_at, cert.expires_at,
                         cert.student_remarks, cert.admin_remarks, cert.notified_at, cert.file_path IS NOT NULL AS has_file,
                         {$snapshotColumns}
                         u.full_name AS student_name, u.email AS student_email,
@@ -227,13 +232,12 @@ final class CertificateController
             'schemaAvailable' => $schemaAvailable,
             'contactAddress' => $this->contactAddress(),
             'certificateValues' => [
-                'prefix' => $settings[0],
-                'days' => $settings[1],
-                'max_prefix_length' => self::MAX_PREFIX_LENGTH,
+                'days' => $days,
                 'min_days' => self::MIN_DAYS,
                 'max_days' => self::MAX_DAYS,
+                'idExample' => $nextStudentId,
             ],
-            'criteria' => $this->eligibilityCriteria($db, (int) $settings[1]),
+            'criteria' => $this->eligibilityCriteria($db, $days),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
@@ -241,8 +245,10 @@ final class CertificateController
     }
 
     /**
-     * Saves the identifier prefix and validity period. Branding is validated here rather than in
-     * the browser, so a crafted request can never store a prefix that would leak into public URLs.
+     * Saves how long an issued certificate stays verifiable. The number of days is validated
+     * here rather than in the browser, so a crafted request cannot park an absurd value in the
+     * settings table. The ID itself is no longer configured on this page: certificates carry
+     * their owner's account ID, and that scheme is set under Admin to Account settings.
      */
     public function saveSettings(): void
     {
@@ -260,11 +266,6 @@ final class CertificateController
         if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
             throw new RuntimeException('Your session expired. Refresh the page and try again.');
         }
-        $prefix = strtoupper(trim((string) ($_POST[self::PREFIX_KEY] ?? '')));
-        if ($prefix === '') $prefix = self::DEFAULT_PREFIX;
-        if (mb_strlen($prefix) > self::MAX_PREFIX_LENGTH || preg_match(self::PREFIX_PATTERN, $prefix) !== 1) {
-            throw new RuntimeException('Certificate ID prefix must be up to ' . self::MAX_PREFIX_LENGTH . ' characters: uppercase letters, digits or single hyphens, starting with a letter (for example TSG-CERT).');
-        }
         $rawDays = trim((string) ($_POST[self::DAYS_KEY] ?? ''));
         if (!ctype_digit($rawDays) || (int) $rawDays < self::MIN_DAYS || (int) $rawDays > self::MAX_DAYS) {
             throw new RuntimeException('Certificate availability must be between ' . self::MIN_DAYS . ' and ' . self::MAX_DAYS . ' days.');
@@ -273,9 +274,8 @@ final class CertificateController
         $db->beginTransaction();
         try {
             $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
-            $upsert->execute([self::PREFIX_KEY, $prefix, (int) $admin['id']]);
             $upsert->execute([self::DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('prefix',?, 'days', ?))")->execute([(int) $admin['id'], $prefix, (int) $rawDays]);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('days', ?))")->execute([(int) $admin['id'], (int) $rawDays]);
             $db->commit();
             $_SESSION['_flash'] = 'Certificate settings saved.';
         } catch (\Throwable $e) {
@@ -335,8 +335,11 @@ final class CertificateController
         if ((string) $certificate['status'] === 'issued') throw new RuntimeException('This certificate has already been issued.');
 
         $storedPath = $this->storeCertificateJpg($upload);
-        [$prefix, $days] = $this->certificateSettings($db);
-        $publicId = $this->nextCertificateId($db, $prefix);
+        $days = $this->validityDays($db);
+        // The certificate is issued under its owner's own account ID, so the number printed on
+        // the document is the one the student already quotes everywhere else and types into the
+        // verification page. Accounts from before the ID column are filled in here first.
+        $publicId = AccountIdentity::ensure($db, (int) $certificate['student_id']);
 
         $update = $db->prepare(
             "UPDATE certificates
@@ -387,7 +390,7 @@ final class CertificateController
             'Congratulations! Your certificate for ' . $certificate['course_title'] . ' has been issued as ' . $publicId . ' and is ready to download from your courses page.',
             'certificate',
             $certificateRowId,
-            '/certificate/download?cert_id=' . rawurlencode($publicId),
+            '/certificate/download?cert_id=' . rawurlencode($publicId) . '&course_id=' . (int) $certificate['course_id'],
             (int) $admin['id']
         );
 
@@ -464,40 +467,45 @@ final class CertificateController
     public function verify(): void
     {
         $rawId = strtoupper(trim((string) ($_GET['cert_id'] ?? '')));
-        $result = ['state' => 'empty', 'certificate' => null];
+        $result = ['state' => 'empty', 'certificates' => []];
         $contact = $this->contactAddress();
 
         if ($rawId !== '') {
             if (!$this->publicLookupAllowed($rawId)) {
-                $result = ['state' => 'limited', 'certificate' => null];
+                $result = ['state' => 'limited', 'certificates' => []];
             } elseif (preg_match(self::PUBLIC_ID_PATTERN, $rawId) !== 1) {
-                $result = ['state' => 'invalid', 'certificate' => null];
+                $result = ['state' => 'invalid', 'certificates' => []];
             } else {
                 try {
                     $db = Database::connection();
+                    // One ID now opens every certificate behind it, so this has no LIMIT: a student
+                    // who finished two courses gets both documents listed, the live ones first.
                     $stmt = $db->prepare(
-                        "SELECT cert.certificate_id, cert.issued_at, cert.expires_at, cert.admin_remarks,
+                        "SELECT cert.id AS certificate_row_id, cert.course_id, cert.certificate_id,
+                                cert.issued_at, cert.expires_at, cert.admin_remarks,
                                 cert.file_path IS NOT NULL AS has_file,
                                 u.full_name AS student_name, c.title AS course_title, c.duration_label, c.level_label
                          FROM certificates cert
                          JOIN users u ON u.id = cert.student_id
                          JOIN courses c ON c.id = cert.course_id
                          WHERE cert.certificate_id = ? AND cert.status = 'issued'
-                         LIMIT 1"
+                         ORDER BY (cert.expires_at IS NOT NULL AND cert.expires_at <= UTC_TIMESTAMP()), cert.issued_at DESC"
                     );
                     $stmt->execute([$rawId]);
-                    $certificate = $stmt->fetch();
-                    if (!is_array($certificate)) {
-                        $result = ['state' => 'not_found', 'certificate' => null];
-                    } elseif ($certificate['expires_at'] !== null && (string) $certificate['expires_at'] <= gmdate('Y-m-d H:i:s')) {
-                        $result = ['state' => 'expired', 'certificate' => $certificate];
+                    $rows = array_values(array_filter((array) $stmt->fetchAll(), 'is_array'));
+                    if ($rows === []) {
+                        $result = ['state' => 'not_found', 'certificates' => []];
                     } else {
-                        $result = ['state' => 'valid', 'certificate' => $certificate];
+                        $now = gmdate('Y-m-d H:i:s');
+                        $live = array_filter($rows, static function (array $row) use ($now): bool {
+                            return (string) ($row['expires_at'] ?? '') === '' || (string) $row['expires_at'] > $now;
+                        });
+                        $result = ['state' => $live === [] ? 'expired' : 'valid', 'certificates' => $rows];
                     }
                 } catch (\PDOException $exception) {
                     // Never leak connection or schema detail to an anonymous visitor.
                     error_log('[CERTIFICATE] Verification lookup failed: ' . $exception->getMessage());
-                    $result = ['state' => 'unavailable', 'certificate' => null];
+                    $result = ['state' => 'unavailable', 'certificates' => []];
                 }
             }
         }
@@ -524,15 +532,23 @@ final class CertificateController
             return;
         }
 
+        $courseId = filter_var($_GET['course_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
+        $sql = "SELECT certificate_id, file_path FROM certificates
+                 WHERE certificate_id = ? AND status = 'issued' AND file_path IS NOT NULL
+                       AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())";
+        $params = [$rawId];
+        // Several certificates can share one ID, so the page that linked here names the course.
+        // Without that hint the most recent live certificate is served.
+        if ($courseId > 0) {
+            $sql .= ' AND course_id = ?';
+            $params[] = $courseId;
+        }
+        $sql .= ' ORDER BY issued_at DESC LIMIT 1';
+
         $db = Database::connection();
         try {
-            $stmt = $db->prepare(
-                "SELECT certificate_id, file_path FROM certificates
-                 WHERE certificate_id = ? AND status = 'issued' AND file_path IS NOT NULL
-                       AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
-                 LIMIT 1"
-            );
-            $stmt->execute([$rawId]);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
             $certificate = $stmt->fetch();
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
@@ -586,43 +602,19 @@ final class CertificateController
         }
     }
 
-    private function certificateSettings(PDO $db): array
+    /** How many days an issued certificate stays verifiable, falling back to the default. */
+    private function validityDays(PDO $db): int
     {
-        $prefix = self::DEFAULT_PREFIX;
         $days = self::DEFAULT_DAYS;
         try {
-            $statement = $db->prepare('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?)');
-            $statement->execute([self::PREFIX_KEY, self::DAYS_KEY]);
-            foreach ($statement->fetchAll() as $row) {
-                if ($row['setting_key'] === self::PREFIX_KEY) $prefix = strtoupper(trim((string) $row['setting_value']));
-                if ($row['setting_key'] === self::DAYS_KEY) $days = (int) $row['setting_value'];
-            }
+            $statement = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+            $statement->execute([self::DAYS_KEY]);
+            $stored = $statement->fetchColumn();
+            if ($stored !== false) $days = (int) $stored;
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
         }
-        if (preg_match(self::PREFIX_PATTERN, $prefix) !== 1 || mb_strlen($prefix) > self::MAX_PREFIX_LENGTH) {
-            $prefix = self::DEFAULT_PREFIX;
-        }
-        if ($days < self::MIN_DAYS || $days > self::MAX_DAYS) {
-            $days = self::DEFAULT_DAYS;
-        }
-        return [$prefix, $days];
-    }
-
-    private function nextCertificateId(PDO $db, string $prefix): string
-    {
-        $year = (int) gmdate('Y');
-        $count = $db->prepare('SELECT COUNT(*) FROM certificates WHERE certificate_id LIKE ?');
-        $count->execute([$prefix . '-' . $year . '-%']);
-        $sequence = (int) $count->fetchColumn() + 1;
-        $exists = $db->prepare('SELECT 1 FROM certificates WHERE certificate_id = ? LIMIT 1');
-        do {
-            $candidate = sprintf('%s-%d-%03d', $prefix, $year, $sequence);
-            $exists->execute([$candidate]);
-            if (!$exists->fetch()) return $candidate;
-            $sequence++;
-        } while ($sequence < 100000);
-        throw new RuntimeException('The certificate sequence is exhausted for this year.');
+        return $days >= self::MIN_DAYS && $days <= self::MAX_DAYS ? $days : self::DEFAULT_DAYS;
     }
 
     private function storeCertificateJpg(array $upload): string

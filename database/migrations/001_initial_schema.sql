@@ -1658,7 +1658,9 @@ CREATE TABLE IF NOT EXISTS certificates (
        notified_at DATETIME NULL,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_certificate_student_course(student_id, course_id),
-       UNIQUE KEY uq_certificate_public_id(certificate_id),
+       -- The public ID is an account reference, not a document reference: a student with two
+       -- certificates has them both under one number, so this is a lookup index, not a constraint.
+       INDEX idx_certificate_public_id(certificate_id),
        CONSTRAINT fk_certificate_student FOREIGN KEY(student_id) REFERENCES users(id),
        CONSTRAINT fk_certificate_course FOREIGN KEY(course_id) REFERENCES courses(id),
        CONSTRAINT fk_certificate_issuer FOREIGN KEY(issued_by) REFERENCES users(id),
@@ -1668,9 +1670,10 @@ CREATE TABLE IF NOT EXISTS certificates (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Certificate defaults are seeded once and never overwritten by a re-import, so admin edits survive.
+-- The old certificate_id_prefix setting is gone for good: a certificate carries its owner's account
+-- ID, and that scheme is seeded with the account-reference section at the end of this file.
 INSERT INTO app_settings(setting_key, setting_value)
 VALUES
-       ('certificate_id_prefix', 'TSG-CERT'),
        ('certificate_available_days', '15')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 
@@ -1937,5 +1940,205 @@ CREATE TABLE IF NOT EXISTS email_logs (
        INDEX idx_email_logs_status(status, created_at),
        INDEX idx_email_logs_template(template_key)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- Account references: the public ID an account is quoted by.
+--
+-- That ID used to be derived from the primary key (TSG-STU-00004), so it could never be
+-- edited and could never be the number a student verifies a certificate with. It is now a
+-- stored column. Students are numbered from a scheme the admin controls on their own
+-- settings page, and a certificate is issued under its owner's ID, so one number opens
+-- both the account and the certificate.
+-- ---------------------------------------------------------------------------
+SET
+       @add_user_account_reference = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE users ADD COLUMN account_reference VARCHAR(64) NULL AFTER role',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'users'
+                     AND COLUMN_NAME = 'account_reference'
+       );
+
+PREPARE add_user_account_reference_stmt
+FROM
+       @add_user_account_reference;
+
+EXECUTE add_user_account_reference_stmt;
+
+DEALLOCATE PREPARE add_user_account_reference_stmt;
+
+SET
+       @add_user_reference_index = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE users ADD UNIQUE KEY uq_users_account_reference(account_reference)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'users'
+                     AND INDEX_NAME = 'uq_users_account_reference'
+       );
+
+PREPARE add_user_reference_index_stmt
+FROM
+       @add_user_reference_index;
+
+EXECUTE add_user_reference_index_stmt;
+
+DEALLOCATE PREPARE add_user_reference_index_stmt;
+
+-- A student who finishes a second course gets a second certificate under the same ID, so
+-- the public ID can no longer be unique on its own. It stays indexed: it is what the
+-- public verification page searches on.
+SET
+       @drop_certificate_public_unique = (
+              SELECT
+                     IF(
+                            COUNT(*) > 0,
+                            'ALTER TABLE certificates DROP INDEX uq_certificate_public_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND INDEX_NAME = 'uq_certificate_public_id'
+       );
+
+PREPARE drop_certificate_public_unique_stmt
+FROM
+       @drop_certificate_public_unique;
+
+EXECUTE drop_certificate_public_unique_stmt;
+
+DEALLOCATE PREPARE drop_certificate_public_unique_stmt;
+
+SET
+       @add_certificate_public_index = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE certificates ADD INDEX idx_certificate_public_id(certificate_id)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND INDEX_NAME = 'idx_certificate_public_id'
+       );
+
+PREPARE add_certificate_public_index_stmt
+FROM
+       @add_certificate_public_index;
+
+EXECUTE add_certificate_public_index_stmt;
+
+DEALLOCATE PREPARE add_certificate_public_index_stmt;
+
+-- The scheme the admin edits on their settings page. The prefix is the branding, the
+-- number is where the next student to register will start.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('student_id_prefix', 'TSG-CER'),
+       ('student_id_next_number', '1')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
+-- Give every account that has no ID yet a stored one. Accounts that already carry an ID are
+-- never touched, so re-running this cannot renumber a student out of their own certificate.
+-- The casts to UNSIGNED are load-bearing: COALESCE and NULLIF merge MariaDB's integer literals
+-- into DECIMAL, and a DECIMAL sequence would print as "TSG-CER-1.0000000000000000".
+SET
+       @student_id_prefix = COALESCE(
+              NULLIF((SELECT setting_value FROM app_settings WHERE setting_key = 'student_id_prefix'), ''),
+              'TSG-CER'
+       );
+
+SET
+       @student_id_base = CAST(
+              COALESCE(
+                     NULLIF((SELECT CAST(setting_value AS UNSIGNED) FROM app_settings WHERE setting_key = 'student_id_next_number'), 0),
+                     1
+              ) AS UNSIGNED
+       );
+
+UPDATE users u
+JOIN (
+       SELECT
+              id,
+              ROW_NUMBER() OVER (ORDER BY id) AS sequence_step
+       FROM
+              users
+       WHERE
+              account_reference IS NULL
+              AND role = 'student'
+) numbered ON numbered.id = u.id
+SET
+       u.account_reference = CONCAT(
+              @student_id_prefix,
+              '-',
+              LPAD(
+                     CAST(@student_id_base + numbered.sequence_step - 1 AS UNSIGNED),
+                     GREATEST(3, CHAR_LENGTH(CAST(CAST(@student_id_base + numbered.sequence_step - 1 AS UNSIGNED) AS CHAR))),
+                     '0'
+              )
+       );
+
+-- Admins keep the format they were already quoted by in receipts and emails.
+UPDATE users u
+JOIN (
+       SELECT
+              id,
+              ROW_NUMBER() OVER (ORDER BY id) AS sequence_step
+       FROM
+              users
+       WHERE
+              account_reference IS NULL
+              AND role = 'admin'
+) numbered ON numbered.id = u.id
+SET
+       u.account_reference = CONCAT('TSG-ADM-', LPAD(numbered.sequence_step, 5, '0'));
+
+-- The counter has to move past whatever this backfill just handed out, otherwise the next
+-- registration would collide with an ID that is already taken.
+SET
+       @highest_student_sequence = CAST(
+              COALESCE(
+                     (
+                            SELECT
+                                   MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                            FROM
+                                   users
+                            WHERE
+                                   role = 'student'
+                                   AND account_reference IS NOT NULL
+                     ),
+                     0
+              ) AS UNSIGNED
+       );
+
+UPDATE app_settings
+SET
+       setting_value = CAST(CAST(GREATEST(CAST(setting_value AS UNSIGNED), @highest_student_sequence + 1) AS UNSIGNED) AS CHAR)
+WHERE
+       setting_key = 'student_id_next_number';
+
+-- Nothing reads the per-certificate prefix any longer, so the row is retired rather than left
+-- behind looking like a setting that still does something. Certificates already issued keep the
+-- number printed on them in certificates.certificate_id, so no document is affected by this.
+DELETE FROM app_settings WHERE setting_key = 'certificate_id_prefix';
 
 SET FOREIGN_KEY_CHECKS = 1;

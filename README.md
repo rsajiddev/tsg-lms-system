@@ -21,7 +21,7 @@ This README is the single catalogue of what is implemented. Every feature that s
 - Home page with course highlights, reviews and academy call-to-action.
 - Course catalogue (`/courses`), per-course detail pages (`/courses/{slug}`), About, Contact.
 - Legal pages: Privacy Policy, Refund Policy, Terms of Service.
-- Public certificate verification (`/verify`) and certificate download (`/certificate/download`).
+- Public certificate verification (`/verify`) and certificate download (`/certificate/download`). The number a visitor types is the owner's Academy ID, and one ID legitimately opens several certificates — one per finished course — so the page lists every document behind it, keeps the verified/expired state per row, and each download names its course (`/certificate/download?cert_id=…&course_id=…`).
 - Public course review submission (`/reviews`).
 - `/health` reports database connectivity without exposing connection details.
 
@@ -67,7 +67,8 @@ This README is the single catalogue of what is implemented. Every feature that s
 
 ### Certificates
 - Admin issues and rejects certificates, students request them, verification and download public endpoints.
-- The **Certificates** page (`/admin/certificates`) owns its own settings: the *Certificate settings* card edits `certificate_id_prefix` and `certificate_available_days` (`POST /admin/certificates/settings`), and an *Eligibility requirements* card above the queue states the three bars an admin is enforcing.
+- A certificate is printed with its owner's **Student ID** (`users.account_reference`) rather than a number minted per document, so the ID on the paper is the same one the student signs up with and the one they type into `/verify`. `certificates.certificate_id` is therefore indexed, not unique — the uniqueness that matters is `UNIQUE(student_id, course_id)`.
+- The **Certificates** page (`/admin/certificates`) owns its own settings: the *Certificate settings* card edits `certificate_available_days` (`POST /admin/certificates/settings`), and an *Eligibility requirements* card above the queue states the three bars an admin is enforcing. The ID prefix no longer lives here — it moved to the *Student ID scheme* card on the admin's account settings page, because the same number identifies the account as well as the document.
 - A request is gated on grade and attendance, not just lesson completion: the overall grade must reach `certificate_min_grade_percent` (default 50) and attendance — present as a share of decided days since access was granted — must reach `certificate_min_attendance_percent` (default 75). The refusal states the exact shortfall ("Overall grade is 46.33% (F); you need at least 50%."), and the same requirements are published on both sides: read-only on the Certificates page for the admin and in a collapsible *What you need for a certificate* panel on the student **My courses** page, plus on the course page before the student submits.
 - Attendance is only enforced once at least one day has been decided, so a student who just enrolled is not blocked by an unmeasurable 0%. Pending days are ignored; only present and absent count.
 - The grade, letter and attendance percentage achieved at request time are snapshotted onto the certificate row, so the record shows what the student had earned when they asked, and issuing sets the enrollment to `certified`.
@@ -92,7 +93,10 @@ This README is the single catalogue of what is implemented. Every feature that s
 ### Account settings (student and admin)
 - Student: `/student/settings`. Admin: `/admin/account`. Both render `app/Views/account/settings.php` inside the normal dashboard shell.
 - What a user may change is the profile: display name (`POST /account/name`, 2–150 characters), password (`POST /account/password` — the current password must verify, the new one must be at least 12 characters and differ from the old one, failures are rate-limited per account, and the change is written to `audit_logs`) and email address, which is only applied after a six-digit OTP delivered to the new address (`POST /account/email/request`, `POST /account/email/confirm`); the pending change is shown on the page until it expires.
-- The account reference shown at the top — `TSG-STU-00004` / `TSG-ADM-00001` — is derived from the immutable primary key and rendered `readonly`: it is quoted in emails, receipts and certificates, so it is never editable and never rewritten. Admin → **Settings** (`/admin/settings`) stays what it was: authentication limits only.
+- Every account carries a public ID in `users.account_reference` — `TSG-CER-001` for a student, `TSG-ADM-00001` for an admin. It is stored, not derived, and it is the number quoted in emails, receipts and on certificates, so the student's own ID is what a visitor types into `/verify`.
+- Admins only, on the same page: the **Student ID scheme** card (`POST /admin/account/identity-scheme`) sets the prefix and the first number every new Student ID is minted from (`student_id_prefix`, `student_id_next_number`), and its *Re-issue existing students* checkbox renumbers the whole roll oldest-first in one transaction — clearing the old references first so the unique index cannot collide, skipping numbers an admin already answers to, carrying already-issued certificates along with their owner and moving the counter past the last number handed out. New sign-ups continue from there. The card shows a live example and the student count, and a confirmation dialog repeats the values before they are saved.
+- Also admins only: their **own** Admin ID is an editable field (`POST /admin/account/id`) behind a confirmation dialog that quotes the old and the new value and lists what a rename touches. An ID that is malformed or already taken by another account is refused and the old one stays. Both writes land in `audit_logs` (`account.identity_scheme_updated`, `account.id_updated`).
+- A student's own ID is read-only on their page: it is printed on documents, so only the admin's scheme writes it. Admin → **Settings** (`/admin/settings`) stays what it was: authentication limits only. Cards on both settings pages follow the platform's 22px gap (16px below 640px).
 
 ### Testing tools: bulk delete
 - Admin → **Assignments**, **Quizzes** and **Lesson library** each carry a *Delete all* card (`app/Views/components/purge-zone.php`) posting to `/admin/assignments/purge`, `/admin/quizzes/purge` and `/admin/lessons/purge`. The card can scope the delete to one course or leave it at "every course".
@@ -198,17 +202,23 @@ Numbers to trust: attendance counts only decided days since `granted_at` (pendin
 | `email-notification-smoke.php` | every `MAIL_*` recipient resolves, all email events render as HTML and plain text, notification fan-out, badge counts, coalescing, source retirement | passes |
 | `purge-tools-smoke.php` | wrong phrase deletes nothing, the three bulk deletes empty every dependant in foreign-key order, files/notifications/grades/audit handled | passes |
 | `interface-render-smoke.php` | dashboard, announcements, student inbox, both account settings pages and the three purge workspaces render; sidebar badges count real unread work; `.env` / `.env.example` keys agree | passes |
+| `certificate-verify-smoke.php` | one Academy ID opening several certificates, the multi-certificate banner, per-row expiry, the download link naming the live course, lower-case and malformed input | passes |
+| `admin-identity-flow-smoke.php` | both admin identity POSTs end to end in a child process: scheme save and re-numbering, certificates carried along, counter, stale CSRF writing nothing, Admin ID rename with duplicate/malformed refusal, audit rows, a student bounced by the role guard | passes |
 
-The two destructive scripts only ever run against a scratch database, and the guard is part of the design: each refuses any `--database=` value that does not contain `tmp`, `check`, `scratch` or `test`, and creates and imports the schema itself when the database does not exist yet. The other scripts run on the development database and delete the fixture rows they create.
+Scripts that write bulk rows only ever run against a scratch database, and the guard is part of the design: each refuses any `--database=` value that does not contain `tmp`, `check`, `scratch` or `test`, and creates and imports the schema itself when the database does not exist yet (`purge-tools`, `interface-render`, `certificate-verify`, `admin-identity`). `email-notification-smoke.php` takes `--database=` too but expects the schema to be imported first. The rest run on the development database and delete the fixture rows they create.
 
 ```bash
 /Applications/XAMPP/xamppfiles/bin/php tests/auth-flow-smoke.php
 /Applications/XAMPP/xamppfiles/bin/php tests/email-notification-smoke.php
 /Applications/XAMPP/xamppfiles/bin/php tests/purge-tools-smoke.php --database=tsg_purge_check_tmp
 /Applications/XAMPP/xamppfiles/bin/php tests/interface-render-smoke.php --database=tsg_render_check_tmp --drop=1
+/Applications/XAMPP/xamppfiles/bin/php tests/certificate-verify-smoke.php --database=tsg_verify_check_tmp --drop=1
+/Applications/XAMPP/xamppfiles/bin/php tests/admin-identity-flow-smoke.php --database=tsg_identity_check_tmp --drop=1
 ```
 
 `auth-flow-smoke.php` does not stub the mailer. It starts a throwaway SMTP server on `127.0.0.1`, points `MAIL_*` at it and reads the messages the application actually puts on the wire, so the handshake, the login, the MIME envelope and the `email_logs` row are all exercised for real. Nothing leaves the machine. The `MAIL_*` values it needs are overridden inside the script, so it runs unchanged on a development `.env`.
+
+`admin-identity-flow-smoke.php` uses the same child-process trick for a different reason: the two admin identity handlers end in a redirect and an `exit`, which would take the parent down with them, so each POST is replayed in a throwaway process and every claim is read back out of the database rather than out of the HTML.
 
 `tests/TEST-PLAN.md` lists the manual regression matrix that goes with the scripts above.
 

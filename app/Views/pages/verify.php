@@ -4,16 +4,20 @@ use App\Core\Security;
 
 /**
  * Public certificate verification page, rendered by CertificateController::verify().
+ *
+ * A certificate is issued under its owner's account ID, so one ID can legitimately open several
+ * certificates - one per course - and every match is listed.
+ *
  * @var string $query
- * @var array{state: string, certificate: array<string, mixed>|null} $result
+ * @var array{state: string, certificates: array<int, array<string, mixed>>} $result
  * @var string $contact
  */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $query = is_string($query ?? null) ? $query : '';
-$result = is_array($result ?? null) ? $result : ['state' => 'empty', 'certificate' => null];
+$result = is_array($result ?? null) ? $result : ['state' => 'empty', 'certificates' => []];
 $contact = is_string($contact ?? null) && $contact !== '' ? $contact : 'info@techsgstudio.com';
-$certificate = is_array($result['certificate'] ?? null) ? $result['certificate'] : null;
+$certificates = is_array($result['certificates'] ?? null) ? array_values($result['certificates']) : [];
 $state = (string) ($result['state'] ?? 'empty');
 $formatDate = static function (?string $value): string {
     if (!$value) {
@@ -35,10 +39,10 @@ $formatDate = static function (?string $value): string {
     <form class="verify-search-card" method="get" action="<?= $escape($baseUrl) ?>/verify" role="search">
         <label class="sr-only" for="cert-id">Certificate ID</label>
         <div class="verify-search-field">
-            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="TSG-CERT-2026-001" autocomplete="off" spellcheck="false" maxlength="64" required>
+            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="TSG-CER-001" autocomplete="off" spellcheck="false" maxlength="64" required>
             <button class="button verify-search-button" type="submit">Verify</button>
         </div>
-        <p class="verify-search-hint">The ID is printed at the bottom of your certificate, for example <strong>TSG-CERT-2026-001</strong>.</p>
+        <p class="verify-search-hint">Use the Academy ID printed on your certificate, or the Student ID shown in your account settings, for example <strong>TSG-CER-001</strong>.</p>
     </form>
 </section>
 
@@ -49,74 +53,65 @@ $formatDate = static function (?string $value): string {
             <article><strong>Courses &amp; workshops</strong><span>Both verified here</span></article>
             <article><strong>Free</strong><span>For everyone</span></article>
         </div>
-    <?php elseif ($state === 'valid' && is_array($certificate)): ?>
-        <article class="verify-card verify-card-valid">
-            <header class="verify-card-head">
-                <span class="verify-card-mark" aria-hidden="true">✓</span>
-                <div>
-                    <h2>Certificate verified</h2>
-                    <p>This certificate is genuine and was issued by Tech SG Academy.</p>
-                </div>
-            </header>
-            <div class="verify-card-body">
-                <p class="verify-awarded">Awarded to</p>
-                <h3 class="verify-name"><?= $escape($certificate['student_name']) ?></h3>
-                <p class="verify-course"><?= $escape($certificate['course_title']) ?></p>
-                <dl class="verify-grid">
-                    <div><dt>Certificate ID</dt><dd class="verify-id"><?= $escape($certificate['certificate_id']) ?></dd></div>
-                    <div><dt>Date of issue</dt><dd><?= $escape($formatDate((string) ($certificate['issued_at'] ?? ''))) ?></dd></div>
-                    <div><dt>Course duration</dt><dd><?= $escape($certificate['duration_label'] ?: 'Not specified') ?></dd></div>
-                    <div><dt>Level</dt><dd><?= $escape($certificate['level_label'] ?: 'All levels') ?></dd></div>
-                    <div><dt>Valid until</dt><dd><?= $escape($formatDate((string) ($certificate['expires_at'] ?? ''))) ?></dd></div>
-                    <div><dt>Status</dt><dd class="verify-ok">✓ Valid</dd></div>
-                </dl>
-                <?php if (!empty($certificate['admin_remarks'])): ?>
-                    <p class="verify-remarks"><strong>Academy remarks</strong><span><?= $escape($certificate['admin_remarks']) ?></span></p>
-                <?php endif; ?>
-                <div class="verify-authenticity">
-                    <span class="verify-authenticity-icon" aria-hidden="true">🛡</span>
+    <?php elseif (($state === 'valid' || $state === 'expired') && $certificates !== []): ?>
+        <?php if (count($certificates) > 1): ?>
+            <p class="verify-multiple">This ID was issued for <strong><?= count($certificates) ?></strong> certificates by Tech SG Academy. Every one of them is listed below.</p>
+        <?php endif; ?>
+        <?php foreach ($certificates as $cardIndex => $certificate): ?>
+            <?php $lapsed = (string) ($certificate['expires_at'] ?? '') !== '' && (string) $certificate['expires_at'] <= gmdate('Y-m-d H:i:s'); ?>
+            <article class="verify-card <?= $lapsed ? 'verify-card-expired' : 'verify-card-valid' ?>">
+                <header class="verify-card-head">
+                    <span class="verify-card-mark" aria-hidden="true"><?= $lapsed ? '⏱' : '✓' ?></span>
                     <div>
-                        <h4>Authenticity confirmed</h4>
-                        <p>For employers, universities, and institutions.</p>
-                        <ul>
-                            <li>Record found in the official Tech SG Academy certificate register</li>
-                            <li>Certificate is active and has not been revoked</li>
-                            <li>Name, course and issue date above come directly from our records</li>
-                        </ul>
+                        <h2><?= $lapsed ? 'Certificate expired' : 'Certificate verified' ?></h2>
+                        <p><?= $lapsed ? 'This certificate was genuine but its verification window has closed.' : 'This certificate is genuine and was issued by Tech SG Academy.' ?></p>
                     </div>
+                </header>
+                <div class="verify-card-body">
+                    <p class="verify-awarded">Awarded to</p>
+                    <h3 class="verify-name"><?= $escape($certificate['student_name']) ?></h3>
+                    <p class="verify-course"><?= $escape($certificate['course_title']) ?></p>
+                    <dl class="verify-grid">
+                        <div><dt>Certificate ID</dt><dd class="verify-id"><?= $escape($certificate['certificate_id']) ?></dd></div>
+                        <div><dt>Date of issue</dt><dd><?= $escape($formatDate((string) ($certificate['issued_at'] ?? ''))) ?></dd></div>
+                        <div><dt>Course duration</dt><dd><?= $escape($certificate['duration_label'] ?: 'Not specified') ?></dd></div>
+                        <div><dt>Level</dt><dd><?= $escape($certificate['level_label'] ?: 'All levels') ?></dd></div>
+                        <div><dt>Valid until</dt><dd><?= $escape($formatDate((string) ($certificate['expires_at'] ?? ''))) ?></dd></div>
+                        <div><dt>Status</dt><dd class="<?= $lapsed ? 'verify-lapsed' : 'verify-ok' ?>"><?= $lapsed ? '⏱ Expired' : '✓ Valid' ?></dd></div>
+                    </dl>
+                    <?php if (!empty($certificate['admin_remarks'])): ?>
+                        <p class="verify-remarks"><strong>Academy remarks</strong><span><?= $escape($certificate['admin_remarks']) ?></span></p>
+                    <?php endif; ?>
+                    <?php if (!$lapsed): ?>
+                        <div class="verify-authenticity">
+                            <span class="verify-authenticity-icon" aria-hidden="true">🛡</span>
+                            <div>
+                                <h4>Authenticity confirmed</h4>
+                                <p>For employers, universities, and institutions.</p>
+                                <ul>
+                                    <li>Record found in the official Tech SG Academy certificate register</li>
+                                    <li>Certificate is active and has not been revoked</li>
+                                    <li>Name, course and issue date above come directly from our records</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <?php if (!empty($certificate['has_file'])): ?>
+                            <div class="verify-actions">
+                                <a class="button verify-download" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode((string) $certificate['certificate_id'])) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">↓ Download certificate</a>
+                                <?php if ($cardIndex === 0): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/courses">Browse our courses</a><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p class="verify-help">The certificate can no longer be downloaded or shared as valid proof. To renew the verification period, contact <a href="mailto:<?= $escape($contact) ?>"><?= $escape($contact) ?></a> with the certificate ID.</p>
+                    <?php endif; ?>
                 </div>
-                <?php if (!empty($certificate['has_file'])): ?>
-                    <div class="verify-actions">
-                        <a class="button verify-download" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode((string) $certificate['certificate_id'])) ?>">↓ Download certificate</a>
-                        <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/courses">Browse our courses</a>
-                    </div>
-                <?php endif; ?>
-            </div>
-            <footer class="verify-card-foot">Verified live from our records on <?= $escape(gmdate('j F Y')) ?>.</footer>
-        </article>
-    <?php elseif ($state === 'expired' && is_array($certificate)): ?>
-        <article class="verify-card verify-card-expired">
-            <header class="verify-card-head">
-                <span class="verify-card-mark" aria-hidden="true">⏱</span>
-                <div>
-                    <h2>Certificate expired</h2>
-                    <p>This certificate was genuine but its verification window has closed.</p>
-                </div>
-            </header>
-            <div class="verify-card-body">
-                <dl class="verify-grid">
-                    <div><dt>Certificate ID</dt><dd class="verify-id"><?= $escape($certificate['certificate_id']) ?></dd></div>
-                    <div><dt>Held by</dt><dd><?= $escape($certificate['student_name']) ?></dd></div>
-                    <div><dt>Course</dt><dd><?= $escape($certificate['course_title']) ?></dd></div>
-                    <div><dt>Expired on</dt><dd><?= $escape($formatDate((string) ($certificate['expires_at'] ?? ''))) ?></dd></div>
-                </dl>
-                <p class="verify-help">The certificate can no longer be downloaded or shared as valid proof. To renew the verification period, contact <a href="mailto:<?= $escape($contact) ?>"><?= $escape($contact) ?></a> with the certificate ID.</p>
-            </div>
-        </article>
+                <footer class="verify-card-foot">Verified live from our records on <?= $escape(gmdate('j F Y')) ?>.</footer>
+            </article>
+        <?php endforeach; ?>
     <?php else: ?>
         <?php
         $headings = [
-            'invalid' => ['That does not look like a certificate ID', 'Certificate IDs use letters, digits and hyphens only — for example TSG-CERT-2026-001.'],
+            'invalid' => ['That does not look like a certificate ID', 'Academy IDs use letters, digits and hyphens only — for example TSG-CER-001.'],
             'limited' => ['Too many checks from this connection', 'Please wait a few minutes and try again.'],
             'unavailable' => ['Verification is temporarily unavailable', 'Our certificate register cannot be reached right now. Please try again shortly.'],
         ];
@@ -142,7 +137,7 @@ $formatDate = static function (?string $value): string {
     <h2>How verification works</h2>
     <div class="verify-how-grid">
         <article><span class="verify-step" aria-hidden="true">1</span><h3>Finish your course</h3><p>Complete every published lesson, then request your certificate from <strong>My courses</strong> in your student workspace.</p></article>
-        <article><span class="verify-step" aria-hidden="true">2</span><h3>The academy issues it</h3><p>An admin reviews the request and publishes a signed certificate with its own ID and validity period.</p></article>
-        <article><span class="verify-step" aria-hidden="true">3</span><h3>Anyone can confirm it</h3><p>Share the certificate ID or the verification link — employers and institutions can check it here without an account.</p></article>
+        <article><span class="verify-step" aria-hidden="true">2</span><h3>The academy issues it</h3><p>An admin reviews the request and publishes a signed certificate under your Academy ID, with its own validity period.</p></article>
+        <article><span class="verify-step" aria-hidden="true">3</span><h3>Anyone can confirm it</h3><p>Share your Academy ID or the verification link — employers and institutions can check every certificate behind it here without an account.</p></article>
     </div>
 </section>

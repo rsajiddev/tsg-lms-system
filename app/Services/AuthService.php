@@ -33,6 +33,12 @@ final class AuthService
             $stmt = $this->db->prepare("INSERT INTO users (full_name, email, password_hash, role, status) VALUES (?, ?, ?, 'student', 'pending')");
             $stmt->execute([$name, strtolower($email), password_hash($password, PASSWORD_DEFAULT)]);
             $userId = (int) $this->db->lastInsertId();
+            // The ID is issued with the account rather than derived later: it is what the
+            // welcome email, the receipt and eventually the certificate all quote, and the
+            // student verifies their certificate with it.
+            $reference = AccountIdentity::issue($this->db);
+            $this->db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
+            AccountIdentity::remember($userId, $reference);
             $code = $this->issueOtp($userId, 'verify_email');
             $this->db->commit();
         } catch (PDOException $exception) {

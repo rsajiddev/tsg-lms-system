@@ -741,6 +741,28 @@
 
     const adminModalTriggers = document.querySelectorAll('[data-admin-modal-open]');
 
+    /* A confirmation dialog is only worth having if it repeats what is about to change, so
+       every [data-confirm-value] node inside one is filled from the field whose id it names the
+       moment the dialog opens. The markup ships the saved value, so the text is never blank
+       and the dialog still reads correctly with JavaScript switched off. */
+    const syncConfirmValues = (modal) => {
+        modal.querySelectorAll('[data-confirm-value]').forEach((node) => {
+            const key = node.dataset.confirmValue;
+            const field = document.getElementById(key) || document.querySelector('[name="' + key + '"]');
+
+            if (!field) {
+                return;
+            }
+
+            if (field.type === 'checkbox') {
+                node.textContent = field.checked ? 'Yes' : 'No';
+                return;
+            }
+
+            node.textContent = field.value.trim() === '' ? '—' : field.value.trim();
+        });
+    };
+
     if (adminModalTriggers.length) {
         document.documentElement.classList.add('admin-modal-js');
 
@@ -753,6 +775,7 @@
             document.body.classList.add('admin-modal-open');
             modalOpenCount += 1;
             bodyScrollLock();
+            syncConfirmValues(modal);
 
             const firstField = modal.querySelector(
                 'input:not([type="hidden"]):not([type="radio"]), select, textarea'
