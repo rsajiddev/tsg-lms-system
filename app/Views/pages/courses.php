@@ -5,10 +5,6 @@ use App\Core\Security;
 $courses = isset($courses) && is_array($courses) ? $courses : [];
 $catalogueAvailable = isset($catalogueAvailable) ? (bool) $catalogueAvailable : false;
 $baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
-$courseCategories = array_values(array_unique(array_filter(array_map(
-    static fn(array $course): string => trim((string) ($course['category'] ?? '')),
-    $courses
-))));
 $heroImages = [
     ['file' => 'course-hero1.jpg', 'alt' => 'Learner studying a new skill'],
     ['file' => 'course-hero2.jpg', 'alt' => 'Learner practising and taking notes'],
@@ -27,7 +23,6 @@ $heroImages = [
             <a class="button" href="#course-list">Explore courses <span aria-hidden="true">→</span></a>
             <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">How we teach</a>
         </div>
-        <p class="catalog-hero-trust"><span><b aria-hidden="true">✓</b> Verified certificates</span><span><b aria-hidden="true">✓</b> Live + recorded formats</span><span><b aria-hidden="true">✓</b> Academy support</span></p>
     </div>
     <div class="catalog-hero-art" aria-label="Learn with Tech SG Academy">
         <span class="catalog-hero-dot-grid catalog-hero-dot-grid-one" aria-hidden="true"></span>
@@ -42,9 +37,6 @@ $heroImages = [
                 </figure>
             <?php endforeach; ?>
         </div>
-        <?php if ($courseCategories !== []): ?>
-            <div class="catalog-hero-categories"><p>Explore skills</p><div><?php foreach (array_slice($courseCategories, 0, 6) as $category): ?><span><?= Security::escape($category) ?></span><?php endforeach; ?></div></div>
-        <?php endif; ?>
     </div>
 </section>
 

@@ -10097,16 +10097,13 @@ html.admin-modal-js .admin-modal.is-open {
 .catalog-hero-lead {max-width:570px;margin:22px 0 0;color:var(--muted);font-size:clamp(16px,1.6vw,19px);line-height:1.75}
 .catalog-hero-actions {display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
 .catalog-hero-actions .button {display:inline-flex;align-items:center;gap:10px}
-.catalog-hero-trust {display:flex;flex-wrap:wrap;gap:8px 22px;margin:30px 0 0;padding-top:22px;border-top:1px solid var(--border);color:#4d5f78;font-size:12.5px;font-weight:700}
-.catalog-hero-trust span {display:inline-flex;align-items:center;gap:8px}
-.catalog-hero-trust b {display:grid;width:19px;height:19px;flex:0 0 19px;place-items:center;border-radius:50%;background:#e7f8ef;color:#15804b;font-size:11px}
-.catalog-hero-art {position:relative;min-width:0;padding:14px 8px 84px}
+.catalog-hero-art {position:relative;min-width:0;padding:14px 8px 34px}
 .catalog-hero-dot-grid {position:absolute;z-index:0;width:56px;height:44px;background-image:radial-gradient(#b7c8ea 1.6px,transparent 1.6px);background-size:14px 14px;pointer-events:none}
 .catalog-hero-dot-grid-one {top:-6px;right:2px}
-.catalog-hero-dot-grid-two {bottom:78px;left:-14px}
+.catalog-hero-dot-grid-two {bottom:28px;left:-14px}
 .catalog-hero-orb {position:absolute;z-index:0;border-radius:50%;pointer-events:none}
 .catalog-hero-orb-one {top:34px;left:-26px;width:58px;height:58px;background:radial-gradient(circle at 32% 30%,#60a5fa,#2563eb)}
-.catalog-hero-orb-two {right:26px;bottom:66px;width:34px;height:34px;background:#f59e0b3d}
+.catalog-hero-orb-two {right:26px;bottom:16px;width:34px;height:34px;background:#f59e0b3d}
 .catalog-hero-gallery {position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .catalog-hero-tile {position:relative;overflow:hidden;aspect-ratio:3/4;margin:0;border:1px solid #dfe7f2;border-radius:999px 999px 28px 28px;background:#eef3fb;box-shadow:0 18px 46px #172b4d14;transition:transform .3s ease,box-shadow .3s ease}
 .catalog-hero-tile:hover {transform:translateY(-6px);box-shadow:0 26px 54px #172b4d22}
@@ -10118,11 +10115,7 @@ html.admin-modal-js .admin-modal.is-open {
 .catalog-hero-tile-2:hover,.catalog-hero-tile-5:hover {transform:translateY(20px)}
 .catalog-hero-tile img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.025);transition:opacity .5s ease,transform .8s cubic-bezier(.2,.75,.25,1)}
 .catalog-hero-tile.is-loaded img {opacity:1;transform:scale(1)}
-.catalog-hero-categories {position:absolute;right:8px;bottom:0;z-index:2;width:min(86%,400px);padding:18px 20px;border:1px solid #e2e9f4;border-radius:20px;background:#fff;box-shadow:0 18px 48px #16284718}
-.catalog-hero-categories p {margin:0 0 11px;color:var(--navy);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-.catalog-hero-categories>div {display:flex;flex-wrap:wrap;gap:8px}
-.catalog-hero-categories span {max-width:100%;padding:7px 11px;border:1px solid #e8edf5;border-radius:999px;background:#f7f9fd;color:#485c78;font-size:11px;font-weight:650;overflow-wrap:anywhere}
-.catalog-courses {padding:clamp(34px,5vw,62px) 0 8px;border-top:1px solid var(--border)}
+.catalog-courses {padding:clamp(8px,1.6vw,18px) 0 8px}
 .catalog-courses .section-heading {margin:0 0 12px}
 .catalog-courses .section-heading>div>p:last-child {max-width:600px;margin:10px 0 0;color:var(--muted);line-height:1.65}
 .catalog-course-grid,.home-course-grid {align-items:stretch}
@@ -10175,17 +10168,13 @@ html.admin-modal-js .admin-modal.is-open {
   .catalog-hero {grid-template-columns:minmax(0,1fr);gap:28px;padding-top:34px}
   .catalog-hero-copy h1 {font-size:clamp(39px,11vw,58px)}
   .catalog-hero-lead {margin-top:16px;font-size:16px}
-  .catalog-hero-trust {gap:8px 16px;margin-top:22px}
   .catalog-hero-art {padding:6px 4px 22px}
   .catalog-hero-dot-grid-two {left:-4px}
   .catalog-hero-orb-one {top:10px;left:-16px;width:44px;height:44px}
   .catalog-hero-tile {border-radius:999px 999px 20px 20px}
   .catalog-hero-tile-2,.catalog-hero-tile-5 {transform:translateY(16px)}
   .catalog-hero-tile-2:hover,.catalog-hero-tile-5:hover {transform:translateY(10px)}
-  .catalog-hero-gallery {margin-bottom:16px}
-  .catalog-hero-categories {position:static;right:auto;bottom:auto;width:100%;padding:14px;border-radius:16px;box-shadow:0 14px 34px #16284712}
-  .catalog-hero-categories span {padding:6px 9px;font-size:10px}
-  .catalog-courses {padding-top:38px}
+  .catalog-courses {padding-top:10px}
   .course-card-content {padding:19px}
   .course-benefits {padding-inline:20px}
   .course-benefit-grid {gap:12px}
@@ -10195,12 +10184,11 @@ html.admin-modal-js .admin-modal.is-open {
   .catalog-hero-actions {display:grid;grid-template-columns:1fr}
   .catalog-hero-actions .button {justify-content:center}
   .catalog-hero-art {padding:4px 2px 18px}
-  .catalog-hero-gallery {gap:8px;margin-bottom:12px}
+  .catalog-hero-gallery {gap:8px}
   .catalog-hero-tile {border-radius:999px 999px 16px 16px}
   .catalog-hero-tile-2,.catalog-hero-tile-5 {transform:translateY(10px)}
   .catalog-hero-dot-grid {width:42px;height:30px;background-size:12px 12px}
   .catalog-hero-orb-two {display:none}
-  .catalog-hero-categories {width:100%;padding:12px 13px}
   .course-card-content {padding:17px}
   .course-card-prices>div {align-items:flex-start;flex-direction:column;gap:5px}
   .course-benefit-grid {grid-template-columns:minmax(0,1fr)}
