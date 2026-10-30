@@ -9,7 +9,8 @@ $notifications = is_array($notifications ?? null) ? $notifications : [];
 $automated = is_array($automated ?? null) ? $automated : [];
 $emailLog = is_array($emailLog ?? null) ? $emailLog : [];
 $unreadTotal = (int) ($unreadTotal ?? 0);
-$message = $message ?? null; ?>
+$message = $message ?? null;
+$error = $error ?? null; ?>
 <section class="dashboard-page admin-workspace">
     <header class="admin-header">
         <div class="admin-header-main"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
@@ -19,6 +20,7 @@ $message = $message ?? null; ?>
         </div>
     </header>
     <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
+    <?php if ($error ?? null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
     <section class="admin-card">
         <div class="admin-card-header">
             <div class="admin-card-titles">
@@ -69,13 +71,13 @@ $message = $message ?? null; ?>
         <?php if ($automated === []): ?><div class="admin-empty-state">
                 <h3>No automated updates yet</h3>
                 <p>Publish a lesson, test, assignment or payment decision and the enrolled students are notified automatically.</p>
-            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Update</th><th>Area</th><th>Recipients</th><th>Unread</th><th>Published</th></tr></thead><tbody>
+            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table admin-table-stacked"><thead><tr><th>Update</th><th>Area</th><th>Recipients</th><th>Unread</th><th>Published</th></tr></thead><tbody>
                     <?php foreach ($automated as $row): ?><tr>
-                            <td><a href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $row['id'] ?>"><?= $escape($row['title']) ?></a></td>
-                            <td><span class="dashboard-status"><?= $escape(ucfirst((string) $row['category'])) ?></span></td>
-                            <td><?= (int) $row['recipient_count'] ?></td>
-                            <td><?= (int) $row['unread_count'] ?></td>
-                            <td><?= $escape(date('M j, Y H:i', strtotime((string) $row['published_at']))) ?> UTC</td>
+                            <td data-label="Update"><a href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $row['id'] ?>"><?= $escape($row['title']) ?></a></td>
+                            <td data-label="Area"><span class="dashboard-status"><?= $escape(ucfirst((string) $row['category'])) ?></span></td>
+                            <td data-label="Recipients"><?= (int) $row['recipient_count'] ?></td>
+                            <td data-label="Unread"><?= (int) $row['unread_count'] ?></td>
+                            <td data-label="Published"><?= $escape(date('M j, Y H:i', strtotime((string) $row['published_at']))) ?> UTC</td>
                         </tr><?php endforeach; ?>
                 </tbody></table></div><?php endif; ?>
     </section>
@@ -85,17 +87,21 @@ $message = $message ?? null; ?>
                 <h2>Email delivery log</h2>
                 <p>The latest <?= count($emailLog) ?> automated emails and whether SMTP accepted them. Message bodies are never stored.</p>
             </div>
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/announcements/email-log/clear" class="student-status-form" onsubmit="return confirm('Clear every recorded email delivery? The log starts again with the next message.')">
+                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                <button class="student-action-button is-clear" type="submit"<?= $emailLog === [] ? ' disabled' : '' ?>>Clear activity</button>
+            </form>
         </div>
         <?php if ($emailLog === []): ?><div class="admin-empty-state">
                 <h3>No emails recorded yet</h3>
                 <p>Every message the platform sends is logged here once the email_logs table is imported.</p>
-            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table"><thead><tr><th>Event</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Sent</th></tr></thead><tbody>
+            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table admin-table-stacked"><thead><tr><th>Event</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Sent</th></tr></thead><tbody>
                     <?php foreach ($emailLog as $row): ?><tr>
-                            <td><code><?= $escape($row['template_key']) ?></code></td>
-                            <td><?= $escape($row['recipient_email']) ?></td>
-                            <td title="<?= $escape($row['error_message'] ?? '') ?>"><?= $escape($row['subject']) ?></td>
-                            <td><span class="dashboard-status status-<?= $row['status'] === 'sent' ? 'approved' : 'rejected' ?>"><?= $escape(strtoupper((string) $row['status'])) ?></span></td>
-                            <td><?= $escape(date('M j, Y H:i', strtotime((string) $row['created_at']))) ?> UTC</td>
+                            <td data-label="Event"><code><?= $escape($row['template_key']) ?></code></td>
+                            <td data-label="Recipient"><?= $escape($row['recipient_email']) ?></td>
+                            <td data-label="Subject" title="<?= $escape($row['error_message'] ?? '') ?>"><?= $escape($row['subject']) ?></td>
+                            <td data-label="Status"><span class="dashboard-status status-<?= $row['status'] === 'sent' ? 'approved' : 'rejected' ?>"><?= $escape(strtoupper((string) $row['status'])) ?></span></td>
+                            <td data-label="Sent"><?= $escape(date('M j, Y H:i', strtotime((string) $row['created_at']))) ?> UTC</td>
                         </tr><?php endforeach; ?>
                 </tbody></table></div><?php endif; ?>
     </section>

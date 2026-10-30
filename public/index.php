@@ -147,12 +147,14 @@ $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
 $router->post('/admin/students/status', [\App\Controllers\StudentManagementController::class, 'setStatus']);
 $router->post('/admin/students/clear-activity', [\App\Controllers\StudentManagementController::class, 'clearActivity']);
+$router->post('/admin/students/purge', [\App\Controllers\StudentManagementController::class, 'purgeAll']);
 $router->post('/admin/students/attendance', [\App\Controllers\StudentManagementController::class, 'saveAttendance']);
 $router->post('/admin/assignments/save', [\App\Controllers\AssignmentController::class, 'save']);
 $router->post('/admin/assignments/review', [\App\Controllers\AssignmentController::class, 'review']);
 $router->post('/admin/assignments/purge', [\App\Controllers\AssignmentController::class, 'purgeAll']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
 $router->post('/admin/announcements/publish', [\App\Controllers\NotificationController::class, 'publish']);
+$router->post('/admin/announcements/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
 $router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
 $router->get('/notifications/view', [\App\Controllers\NotificationController::class, 'show']);
 $router->post('/notifications/reply', [\App\Controllers\NotificationController::class, 'reply']);

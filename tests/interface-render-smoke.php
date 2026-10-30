@@ -42,6 +42,7 @@ foreach (
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/QuizController.php',
         '/app/Controllers/CourseAdminController.php',
+        '/app/Controllers/StudentManagementController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -54,6 +55,7 @@ use App\Core\Security;
 use App\Controllers\AccountController;
 use App\Controllers\AssignmentController;
 use App\Controllers\CourseAdminController;
+use App\Controllers\StudentManagementController;
 use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
@@ -282,6 +284,7 @@ $checkPage('Admin dashboard', '/dashboard', static fn() => (new DashboardControl
 $checkPage('Announcement workspace', '/admin/announcements', static fn() => (new NotificationController())->adminIndex(), [
     'Automated student updates',
     'Email delivery log',
+    'Clear activity',
 ]);
 $checkPage('Assignment workspace', '/admin/assignments', static fn() => (new AssignmentController())->adminIndex(), [
     'DELETE ALL ASSIGNMENTS',
@@ -295,6 +298,11 @@ $checkPage('Quiz workspace', '/admin/quizzes', static fn() => (new QuizControlle
 $checkPage('Lesson library', '/admin/lessons', static fn() => (new CourseAdminController())->lessons(), [
     'DELETE ALL LESSONS',
     'admin-card-testing',
+]);
+$checkPage('Student directory', '/admin/students', static fn() => (new StudentManagementController())->index(), [
+    'DELETE ALL STUDENTS',
+    'admin-card-testing',
+    'confirm_phrase',
 ]);
 $checkPage('Admin account settings', '/admin/account', static fn() => (new AccountController())->adminSettings(), [
     'Admin ID',

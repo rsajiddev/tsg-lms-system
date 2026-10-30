@@ -270,4 +270,18 @@ $filters = [
             </div>
         </form>
     </section>
+
+    <?php
+    $usageTitle = 'How to use certificates';
+    $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
+    $usageBullets = [
+        'Requests follow the eligibility bars. A student can request a certificate only after finishing lessons, the final test and the attendance requirement shown above.',
+        'Issue with a signed upload. The certificate image is a signed JPG stored privately and attached to that student’s request only.',
+        'Every certificate carries the student’s own ID. The number is built from the prefix and start value set on your account settings page.',
+        'Verification is public. Anyone can confirm a certificate on the public verify page using its ID — the lookup is rate-protected.',
+        'Availability has an expiry. The window in days is counted from the issue date; verification and downloads stop working afterwards.',
+        'Settings apply forward only. Changing ID rules or the expiry window never rewrites certificates that are already issued.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

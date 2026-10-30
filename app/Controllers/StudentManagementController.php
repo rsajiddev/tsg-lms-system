@@ -6,9 +6,11 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\AttendanceService;
+use App\Services\NotificationService;
 use RuntimeException;
 use PDO;
 
@@ -208,6 +210,100 @@ final class StudentManagementController
             ? 'Cleared ' . number_format($deleted) . ' sign-in record(s) for this student.'
             : 'There was no sign-in activity to clear.';
         $this->redirect('/admin/students?student_id=' . $studentId);
+    }
+
+    /**
+     * Testing tool: removes every student account together with the work filed under it, so a
+     * clean re-registration can be watched from the very first e-mail.
+     *
+     * Admin accounts, courses and content are untouched, and the delivery log stays: it is the
+     * record of what the platform sent, not part of the student's data. The ID counter keeps
+     * running because an identity that was printed on a document is never handed to somebody else.
+     */
+    public function purgeAll(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performPurgeAll($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/students');
+        }
+    }
+
+    private function performPurgeAll(array $admin): void
+    {
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            throw new RuntimeException('Your session expired. Refresh the page and try again.');
+        }
+        PurgeGuard::assertConfirmed('DELETE ALL STUDENTS');
+        $db = Database::connection();
+        $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
+        if ($total === 0) {
+            $_SESSION['_flash'] = 'There are no student accounts to delete.';
+            $this->redirect('/admin/students');
+        }
+        // Every child row is written against this subquery instead of a placeholder list, so a
+        // directory with thousands of test accounts purges in one statement per table.
+        $students = "(SELECT id FROM users WHERE role='student')";
+        $paths = $db->query("SELECT file_path FROM assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
+            UNION SELECT payment_proof_path FROM payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
+            UNION SELECT file_path FROM certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+        $sources = [
+            'assignment_submission' => array_map('intval', $db->query("SELECT id FROM assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'payment' => array_map('intval', $db->query("SELECT id FROM payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'certificate_request' => array_map('intval', $db->query("SELECT id FROM certificates WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+        ];
+        $files = PurgeGuard::removeStoredFiles(is_array($paths) ? $paths : []);
+        $deleted = [];
+        $db->beginTransaction();
+        try {
+            $statements = [
+                'assignment_submissions' => 'DELETE FROM assignment_submissions WHERE student_id IN ' . $students,
+                'attendance_records' => 'DELETE FROM attendance_records WHERE student_id IN ' . $students,
+                'certificates' => 'DELETE FROM certificates WHERE student_id IN ' . $students,
+                'course_grades' => 'DELETE FROM course_grades WHERE student_id IN ' . $students,
+                'email_otps' => 'DELETE FROM email_otps WHERE user_id IN ' . $students,
+                'lesson_progress' => 'DELETE FROM lesson_progress WHERE student_id IN ' . $students,
+                'notification_replies' => 'DELETE FROM notification_replies WHERE student_id IN ' . $students . ' OR recipient_student_id IN ' . $students,
+                'notification_recipients' => 'DELETE FROM notification_recipients WHERE student_id IN ' . $students,
+                'payments' => 'DELETE FROM payments WHERE student_id IN ' . $students,
+                'quiz_attempts' => 'DELETE FROM quiz_attempts WHERE student_id IN ' . $students,
+                'coding_challenge_attempts' => 'DELETE FROM coding_challenge_attempts WHERE student_id IN ' . $students,
+                'quiz_retake_approvals' => 'DELETE FROM quiz_retake_approvals WHERE student_id IN ' . $students,
+                'student_course_access' => 'DELETE FROM student_course_access WHERE student_id IN ' . $students,
+                'login_events' => 'DELETE FROM login_events WHERE user_id IN ' . $students,
+                'audit_logs' => 'DELETE FROM audit_logs WHERE actor_user_id IN ' . $students,
+            ];
+            foreach ($statements as $table => $sql) {
+                $deleted[$table] = (int) $db->exec($sql);
+            }
+            // The delivery log keeps its rows and only loses the link to the removed account,
+            // because the operator still has to see which message went to whom.
+            $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
+            $deleted['accounts'] = (int) $db->exec("DELETE FROM users WHERE role='student'");
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'student.bulk_deleted', 'user', JSON_OBJECT('accounts',?, 'payments',?, 'submissions',?, 'certificates',?, 'files_removed',?))")
+                ->execute([(int) $admin['id'], $deleted['accounts'], $deleted['payments'], $deleted['assignment_submissions'], $deleted['certificates'], $files]);
+            $db->commit();
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+        // Announcements that pointed at the removed requests would lead an admin to a dead page.
+        // An empty id list is skipped on purpose: forgetSource() reads that as “every notification
+        // of this type”, and content raised for other objects has to survive a student purge.
+        $notifier = new NotificationService($db);
+        foreach ($sources as $sourceType => $sourceIds) {
+            if ($sourceIds !== []) {
+                $notifier->forgetSource((string) $sourceType, $sourceIds);
+            }
+        }
+        $_SESSION['_flash'] = sprintf(
+            'Deleted %d student account(s) with their enrolments, payments, submissions, grades and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
+            $deleted['accounts'],
+            $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
+        );
+        $this->redirect('/admin/students');
     }
 
     private function redirect(string $path): never

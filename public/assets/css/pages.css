@@ -4264,8 +4264,338 @@ html.js [data-reveal].is-visible.dash-card:hover {
   }
 }
 
-.lesson-lib-metrics {
-  margin-bottom: 22px
+/* Single parent KPI panel for the lesson library: one flat surface divided by hairlines,
+   no per-metric cards and no hover effects — the panel itself is the only card. */
+.lesson-lib-panel-card {
+  margin: 4px 0 22px;
+  padding: 22px 24px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, .05), 0 1px 3px rgba(15, 23, 42, .03)
+}
+
+.lesson-lib-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px
+}
+
+.lesson-lib-panel-head .eyebrow {
+  margin: 0 0 4px
+}
+
+.lesson-lib-panel-head h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.01em
+}
+
+.lesson-lib-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid #eef2f8
+}
+
+.lesson-lib-metric {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px 22px;
+  border-left: 1px solid #eef2f8
+}
+
+.lesson-lib-metric:first-child {
+  border-left: 0;
+  padding-left: 2px
+}
+
+.lesson-lib-metric .admin-stat-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 11px
+}
+
+.lesson-lib-metric .admin-stat-icon svg {
+  width: 15px;
+  height: 15px
+}
+
+.lesson-lib-metric-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px
+}
+
+.lesson-lib-metric-body .admin-stat-value {
+  font-size: clamp(26px, 2.4vw, 34px)
+}
+
+.lesson-lib-metric-body .admin-stat-label {
+  color: #5b6b82;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: none
+}
+
+@media(max-width:980px) {
+  .lesson-lib-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .lesson-lib-metric:nth-child(2n + 1) {
+    border-left: 0;
+    padding-left: 2px
+  }
+
+  .lesson-lib-metric {
+    border-bottom: 1px solid #eef2f8
+  }
+
+  .lesson-lib-metric:nth-child(3),
+  .lesson-lib-metric:nth-child(4) {
+    border-bottom: 0;
+    padding-bottom: 22px
+  }
+
+  .lesson-lib-metric:nth-child(1),
+  .lesson-lib-metric:nth-child(2) {
+    padding-bottom: 16px
+  }
+}
+
+@media(max-width:640px) {
+  .lesson-lib-panel-card {
+    padding: 18px 18px 0
+  }
+
+  .lesson-lib-metrics-grid {
+    grid-template-columns: minmax(0, 1fr)
+  }
+
+  .lesson-lib-metric {
+    border-left: 0;
+    padding: 14px 2px
+  }
+
+  .lesson-lib-metric:nth-child(3),
+  .lesson-lib-metric:nth-child(4) {
+    padding-bottom: 14px
+  }
+
+  .lesson-lib-metric:nth-child(3) {
+    border-bottom: 1px solid #eef2f8
+  }
+
+  .lesson-lib-metric:nth-child(4) {
+    border-bottom: 0
+  }
+}
+
+/* Shared admin "How to use" guide card (components/usage-guide.php). */
+.admin-usage-card {
+  margin-top: 22px
+}
+
+.admin-usage-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px 26px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none
+}
+
+.admin-usage-list>li {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0
+}
+
+.admin-usage-list>li>span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7f8ef;
+  color: #15804b;
+  font-size: 12px;
+  font-weight: 800
+}
+
+.admin-usage-list p {
+  min-width: 0;
+  margin: 1px 0 0;
+  color: #526276;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere
+}
+
+.admin-usage-list strong {
+  color: var(--navy)
+}
+
+/* Consistent 22px rhythm between the top-level blocks of every admin workspace page. */
+.dashboard-page>.admin-card+.admin-card,
+.dashboard-page>.admin-card+.dashboard-panel,
+.dashboard-page>.dashboard-panel+.admin-card,
+.dashboard-page>.admin-card+section {
+  margin-top: 22px
+}
+
+/* Shared mobile rules for admin workspace pages: data tables become stacked cards
+   (never a hidden horizontal scroll) and button groups stack full width so every
+   control and note stays clearly visible. */
+@media(max-width:760px) {
+
+  .admin-table-stacked thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0
+  }
+
+  .admin-table-wrapper:has(.admin-table-stacked) {
+    overflow-x: visible
+  }
+
+  .admin-table-stacked,
+  .admin-table-stacked tbody,
+  .admin-table-stacked tr,
+  .admin-table-stacked td {
+    display: block;
+    width: 100%
+  }
+
+  .admin-table-stacked tbody {
+    padding: 12px
+  }
+
+  .admin-table-stacked tr {
+    margin: 0 0 12px;
+    padding: 6px 14px;
+    border: 1px solid #e6ecf4;
+    border-radius: 16px;
+    background: #fff
+  }
+
+  .admin-table-stacked tbody tr:last-child {
+    margin-bottom: 0
+  }
+
+  .admin-table-stacked td {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 14px;
+    padding: 12px 2px;
+    border-bottom: 1px solid #edf1f6;
+    border-right: 0;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere
+  }
+
+  .admin-table-stacked td:last-child {
+    border-bottom: 0
+  }
+
+  .admin-table-stacked tbody tr:hover td {
+    background: transparent
+  }
+
+  .admin-table-stacked td::before {
+    content: attr(data-label);
+    color: #8391a6;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-align: left;
+    text-transform: uppercase
+  }
+
+  .admin-table-stacked .table-course-item {
+    justify-content: flex-end;
+    text-align: left
+  }
+
+  .admin-table-stacked td.admin-table-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    text-align: left
+  }
+
+  .admin-table-stacked td.admin-table-actions::before {
+    align-self: start
+  }
+
+  .admin-table-stacked .admin-table-actions form,
+  .admin-table-stacked .admin-edit-trigger {
+    display: flex;
+    width: 100%
+  }
+
+  .admin-table-stacked .admin-table-actions form {
+    margin: 0
+  }
+
+  .admin-table-stacked .admin-edit-trigger {
+    justify-content: center
+  }
+
+  /* Button + helper note rows stack: button on top full width, note below. */
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px
+  }
+
+  .form-actions .button,
+  .form-actions button[type="submit"] {
+    width: 100%;
+    justify-content: center
+  }
+
+  .form-actions .form-action-note {
+    width: 100%;
+    margin-right: 0;
+    text-align: left
+  }
+}
+
+@media(max-width:640px) {
+
+  .student-directory-table .student-row-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px
+  }
+
+  .student-row-actions .student-activity-link,
+  .student-row-actions .student-status-form,
+  .student-row-actions .student-action-button {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0
+  }
 }
 
 .lesson-lib-filters {

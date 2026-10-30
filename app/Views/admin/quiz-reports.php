@@ -151,4 +151,18 @@ $queryForPage = static function (int $targetPage) use ($search, $type, $resultFi
             <?php endif; ?>
         <?php endif; ?>
     </section>
+
+    <?php
+    $usageTitle = 'How to use quiz reports';
+    $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
+    $usageBullets = [
+        'Search across everything. One query matches students, courses and quiz titles at the same time.',
+        'Filter by quiz type. Practice, lesson, module and final attempts each carry their own policy, so splitting them keeps the numbers honest.',
+        'Pass and fail chips narrow the list. Use them to pull weak spots or to shortlist the attempts that deserve a manual look.',
+        'Open any card for detail. Each attempt expands to its score, pass mark, time taken and the exact start and submission timestamps in UTC.',
+        'Timeouts are marked. The submission state shows whether a student answered, finished early or was submitted by the clock.',
+        'Reports are read-only. Change a quiz itself on the Quiz management page — this list always mirrors the latest attempt history.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

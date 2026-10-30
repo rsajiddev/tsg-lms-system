@@ -11,11 +11,13 @@ declare(strict_types=1);
  * the script itself when it does not exist yet, so one command is enough.
  *
  * The script seeds one course with lessons, quizzes, attempts, assignments and submissions, then
- * drives the three real purge endpoints the admin workspace exposes - in a child process each,
+ * drives the real bulk delete endpoints the admin workspace exposes - in a child process each,
  * because a controller ends with a redirect. It proves that a wrong phrase deletes nothing, that
  * the right phrase empties every dependent table in the order the foreign keys demand, that the
  * stored submission file is removed, that the matching student notifications retire, and that an
- * audit row records the scale of the deletion. It only ever runs against a scratch database.
+ * audit row records the scale of the deletion. The last two rounds cover the student directory
+ * purge (accounts and everything filed under them, while the delivery log keeps its rows) and the
+ * announcement workspace's Clear activity button. It only ever runs against a scratch database.
  */
 
 define('BASE_PATH', dirname(__DIR__));
@@ -35,9 +37,12 @@ foreach (
         '/app/Services/CourseDuration.php',
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
+        '/app/Services/AttendanceService.php',
         '/app/Controllers/AssignmentController.php',
+        '/app/Controllers/NotificationController.php',
         '/app/Controllers/QuizController.php',
         '/app/Controllers/CourseAdminController.php',
+        '/app/Controllers/StudentManagementController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -48,7 +53,9 @@ use App\Core\Env;
 use App\Core\Security;
 use App\Controllers\AssignmentController;
 use App\Controllers\CourseAdminController;
+use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
+use App\Controllers\StudentManagementController;
 use App\Services\NotificationService;
 
 Env::load(BASE_PATH . '/.env');
@@ -88,6 +95,10 @@ $phrases = [
     'assignments' => 'DELETE ALL ASSIGNMENTS',
     'quizzes' => 'DELETE ALL QUIZZES',
     'lessons' => 'DELETE ALL LESSONS',
+    'students' => 'DELETE ALL STUDENTS',
+    // The delivery log has one row per message and no wording to protect, so its Clear activity
+    // button asks for a browser confirmation instead of a typed phrase.
+    'emaillog' => '',
 ];
 
 /* --------------------------------------------------------------------- child process */
@@ -101,10 +112,15 @@ if ($run !== '') {
     $_SESSION = ['user' => ['id' => $adminId, 'name' => 'Purge Smoke Admin', 'email' => $adminEmail, 'role' => 'admin']];
     $_POST = [
         '_csrf' => Security::csrfToken(),
-        'confirm_phrase' => (($options['bad'] ?? '') === '1') ? 'DELETE EVERYTHING PLEASE' : $phrases[$run],
         'irreversible' => '1',
         'course_id' => '0',
     ];
+    if ($phrases[$run] === '') {
+        // Nothing to mistype here: the unsafe variant is a request without a valid token.
+        if (($options['bad'] ?? '') === '1') $_POST['_csrf'] = 'not-a-token';
+    } else {
+        $_POST['confirm_phrase'] = (($options['bad'] ?? '') === '1') ? 'DELETE EVERYTHING PLEASE' : $phrases[$run];
+    }
     $_SERVER['REQUEST_METHOD'] = 'POST';
     register_shutdown_function(static function (): void {
         echo 'FLASH|' . str_replace("\n", ' ', (string) ($_SESSION['_flash_error'] ?? $_SESSION['_flash'] ?? 'none')) . "\n";
@@ -114,6 +130,8 @@ if ($run !== '') {
             'assignments' => (new AssignmentController())->purgeAll(),
             'quizzes' => (new QuizController())->purgeAll(),
             'lessons' => (new CourseAdminController())->purgeLessons(),
+            'students' => (new StudentManagementController())->purgeAll(),
+            'emaillog' => (new NotificationController())->clearEmailLog(),
         };
     } catch (Throwable $exception) {
         echo 'THROWN|' . $exception->getMessage() . "\n";
@@ -127,6 +145,7 @@ $tables = [
     'quiz_answers', 'quiz_attempt_options', 'quiz_attempt_questions', 'quiz_options',
     'quiz_retake_approvals', 'quiz_attempts', 'quiz_questions', 'quizzes',
     'assignment_submissions', 'assignments', 'lesson_progress', 'lessons', 'course_modules',
+    'payments', 'attendance_records', 'email_otps', 'coding_challenge_attempts', 'login_events',
     'student_course_access', 'course_pricing_options', 'courses',
     'notification_recipients', 'notification_replies', 'notifications', 'audit_logs', 'email_logs',
 ];
@@ -148,6 +167,8 @@ if (!is_dir($uploadDir)) {
 }
 $uploadPath = $uploadDir . '/' . $fileHash . '.txt';
 file_put_contents($uploadPath, 'Purge smoke submission payload.');
+// Set later, for the second round that clears the student accounts themselves.
+$proofPath = '';
 
 try {
     $insert = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,'active',UTC_TIMESTAMP())");
@@ -264,15 +285,95 @@ try {
     $output = $invoke('quizzes');
     $assert(str_contains($output, 'FLASH|There are no quizzes left to delete.'), 'An empty quiz purge reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, three workspaces cleared, files, notifications and audits handled\n";
+    /* ------------------------------------------------- the student directory purge */
+    // A second round of student-owned records, because the content purges above already cleared
+    // the lesson, quiz and assignment rows an account would otherwise be filed under.
+    $proofHash = bin2hex(random_bytes(24));
+    $proofPath = $uploadDir . '/' . $proofHash . '.txt';
+    file_put_contents($proofPath, 'Work that has to disappear with the account.');
+    $db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")
+        ->execute([$courseId, 'Post-purge assignment', $adminId]);
+    $lateAssignmentId = (int) $db->lastInsertId();
+    $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
+        VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $studentId, 'Uploaded work', 'assignments/' . $proofHash . '.txt']);
+    $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
+        VALUES(?,?,25000,'PKR','PURGE-SMOKE-1','approved',?,UTC_TIMESTAMP())")->execute([$studentId, $courseId, $adminId]);
+    $paymentId = (int) $db->lastInsertId();
+    $db->prepare("INSERT INTO certificates(student_id,course_id,status) VALUES(?,?,'requested')")->execute([$studentId, $courseId]);
+    $db->prepare("INSERT INTO course_grades(student_id,course_id,overall_pct,letter_grade) VALUES(?,?,92.50,'A+')
+        ON DUPLICATE KEY UPDATE overall_pct=92.50, letter_grade='A+'")->execute([$studentId, $courseId]);
+    $db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at)
+        VALUES(?,?,'present',UTC_TIMESTAMP(),UTC_TIMESTAMP())")->execute([$studentId, date('Y-m-d')]);
+    $db->prepare("INSERT INTO email_otps(user_id,purpose,otp_hash,expires_at) VALUES(?, 'verify_email','not-a-real-hash',UTC_TIMESTAMP() + INTERVAL 10 MINUTE)")->execute([$studentId]);
+    $db->prepare("INSERT INTO login_events(user_id,event_type,ip_address) VALUES(?, 'success','127.0.0.1')")->execute([$studentId]);
+    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+        VALUES('registration.student',?,'Welcome to the academy','sent',?)")->execute([$studentEmail, $studentId]);
+    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,source_type,source_id,published_at)
+        VALUES(?,'payment','Payment approval requested','Body','selected_students','payment',?,UTC_TIMESTAMP())")->execute([$adminId, $paymentId]);
+    $paymentNotificationId = (int) $db->lastInsertId();
+    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')->execute([$paymentNotificationId, $studentId]);
+    $db->prepare("INSERT INTO notifications(created_by,title,body,audience,category,published_at)
+        VALUES(?,?,?,'all_students','announcement',UTC_TIMESTAMP())")->execute([$adminId, 'Kept announcement', 'Body']);
+
+    $assert($count('payments') === 1 && $count('certificates') === 1 && $count('email_logs') === 1 && $count('attendance_records') === 1,
+        'The student fixture round did not load.');
+
+    $output = $invoke('students', true);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'A wrong phrase was not rejected with a readable reason: ' . trim($output));
+    $assert($count('users') === 2 && $count('payments') === 1, 'A wrong phrase deleted student data anyway.');
+
+    $output = $invoke('students');
+    $assert(str_contains($output, 'FLASH|Deleted 1 student account(s)'), 'Student purge reported: ' . trim($output));
+    $assert(str_contains($output, '1 uploaded file(s) were removed'), 'Student purge did not report the removed submission file: ' . trim($output));
+    $assert(!is_file($proofPath), 'The stored submission file survived the student purge.');
+    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
+        'The student purge must leave the admin account and remove every student.');
+    foreach (['assignment_submissions', 'attendance_records', 'certificates', 'course_grades', 'email_otps', 'login_events',
+        'notification_recipients', 'payments', 'quiz_retake_approvals', 'student_course_access'] as $table) {
+        $assert($count($table) === 0, $table . ' still holds rows after the student purge.');
+    }
+    // Course content belongs to the academy, not to the removed accounts, and stays.
+    $assert($count('courses') === 1 && $count('assignments') === 1, 'The student purge deleted course content.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE actor_user_id=" . $studentId)->fetchColumn() === 0,
+        'Audit rows of a deleted account survived the purge.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='student.bulk_deleted'")->fetchColumn() === 1,
+        'No audit row for the student purge.');
+    $logRow = $db->query('SELECT related_user_id FROM email_logs')->fetch();
+    $assert($logRow !== false && $logRow['related_user_id'] === null,
+        'The delivery log has to keep its rows and drop only the link to the deleted account.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE source_type='payment'")->fetchColumn() === 0,
+        'A notification still points at a payment that no longer exists.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+        'The student purge deleted an announcement it had no claim on.');
+
+    $output = $invoke('students');
+    $assert(str_contains($output, 'FLASH|There are no student accounts to delete.'), 'An empty student purge reported: ' . trim($output));
+
+    /* --------------------------------------------------- the announcement email log */
+    $output = $invoke('emaillog', true);
+    $assert(str_contains($output, 'FLASH|Your session expired'), 'The delivery log clear accepted a request without a valid token: ' . trim($output));
+    $assert($count('email_logs') === 1, 'An unauthenticated request emptied the delivery log.');
+
+    $output = $invoke('emaillog');
+    $assert(str_contains($output, 'FLASH|Cleared 1 e-mail delivery record(s)'), 'Delivery log clear reported: ' . trim($output));
+    $assert($count('email_logs') === 0, 'email_logs still holds rows after Clear activity.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='email_log.cleared'")->fetchColumn() === 1,
+        'No audit row for the delivery log clear.');
+
+    $output = $invoke('emaillog');
+    $assert(str_contains($output, 'FLASH|The delivery log was already empty.'), 'An empty delivery log reported: ' . trim($output));
+
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     $status = 1;
 } finally {
-    if (is_file($uploadPath)) {
-        @unlink($uploadPath);
+    foreach ([$uploadPath, $proofPath] as $scratchFile) {
+        if ($scratchFile !== '' && is_file($scratchFile)) {
+            @unlink($scratchFile);
+        }
     }
 }
 

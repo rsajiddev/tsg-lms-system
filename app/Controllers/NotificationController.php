@@ -44,9 +44,10 @@ final class NotificationController
             'emailLog' => $emailLog,
             'unreadTotal' => $unreadTotal,
             'categories' => NotificationService::AREAS,
+            'error' => $_SESSION['_flash_error'] ?? null,
             'message' => $_SESSION['_flash'] ?? null,
         ]);
-        unset($_SESSION['_flash']);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function publish(): void
@@ -86,6 +87,41 @@ final class NotificationController
             throw $e;
         }
         $_SESSION['_flash'] = 'Announcement published to its selected recipients.';
+        $this->redirect('/admin/announcements');
+    }
+
+    /**
+     * Empties the delivery log shown under the announcement workspace.
+     *
+     * Only the history rows go: an account that was emailed keeps its account, and the log is
+     * rebuilt by the very next message, which is exactly what makes it useful while testing the
+     * student, company and developer notifications on a clean slate.
+     */
+    public function clearEmailLog(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performClearEmailLog($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/announcements');
+        }
+    }
+
+    private function performClearEmailLog(array $admin): void
+    {
+        $this->csrf();
+        $db = Database::connection();
+        try {
+            $deleted = (int) $db->exec('DELETE FROM email_logs');
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('The email delivery log is not available in this database yet. Import the updated schema first.');
+        }
+        $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'email_log.cleared', 'email_log', JSON_OBJECT('deleted_rows', ?))")
+            ->execute([(int) $admin['id'], $deleted]);
+        $_SESSION['_flash'] = $deleted > 0
+            ? 'Cleared ' . number_format($deleted) . ' e-mail delivery record(s).'
+            : 'The delivery log was already empty.';
         $this->redirect('/admin/announcements');
     }
 

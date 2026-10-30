@@ -236,7 +236,7 @@ $totalStudents = count($students);
             </div>
         <?php else: ?>
             <div class="admin-table-wrapper" id="admin-course-table">
-                <table class="admin-table">
+                <table class="admin-table admin-table-stacked">
                     <thead>
                         <tr>
                             <th scope="col">Course Details</th>
@@ -249,7 +249,7 @@ $totalStudents = count($students);
                     <tbody>
                         <?php foreach ($courses as $course): ?>
                             <tr>
-                                <td>
+                                <td data-label="Course Details">
                                     <div class="table-course-item">
                                         <div class="table-course-icon">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -263,7 +263,7 @@ $totalStudents = count($students);
                                         </div>
                                     </div>
                                 </td>
-                                <td>
+                                <td data-label="Visibility">
                                     <?php
                                     $vis = strtolower((string) ($course['visibility'] ?? 'draft'));
                                     ?>
@@ -271,17 +271,17 @@ $totalStudents = count($students);
                                         <?= $escape(ucfirst($vis)) ?>
                                     </span>
                                 </td>
-                                <td>
+                                <td data-label="Modules">
                                     <span class="count-pill">
                                         <?= (int) $course['module_count'] ?> <?= (int) $course['module_count'] === 1 ? 'module' : 'modules' ?>
                                     </span>
                                 </td>
-                                <td>
+                                <td data-label="Lessons">
                                     <a class="count-pill count-pill-link" href="<?= $escape($baseUrl) ?>/admin/lessons?course_id=<?= (int) $course['id'] ?>" title="Open this course's lessons in the Lesson library">
                                         <?= (int) $course['lesson_count'] ?> <?= (int) $course['lesson_count'] === 1 ? 'lesson' : 'lessons' ?>
                                     </a>
                                 </td>
-                                <td class="admin-table-actions">
+                                <td class="admin-table-actions" data-label="Actions">
                                     <a class="admin-edit-trigger" href="#course-edit-<?= (int) $course['id'] ?>" data-admin-modal-open="course-edit-<?= (int) $course['id'] ?>">
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M12 20h9"></path>
@@ -435,6 +435,20 @@ $totalStudents = count($students);
             }
         });
     </script>
+
+    <?php
+    $usageTitle = 'How to use course management';
+    $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
+    $usageBullets = [
+        'Create the course first. A course record is the container every lesson, quiz, assignment and payment in the Academy hangs from.',
+        'Visibility controls publishing. Draft courses stay invisible on the public catalogue; switching to published lists them immediately with their price cards.',
+        'Grant access per student. Assign a course manually and pick the learning format — Live + Recorded or Recorded Only — and the access window stays tied to that choice.',
+        'Upload a cover image. JPG, PNG or WebP up to 600 KB; leaving the field empty keeps the current image in place.',
+        'Lessons live elsewhere. Modules and lessons are authored in the Lesson library, and this page only manages the course shell and its enrolments.',
+        'Track progress at a glance. The counters above summarise courses, lessons and students as soon as you save, publish or grant access.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>
 
 <!-- Course editor overlays live outside the reveal-animated section so their

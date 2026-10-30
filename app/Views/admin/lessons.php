@@ -77,6 +77,34 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
     <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><span><?= $escape($error) ?></span></div><?php endif; ?>
     <?php if (!$videosAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Lesson video columns are missing from this database.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Lessons still appear here; video fields unlock after the import.</span></div><?php endif; ?>
 
+    <section class="admin-card lesson-lib-panel-card" aria-labelledby="lesson-lib-metrics-title">
+        <div class="lesson-lib-panel-head">
+            <div>
+                <p class="eyebrow">AT A GLANCE</p>
+                <h2 id="lesson-lib-metrics-title">Library metrics</h2>
+            </div>
+            <span class="count-pill">Reflects active filters</span>
+        </div>
+        <div class="lesson-lib-metrics-grid" aria-label="Lesson totals for the current filters">
+            <div class="lesson-lib-metric">
+                <div class="admin-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                <div class="lesson-lib-metric-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['total'] ?? 0) ?>"><?= number_format((int) ($metrics['total'] ?? 0)) ?></span><span class="admin-stat-label">Lessons found</span></div>
+            </div>
+            <div class="lesson-lib-metric">
+                <div class="admin-stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <div class="lesson-lib-metric-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['published'] ?? 0) ?>"><?= number_format((int) ($metrics['published'] ?? 0)) ?></span><span class="admin-stat-label">Published to students</span></div>
+            </div>
+            <div class="lesson-lib-metric">
+                <div class="admin-stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/></svg></div>
+                <div class="lesson-lib-metric-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['with_video'] ?? 0) ?>"><?= number_format((int) ($metrics['with_video'] ?? 0)) ?></span><span class="admin-stat-label">Lessons with a video</span></div>
+            </div>
+            <div class="lesson-lib-metric">
+                <div class="admin-stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+                <div class="lesson-lib-metric-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['missing_length'] ?? 0) ?>"><?= number_format((int) ($metrics['missing_length'] ?? 0)) ?></span><span class="admin-stat-label">Videos missing a length</span></div>
+            </div>
+        </div>
+    </section>
+
     <!-- Authoring form: the list below is the read view of exactly these records. -->
     <section class="admin-card lesson-add-card" id="lesson-add">
         <div class="admin-card-header">
@@ -166,29 +194,10 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                     </svg>
                     Save lesson
                 </button>
-                <span class="form-action-note">Saved lessons appear in the library below and can be edited there without leaving this page.</span>
+                <span class="form-action-note">Saved lessons appear in the library below and can be edited there without leaving this page. The counters above always reflect the active filters.</span>
             </div>
         </form>
     </section>
-
-    <div class="admin-stats-grid lesson-lib-metrics" aria-label="Lesson totals for the current filters">
-        <article class="admin-stat-card">
-            <div class="admin-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
-            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['total'] ?? 0) ?>"><?= number_format((int) ($metrics['total'] ?? 0)) ?></span><span class="admin-stat-label">Lessons found</span></div>
-        </article>
-        <article class="admin-stat-card">
-            <div class="admin-stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
-            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['published'] ?? 0) ?>"><?= number_format((int) ($metrics['published'] ?? 0)) ?></span><span class="admin-stat-label">Published to students</span></div>
-        </article>
-        <article class="admin-stat-card">
-            <div class="admin-stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/></svg></div>
-            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['with_video'] ?? 0) ?>"><?= number_format((int) ($metrics['with_video'] ?? 0)) ?></span><span class="admin-stat-label">Lessons with a video</span></div>
-        </article>
-        <article class="admin-stat-card">
-            <div class="admin-stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-            <div class="admin-stat-body"><span class="admin-stat-value" data-count="<?= (int) ($metrics['missing_length'] ?? 0) ?>"><?= number_format((int) ($metrics['missing_length'] ?? 0)) ?></span><span class="admin-stat-label">Videos missing a length</span></div>
-        </article>
-    </div>
 
     <!-- Completion rule for the videos listed below, kept here because only this page manages them. -->
     <section class="admin-card lesson-rule-card">
@@ -404,6 +413,22 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             </div>
         <?php endif; ?>
     </section>
+
+    <!-- Usage guide: written for admins landing on this page for the first time. -->
+    <?php
+    $usageTitle = 'How to use the Lesson library';
+    $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
+    $usageBullets = [
+        'Author in drafts first. Every lesson is saved as a draft and stays invisible to students until its status is switched to Published.',
+        'Modules are matched by title. Reusing an existing module title adds the lesson to that section; a new title creates the next sequential module in the course.',
+        'Register a video length. Direct .mp4 / .webm files track the playhead exactly, while YouTube and Vimeo links are re-written to an embed player — the length is required either way.',
+        'Videos without a length stay manual. Students complete those lessons by hand, and the “Videos missing a length” counter above lists everything that still needs fixing.',
+        'The watch-time rule applies course-wide. It sets the share of a video a student must watch before the lesson auto-completes, and takes effect from the next heartbeat a student sends.',
+        'Filters drive the whole page. Search, course, status and video filters update the counters, the lesson table and the inline editors below it in one pass.',
+        'Track completion reach. The completion column compares finished students against enrolments, so weak spots in a module are easy to spot.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 
   <?php
   // Testing tool: the lesson library is where draft content piles up fastest while a course is
