@@ -719,6 +719,20 @@
         link.addEventListener('click', () => setDashboardMenu(false));
     });
 
+    /* Keep the current page findable. The desktop sidebar and the mobile
+       bottom strip are their own scroll boxes, and a fresh load always puts
+       them back at the first item, so the highlighted link of a page further
+       down the list can sit out of sight. Bring only the nav box itself back
+       to the active link - preventScroll stops the page moving with it. */
+    const activeNavLink = document.querySelector('.dashboard-side-nav a.active');
+    if (activeNavLink) {
+        activeNavLink.scrollIntoView({
+            block: window.innerWidth > 902 ? 'center' : 'nearest',
+            inline: 'nearest',
+            preventScroll: true
+        });
+    }
+
     const dashboardSearch = document.querySelector('[data-dashboard-search]');
     if (dashboardSearch) {
         dashboardSearch.addEventListener('input', () => {
@@ -816,6 +830,11 @@
             }
         };
 
+        /* Every open and close is driven from script. The markup still carries
+           the #target href as the no-JavaScript fallback, but following it as a
+           link would leave the fragment in the address bar, and a fragment
+           survives a refresh: the browser then scrolls to it again by itself and
+           the dialog reopens on a page the user never asked to reload. */
         adminModalTriggers.forEach((trigger) => {
             trigger.addEventListener('click', (event) => {
                 const modal = document.getElementById(trigger.dataset.adminModalOpen);
@@ -838,7 +857,9 @@
             });
         });
 
-        /* Deep link support: /admin/courses#course-edit-3 opens the editor. */
+        /* Deep link support: /admin/courses#course-edit-3 opens the editor. The
+           fragment is spent once it has done its job, so the next refresh starts
+           at the top of the page with the dialog closed. */
         const deepLinkId = window.location.hash.replace('#', '');
 
         if (deepLinkId) {
@@ -846,6 +867,7 @@
 
             if (deepLinkModal && deepLinkModal.matches('[data-admin-modal]')) {
                 openAdminModal(deepLinkModal);
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
             }
         }
     }
@@ -856,13 +878,19 @@
        admin straight to the editor it came from.
        ========================================================= */
 
+    /* The fragment is a one-time instruction, not a permanent state: left in
+       the address bar it makes every later refresh scroll the page on its own
+       and re-open the accordion, so it is dropped once the editor is showing. */
     if (window.location.hash.startsWith('#lesson-')) {
         const deepLinkLesson = document.getElementById(window.location.hash.slice(1));
 
         if (deepLinkLesson && deepLinkLesson.matches('.lesson-editor')) {
             deepLinkLesson.open = true;
             /* The browser scrolled before the panel grew, so bring it back into view. */
-            window.requestAnimationFrame(() => deepLinkLesson.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+            window.requestAnimationFrame(() => {
+                deepLinkLesson.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            });
         }
     }
 

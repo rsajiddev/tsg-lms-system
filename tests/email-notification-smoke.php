@@ -133,6 +133,29 @@ try {
     $check(EmailMessages::certificateRejected($student + ['course_title' => 'Full Stack Web Development', 'remarks' => 'Attendance is below the requirement.']), 'certificate.rejected', 1);
     echo "templates: 11 events rendered as HTML and plain text\n";
 
+    /* ----------------------------------------------------------- 2b. the MIME envelope */
+    // Getting the words right is only half of a message: the envelope has to be valid MIME or a
+    // mail client shows the reader the base64 instead of the mail. This is the exact shape that
+    // broke once, when the part headers were built from single-quoted strings and PHP put the
+    // four characters \r\n on the wire as text, leaving each part with no header/body separator.
+    $multipart = new ReflectionMethod(MailService::class, 'multipart');
+    $multipart->setAccessible(true);
+    [$boundary, $payload] = $multipart->invoke(new MailService(), 'Plain body with a Ünicode word.', '<p>HTML body with a Ünicode word.</p>');
+    $assert(!str_contains($payload, '\\r\\n'), 'The MIME payload uses real CRLFs; a literal \\r\\n means no mail client can find a part header.');
+    $sections = array_values(array_filter(array_slice(explode('--' . $boundary, $payload), 1), static fn(string $section): bool => trim($section, "\r\n-") !== ''));
+    $assert(count($sections) === 2 && str_ends_with(rtrim($payload, "\r\n"), '--' . $boundary . '--'), 'The payload holds exactly two alternatives and closes its boundary.');
+    foreach (['text/plain' => 'Plain body with a Ünicode word.', 'text/html' => '<p>HTML body with a Ünicode word.</p>'] as $type => $original) {
+        $section = trim((string) array_shift($sections), "\r\n");
+        $pieces = preg_split("/\r\n\r\n/", $section, 2) ?: [];
+        $headerLines = explode("\r\n", (string) ($pieces[0] ?? ''));
+        $assert(isset($pieces[1])
+            && in_array('Content-Type: ' . $type . '; charset=UTF-8', $headerLines, true)
+            && in_array('Content-Transfer-Encoding: base64', $headerLines, true),
+            'The ' . $type . ' part declares its type and encoding on its own header lines.');
+        $assert((string) base64_decode(trim((string) $pieces[1]), true) === $original, 'The ' . $type . ' body decodes back to exactly what was rendered.');
+    }
+    echo "mime: both alternatives are separated by real CRLFs and decode cleanly\n";
+
     /* ----------------------------------------------------------------- 3. notifications */
     $db = Database::connection();
     foreach (['notifications', 'notification_recipients', 'email_logs'] as $table) {

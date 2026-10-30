@@ -4478,6 +4478,12 @@ html.js [data-reveal].is-visible.dash-card:hover {
     overflow-x: visible
   }
 
+  /* A card header that carries a control of its own (the delivery log's Clear activity button)
+     has to let that control drop under the heading instead of squeezing the title. */
+  .admin-card-header {
+    flex-wrap: wrap
+  }
+
   .admin-table-stacked,
   .admin-table-stacked tbody,
   .admin-table-stacked tr,
@@ -4502,11 +4508,13 @@ html.js [data-reveal].is-visible.dash-card:hover {
     margin-bottom: 0
   }
 
-  .admin-table-stacked td {
+  /* .admin-table-stacked alone would lose to the plain .admin-table td rule further down the
+     sheet, so the compact stacked padding is repeated with the table class in front of it. */
+  .admin-table.admin-table-stacked td {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: 14px;
-    padding: 12px 2px;
+    grid-template-columns: minmax(88px, .36fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 4px;
     border-bottom: 1px solid #edf1f6;
     border-right: 0;
     text-align: right;
@@ -5669,6 +5677,7 @@ body.dashboard-shell>main.dashboard-container {
 }
 
 .dashboard-side-nav a {
+  position: relative;
   display: flex;
   min-width: 0;
   align-items: center;
@@ -5701,13 +5710,29 @@ body.dashboard-shell>main.dashboard-container {
 }
 
 .dashboard-side-nav a.active {
-  background: #eff5ff;
-  color: var(--blue-dark)
+  background: #e6efff;
+  color: var(--blue-dark);
+  font-weight: 800
+}
+
+/* A pale background alone does not survive a sidebar that scrolls back to the
+   top on every load, so the current page also carries an accent bar on the
+   edge of the rail. */
+.dashboard-side-nav a.active::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: -18px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--blue)
 }
 
 .dashboard-side-nav a.active .dashboard-nav-number {
   background: var(--blue);
-  color: #fff
+  color: #fff;
+  box-shadow: 0 4px 10px #2563eb33
 }
 
 .dashboard-sidebar-bottom {
@@ -10630,7 +10655,8 @@ html.admin-modal-js .admin-modal.is-open {
   .dashboard-side-nav a .dashboard-nav-number {display:none}
   .dashboard-side-nav a .dashboard-nav-icon {display:block;width:20px;height:20px;flex:0 0 auto}
   .dashboard-side-nav a .dashboard-nav-label {display:-webkit-box;max-width:100%;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-  .dashboard-side-nav a.active {background:#edf3ff;color:var(--blue-dark)}
+  .dashboard-side-nav a.active {background:#e6efff;color:var(--blue-dark);font-weight:800}
+  .dashboard-side-nav a.active::before {top:auto;right:12px;bottom:-7px;left:12px;width:auto;height:3px;border-radius:3px}
   .dashboard-side-nav .dashboard-mobile-logout {position:static;right:auto;z-index:auto;display:flex;min-width:78px;flex:1 0 78px;align-items:stretch;justify-content:stretch;margin:0;padding:0;border:0;background:transparent}
   .dashboard-mobile-logout button {display:flex;width:100%;min-height:56px;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 5px;border:0;border-radius:13px;background:#fff4f3;color:#b42318;font:inherit;font-size:10px;font-weight:750;cursor:pointer}
   .dashboard-mobile-logout svg {width:19px;height:19px}

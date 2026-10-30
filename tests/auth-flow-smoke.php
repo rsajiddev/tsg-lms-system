@@ -134,35 +134,69 @@ namespace {
         exit(1);
     }
 
-    /** Messages the catcher recorded, as [recipient, subject, decoded body] rows. */
+    /** Messages the catcher recorded, read the way a mail client reads them. */
     $delivered = static function () use ($outFile): array {
         $decoded = [];
         foreach ((array) json_decode((string) file_get_contents($outFile), true) as $raw) {
+            $raw = (string) $raw;
+            // A mail client accepts only a real CRLF as a line break, so the header block ends at the
+            // first blank line and every MIME part has to carry its own headers, a blank line and a
+            // body that strictly decodes. Reading anything looser here would hide a malformed
+            // message behind a lucky regular-expression match, which is exactly how the base64
+            // part-headers once slipped past this file.
+            [$headBlock, $bodyBlock] = array_pad(preg_split("/\r\n\r\n/", $raw, 2) ?: [], 2, '');
+            $mimeOk = $headBlock !== '' && $bodyBlock !== '' && !str_contains($raw, '\\r\\n');
             $headers = [];
-            foreach (preg_split("/\r\n/", (string) $raw) ?: [] as $line) {
-                if ($line === '') break;
-                if (preg_match('/^([A-Za-z-]+):\s*(.*)$/', $line, $parts)) {
-                    $headers[strtolower($parts[1])][] = $parts[2];
+            $lastHeader = '';
+            foreach (preg_split("/\r\n/", $headBlock) ?: [] as $line) {
+                if ($line === '') continue;
+                if (preg_match('/^[ \t](.*)$/', $line, $continuation)) {
+                    // A folded header continues the one above it - mb_encode_mimeheader folds any
+                    // Subject long enough to need it.
+                    if ($lastHeader !== '') $headers[$lastHeader][] = ' ' . $continuation[1];
+                    continue;
                 }
+                if (!preg_match('/^([A-Za-z-]+):[ \t]*(.*)$/', $line, $parts) || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $parts[2])) {
+                    $mimeOk = false;
+                    continue;
+                }
+                $lastHeader = strtolower($parts[1]);
+                $headers[$lastHeader][] = $parts[2];
             }
-            $body = '';
-            foreach (preg_split('/\r?\n/', (string) $raw) ?: [] as $line) {
-                if (preg_match('/^[A-Za-z0-9+\/=]{16,}$/', trim($line))) $body .= trim($line);
+            $boundary = '';
+            foreach ($headers['content-type'] ?? [] as $value) {
+                if (preg_match('/boundary="([^"]+)"/', $value, $parts)) $boundary = $parts[1];
             }
-            $plain = (string) base64_decode($body, false);
+            $parts = [];
+            foreach ($boundary === '' ? [] : array_slice(explode('--' . $boundary, $bodyBlock), 1) as $segment) {
+                $segment = trim($segment, "\r\n");
+                if ($segment === '' || $segment === '--') continue;
+                $pieces = preg_split("/\r\n\r\n/", $segment, 2) ?: [];
+                if (count($pieces) !== 2 || !preg_match('/^Content-Type: (text\/(?:plain|html)); charset=UTF-8\r?$/m', $pieces[0], $type) || !str_contains($pieces[0], 'Content-Transfer-Encoding: base64')) {
+                    $mimeOk = false;
+                    continue;
+                }
+                $text = base64_decode(trim($pieces[1]), true);
+                if ($text === false) {
+                    $mimeOk = false;
+                    continue;
+                }
+                $parts[$type[1]] = $text;
+            }
+            if (!isset($parts['text/plain'], $parts['text/html']) || !str_ends_with(rtrim($bodyBlock, "\r\n"), '--' . $boundary . '--')) $mimeOk = false;
             $recipient = '';
             foreach ($headers['to'] ?? [] as $value) {
                 if (preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+/i', $value, $match)) $recipient = $match[0];
             }
             $subject = '';
             foreach ($headers['subject'] ?? [] as $value) {
-                if (preg_match_all('/=\?[^?]*\?B\?([A-Za-z0-9+\/=]+)\?=/', $value, $parts)) {
-                    $subject .= implode('', array_map(static fn(string $chunk): string => (string) base64_decode($chunk), $parts[1]));
+                if (preg_match_all('/=\?[^?]*\?B\?([A-Za-z0-9+\/=]+)\?=/', $value, $chunks)) {
+                    $subject .= implode('', array_map(static fn(string $chunk): string => (string) base64_decode($chunk), $chunks[1]));
                 } else {
                     $subject .= $value;
                 }
             }
-            $decoded[] = ['to' => $recipient, 'subject' => $subject, 'body' => $plain];
+            $decoded[] = ['to' => $recipient, 'subject' => $subject, 'body' => (string) ($parts['text/plain'] ?? ''), 'html' => (string) ($parts['text/html'] ?? ''), 'mime_ok' => $mimeOk];
         }
         return $decoded;
     };
@@ -193,6 +227,13 @@ namespace {
         }
         throw new RuntimeException('Expected operation to fail.');
     };
+    /** Every message so far must be a well-formed multipart mail, not just a decodable blob. */
+    $assertMime = static function (array $messages, string $stage) use ($assert): void {
+        foreach ($messages as $index => $message) {
+            $assert((bool) ($message['mime_ok'] ?? false), $stage . ' delivered a message a mail client cannot render (message ' . ($index + 1) . ', ' . (string) ($message['subject'] ?? '') . ').');
+            $assert(str_contains((string) ($message['html'] ?? ''), '<html'), $stage . ' delivered a message with no HTML part a mail client can show (' . (string) ($message['subject'] ?? '') . ').');
+        }
+    };
     $codeFrom = static function (array $messages, string $needle): string {
         foreach ($messages as $message) {
             if (preg_match('/\b(\d{6})\b/', (string) $message['body'], $match) && stripos((string) $message['body'], $needle) !== false) {
@@ -213,6 +254,7 @@ namespace {
         // Registration is a three-mail event: the student's code, the HR alert and the developer alert.
         $messages = $waitFor(3);
         $assert(count($messages) === 3, 'Registration should deliver three messages, saw ' . count($messages) . '.');
+        $assertMime($messages, 'Registration');
         $students = array_values(array_filter($messages, static fn(array $m): bool => $m['to'] === $email));
         $assert(count($students) === 1, 'Exactly one message must go to the registering student.');
         $assert(str_contains(strtolower((string) $students[0]['subject']), 'verify')
@@ -237,6 +279,7 @@ namespace {
         $before = count($delivered());
         $auth->requestPasswordReset($email);
         $resetMessages = $waitFor($before + 1);
+        $assertMime($resetMessages, 'The password reset');
         $auth->resetPassword($email, $codeFrom($resetMessages, 'reset the password'), 'New Correct Horse 8!');
         $auth->login($email, 'New Correct Horse 8!');
         $expectFailure(static fn() => $auth->login($email, 'Correct Horse Battery 9!'), 'Email or password is incorrect');

@@ -242,14 +242,16 @@ final class MailService
     private function multipart(string $text, string $html): array
     {
         $boundary = 'tsg-' . bin2hex(random_bytes(12));
-        $encode = static fn(string $body): string => chunk_split(base64_encode($body), 76, "\r\n");
-        return [$boundary, '--' . $boundary . "\r\n"
-            . 'Content-Type: text/plain; charset=UTF-8\r\n'
-            . 'Content-Transfer-Encoding: base64\r\n\r\n' . $encode($text) . "\r\n"
-            . '--' . $boundary . "\r\n"
-            . 'Content-Type: text/html; charset=UTF-8\r\n'
-            . 'Content-Transfer-Encoding: base64\r\n\r\n' . $encode($html) . "\r\n"
-            . '--' . $boundary . '--' . "\r\n"];
+        // Every line break in a MIME payload has to be a real CRLF. The part headers below used to
+        // be single-quoted strings, so PHP sent the four characters \r\n as literal text: a mail
+        // client then found no blank line separating a part's headers from its body, treated the
+        // whole part as header noise and displayed the base64 instead of decoding it.
+        $part = static fn(string $type, string $body): string => '--' . $boundary . "\r\n"
+            . 'Content-Type: ' . $type . '; charset=UTF-8' . "\r\n"
+            . 'Content-Transfer-Encoding: base64' . "\r\n"
+            . "\r\n"
+            . chunk_split(base64_encode($body), 76, "\r\n") . "\r\n";
+        return [$boundary, $part('text/plain', $text) . $part('text/html', $html) . '--' . $boundary . '--' . "\r\n"];
     }
 
     /** Strips newlines from every string in a view so no value can inject headers. */
