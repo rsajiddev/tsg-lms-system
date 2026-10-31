@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PrivateStorage;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
@@ -327,12 +328,10 @@ final class AssignmentController
             default => false,
         };
         if (!$signatureMatches) throw new RuntimeException('The uploaded file content does not match an allowed document type.');
-        $dir = BASE_PATH . '/storage/uploads/private/assignments';
-        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) throw new RuntimeException('Private assignment storage is unavailable.');
-        @chmod($dir, 0700);
+        $dir = PrivateStorage::directory('assignments');
         $name = bin2hex(random_bytes(24)) . '.' . $types[$mime];
         $path = $dir . '/' . $name;
-        if (!move_uploaded_file((string)$upload['tmp_name'], $path)) throw new RuntimeException('The assignment file could not be stored.');
+        if (!move_uploaded_file((string)$upload['tmp_name'], $path)) throw new RuntimeException('The assignment file could not be stored. Check that the private upload folder still has free space, then submit again.');
         @chmod($path, 0600);
         return ['absolute' => $path, 'relative' => 'assignments/' . $name];
     }

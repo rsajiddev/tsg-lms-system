@@ -14,6 +14,7 @@ foreach (
         '/app/Core/RateLimiter.php',
         '/app/Core/AuthMiddleware.php',
         '/app/Core/PurgeGuard.php',
+        '/app/Core/PrivateStorage.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
         '/app/Services/AccountIdentity.php',

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PrivateStorage;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
@@ -402,8 +403,7 @@ final class PaymentController
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file((string) $upload['tmp_name']);
         $extensions = ['application/pdf' => 'pdf', 'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
         if (!is_string($mime) || !isset($extensions[$mime])) throw new RuntimeException('Payment proof must be a PDF, JPG, PNG, or WebP file.');
-        $directory = BASE_PATH . '/storage/uploads/private/payment-proofs';
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) throw new RuntimeException('Private payment-proof storage is unavailable.');
+        $directory = PrivateStorage::directory('payment-proofs');
         $filename = bin2hex(random_bytes(24)) . '.' . $extensions[$mime];
         $absolute = $directory . '/' . $filename;
         if (!move_uploaded_file((string) $upload['tmp_name'], $absolute)) throw new RuntimeException('The payment proof could not be saved. Try again.');

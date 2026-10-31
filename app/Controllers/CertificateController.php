@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\RateLimiter;
+use App\Core\PrivateStorage;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseGrading;
@@ -634,11 +635,7 @@ final class CertificateController
         if ((string) file_get_contents($tmp, false, null, 0, 3) !== "\xFF\xD8\xFF") {
             throw new RuntimeException('The uploaded file content does not match a JPG image.');
         }
-        $directory = BASE_PATH . '/storage/uploads/private/' . self::STORAGE_FOLDER;
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
-            throw new RuntimeException('Private certificate storage is unavailable.');
-        }
-        @chmod($directory, 0700);
+        $directory = PrivateStorage::directory(self::STORAGE_FOLDER);
         $relative = self::STORAGE_FOLDER . '/' . bin2hex(random_bytes(24)) . '.jpg';
         if (!move_uploaded_file($tmp, BASE_PATH . '/storage/uploads/private/' . $relative)) {
             throw new RuntimeException('The certificate file could not be stored.');
