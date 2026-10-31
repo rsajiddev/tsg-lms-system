@@ -105,4 +105,14 @@ $error = $error ?? null; ?>
                         </tr><?php endforeach; ?>
                 </tbody></table></div><?php endif; ?>
     </section>
+    <?php
+    // The board is the one workspace a test round fills without meaning to: every published lesson,
+    // quiz, assignment and payment decision leaves a notice behind. This clears all of it at once.
+    $purgeAction = '/admin/announcements/purge';
+    $purgePhrase = 'DELETE ALL ANNOUNCEMENTS';
+    $purgeTitle = 'Clear the announcement board';
+    $purgeDescription = 'Removes every announcement and automated student update with its recipient records and private replies, which also clears the unread badges in student sidebars.';
+    $purgeCount = (int) ($notificationTotal ?? 0);
+    require BASE_PATH . '/app/Views/components/purge-zone.php';
+    ?>
 </section>

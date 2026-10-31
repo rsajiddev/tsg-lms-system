@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\NotificationService;
@@ -35,6 +36,8 @@ final class NotificationController
         } catch (\Throwable $exception) {
             $unreadTotal = 0;
         }
+        // The two lists above are capped, so the testing card counts the whole board instead.
+        $notificationTotal = (int) $db->query('SELECT COUNT(*) FROM notifications')->fetchColumn();
         View::render('admin/notifications', [
             'title' => 'Announcements',
             'user' => $admin,
@@ -43,6 +46,7 @@ final class NotificationController
             'automated' => $automated,
             'emailLog' => $emailLog,
             'unreadTotal' => $unreadTotal,
+            'notificationTotal' => $notificationTotal,
             'categories' => NotificationService::AREAS,
             'error' => $_SESSION['_flash_error'] ?? null,
             'message' => $_SESSION['_flash'] ?? null,
@@ -125,19 +129,116 @@ final class NotificationController
         $this->redirect('/admin/announcements');
     }
 
+    /**
+     * Empties the announcement board: every notification, its recipient rows and the private
+     * replies filed under it.
+     *
+     * Like the other bulk deletes this is a testing tool, so it stays on the page where it can be
+     * found and leans on the typed phrase, the acknowledgement and a server-side re-check instead
+     * of on being hidden. Removing the rows also clears the student badges, because those count
+     * exactly these recipient rows.
+     */
+    public function purgeAll(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performPurgeAll($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/announcements');
+        }
+    }
+
+    private function performPurgeAll(array $admin): void
+    {
+        $this->csrf();
+        PurgeGuard::assertConfirmed('DELETE ALL ANNOUNCEMENTS');
+        $db = Database::connection();
+        $ids = array_map('intval', $db->query('SELECT id FROM notifications ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        if ($ids === []) {
+            $_SESSION['_flash'] = 'The announcement board is already empty.';
+            $this->redirect('/admin/announcements');
+        }
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $db->beginTransaction();
+        try {
+            // Replies first, then the delivery records, then the board itself: the child rows hold
+            // the foreign keys, and a half-cleared board would leave notifications nobody can read.
+            $replyStmt = $db->prepare('DELETE FROM notification_replies WHERE notification_id IN (' . $in . ')');
+            $replyStmt->execute($ids);
+            $replies = $replyStmt->rowCount();
+            $recipientStmt = $db->prepare('DELETE FROM notification_recipients WHERE notification_id IN (' . $in . ')');
+            $recipientStmt->execute($ids);
+            $recipients = $recipientStmt->rowCount();
+            $db->prepare('DELETE FROM notifications WHERE id IN (' . $in . ')')->execute($ids);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?, 'announcement.bulk_deleted', 'notification', NULL, ?)")
+                ->execute([(int) $admin['id'], json_encode([
+                    'notifications_deleted' => count($ids),
+                    'recipients_deleted' => $recipients,
+                    'replies_deleted' => $replies,
+                ], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+        $_SESSION['_flash'] = sprintf(
+            'Deleted %d announcement(s) with %d recipient record(s) and %d private reply/replies. Student badges that counted them are clear.',
+            count($ids),
+            $recipients,
+            $replies
+        );
+        $this->redirect('/admin/announcements');
+    }
+
     public function studentIndex(): void
     {
         $student = AuthMiddleware::requireRole('student');
         $stmt = Database::connection()->prepare('SELECT n.id,n.title,n.body,n.category,n.link,n.published_at,nr.read_at FROM notification_recipients nr JOIN notifications n ON n.id=nr.notification_id WHERE nr.student_id=? AND n.published_at IS NOT NULL ORDER BY n.published_at DESC,n.id DESC LIMIT 100');
         $stmt->execute([(int)$student['id']]);
-        View::render('notifications/index', ['title' => 'My notifications', 'user' => $student, 'notifications' => $stmt->fetchAll(), 'message' => $_SESSION['_flash'] ?? null]);
-        unset($_SESSION['_flash']);
+        View::render('notifications/index', ['title' => 'My notifications', 'user' => $student, 'notifications' => $stmt->fetchAll(), 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Marks the whole inbox read in one action.
+     *
+     * Every badge in the student sidebar counts rows whose read_at is still NULL, so a student who
+     * has read everything still has to open each page to prove it. This is the one action that
+     * empties the counters, and it touches only this student's own rows: a shared announcement stays
+     * unread for everyone else until they read it themselves.
+     */
+    public function markAllRead(): void
+    {
+        $student = AuthMiddleware::requireRole('student');
+        try {
+            $this->performMarkAllRead($student);
+        } catch (\Throwable $exception) {
+            // An expired session should land the student back on the inbox with a reason, not on an
+            // error page they have to navigate out of.
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/notifications');
+        }
+    }
+
+    private function performMarkAllRead(array $student): void
+    {
+        $this->csrf();
+        $stmt = Database::connection()->prepare('UPDATE notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ? AND read_at IS NULL');
+        $stmt->execute([(int) $student['id']]);
+        $marked = $stmt->rowCount();
+        $_SESSION['_flash'] = $marked > 0
+            ? 'Marked ' . number_format($marked) . ' notification(s) as read.'
+            : 'Nothing was unread.';
+        $this->redirect('/notifications');
     }
 
     public function show(): void
     {
         $user = $this->currentUser();
-        $id = filter_input(INPUT_GET, 'notification_id', FILTER_VALIDATE_INT) ?: 0;
+        // Read through $_GET rather than filter_input(): under HTTP the two are the same, and the
+        // render harness can then open a thread without a web server.
+        $id = filter_var($_GET['notification_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
         $recipientId = (int)$user['id'];
         $recipients = [];
@@ -161,7 +262,7 @@ final class NotificationController
             $recipientsStmt = $db->prepare('SELECT u.id,u.full_name,u.email FROM notification_recipients nr JOIN users u ON u.id=nr.student_id WHERE nr.notification_id=? ORDER BY u.full_name');
             $recipientsStmt->execute([$id]);
             $recipients = $recipientsStmt->fetchAll();
-            $recipientId = filter_input(INPUT_GET, 'student_id', FILTER_VALIDATE_INT) ?: 0;
+            $recipientId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
             if ($recipientId > 0) {
                 $allowed = $db->prepare('SELECT 1 FROM notification_recipients WHERE notification_id=? AND student_id=?');
                 $allowed->execute([$id, $recipientId]);
@@ -175,7 +276,9 @@ final class NotificationController
         }
         $replies = [];
         if ($recipientId > 0) {
-            $replyStmt = $db->prepare('SELECT r.id,r.message,r.created_at,u.full_name AS author_name,u.role AS author_role FROM notification_replies r JOIN users u ON u.id=r.student_id WHERE r.notification_id=? AND r.recipient_student_id=? ORDER BY r.created_at,r.id');
+            // author_id is the writer's own account id, so the thread can tell the reader's messages
+            // apart from the Academy's without comparing names.
+            $replyStmt = $db->prepare('SELECT r.id,r.message,r.created_at,r.student_id AS author_id,u.full_name AS author_name,u.role AS author_role FROM notification_replies r JOIN users u ON u.id=r.student_id WHERE r.notification_id=? AND r.recipient_student_id=? ORDER BY r.created_at,r.id');
             $replyStmt->execute([$id, $recipientId]);
             $replies = $replyStmt->fetchAll();
         }
@@ -184,8 +287,10 @@ final class NotificationController
             $recipient = $item;
             break;
         }
-        View::render('notifications/show', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification, 'replies' => $replies, 'recipients' => $recipients, 'recipient' => $recipient, 'message' => $_SESSION['_flash'] ?? null]);
-        unset($_SESSION['_flash']);
+        // No flash banner: the reply you just sent appears at the bottom of the thread, which says
+        // more than a green bar that would also hide the newest message.
+        View::render('notifications/show', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification, 'replies' => $replies, 'recipients' => $recipients, 'recipient' => $recipient]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function reply(): void
@@ -221,7 +326,6 @@ final class NotificationController
         }
         $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')->execute([$id, (int)$user['id'], $recipientId, $message]);
         $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,'notification.replied','notification',?)")->execute([(int)$user['id'], $id]);
-        $_SESSION['_flash'] = 'Reply added to this private conversation.';
         $this->redirect('/notifications/view?notification_id=' . $id . ($user['role'] === 'admin' ? '&student_id=' . $recipientId : ''));
     }
 

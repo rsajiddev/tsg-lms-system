@@ -6,6 +6,7 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $v): string => Security::escape((string)$v);
 $notifications = is_array($notifications ?? null) ? $notifications : [];
 $message = $message ?? null;
+$error = $error ?? null;
 // Each notification carries the workspace area it belongs to, so the list reads like the sidebar.
 $categoryLabels = [
     'announcement' => 'Academy announcement',
@@ -29,7 +30,10 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
             <h1>My notifications</h1>
             <p><?= $unreadCount > 0 ? $unreadCount . ' unread update(s) from the Academy, your courses, tests and payments.' : 'Announcements and course updates from the Academy. You are up to date.' ?></p>
         </div>
-    </header><?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
+        <?php /* Counting each notice read is the only way the sidebar numbers come down, so the
+                  shortcut belongs next to the count it clears - and only while there is one. */ ?>
+        <?php if ($unreadCount > 0): ?><form method="post" action="<?= $escape($baseUrl) ?>/notifications/read-all" class="student-status-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><button class="button button-secondary" type="submit">Mark all read</button></form><?php endif; ?>
+    </header><?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?><?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
     <?php if ($notifications === []): ?><section class="dashboard-panel">
             <div class="dashboard-empty">
                 <div>

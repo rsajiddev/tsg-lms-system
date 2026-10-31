@@ -167,7 +167,9 @@ $router->post('/admin/assignments/purge', [\App\Controllers\AssignmentController
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
 $router->post('/admin/announcements/publish', [\App\Controllers\NotificationController::class, 'publish']);
 $router->post('/admin/announcements/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
+$router->post('/admin/announcements/purge', [\App\Controllers\NotificationController::class, 'purgeAll']);
 $router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
+$router->post('/notifications/read-all', [\App\Controllers\NotificationController::class, 'markAllRead']);
 $router->get('/notifications/view', [\App\Controllers\NotificationController::class, 'show']);
 $router->post('/notifications/reply', [\App\Controllers\NotificationController::class, 'reply']);
 $router->post('/learning/quiz/start', [\App\Controllers\QuizController::class, 'start']);

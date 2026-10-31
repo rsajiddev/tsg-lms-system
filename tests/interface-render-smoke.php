@@ -293,6 +293,8 @@ $checkPage('Announcement workspace', '/admin/announcements', static fn() => (new
     'Automated student updates',
     'Email delivery log',
     'Clear activity',
+    'Clear the announcement board',
+    'DELETE ALL ANNOUNCEMENTS',
 ]);
 $checkPage('Assignment workspace', '/admin/assignments', static fn() => (new AssignmentController())->adminIndex(), [
     'DELETE ALL ASSIGNMENTS',
@@ -338,7 +340,19 @@ $checkPage('Student dashboard badges', '/dashboard', static fn() => (new Dashboa
 $checkPage('Student inbox', '/notifications', static fn() => (new NotificationController())->studentIndex(), [
     'Grade published',
     'Payment approved',
+    'Mark all read',
 ]);
+// The shortcut only exists while something is unread: a clean inbox has nothing to clear, and its
+// sidebar badges are already at zero, so the button would only invite a pointless click.
+$db->exec('UPDATE notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ' . (int) $studentId);
+$readAllHtml = $render(static fn() => (new NotificationController())->studentIndex());
+$assert(!str_contains($readAllHtml, 'notifications/read-all'), 'An inbox with nothing unread hides the Mark all read shortcut.',
+    'The read-all form is offered even though every notice is already read.');
+$db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
+$unreadAgainHtml = $render(static fn() => (new NotificationController())->studentIndex());
+$assert(str_contains($unreadAgainHtml, 'notifications/read-all') && str_contains($unreadAgainHtml, 'Mark all read'),
+    'The shortcut returns the moment a notification is unread again.',
+    'Re-opening the unread state did not bring the read-all form back.');
 $checkPage('Student account settings', '/student/settings', static fn() => (new AccountController())->studentSettings(), [
     'Student ID',
     'TSG-STU-',

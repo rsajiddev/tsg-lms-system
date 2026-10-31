@@ -15,9 +15,11 @@ declare(strict_types=1);
  * because a controller ends with a redirect. It proves that a wrong phrase deletes nothing, that
  * the right phrase empties every dependent table in the order the foreign keys demand, that the
  * stored submission file is removed, that the matching student notifications retire, and that an
- * audit row records the scale of the deletion. The last two rounds cover the student directory
- * purge (accounts and everything filed under them, while the delivery log keeps its rows) and the
- * announcement workspace's Clear activity button. It only ever runs against a scratch database.
+ * audit row records the scale of the deletion. The last rounds cover the student directory
+ * purge (accounts and everything filed under them, while the delivery log keeps its rows), the
+ * announcement workspace's Clear activity button, the student's Mark all read shortcut, and the
+ * announcement board purge that retires every notification with its recipients and replies. It
+ * only ever runs against a scratch database.
  */
 
 define('BASE_PATH', dirname(__DIR__));
@@ -32,6 +34,7 @@ foreach (
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
         '/app/Services/AccountIdentity.php',
+        '/app/Services/AdminAttention.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
@@ -99,6 +102,9 @@ $phrases = [
     // The delivery log has one row per message and no wording to protect, so its Clear activity
     // button asks for a browser confirmation instead of a typed phrase.
     'emaillog' => '',
+    'announcements' => 'DELETE ALL ANNOUNCEMENTS',
+    // The student's Mark all read has no phrase either; its unsafe variant is a forged request.
+    'readall' => '',
 ];
 
 /* --------------------------------------------------------------------- child process */
@@ -109,17 +115,27 @@ if ($run !== '') {
     $find->execute([$adminEmail]);
     $adminId = (int) $find->fetchColumn();
     $assert($adminId > 0, 'The seeded admin is missing; run the parent first.');
-    $_SESSION = ['user' => ['id' => $adminId, 'name' => 'Purge Smoke Admin', 'email' => $adminEmail, 'role' => 'admin']];
-    $_POST = [
-        '_csrf' => Security::csrfToken(),
-        'irreversible' => '1',
-        'course_id' => '0',
-    ];
-    if ($phrases[$run] === '') {
-        // Nothing to mistype here: the unsafe variant is a request without a valid token.
-        if (($options['bad'] ?? '') === '1') $_POST['_csrf'] = 'not-a-token';
+    if ($run === 'readall') {
+        // Mark all read is the student's own action, so this child signs in as whichever student the
+        // parent left standing and the unsafe variant is a request without a valid token.
+        $studentRow = $db->query("SELECT id,email FROM users WHERE role='student' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $studentSessionId = (int) ($studentRow['id'] ?? 0);
+        $assert($studentSessionId > 0, 'No student account is left to mark an inbox read; run the parent first.');
+        $_SESSION = ['user' => ['id' => $studentSessionId, 'name' => 'Purge Smoke Reader', 'email' => (string) $studentRow['email'], 'role' => 'student']];
+        $_POST = ['_csrf' => (($options['bad'] ?? '') === '1') ? 'not-a-token' : Security::csrfToken()];
     } else {
-        $_POST['confirm_phrase'] = (($options['bad'] ?? '') === '1') ? 'DELETE EVERYTHING PLEASE' : $phrases[$run];
+        $_SESSION = ['user' => ['id' => $adminId, 'name' => 'Purge Smoke Admin', 'email' => $adminEmail, 'role' => 'admin']];
+        $_POST = [
+            '_csrf' => Security::csrfToken(),
+            'irreversible' => '1',
+            'course_id' => '0',
+        ];
+        if ($phrases[$run] === '') {
+            // Nothing to mistype here: the unsafe variant is a request without a valid token.
+            if (($options['bad'] ?? '') === '1') $_POST['_csrf'] = 'not-a-token';
+        } else {
+            $_POST['confirm_phrase'] = (($options['bad'] ?? '') === '1') ? 'DELETE EVERYTHING PLEASE' : $phrases[$run];
+        }
     }
     $_SERVER['REQUEST_METHOD'] = 'POST';
     register_shutdown_function(static function (): void {
@@ -132,6 +148,8 @@ if ($run !== '') {
             'lessons' => (new CourseAdminController())->purgeLessons(),
             'students' => (new StudentManagementController())->purgeAll(),
             'emaillog' => (new NotificationController())->clearEmailLog(),
+            'announcements' => (new NotificationController())->purgeAll(),
+            'readall' => (new NotificationController())->markAllRead(),
         };
     } catch (Throwable $exception) {
         echo 'THROWN|' . $exception->getMessage() . "\n";
@@ -157,16 +175,21 @@ foreach ($tables as $table) {
         if ((int) ($exception->errorInfo[1] ?? 0) !== 1146) throw $exception;
     }
 }
-$db->exec('DELETE FROM users WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ')');
+$db->exec('DELETE FROM users WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ",'purge-smoke-reader@example.test')");
 
 $fileHash = bin2hex(random_bytes(24));
-$fileRelative = 'assignments/' . $fileHash . '.txt';
-$uploadDir = BASE_PATH . '/storage/uploads/private/assignments';
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0700, true);
+$fileRelative = 'smoke-purge/' . $fileHash . '.txt';
+// A folder of the run's own, never one the site writes to: a directory this command-line account
+// creates is unreadable and unwritable by the account serving the site (and the other way round),
+// so borrowing a real upload folder made the test depend on who had touched it last.
+$uploadDir = BASE_PATH . '/storage/uploads/private/smoke-purge';
+if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0700, true)) {
+    fwrite(STDERR, "FAIL: the scratch upload folder {$uploadDir} could not be created. Remove it or make this account able to write storage/uploads/private.\n");
+    exit(1);
 }
 $uploadPath = $uploadDir . '/' . $fileHash . '.txt';
 file_put_contents($uploadPath, 'Purge smoke submission payload.');
+$assert(is_file($uploadPath), 'The fixture upload could not be written to ' . $uploadDir . '. Remove that folder or let this account write into it; a purge test that stores nothing proves nothing.');
 // Set later, for the second round that clears the student accounts themselves.
 $proofPath = '';
 
@@ -255,7 +278,12 @@ try {
     $database = escapeshellarg('--database=' . $dbName);
     $invoke = static function (string $target, bool $bad = false) use ($self, $script, $database): string {
         $command = $self . ' ' . $script . ' ' . $database . ' --run=' . escapeshellarg($target) . ($bad ? ' --bad=1' : '') . ' 2>&1';
-        return (string) shell_exec($command);
+        $output = (string) shell_exec($command);
+        // The child writes and deletes real files behind this process's back, and PHP replays
+        // cached stat() results for paths already looked at - a stale is_file() entry would make
+        // the run believe a removed upload is still on disk.
+        clearstatcache();
+        return $output;
     };
 
     $rejected = $invoke('quizzes', true);
@@ -295,7 +323,7 @@ try {
         ->execute([$courseId, 'Post-purge assignment', $adminId]);
     $lateAssignmentId = (int) $db->lastInsertId();
     $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
-        VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $studentId, 'Uploaded work', 'assignments/' . $proofHash . '.txt']);
+        VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $studentId, 'Uploaded work', 'smoke-purge/' . $proofHash . '.txt']);
     $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
         VALUES(?,?,25000,'PKR','PURGE-SMOKE-1','approved',?,UTC_TIMESTAMP())")->execute([$studentId, $courseId, $adminId]);
     $paymentId = (int) $db->lastInsertId();
@@ -363,7 +391,50 @@ try {
     $output = $invoke('emaillog');
     $assert(str_contains($output, 'FLASH|The delivery log was already empty.'), 'An empty delivery log reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared\n";
+    /* ------------------------------------------------ the student's Mark all read */
+    // The student purge above removed the fixture account, so a fresh reader is created: unread
+    // notices refiled under the surviving announcement are exactly what the inbox shortcut is for.
+    // A forged request has to leave that state alone.
+    $readerEmail = 'purge-smoke-reader@example.test';
+    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Purge Smoke Reader',?,'unusable-hash','student','active',UTC_TIMESTAMP())")
+        ->execute([$readerEmail]);
+    $readerId = (int) $db->lastInsertId();
+    $keptId = (int) $db->query("SELECT id FROM notifications WHERE title='Kept announcement'")->fetchColumn();
+    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+        ->execute([$keptId, $readerId]);
+    $unread = static fn(): int => (int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE read_at IS NULL')->fetchColumn();
+    $output = $invoke('readall', true);
+    $assert(str_contains($output, 'FLASH|Your session expired'), 'The Mark all read shortcut accepted a request without a valid token: ' . trim($output));
+    $assert($unread() === 1, 'An unauthenticated request marked the inbox read anyway.');
+
+    $output = $invoke('readall');
+    $assert(str_contains($output, 'FLASH|Marked 1 notification(s) as read.'), 'Mark all read reported: ' . trim($output));
+    $assert($unread() === 0, 'A badge counter survived Mark all read.');
+    $assert((string) $db->query('SELECT read_at FROM notification_recipients')->fetchColumn() !== '',
+        'The recipient row was stamped but the counter says otherwise; the badge would keep counting it.');
+
+    /* ----------------------------------------------------- the announcement board */
+    // A private reply filed under the surviving announcement, so the board purge is proven to take
+    // the child rows with it instead of stranding a foreign key.
+    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+        ->execute([$keptId, $readerId, $readerId, 'A question about the announcement.']);
+
+    $output = $invoke('announcements', true);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'A wrong phrase was not rejected with a readable reason: ' . trim($output));
+    $assert($count('notifications') === 1 && $count('notification_replies') === 1, 'A wrong phrase deleted announcements anyway.');
+
+    $output = $invoke('announcements');
+    $assert(str_contains($output, 'FLASH|Deleted 1 announcement(s) with 1 recipient record(s) and 1 private reply'), 'Announcement board purge reported: ' . trim($output));
+    foreach (['notifications', 'notification_recipients', 'notification_replies'] as $table) {
+        $assert($count($table) === 0, $table . ' still holds rows after the announcement board purge.');
+    }
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='announcement.bulk_deleted'")->fetchColumn() === 1,
+        'No audit row for the announcement board purge.');
+
+    $output = $invoke('announcements');
+    $assert(str_contains($output, 'FLASH|The announcement board is already empty.'), 'An empty board reported: ' . trim($output));
+
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, announcement board purged\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {
@@ -374,6 +445,10 @@ try {
         if ($scratchFile !== '' && is_file($scratchFile)) {
             @unlink($scratchFile);
         }
+    }
+    // The scratch folder always goes, so the next run finds it exactly as empty as this one made it.
+    if (is_dir($uploadDir)) {
+        @rmdir($uploadDir);
     }
 }
 
