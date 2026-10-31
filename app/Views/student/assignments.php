@@ -73,8 +73,6 @@ $statusLabel = static function (?string $value): string {
         <?php endif; ?>
     </section>
 
-    <div class="dashboard-note"><strong>Submission window</strong><span>A published assignment accepts up to five submissions. Once its deadline passes the academy closes it and only the last reviewed attempt is kept.</span></div>
-
     <?php
     $usageEyebrow = 'Assignments';
     $usageTitle = 'How to use Assignments';
@@ -88,4 +86,6 @@ $statusLabel = static function (?string $value): string {
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+
+    <div class="dashboard-note"><strong>Submission window</strong><span>A published assignment accepts up to five submissions. Once its deadline passes the academy closes it and only the last reviewed attempt is kept.</span></div>
 </section>

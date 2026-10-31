@@ -167,8 +167,6 @@ $grantedLabel = static function (?string $value): string {
         <?php endif; ?>
     </section>
 
-    <div class="dashboard-note"><strong>Need help?</strong><span>Lessons open only for courses with an active access grant. If a course is missing here, contact the academy team.</span></div>
-
     <?php
     $usageEyebrow = 'My courses';
     $usageTitle = 'How to use My courses';
@@ -182,4 +180,6 @@ $grantedLabel = static function (?string $value): string {
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+
+    <div class="dashboard-note"><strong>Need help?</strong><span>Lessons open only for courses with an active access grant. If a course is missing here, contact the academy team.</span></div>
 </section>

@@ -541,6 +541,28 @@ $assert(str_contains($html, 'How to use coding challenges') && str_contains($htm
 $assert(stripos($html, 'admin-usage-card') !== false && stripos($html, 'admin-usage-card') < stripos($html, 'Browser-based practice'),
     'The standing practice-only caveat still follows the walkthrough.',
     'The challenge page prints its caveat above the guide.');
+$assert(stripos($html, 'admin-usage-card') < stripos($html, 'For web development students'),
+    'The course-access note closes the challenge page under the walkthrough instead of opening it.',
+    'The challenge page meets the student with the access note before the guide.');
+// The placement rule holds on every surface that carries a walkthrough: a standing note never sits
+// above it, so the guide is always the last card and the notes are the page's closing lines. The one
+// exception is a precondition that replaces the workflow altogether - a desk with nothing to work on
+// yet explains itself before it explains how to work.
+echo "\n-- no standing note above a walkthrough\n";
+$preconditions = ['Create a course first'];
+foreach (glob(BASE_PATH . '/app/Views/*/*.php') ?: [] as $viewFile) {
+    $source = (string) file_get_contents($viewFile);
+    $guideAt = strpos($source, "components/usage-guide.php");
+    if ($guideAt === false) continue;
+    $relative = str_replace(BASE_PATH . '/app/Views/', '', $viewFile);
+    preg_match_all('/class="[^"]*dashboard-note[^"]*"[^<]*<strong>([^<]+)<\/strong>/', $source, $notes, PREG_OFFSET_CAPTURE);
+    foreach ($notes[0] as $index => $note) {
+        $label = trim((string) $notes[1][$index][0]);
+        if (in_array($label, $preconditions, true)) continue;
+        $assert((int) $note[1] > $guideAt, $relative . ' keeps its note "' . $label . '" under the walkthrough.',
+            $relative . ' prints the note "' . $label . '" above the walkthrough.');
+    }
+}
 
 /* --------------------------------------------------------------- confirmation overlay */
 echo "\n-- confirmation overlay\n";

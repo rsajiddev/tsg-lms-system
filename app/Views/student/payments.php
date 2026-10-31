@@ -86,8 +86,6 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         <?php endif; ?>
     </section>
 
-    <div class="dashboard-note"><strong>How review works</strong><span>The academy verifies your transaction reference before course access is granted. Approved submissions unlock the course in <a href="<?= $escape($baseUrl) ?>/student/courses">My courses</a>.</span></div>
-
     <?php
     $usageEyebrow = 'Payments';
     $usageTitle = 'How to use your payments page';
@@ -102,4 +100,6 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+
+    <div class="dashboard-note"><strong>How review works</strong><span>The academy verifies your transaction reference before course access is granted. Approved submissions unlock the course in <a href="<?= $escape($baseUrl) ?>/student/courses">My courses</a>.</span></div>
 </section>

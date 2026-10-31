@@ -160,7 +160,6 @@ $lastWatchedLabel = static function (?string $value): string {
                 </nav>
             <?php endif; ?>
         <?php endif; ?>
-        <?php if ($watchAvailable): ?><p class="dashboard-note"><strong>Watch time is tracked for you</strong><span>Progress is saved while the lesson video plays, so you can close the page and resume where you stopped. A lesson unlocks its completion button after <?= $watchPercent ?>% of the video.</span></p><?php endif; ?>
     </section>
 
     <?php
@@ -176,4 +175,6 @@ $lastWatchedLabel = static function (?string $value): string {
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+
+    <?php if ($watchAvailable): ?><p class="dashboard-note"><strong>Watch time is tracked for you</strong><span>Progress is saved while the lesson video plays, so you can close the page and resume where you stopped. A lesson unlocks its completion button after <?= $watchPercent ?>% of the video.</span></p><?php endif; ?>
 </section>

@@ -112,8 +112,6 @@ $dateTimeLabel = static function (?string $value): string {
         <?php endif; ?>
     </section>
 
-    <div class="dashboard-note"><strong>Grading is server-side</strong><span>Scores are calculated when your attempt is submitted and the deadline is enforced by the server, even if you leave the page.</span></div>
-
     <?php
     $usageEyebrow = 'Quizzes & results';
     $usageTitle = 'How to use Quizzes & results';
@@ -127,4 +125,6 @@ $dateTimeLabel = static function (?string $value): string {
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+
+    <div class="dashboard-note"><strong>Grading is server-side</strong><span>Scores are calculated when your attempt is submitted and the deadline is enforced by the server, even if you leave the page.</span></div>
 </section>
