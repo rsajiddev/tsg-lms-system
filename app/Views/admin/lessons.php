@@ -414,7 +414,18 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
         <?php endif; ?>
     </section>
 
-    <!-- Usage guide: written for admins landing on this page for the first time. -->
+  <?php
+  // Testing tool: the lesson library is where draft content piles up fastest while a course is
+  // being written, so it gets the same guarded bulk delete as assignments and quizzes.
+  $purgeAction = '/admin/lessons/purge';
+  $purgePhrase = 'DELETE ALL LESSONS';
+  $purgeTitle = 'Delete all lessons';
+  $purgeDescription = 'Removes every lesson with its module placement and the student watch progress recorded against it.';
+  $purgeScopeCourses = $courses;
+  require BASE_PATH . '/app/Views/components/purge-zone.php';
+  ?>
+
+    <!-- The walkthrough always closes the page, below the bulk delete card. -->
     <?php
     $usageEyebrow = 'Lesson library';
     $usageTitle = 'How to use the Lesson library';
@@ -430,15 +441,4 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
-
-  <?php
-  // Testing tool: the lesson library is where draft content piles up fastest while a course is
-  // being written, so it gets the same guarded bulk delete as assignments and quizzes.
-  $purgeAction = '/admin/lessons/purge';
-  $purgePhrase = 'DELETE ALL LESSONS';
-  $purgeTitle = 'Delete all lessons';
-  $purgeDescription = 'Removes every lesson with its module placement and the student watch progress recorded against it.';
-  $purgeScopeCourses = $courses;
-  require BASE_PATH . '/app/Views/components/purge-zone.php';
-  ?>
 </section>

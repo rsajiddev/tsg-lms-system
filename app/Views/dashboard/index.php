@@ -619,21 +619,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         </div>
     <?php endif; ?>
 
-    <?php if (!$isAdmin): ?>
-        <?php
-        $usageEyebrow = 'Your learning space';
-        $usageTitle = 'How to use your dashboard';
-        $usageLead = 'Everything that needs your attention this week, collected on one page.';
-        $usageBullets = [
-            'Pick up where you left off. The continue card opens the lesson you were watching with its progress already counted.',
-            'Read the progress bars. Each one compares the lessons you finished against everything your course has published.',
-            'Watch what is due. Attendance, deadlines and any payment waiting on the academy are listed with the date they matter.',
-            'Grades arrive here first. A reviewed assignment or finished test shows in the results panel, and the sidebar number tells you it is new.',
-            'Certificates unlock at the end. When lessons, the final test and attendance are complete, request yours from My courses.',
-            'Anything the academy publishes lands in Notifications. Open it from the sidebar and the number clears once you have read it.',
-        ];
-        require BASE_PATH . '/app/Views/components/usage-guide.php';
-        ?>
-    <?php endif; ?>
+    <?php /* No walkthrough here on purpose: the dashboard summarises the other pages, and each of
+               those already closes with its own guide. */ ?>
 
 </section>

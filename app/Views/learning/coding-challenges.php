@@ -15,5 +15,22 @@ $message = is_string($message ?? null) ? $message : null;
     <?php if ($challenges === []): ?><div class="dashboard-empty"><span class="dashboard-empty-icon">&lt;/&gt;</span><div><h3>No published coding challenges</h3><p>Your instructor has not published code exercises for this course yet.</p></div></div><?php else: ?><div class="coding-student-list">
         <?php foreach ($challenges as $challenge): ?><article class="coding-student-card"><div class="coding-card-mark" aria-hidden="true">&lt;/&gt;</div><div class="coding-student-copy"><p class="eyebrow"><?= $escape($challenge['course_title'] ?? $course['title'] ?? 'COURSE') ?> · HTML · CSS · JAVASCRIPT</p><h3><?= $escape($challenge['title']) ?></h3><p><?= $escape($challenge['instructions']) ?></p><small><?= (int) $challenge['test_count'] ?> checks · <?= (int) $challenge['attempt_count'] ?> saved practice runs</small></div><div class="coding-student-action"><?php if ($challenge['latest_status']): ?><span class="dashboard-status <?= $challenge['latest_status'] === 'pass' ? 'status-active' : 'status-pending' ?>">Latest: <?= $escape(ucfirst($challenge['latest_status'])) ?></span><?php endif; ?><a class="button" href="<?= $escape($baseUrl) ?>/learning/challenge?challenge_id=<?= (int) $challenge['id'] ?>">Open editor</a></div></article><?php endforeach; ?>
     </div><?php endif; ?></section><?php endif; ?>
+    <?php
+    // The walkthrough prints whether or not this student's course carries a challenge set, so the
+    // page closes the same way as every other surface and the note above still explains an empty list.
+    $usageEyebrow = 'Your practice lab';
+    $usageTitle = 'How to use coding challenges';
+    $usageLead = 'Build the page in the browser, run its checks and save as many practice runs as you like.';
+    $usageBullets = [
+        'Open the editor from a card. Each challenge tells you how many checks it runs and how many practice attempts you have already saved.',
+        'Write all three files. HTML, CSS and JavaScript each get their own pane, and the preview shows the page they build together.',
+        'The preview fills in as you type. HTML and CSS update while you edit; press Run JavaScript & checks when your script is in place.',
+        'Save the run you like. A saved attempt lists its pass or fail verdict with the number of checks it cleared, newest first.',
+        'Nothing here is graded. A pass is a practice signal - challenge results never touch your assignment or quiz marks.',
+        'The frame cannot reach your account. It is isolated on purpose, so network calls and form submission are blocked and the checks only read the rendered page.',
+        'Challenges come from your course. Your instructor publishes the set, and the lab only opens for a course that carries one - Open course takes you back to that workspace.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
     <div class="dashboard-note"><strong>Browser-based practice</strong><span>Your code stays in a restricted preview frame. Pass/fail checks are for practice and are not official grades.</span></div>
 </section>

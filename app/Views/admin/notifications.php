@@ -115,4 +115,20 @@ $error = $error ?? null; ?>
     $purgeCount = (int) ($notificationTotal ?? 0);
     require BASE_PATH . '/app/Views/components/purge-zone.php';
     ?>
+
+    <?php
+    $usageEyebrow = 'Announcement board';
+    $usageTitle = 'How to use the announcement board';
+    $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
+    $usageBullets = [
+        'Choose the audience first. All active verified students reaches every verified account, while Choose students lets you tick the exact list from the same active set.',
+        'The title is what gets read. Students see it in their inbox and in the sidebar number that lights up against it, so keep the headline short and put the detail in the message.',
+        'Publishing is the point of no editing. A sent announcement has no draft or unpublish control here, so proof-read the body before you press Publish.',
+        'Replies stay inside the thread. Open conversation on a card to read what each student asked and answer them there - no one else receives it.',
+        'Automated updates share the board. Every published lesson, test, assignment, payment decision and certificate is listed with its recipients and unread count, so you can see who has still not seen the news.',
+        'The delivery log proves the send, not the read. It shows the latest automated emails and whether the mail server accepted them; message bodies are never stored, and Clear activity empties the log only.',
+        'The board is built to be emptied. Clearing it removes every announcement and automated update with its replies, which also resets the unread numbers in student sidebars.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

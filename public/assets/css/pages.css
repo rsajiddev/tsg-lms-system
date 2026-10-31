@@ -13813,7 +13813,9 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .flash-toast-card.is-success .flash-toast-action {
-  background: #16a34a
+  /* The confirm button follows the platform blue, the colour every primary action on the site uses.
+     The card itself still reads green through its icon and label. */
+  background: var(--blue, #2563eb)
 }
 
 .flash-toast-card.is-error .flash-toast-icon {

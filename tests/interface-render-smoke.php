@@ -7,7 +7,7 @@ declare(strict_types=1);
  * Runs on a scratch database only. It boots the schema, signs in as a seeded admin and a seeded
  * student through the session, publishes real notifications through NotificationService, and then
  * renders the pages those two roles depend on: the dashboard with its sidebar badges, the
- * announcement workspace, the student inbox, the account settings page and the three workspaces
+ * announcement workspace, the student inbox, the account settings page and the five workspaces
  * that carry the bulk delete tool. A page that fatals, a badge that stays at zero while unread
  * notifications exist, or a purge card without its confirmation phrase all fail this test.
  *
@@ -484,19 +484,63 @@ $db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = 
 /* ------------------------------------------------------------------ usage guide card */
 echo "\n-- the closing usage guide\n";
 // One component renders the walkthrough at the foot of every workspace page, in the same shape as
-// the public course page's steps, so it is checked once here and once for a student.
-$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
-$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
-$html = $render(static fn() => (new DashboardController())->show());
+// the public course page's steps, so a reader who learns it once re-reads nothing on the next page.
+// Placement is part of the rule as well: it is always the last card on the page.
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/lessons';
+$html = $render(static fn() => (new CourseAdminController())->lessons());
 $assert(str_contains($html, 'admin-usage-card') && str_contains($html, 'admin-usage-eyebrow') && str_contains($html, 'admin-usage-title'),
-    'The student workspace closes with its labelled guide card.',
-    'The student dashboard renders no labelled usage card.');
+    'The Lesson library closes with its labelled guide card.',
+    'The Lesson library renders no labelled usage card.');
 $assert(preg_match('/<ol class="admin-usage-list">.*<span class="admin-usage-number" aria-hidden="true">1<\/span>.*<span class="admin-usage-number" aria-hidden="true">2<\/span>/s', $html) === 1,
     'The steps are an ordered list counted from one.',
     'The guide is not a numbered list starting at 1: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
 $assert(str_contains($html, 'admin-usage-copy"><strong>') && str_contains($html, 'admin-usage-detail'),
     'Each step prints its short title above the sentence that explains it.',
     'A guide step carries no title or no detail.');
+// The walkthrough is the last card on the page, so it never cuts the workflow above it in half -
+// and that holds even on a desk that ends with a guarded bulk delete.
+$assert(stripos($html, 'admin-usage-card') > stripos($html, 'admin-card-testing'),
+    'The guide sits below the bulk delete card at the very bottom of the Lesson library.',
+    'The Lesson library prints its walkthrough above its bulk delete card.');
+// The two desks that had no walkthrough now close with one, in the same place.
+foreach (
+    [
+        'announcement board' => [static fn() => (new NotificationController())->adminIndex(), 'How to use the announcement board'],
+        'student directory' => [static fn() => (new StudentManagementController())->index(), 'How to use the student directory'],
+    ] as $deskLabel => $deskCase
+) {
+    $deskHtml = $render($deskCase[0]);
+    $assert(str_contains($deskHtml, $deskCase[1]), 'The ' . $deskLabel . ' closes with its own walkthrough.',
+        'The ' . $deskLabel . ' prints no "' . $deskCase[1] . '" card.');
+    $assert(stripos($deskHtml, 'admin-usage-card') > stripos($deskHtml, 'admin-card-testing'),
+        'The ' . $deskLabel . ' prints its walkthrough below its bulk delete card.',
+        'The ' . $deskLabel . ' guide is not the last card on the page.');
+}
+// The dashboard is a summary of the pages around it, each of which already closes with a guide, so
+// it deliberately prints none of its own.
+$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
+$html = $render(static fn() => (new DashboardController())->show());
+$assert(!str_contains($html, 'admin-usage-card'), 'The student workspace closes with no guide card.',
+    'The student dashboard still prints a usage card.');
+// The practice lab closes with a walkthrough for every student, including one whose course has no
+// challenge set yet - the page above them explains the empty list, not the absence of a guide.
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/learning/challenges';
+$html = $render(static fn() => \App\Core\View::render('learning/coding-challenges', [
+    'title' => 'Coding challenges',
+    'user' => ['id' => $studentId, 'name' => 'Render Smoke Student', 'email' => $studentEmail, 'role' => 'student'],
+    'course' => ['id' => $courseId, 'title' => 'Render Smoke Course'],
+    'challenges' => [],
+    'hasCodingCourseAccess' => false,
+    'message' => null,
+]));
+$assert(str_contains($html, 'How to use coding challenges') && str_contains($html, 'Your practice lab'),
+    'The student challenge page closes with its walkthrough even without course access.',
+    'The student challenge page renders no usage card.');
+$assert(stripos($html, 'admin-usage-card') !== false && stripos($html, 'admin-usage-card') < stripos($html, 'Browser-based practice'),
+    'The standing practice-only caveat still follows the walkthrough.',
+    'The challenge page prints its caveat above the guide.');
 
 /* --------------------------------------------------------------- confirmation overlay */
 echo "\n-- confirmation overlay\n";
