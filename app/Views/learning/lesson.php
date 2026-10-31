@@ -23,9 +23,10 @@ $playerEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/watch';
       <p><?= $escape($lesson['course_title']) ?></p>
     </div>
   </header>
-  <?php if (!empty($message)): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
-  <?php if (!empty($error)): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
-  <?php if (isset($_GET['completed'])): ?><div class="admin-alert admin-alert-success" role="status">Lesson marked as complete.</div><?php endif; ?>
+  <?php \App\Core\View::toast('success', $message ?? null); ?>
+  <?php \App\Core\View::toast('error', $error ?? null); ?>
+  <?php /* The completion button comes back here on a redirect, so the confirmation rides the query. */ ?>
+  <?php if (isset($_GET['completed'])): ?><?php \App\Core\View::toast('success', 'Lesson marked as complete.'); ?><?php endif; ?>
   <?php if ($media['has_video']): ?>
     <article class="dashboard-panel lesson-player<?= $media['trackable'] ? ' lesson-player-file' : ' lesson-player-embed' ?>" data-lesson-player
              data-endpoint="<?= $playerEndpoint ?>"

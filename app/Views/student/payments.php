@@ -87,4 +87,19 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
     </section>
 
     <div class="dashboard-note"><strong>How review works</strong><span>The academy verifies your transaction reference before course access is granted. Approved submissions unlock the course in <a href="<?= $escape($baseUrl) ?>/student/courses">My courses</a>.</span></div>
+
+    <?php
+    $usageEyebrow = 'Payments';
+    $usageTitle = 'How to use your payments page';
+    $usageLead = 'Send your proof, follow the review and collect the receipt afterwards.';
+    $usageBullets = [
+        'Use the account shown on the form. Bank, wallet and card details are exactly what the academy saved for you.',
+        'Add the transaction reference. That ID is the first thing the academy checks, so a payment without it waits longest.',
+        'Attach the receipt or screenshot. A clear image of the confirmation is stored privately with your submission.',
+        'Approved unlocks the course. Access, your downloadable receipt and a notification all arrive together.',
+        'Declined says why. The review note explains what to correct, and you can send the payment again after fixing it.',
+        'Every row keeps its history. Status, amount, date and the receipt link stay on this page for your records.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

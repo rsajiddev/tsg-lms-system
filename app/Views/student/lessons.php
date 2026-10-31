@@ -61,8 +61,8 @@ $lastWatchedLabel = static function (?string $value): string {
         <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a>
     </header>
 
-    <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><span><?= $escape($message) ?></span></div><?php endif; ?>
-    <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><span><?= $escape($error) ?></span></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
 
     <section class="my-lesson-summary" aria-label="Lesson progress overview">
         <div class="my-lesson-summary-count">
@@ -162,4 +162,18 @@ $lastWatchedLabel = static function (?string $value): string {
         <?php endif; ?>
         <?php if ($watchAvailable): ?><p class="dashboard-note"><strong>Watch time is tracked for you</strong><span>Progress is saved while the lesson video plays, so you can close the page and resume where you stopped. A lesson unlocks its completion button after <?= $watchPercent ?>% of the video.</span></p><?php endif; ?>
     </section>
+
+    <?php
+    $usageEyebrow = 'Lessons';
+    $usageTitle = 'How to use the lesson list';
+    $usageLead = 'Every published lesson in the courses you can open right now.';
+    $usageBullets = [
+        'Start from the lesson title. The video, notes and materials open in the player with your position restored.',
+        'Progress saves itself. The player records where you stopped, so closing the tab costs you nothing.',
+        'Some lessons need watch time. Where the academy sets a rule, the lesson completes once you have watched the required share.',
+        'Mark the rest when you are done. Lessons without a tracked video are completed by hand so the progress bar stays accurate.',
+        'Narrow it by course. The filters keep the list to the lessons you can open today.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

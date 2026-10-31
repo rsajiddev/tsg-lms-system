@@ -19,8 +19,8 @@ $error = $error ?? null; ?>
             <p>Publish academy updates to all verified students or selected recipients.</p>
         </div>
     </header>
-    <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
-    <?php if ($error ?? null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
     <section class="admin-card">
         <div class="admin-card-header">
             <div class="admin-card-titles">

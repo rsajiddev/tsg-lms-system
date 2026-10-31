@@ -36,7 +36,6 @@ if ($purgeAction === '') {
                 <p><?= $escape($purgeDescription) ?> <strong><?= $purgeCount ?></strong> record(s) are currently on this page.</p>
             </div>
         </div>
-        <span class="count-pill">Testing tool</span>
     </div>
     <form method="post" action="<?= $escape($baseUrl . $purgeAction) ?>" class="admin-form" data-purge-form>
         <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">

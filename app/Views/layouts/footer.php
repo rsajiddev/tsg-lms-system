@@ -45,6 +45,9 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
         <span class="footer-initiative">An initiative of <a href="https://techsgstudio.com" target="_blank" rel="noopener noreferrer"><strong>Tech SG Studio (SMC-PVT.) LTD.</strong></a></span>
     </div>
 </footer>
+<?php /* Last thing in the body, so the overlay is never clipped or re-positioned by an animated
+          container on the page above it. */ ?>
+<?php require BASE_PATH . '/app/Views/components/flash-toast.php'; ?>
 </body>
 
 </html>

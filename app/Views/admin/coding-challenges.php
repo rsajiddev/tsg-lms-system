@@ -12,7 +12,7 @@ $testExample = "[\n  {\"name\":\"Page heading exists\",\"selector\":\"h1\",\"ass
 <section class="dashboard-page coding-admin-page" data-reveal>
     <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button><div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><strong>Coding challenges</strong></div></div>
     <header class="dashboard-heading"><div><p class="eyebrow">PRACTICE LAB</p><h1>Coding challenges</h1><p>Create browser-based HTML, CSS and JavaScript exercises with live previews and test cases.</p></div></header>
-    <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
     <?php if ($courses === []): ?><div class="dashboard-note"><strong>Create a course first</strong><span>Coding challenges are attached to courses.</span></div><?php else: ?>
     <section class="dashboard-panel coding-admin-form-panel">
         <div class="dashboard-panel-heading"><div><p class="eyebrow">CHALLENGE BUILDER</p><h2>New challenge</h2></div></div>
@@ -52,9 +52,8 @@ $testExample = "[\n  {\"name\":\"Page heading exists\",\"selector\":\"h1\",\"ass
             </div>
         <?php endif; ?>
     </section>
-    <div class="dashboard-note"><strong>Practice checks</strong><span>Challenge code runs in a sandboxed browser preview. Test results are learner practice signals and are not official graded marks.</span></div>
-
     <?php
+    $usageEyebrow = 'Practice lab';
     $usageTitle = 'How to use coding challenges';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [
@@ -67,4 +66,7 @@ $testExample = "[\n  {\"name\":\"Page heading exists\",\"selector\":\"h1\",\"ass
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
+    <?php /* The standing caveat belongs under the guide, where a reader has just finished
+              reading about how challenges are scored - not in the middle of the workflow. */ ?>
+    <div class="dashboard-note"><strong>Practice checks</strong><span>Challenge code runs in a sandboxed browser preview. Test results are learner practice signals and are not official graded marks.</span></div>
 </section>

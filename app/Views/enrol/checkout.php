@@ -90,8 +90,10 @@ $isSending = $state === 'otp' && $error === null;
           : 'Takes about a minute. You will not have to fill any of this in again.' ?></p>
       </header>
 
-      <?php if ($error !== null): ?><p class="enrol-note enrol-note-error" role="alert"><?= Security::escape($error) ?></p><?php endif; ?>
-      <?php if ($message !== null): ?><p class="enrol-note" role="status"><?= Security::escape($message) ?></p><?php endif; ?>
+      <?php /* Both messages are confirmations of the step just taken, so they float over the card
+                instead of pushing the form down the page. */ ?>
+      <?php \App\Core\View::toast('error', $error); ?>
+      <?php \App\Core\View::toast('success', $message); ?>
 
       <?php if ($state === 'details'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/enrol" class="enrol-form" data-enrol-form>

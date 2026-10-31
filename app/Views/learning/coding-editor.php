@@ -11,7 +11,7 @@ $message = is_string($message ?? null) ? $message : null;
 <section class="dashboard-page coding-editor-page" data-reveal data-coding-editor data-tests="<?= $escape(json_encode($tests, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?>">
     <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button><div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/student/courses">My courses</a><i>/</i><a href="<?= $escape($baseUrl) ?>/learning/challenges?course_id=<?= (int) $challenge['course_id'] ?>">Code challenges</a><i>/</i><strong><?= $escape($challenge['title']) ?></strong></div></div>
     <header class="dashboard-heading coding-editor-heading"><div><p class="eyebrow"><?= $escape($challenge['course_title']) ?> · PRACTICE LAB</p><h1><?= $escape($challenge['title']) ?></h1><p><?= nl2br($escape($challenge['instructions'])) ?></p></div><span class="coding-sandbox-badge">Sandboxed preview</span></header>
-    <?php if ($message): ?><div class="dashboard-note" role="status"><strong>Saved</strong><span><?= $escape($message) ?></span></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message); ?>
     <div class="coding-workbench">
         <section class="dashboard-panel coding-editor-panel" aria-label="Code editor">
             <div class="dashboard-panel-heading"><div><p class="eyebrow">YOUR WORK</p><h2>Edit the files</h2></div><span class="count-pill">HTML · CSS · JS</span></div>

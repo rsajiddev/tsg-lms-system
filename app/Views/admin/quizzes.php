@@ -29,21 +29,9 @@ $optionLetters = ['A', 'B', 'C', 'D'];
     </div>
   </header>
 
-  <?php if (!empty($message)): ?>
-    <div class="admin-alert admin-alert-success" role="status">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      <span><?= $escape($message) ?></span>
-    </div>
-  <?php endif; ?>
-
-  <?php if (!empty($error)): ?>
-    <div class="admin-alert admin-alert-error" role="alert">
-      <span><?= $escape($error) ?></span>
-    </div>
-  <?php endif; ?>
+  <?php /* Confirmations are floated over the page by the layout, not printed in the flow here. */ ?>
+  <?php \App\Core\View::toast('success', $message ?? null); ?>
+  <?php \App\Core\View::toast('error', $error ?? null); ?>
 
   <!-- Create quiz -->
   <section class="admin-card">
@@ -477,6 +465,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
   ?>
 
   <?php
+  $usageEyebrow = 'Quiz builder';
   $usageTitle = 'How to use quiz management';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [

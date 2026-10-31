@@ -65,8 +65,8 @@ $accountId = static function (array $account): string {
         </div>
     </header>
 
-    <?php if ($message !== null && $message !== ''): ?><div class="admin-alert admin-alert-success" role="status"><?= Security::escape($message) ?></div><?php endif; ?>
-    <?php if ($error !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= Security::escape($error) ?></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
 
     <div class="student-overview-grid" aria-label="Student account totals">
         <article class="student-overview-card student-overview-card-primary"><span class="student-overview-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m17-11a4 4 0 0 1 0 8m-6-12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm5 14v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><span>Total students</span><strong><?= number_format((int) ($statusCounts['total'] ?? 0)) ?></strong><small>Accounts registered in the Academy</small></div></article>

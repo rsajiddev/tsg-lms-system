@@ -261,8 +261,10 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
                 <h3>Share your experience</h3>
                 <p>Took a course or worked with our team? Students and clients are both welcome to leave a review — it appears here after a quick check by our team.</p>
             </div>
-            <?php if ($reviewSubmitted): ?><p class="review-banner review-success" role="status">Thank you! Your review was received and will appear on this page once our team approves it.</p><?php endif; ?>
-            <?php if ($reviewMessage !== null): ?><p class="review-banner review-error" role="alert"><?= Security::escape($reviewMessage) ?></p><?php endif; ?>
+            <?php /* The review box's two outcomes use the same overlay as every other confirmation,
+                      so one rule covers the whole site instead of one per form. */ ?>
+            <?php if ($reviewSubmitted): ?><?php \App\Core\View::toast('success', 'Thank you! Your review was received and will appear on this page once our team approves it.'); ?><?php endif; ?>
+            <?php \App\Core\View::toast('error', $reviewMessage); ?>
             <form method="post" action="<?= Security::escape($baseUrl) ?>/reviews" class="review-form">
                 <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
                 <div class="reviewer-type" role="radiogroup" aria-label="I am a">

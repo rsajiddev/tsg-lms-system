@@ -73,8 +73,8 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
         <a class="button" href="#lesson-add">Add a lesson</a>
     </header>
 
-    <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><span><?= $escape($message) ?></span></div><?php endif; ?>
-    <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><span><?= $escape($error) ?></span></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
     <?php if (!$videosAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Lesson video columns are missing from this database.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Lessons still appear here; video fields unlock after the import.</span></div><?php endif; ?>
 
     <section class="admin-card lesson-lib-panel-card" aria-labelledby="lesson-lib-metrics-title">
@@ -416,6 +416,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
 
     <!-- Usage guide: written for admins landing on this page for the first time. -->
     <?php
+    $usageEyebrow = 'Lesson library';
     $usageTitle = 'How to use the Lesson library';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [

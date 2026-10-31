@@ -16,7 +16,7 @@ foreach ($payments as $payment) {
 <section class="dashboard-page payment-page">
   <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button><div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><strong>Submit payment</strong></div></div>
   <header class="dashboard-heading"><div><p class="eyebrow">COURSE ENROLLMENT</p><h1>Submit payment</h1><p>Send your transaction details and payment proof for admin verification.</p></div></header>
-  <?php if (!empty($message)): ?><div class="admin-alert payment-alert-<?= $escape($messageType ?? 'success') ?>" role="<?= ($messageType ?? 'success') === 'error' ? 'alert' : 'status' ?>"><?= $escape($message) ?></div><?php endif; ?>
+  <?php \App\Core\View::toast((string) ($messageType ?? 'success'), $message ?? null); ?>
   <div class="payment-layout">
     <section class="dashboard-panel">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">SELECTED COURSE</p><h2><?= $escape($course['title']) ?></h2></div></div>

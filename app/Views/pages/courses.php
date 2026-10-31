@@ -47,9 +47,9 @@ $heroImages = [
     </div>
 </section>
 
-<?php if ($flashError !== null): ?>
-    <section class="catalog-notice"><p class="enrol-note enrol-note-error" role="alert"><?= Security::escape($flashError) ?></p></section>
-<?php endif; ?>
+<?php /* The catalogue's one message is a confirmation of what the visitor just tried to do, so it
+          floats over the list instead of sitting under it. */ ?>
+<?php \App\Core\View::toast('error', $flashError); ?>
 
 <?php if (!$catalogueAvailable): ?>
     <section class="empty-state"><h2>Course catalogue is temporarily unavailable</h2><p>Please try again later or contact the Academy team for current course information.</p></section>

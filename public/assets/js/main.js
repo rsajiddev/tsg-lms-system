@@ -968,3 +968,62 @@
     });
 
 })();
+
+(() => {
+    /**
+     * The confirmation overlay rendered by app/Views/components/flash-toast.php.
+     *
+     * PHP prints the card and CSS keeps it hidden from a scripted page, so this script is what
+     * floats it: it opens the layer, closes each card on its own timer, and lets the reader
+     * dismiss it early with the button, the dim background or Escape. An error is held on screen
+     * longer than a success because it usually needs a correction, not just an acknowledgement.
+     */
+    const layer = document.querySelector('[data-flash-layer]');
+    if (!layer) return;
+
+    const cards = Array.from(layer.querySelectorAll('[data-flash-card]'));
+    if (cards.length === 0) return;
+
+    const timers = new Map();
+    const LEAVE_MS = 260;
+
+    const dismiss = card => {
+        const timer = timers.get(card);
+        if (timer) {
+            clearTimeout(timer);
+            timers.delete(card);
+        }
+        if (!card.isConnected || card.classList.contains('is-leaving')) return;
+        card.classList.add('is-leaving');
+        window.setTimeout(() => {
+            card.remove();
+            if (!layer.querySelector('[data-flash-card]')) layer.remove();
+        }, LEAVE_MS);
+    };
+
+    layer.classList.add('is-open');
+    cards.forEach((card, index) => {
+        const stated = Number.parseInt(card.getAttribute('data-flash-stay') || '', 10);
+        const stays = Number.isFinite(stated) && stated > 0
+            ? stated
+            : (card.classList.contains('is-error') ? 5200 : 4000);
+        // Stacked confirmations leave one after the other instead of all at once, so each one gets
+        // its moment of being read.
+        timers.set(card, window.setTimeout(() => dismiss(card), stays + index * 400));
+    });
+
+    layer.addEventListener('click', event => {
+        // Only the button and the dim background close the card; a click that lands on the text,
+        // the icon or the card's own padding must not swallow a confirmation.
+        if (event.target.hasAttribute('data-flash-backdrop') || event.target.closest('[data-flash-close]')) {
+            cards.forEach(dismiss);
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || !layer.isConnected) return;
+        // Escape belongs to the topmost modal when one is open, so the card leaves it alone.
+        if (document.body.classList.contains('admin-modal-open')) return;
+        cards.forEach(dismiss);
+    });
+})();

@@ -54,9 +54,8 @@ $inlineTotals = static function (array $totals): string {
     </div>
   </header>
 
-  <?php if ($flash && !empty($flash['text'])): ?>
-    <div class="admin-alert <?= ($flash['type'] ?? '') === 'error' ? 'admin-alert-error' : 'admin-alert-success' ?>" role="status"><?= $escape($flash['text']) ?></div>
-  <?php endif; ?>
+  <?php /* The payment controller tags each confirmation, so the overlay can pick its colour. */ ?>
+  <?php \App\Core\View::toast(($flash['type'] ?? '') === 'error' ? 'error' : 'success', $flash['text'] ?? null); ?>
 
   <section class="revenue-kpi-grid" aria-label="Revenue summary">
     <article class="revenue-kpi revenue-kpi--hero">
@@ -124,6 +123,7 @@ $inlineTotals = static function (array $totals): string {
   </section>
 
   <?php
+  $usageEyebrow = 'Revenue desk';
   $usageTitle = 'How to use revenue and payment';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [

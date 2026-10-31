@@ -14,7 +14,7 @@ $message = $message ?? null;
             <p>Approve reviews to publish them on the homepage, or reject them.</p>
         </div>
     </header>
-    <?php if ($message): ?><p class="form-message" role="status"><?= Security::escape($message) ?></p><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
     <?php if ($reviews === []): ?><section class="dashboard-panel">
             <div class="dashboard-empty">
                 <div>

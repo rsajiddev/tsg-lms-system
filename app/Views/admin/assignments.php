@@ -20,8 +20,8 @@ $purgeCount = count($assignments);
       <p>Create course work, track submissions, and review student progress.</p>
     </div>
   </header>
-  <?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
-  <?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+  <?php \App\Core\View::toast('success', $message ?? null); ?>
+  <?php \App\Core\View::toast('error', $error ?? null); ?>
   <section class="admin-card">
     <div class="admin-card-header">
       <div class="admin-card-titles">
@@ -128,6 +128,7 @@ $purgeCount = count($assignments);
   ?>
 
   <?php
+  $usageEyebrow = 'Assignment desk';
   $usageTitle = 'How to use assignments';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [

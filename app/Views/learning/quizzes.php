@@ -17,6 +17,7 @@ $quizzes = $quizzes ?? []; ?>
     <p>Practice at your pace and track every graded attempt.</p>
     </div>
   </header>
+  <?php \App\Core\View::toast('success', $message ?? null); ?><?php \App\Core\View::toast('error', $error ?? null); ?>
   <?php if ($quizzes === []): ?><section class="dashboard-panel">
       <div class="dashboard-empty">
         <div>

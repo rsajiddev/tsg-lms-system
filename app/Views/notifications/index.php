@@ -33,7 +33,7 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
         <?php /* Counting each notice read is the only way the sidebar numbers come down, so the
                   shortcut belongs next to the count it clears - and only while there is one. */ ?>
         <?php if ($unreadCount > 0): ?><form method="post" action="<?= $escape($baseUrl) ?>/notifications/read-all" class="student-status-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><button class="button button-secondary" type="submit">Mark all read</button></form><?php endif; ?>
-    </header><?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?><?php if ($error): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+    </header><?php \App\Core\View::toast('success', $message ?? null); ?><?php \App\Core\View::toast('error', $error ?? null); ?>
     <?php if ($notifications === []): ?><section class="dashboard-panel">
             <div class="dashboard-empty">
                 <div>
@@ -48,4 +48,19 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
                         <p><?= $escape(mb_strimwidth((string) $n['body'], 0, 240, '…')) ?></p><span class="dashboard-inline-link">Read and reply →</span>
                     </div>
                 </a><?php endforeach; ?></section><?php endif; ?>
+
+    <?php
+    $usageEyebrow = 'Academy updates';
+    $usageTitle = 'How to use your inbox';
+    $usageLead = 'Everything the Academy has published to you, newest first.';
+    $usageBullets = [
+        'Open a card to read it in full. Opening marks that update as read and opens the thread you can reply in.',
+        'Announcements take a reply. Anything you send goes to the Academy, and their answer comes back to this same thread.',
+        'Mark all read when you are done. The button beside the count clears every unread item in one action.',
+        'The sidebar numbers follow the link. A new lesson, test, assignment or payment decision counts on the page it points at, so a marked assignment shows up on Assignments.',
+        'The number settles where the news is. Opening that page marks its notices read, so you do not have to come back here to clear it.',
+        'Nothing disappears here. Read updates stay in the list, so an old announcement is never lost.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

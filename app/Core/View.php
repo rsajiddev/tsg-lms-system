@@ -6,8 +6,35 @@ namespace App\Core;
 
 final class View
 {
+    /** @var array<int, array{tone: string, text: string}> confirmation messages queued while a page renders. */
+    private static array $toasts = [];
+
+    /**
+     * Queue a confirmation for the overlay card that layouts/footer.php renders at the end of the
+     * page. Views call this instead of printing a banner where they sit, so the message floats
+     * over the workspace and stays readable whatever the page is doing.
+     */
+    public static function toast(string $tone, ?string $text): void
+    {
+        $text = is_string($text) ? trim($text) : '';
+        if ($text === '') return;
+        // Only three cards are styled, so anything else arrives as the neutral one rather than an
+        // unstyled overlay.
+        $tone = in_array($tone, ['success', 'error'], true) ? $tone : 'info';
+        self::$toasts[] = ['tone' => $tone, 'text' => $text];
+    }
+
+    /** The queued messages, drained: a page can only be rendered once per request. */
+    public static function toasts(): array
+    {
+        $queued = self::$toasts;
+        self::$toasts = [];
+        return $queued;
+    }
+
     public static function render(string $view, array $data = []): void
     {
+        self::$toasts = [];
         extract($data, EXTR_SKIP);
         // Keep template locals explicit for runtime safety and IDE/static analysis.
         $title = isset($title) && is_string($title) ? $title : 'TSG Academy LMS';

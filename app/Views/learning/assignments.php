@@ -16,7 +16,7 @@ $message = $message ?? null; ?>
       <h1><?= $escape($course['title']) ?> assignments</h1>
       <p>Submit your work and follow review feedback here.</p>
     </div>
-  </header><?php if ($message): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
+  </header><?php \App\Core\View::toast('success', $message ?? null); ?><?php \App\Core\View::toast('error', $error ?? null); ?>
   <?php if ($assignments === []): ?><section class="dashboard-panel">
       <div class="dashboard-empty">
         <div>

@@ -411,7 +411,10 @@ final class QuizController
         }
         $stmt = $db->prepare("SELECT q.id,q.week_number,q.title,q.instructions,q.quiz_type,q.practice_topic,q.time_limit_seconds,q.question_count,q.attempt_limit,q.unlock_at,q.close_at,(SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id=q.id) AS actual_question_count,(SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?) AS used_attempts,(SELECT qa.id FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=? AND qa.status='in_progress' ORDER BY qa.id DESC LIMIT 1) AS active_attempt,ra.request_status AS retake_status,ra.used_at AS retake_used_at FROM quizzes q LEFT JOIN quiz_retake_approvals ra ON ra.quiz_id=q.id AND ra.student_id=? WHERE q.course_id=? AND ((q.status='released' OR (q.status='scheduled' AND q.unlock_at IS NOT NULL AND q.unlock_at<=UTC_TIMESTAMP())) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND (SELECT COUNT(*) FROM quiz_attempts prior WHERE prior.quiz_id=q.id AND prior.student_id=? AND prior.status<>'in_progress')=1 AND ra.used_at IS NULL)) AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND ((q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) OR (q.status IN ('released','closed') AND q.quiz_type='final' AND ra.used_at IS NULL)) ORDER BY q.week_number,q.id");
         $stmt->execute([(int)$student['id'], (int)$student['id'], (int)$student['id'], $courseId, (int)$student['id']]);
-        View::render('learning/quizzes', ['title' => 'Course quizzes', 'user' => $student, 'course' => $courseRow, 'quizzes' => $stmt->fetchAll()]);
+        View::render('learning/quizzes', ['title' => 'Course quizzes', 'user' => $student, 'course' => $courseRow, 'quizzes' => $stmt->fetchAll(), 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        // The retake request lands here, so the confirmation has to be carried by this page and
+        // consumed by it - otherwise it waits for some unrelated page to show it.
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function start(): void

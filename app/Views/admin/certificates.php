@@ -65,8 +65,8 @@ $filters = [
         <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/settings">Security settings</a>
     </header>
 
-    <?php if ($message !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($message) ?></div><?php endif; ?>
-    <?php if ($error !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
 
     <section class="admin-card certificate-eligibility-card" aria-labelledby="certificate-eligibility-title">
         <div class="admin-card-header">
@@ -272,6 +272,7 @@ $filters = [
     </section>
 
     <?php
+    $usageEyebrow = 'Certificate desk';
     $usageTitle = 'How to use certificates';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [

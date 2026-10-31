@@ -39,8 +39,8 @@ $grantedLabel = static function (?string $value): string {
         <a class="button" href="<?= $escape($baseUrl) ?>/courses">Choose a course</a>
     </header>
 
-    <?php if ($flashMessage !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($flashMessage) ?></div><?php endif; ?>
-    <?php if ($flashError !== null): ?><div class="admin-alert admin-alert-error" role="alert"><?= $escape($flashError) ?></div><?php endif; ?>
+    <?php \App\Core\View::toast('success', $flashMessage); ?>
+    <?php \App\Core\View::toast('error', $flashError); ?>
 
     <?php if ($certificatesAvailable): ?>
         <details class="dashboard-panel certificate-criteria-panel">
@@ -168,4 +168,18 @@ $grantedLabel = static function (?string $value): string {
     </section>
 
     <div class="dashboard-note"><strong>Need help?</strong><span>Lessons open only for courses with an active access grant. If a course is missing here, contact the academy team.</span></div>
+
+    <?php
+    $usageEyebrow = 'My courses';
+    $usageTitle = 'How to use My courses';
+    $usageLead = 'The courses you are enrolled in, how long each one stays open and what is unlocked inside it.';
+    $usageBullets = [
+        'Access has a window. Every card shows the date the course closes; its lessons, tests and assignments close with it.',
+        'Open the course page. The card links to the full learning workspace where the modules, lessons and materials live.',
+        'Progress is counted per course. The bar compares the lessons you finished against everything published in that course so far.',
+        'A missing course means no access yet. Enrol from the public course page or send your payment proof, and the academy opens it for you.',
+        'Grades and certificates land here. Once a course is complete, its result and the certificate request appear on the same card.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

@@ -17,16 +17,6 @@
   text-decoration: underline;
 }
 
-.form-message {
-  margin: 0 0 18px;
-  padding: 12px 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #1e40af;
-  font-size: 14px;
-}
-
 .auth-links {
   margin: 20px 0 0;
   font-size: 14px;
@@ -1298,10 +1288,6 @@ button.button-secondary:active {
   gap: 15px
 }
 
-.enrol-card>.enrol-note {
-  margin: 0
-}
-
 .enrol-card .enrol-sending {
   margin: 0
 }
@@ -1335,22 +1321,6 @@ button.button-secondary:active {
 .enrol-card-foot a:hover {
   color: var(--blue-dark);
   text-decoration: underline
-}
-
-.enrol-note {
-  margin: 14px 0 0;
-  padding: 11px 13px;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #1e3a8a;
-  font-size: 13.5px;
-  line-height: 1.55;
-  overflow-wrap: anywhere
-}
-
-.enrol-note-error {
-  background: #fef2f2;
-  color: #991b1b
 }
 
 .enrol-mail-hint {
@@ -1854,10 +1824,6 @@ button.button-secondary:active {
   .lesson-editor .button {
     width: 100%
   }
-}
-
-.form-message {
-  margin: 0 0 18px
 }
 
 @keyframes float-card {
@@ -2758,26 +2724,6 @@ body.nav-open .mobile-nav {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.65
-}
-
-.review-banner {
-  margin: 16px 0 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  line-height: 1.6
-}
-
-.review-success {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d
-}
-
-.review-error {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c
 }
 
 .reviewer-type {
@@ -4891,52 +4837,123 @@ html.js [data-reveal].is-visible.dash-card:hover {
   }
 }
 
-/* Shared admin "How to use" guide card (components/usage-guide.php). */
+/* Shared "How to use" guide card (components/usage-guide.php). Deliberately the same shape as
+   the public course page's enrollment walkthrough (.course-detail-flow): label, one plain
+   promise, then numbered steps joined by a line, so the reader recognises it instantly. */
 .admin-usage-card {
-  margin-top: 22px
+  margin-top: 22px;
+  padding: 30px 32px 32px;
+  border: 1px solid #e6eefb;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fbfdff, #f7faff)
+}
+
+.admin-usage-eyebrow {
+  margin: 0 0 10px;
+  color: var(--blue);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase
+}
+
+.admin-usage-title {
+  margin: 0;
+  color: var(--navy);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere
+}
+
+.admin-usage-lead {
+  margin: 9px 0 0;
+  color: #5d6f89;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere
 }
 
 .admin-usage-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 13px 26px;
-  margin: 4px 0 0;
+  display: grid;
+  gap: 0;
+  margin: 24px 0 0;
   padding: 0;
   list-style: none
 }
 
 .admin-usage-list>li {
-  display: flex;
-  flex: 1 1 320px;
-  align-items: flex-start;
-  gap: 11px;
-  min-width: 0
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 20px
 }
 
-.admin-usage-list>li>span {
+.admin-usage-list>li:last-child {
+  padding-bottom: 0
+}
+
+/* The line joins one step to the next and fades out, so the list reads as one path. */
+.admin-usage-list>li::before {
+  position: absolute;
+  top: 32px;
+  bottom: 0;
+  left: 15px;
+  width: 2px;
+  background: linear-gradient(#dbe6f8, transparent);
+  content: ""
+}
+
+.admin-usage-list>li:last-child::before {
+  display: none
+}
+
+.admin-usage-number {
+  position: relative;
+  z-index: 1;
   display: grid;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  width: 32px;
+  height: 32px;
   place-items: center;
+  border: 2px solid #e3ecfb;
   border-radius: 50%;
-  background: #e7f8ef;
-  color: #15804b;
-  font-size: 12px;
+  background: #fff;
+  color: var(--blue-dark);
+  font-size: 12.5px;
   font-weight: 800
 }
 
-.admin-usage-list p {
+.admin-usage-copy {
   min-width: 0;
-  margin: 1px 0 0;
-  color: #526276;
-  font-size: 13px;
-  line-height: 1.65;
+  margin: 0;
   overflow-wrap: anywhere
 }
 
-.admin-usage-list strong {
-  color: var(--navy)
+.admin-usage-copy strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #1b2941;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35
+}
+
+.admin-usage-detail {
+  display: block;
+  color: #5d6f89;
+  font-size: 13.5px;
+  line-height: 1.62
+}
+
+@media(max-width:600px) {
+  .admin-usage-card {
+    padding: 24px 20px 26px
+  }
+
+  .admin-usage-title {
+    font-size: 20px
+  }
 }
 
 /* Consistent 22px rhythm between the top-level blocks of every admin workspace page. */
@@ -6866,18 +6883,6 @@ body.dashboard-shell>main.dashboard-container {
   background: #fff1f2;
   border: 1px solid #fecdd3;
   color: #9f1239;
-}
-
-.payment-alert-error {
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  color: #9f1239;
-}
-
-.payment-alert-info {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
 }
 
 /* Weekly quiz authoring and student assessment views */
@@ -11163,8 +11168,6 @@ html.admin-modal-js .admin-modal.is-open {
 .catalog-hero-tile-2:hover,.catalog-hero-tile-5:hover {transform:translateY(20px)}
 .catalog-hero-tile img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.025);transition:opacity .5s ease,transform .8s cubic-bezier(.2,.75,.25,1)}
 .catalog-hero-tile.is-loaded img {opacity:1;transform:scale(1)}
-.catalog-notice {padding:20px 0 0}
-.catalog-notice .enrol-note {max-width:820px;margin:0}
 .catalog-courses {padding:clamp(8px,1.6vw,18px) 0 8px}
 .catalog-courses .section-heading {margin:0 0 12px}
 .catalog-courses .section-heading>div>p:last-child {max-width:600px;margin:10px 0 0;color:var(--muted);line-height:1.65}
@@ -13683,5 +13686,207 @@ html.admin-modal-js .admin-modal.is-open {
 
   .grade-bar {
     grid-column: 1 / -1
+  }
+}
+
+/* ==========================================================================
+   Confirmation overlay (components/flash-toast.php) - the message every form and
+   action on the site raises after it finishes. Floated over the page instead of
+   pushing the layout down, because a confirmation nobody notices is not a
+   confirmation. Green and red carry the outcome, the label and the button repeat
+   it in words so the card still reads correctly without colour.
+   ========================================================================== */
+.flash-toast-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  animation: flash-layer-in .18s ease-out
+}
+
+/* Only the scripted version starts hidden - with JavaScript off the card simply appears and stays. */
+.js .flash-toast-layer {
+  display: none
+}
+
+.js .flash-toast-layer.is-open {
+  display: grid
+}
+
+.flash-toast-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .46);
+  cursor: pointer
+}
+
+.flash-toast-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  width: min(430px, 100%);
+  padding: 30px 30px 28px;
+  border: 1px solid #e6ecf5;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 70px -18px rgba(15, 23, 42, .38);
+  text-align: center;
+  transition: opacity .24s ease, transform .24s ease;
+  animation: flash-card-in .28s cubic-bezier(.2, .9, .3, 1.15)
+}
+
+.flash-toast-card.is-leaving {
+  opacity: 0;
+  transform: translateY(-10px) scale(.97)
+}
+
+.flash-toast-icon {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin-bottom: 14px;
+  place-items: center;
+  border-radius: 50%
+}
+
+.flash-toast-icon svg {
+  width: 34px;
+  height: 34px
+}
+
+.flash-toast-label {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase
+}
+
+.flash-toast-copy {
+  margin: 0 0 22px;
+  color: #334155;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.62;
+  overflow-wrap: anywhere
+}
+
+.flash-toast-action {
+  display: inline-flex;
+  width: min(240px, 100%);
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter .15s ease
+}
+
+.flash-toast-action:hover {
+  filter: brightness(.93)
+}
+
+.flash-toast-action:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px
+}
+
+.flash-toast-card.is-success .flash-toast-icon {
+  background: #ecfdf5;
+  color: #16a34a
+}
+
+.flash-toast-card.is-success .flash-toast-label {
+  color: #15803d
+}
+
+.flash-toast-card.is-success .flash-toast-action {
+  background: #16a34a
+}
+
+.flash-toast-card.is-error .flash-toast-icon {
+  background: #fef2f2;
+  color: #dc2626
+}
+
+.flash-toast-card.is-error .flash-toast-label {
+  color: #b91c1c
+}
+
+.flash-toast-card.is-error .flash-toast-action {
+  background: #dc2626
+}
+
+.flash-toast-card.is-info .flash-toast-icon {
+  background: #eff6ff;
+  color: #2563eb
+}
+
+.flash-toast-card.is-info .flash-toast-label {
+  color: #1d4ed8
+}
+
+.flash-toast-card.is-info .flash-toast-action {
+  background: #2563eb
+}
+
+@keyframes flash-layer-in {
+  from {
+    opacity: 0
+  }
+
+  to {
+    opacity: 1
+  }
+}
+
+@keyframes flash-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(.96)
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1)
+  }
+}
+
+@media(max-width:520px) {
+  .flash-toast-layer {
+    padding: 16px
+  }
+
+  .flash-toast-card {
+    padding: 26px 20px 24px;
+    border-radius: 18px
+  }
+
+  .flash-toast-copy {
+    font-size: 14px
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+
+  .flash-toast-layer,
+  .flash-toast-card {
+    animation: none
+  }
+
+  .flash-toast-card.is-leaving {
+    transform: none
   }
 }

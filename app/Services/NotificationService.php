@@ -35,9 +35,33 @@ final class NotificationService
         'notifications' => [self::ANNOUNCEMENT],
         'lessons' => [self::LESSON],
         'courses' => [self::COURSE, self::CERTIFICATE],
-        'assignments' => [self::ASSIGNMENT],
-        'quizzes' => [self::QUIZ, self::GRADE],
+        'assignments' => [self::ASSIGNMENT, self::GRADE],
+        'quizzes' => [self::QUIZ],
         'payments' => [self::PAYMENT],
+    ];
+
+    /**
+     * Which navigation area a path belongs to, matched as a prefix.
+     *
+     * Used for the link stored on a notification and for the page the student is standing on, so
+     * both sides of a badge agree. A grade raised by an assignment review links to the Assignments
+     * page, so it has to count there and not under whichever category name it happens to carry.
+     */
+    public const LINK_AREAS = [
+        '/learning/assignments' => 'assignments',
+        // One entry covers the quiz list, an attempt and its result page.
+        '/learning/quiz' => 'quizzes',
+        '/learning/lesson' => 'lessons',
+        // The course workspace and the challenge lab inside it are all read as "the course".
+        '/learning' => 'courses',
+        '/student/assignments' => 'assignments',
+        '/student/quizzes' => 'quizzes',
+        '/student/lessons' => 'lessons',
+        '/student/courses' => 'courses',
+        '/student/payments' => 'payments',
+        '/payments' => 'payments',
+        '/certificate' => 'courses',
+        '/notifications' => 'notifications',
     ];
 
     /** Repeat edits inside this window refresh the existing notification instead of adding one. */
@@ -114,18 +138,88 @@ final class NotificationService
         $counts = array_fill_keys(array_keys(self::AREAS), 0);
         if ($studentId < 1) return $counts;
         try {
-            $stmt = $this->db->prepare('SELECT n.category, COUNT(*) AS total FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL GROUP BY n.category');
+            $stmt = $this->db->prepare('SELECT n.category, n.link, COUNT(*) AS total FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL GROUP BY n.category, n.link');
             $stmt->execute([$studentId]);
-            $byCategory = [];
-            foreach ($stmt->fetchAll() as $row) $byCategory[(string) $row['category']] = (int) $row['total'];
-            foreach (self::AREAS as $area => $categories) {
-                foreach ($categories as $category) $counts[$area] += (int) ($byCategory[$category] ?? 0);
+            foreach ($stmt->fetchAll() as $row) {
+                $area = self::areaFor((string) $row['category'], isset($row['link']) ? (string) $row['link'] : null);
+                $counts[$area] = (int) ($counts[$area] ?? 0) + (int) $row['total'];
             }
         } catch (\Throwable $exception) {
             // An older schema without the category column simply shows no badges.
             return $counts;
         }
         return $counts;
+    }
+
+    /**
+     * Mark the unread notifications belonging to one area as seen, because the student has just
+     * opened the page they pointed at. Returns how many were cleared.
+     */
+    public function markAreaSeen(int $studentId, string $area): int
+    {
+        if ($studentId < 1 || $area === '' || !array_key_exists($area, self::AREAS)) return 0;
+        try {
+            $stmt = $this->db->prepare('SELECT n.id, n.category, n.link FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL');
+            $stmt->execute([$studentId]);
+            $ids = [];
+            foreach ($stmt->fetchAll() as $row) {
+                $link = isset($row['link']) && is_string($row['link']) ? $row['link'] : null;
+                if (self::areaFor((string) $row['category'], $link) === $area) $ids[] = (int) $row['id'];
+            }
+            if ($ids === []) return 0;
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $this->db->prepare('UPDATE notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ? AND read_at IS NULL AND notification_id IN (' . $marks . ')')
+                ->execute(array_merge([$studentId], $ids));
+            return count($ids);
+        } catch (\Throwable $exception) {
+            // Navigation bookkeeping must never break the page the student is trying to open.
+            return 0;
+        }
+    }
+
+    /**
+     * The area a notification lights up: where its link takes the student, and otherwise the
+     * category it was published under.
+     */
+    public static function areaFor(string $category, ?string $link): string
+    {
+        $path = ($link === null || $link === '') ? '' : (string) (parse_url($link, PHP_URL_PATH) ?: $link);
+        $area = self::areaForLink($path);
+        if ($area !== '') return $area;
+        foreach (self::AREAS as $candidate => $categories) {
+            if (in_array($category, $categories, true)) return $candidate;
+        }
+        // A category the sidebar has never heard of still has to surface somewhere, and every
+        // notification is listed in the inbox.
+        return 'notifications';
+    }
+
+    /**
+     * The sidebar area a workspace page settles: opening the page is how a student shows they have
+     * seen whatever the notification was about, so its badge can clear there.
+     *
+     * The inbox is the deliberate exception. Listing unread items is not the same as reading them,
+     * and it already has its own Mark all read action.
+     */
+    public static function areaForPage(string $path): string
+    {
+        $area = self::areaForLink($path);
+        return $area === 'notifications' ? '' : $area;
+    }
+
+    /** Longest matching prefix of LINK_AREAS, so /learning/lesson wins over /learning. */
+    private static function areaForLink(string $path): string
+    {
+        if ($path === '') return '';
+        $area = '';
+        $length = -1;
+        foreach (self::LINK_AREAS as $prefix => $candidate) {
+            if (strlen($prefix) > $length && str_starts_with($path, $prefix)) {
+                $area = $candidate;
+                $length = strlen($prefix);
+            }
+        }
+        return $area;
     }
 
     /** Total unread notifications for one student (used when the category column is absent). */

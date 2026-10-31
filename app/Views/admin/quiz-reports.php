@@ -153,6 +153,7 @@ $queryForPage = static function (int $targetPage) use ($search, $type, $resultFi
     </section>
 
     <?php
+    $usageEyebrow = 'Attempt reports';
     $usageTitle = 'How to use quiz reports';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [

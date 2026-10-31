@@ -30,7 +30,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
         <h1><?= Security::escape($copy['heading']) ?></h1>
         <p class="auth-sub"><?= Security::escape($copy['sub']) ?></p>
       </header>
-      <?php if ($message): ?><p class="form-message" role="status"><?= Security::escape($message) ?></p><?php endif; ?>
+      <?php \App\Core\View::toast('success', $message ?? null); ?>
       <?php if ($mode === 'error'): ?><p>Return to the form and try again.</p>
       <?php elseif ($mode === 'register'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/register">

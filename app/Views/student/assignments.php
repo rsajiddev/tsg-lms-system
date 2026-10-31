@@ -74,4 +74,18 @@ $statusLabel = static function (?string $value): string {
     </section>
 
     <div class="dashboard-note"><strong>Submission window</strong><span>A published assignment accepts up to five submissions. Once its deadline passes the academy closes it and only the last reviewed attempt is kept.</span></div>
+
+    <?php
+    $usageEyebrow = 'Assignments';
+    $usageTitle = 'How to use Assignments';
+    $usageLead = 'Upload the work, meet the deadline and read the feedback your instructor leaves.';
+    $usageBullets = [
+        'Check the deadline first. Work sent after it is flagged as late, and the marking scheme can reduce the score.',
+        'Upload a supported file. PDF, image, zip or text submissions are stored privately — only you and the academy can open them.',
+        'You get five submissions at most. A fresh upload needs the academy to ask for a resubmission first, and they review the latest one.',
+        'Feedback comes back here. A review puts the marks, the rubric scores and your instructor’s notes next to the submission.',
+        'A resubmission request reopens the card. Read the note, fix the work and upload again — the number tells you it is waiting.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

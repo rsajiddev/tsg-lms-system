@@ -113,4 +113,18 @@ $dateTimeLabel = static function (?string $value): string {
     </section>
 
     <div class="dashboard-note"><strong>Grading is server-side</strong><span>Scores are calculated when your attempt is submitted and the deadline is enforced by the server, even if you leave the page.</span></div>
+
+    <?php
+    $usageEyebrow = 'Quizzes & results';
+    $usageTitle = 'How to use Quizzes & results';
+    $usageLead = 'Every test you can open right now, and every attempt you have already made.';
+    $usageBullets = [
+        'Open a test inside its window. A locked test shows the moment it unlocks and the moment it closes, both in UTC.',
+        'The clock runs on the server. A timed attempt submits itself when the time is up, even if you close the tab.',
+        'Your score appears straight away. Objective tests are marked the moment you submit and the result card keeps the full breakdown.',
+        'Ask for a retake when it counts. Final tests allow one extra attempt request, and the academy approves or declines it.',
+        'A number here is work, not a warning. It counts released tests you have not attempted plus any quiz notice you have not read, and opening this page settles the notices.',
+    ];
+    require BASE_PATH . '/app/Views/components/usage-guide.php';
+    ?>
 </section>

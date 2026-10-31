@@ -224,14 +224,18 @@ $db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,sta
 $assignmentId = (int) $db->lastInsertId();
 
 $notifier = new NotificationService($db);
+// Links are written exactly as the controllers write them, because the badge a student sees is
+// decided by the page the notification sends them to.
 foreach ([
     [NotificationService::ANNOUNCEMENT, 'Class on Friday', 'The live class moves to Friday.', 'announcement', 0, '/notifications'],
-    [NotificationService::LESSON, 'New lesson published', 'Smoke lesson is ready for you.', 'lesson', $lessonId, '/learning/lesson/' . $lessonId],
-    [NotificationService::QUIZ, 'New quiz released', 'Smoke quiz is open.', 'quiz', $quizId, '/learning/quizzes'],
-    [NotificationService::ASSIGNMENT, 'New assignment', 'Smoke assignment has been uploaded.', 'assignment', $assignmentId, '/learning/assignments'],
-    [NotificationService::COURSE, 'Course updated', 'The syllabus has been refreshed.', 'course', $courseId, '/learning/course/' . $courseId],
+    [NotificationService::LESSON, 'New lesson published', 'Smoke lesson is ready for you.', 'lesson', $lessonId, '/learning/lesson?lesson_id=' . $lessonId],
+    [NotificationService::QUIZ, 'New quiz released', 'Smoke quiz is open.', 'quiz', $quizId, '/learning/quizzes?course_id=' . $courseId],
+    [NotificationService::ASSIGNMENT, 'New assignment', 'Smoke assignment has been uploaded.', 'assignment', $assignmentId, '/learning/assignments?course_id=' . $courseId],
+    [NotificationService::COURSE, 'Course updated', 'The syllabus has been refreshed.', 'course', $courseId, '/learning?course_id=' . $courseId],
     [NotificationService::PAYMENT, 'Payment approved', 'Your payment has been approved.', 'payment', $courseId, '/student/payments'],
-    [NotificationService::GRADE, 'Grade published', 'Your quiz result has been graded.', 'grade', $quizId, '/learning/quizzes'],
+    // The only grade the Academy raises comes out of the assignment review, so it lands on the
+    // Assignments badge - a result page that never changed must not light the quiz link.
+    [NotificationService::GRADE, 'Assignment graded', 'Your submission has been marked.', 'assignment_submission', $assignmentId, '/learning/assignments?course_id=' . $courseId],
     [NotificationService::CERTIFICATE, 'Certificate ready', 'Your certificate is available.', 'certificate', $courseId, '/student/courses'],
 ] as [$category, $title, $body, $sourceType, $sourceId, $link]) {
     if ($sourceId > 0) {
@@ -240,7 +244,7 @@ foreach ([
         $notifier->notifyStudents([$studentId], $category, $title, $body, $sourceType, max(1, $courseId), $link, $adminId);
     }
 }
-$expectedBadges = ['notifications' => 1, 'lessons' => 1, 'quizzes' => 2, 'assignments' => 1, 'courses' => 2, 'payments' => 1];
+$expectedBadges = ['notifications' => 1, 'lessons' => 1, 'quizzes' => 1, 'assignments' => 2, 'courses' => 2, 'payments' => 1];
 $observedBadges = $notifier->unreadByArea($studentId);
 foreach ($expectedBadges as $area => $count) {
     $assert((int) ($observedBadges[$area] ?? -1) === $count,
@@ -368,7 +372,7 @@ $checkPage('Student dashboard badges', '/dashboard', static fn() => (new Dashboa
     '/student/settings',
 ]);
 $checkPage('Student inbox', '/notifications', static fn() => (new NotificationController())->studentIndex(), [
-    'Grade published',
+    'Assignment graded',
     'Payment approved',
     'Mark all read',
 ]);
@@ -429,6 +433,97 @@ $quizLink = $matches['body'][0] ?? '';
 $assert(str_contains($quizLink, 'dashboard-nav-badge'), 'The quizzes link carries a badge next to its label.',
     'The quizzes link carries no badge although unread quiz notifications exist.');
 $assert(!str_contains($quizLink, '>0<'), 'No badge on the quizzes link renders a zero.', 'A badge renders a literal zero on the quizzes link.');
+
+/* ------------------------------------------------------- badge attribution and seen state */
+echo "\n-- which badge a notification lights\n";
+// A grade shares its category name with course results but is raised by the assignment review, so
+// the page it sends the student to decides the badge - not the category alone.
+$assert(NotificationService::areaFor(NotificationService::GRADE, '/learning/assignments?course_id=' . $courseId) === 'assignments',
+    'A grade linked to the Assignments page counts on the Assignments badge.',
+    'A grade pointing at the Assignments page lit ' . NotificationService::areaFor(NotificationService::GRADE, '/learning/assignments?course_id=' . $courseId) . '.');
+$assert(NotificationService::areaFor(NotificationService::QUIZ, '/learning/quizzes?course_id=' . $courseId) === 'quizzes',
+    'A quiz release still counts on the Quizzes badge.',
+    'A quiz release lit ' . NotificationService::areaFor(NotificationService::QUIZ, '/learning/quizzes?course_id=' . $courseId) . '.');
+// Older rows, and anything the harness publishes for a test, carry a link the map has never seen;
+// those fall back to the category instead of disappearing from every counter.
+$assert(NotificationService::areaFor(NotificationService::LESSON, '/smoke') === 'lessons',
+    'An unknown link falls back to the category.',
+    'An unknown lesson link lit ' . NotificationService::areaFor(NotificationService::LESSON, '/smoke') . '.');
+$assert(NotificationService::areaFor('something-new', null) === 'notifications',
+    'A category the sidebar does not know still reaches the inbox counter.',
+    'An unknown category lit ' . NotificationService::areaFor('something-new', null) . '.');
+// Listing the inbox is not reading it, so the inbox page settles nothing on its own.
+$assert(NotificationService::areaForPage('/notifications') === '',
+    'Opening the inbox clears no badge.',
+    'The inbox page settled the ' . NotificationService::areaForPage('/notifications') . ' area.');
+$assert(NotificationService::areaForPage('/learning/assignments') === 'assignments'
+    && NotificationService::areaForPage('/learning/lesson') === 'lessons'
+    && NotificationService::areaForPage('/learning') === 'courses',
+    'Each workspace page settles its own area, longest path first.',
+    'Workspace pages settled as ' . json_encode([
+        NotificationService::areaForPage('/learning/assignments'),
+        NotificationService::areaForPage('/learning/lesson'),
+        NotificationService::areaForPage('/learning'),
+    ]));
+
+$seenAssignments = $notifier->markAreaSeen($studentId, 'assignments');
+$assert($seenAssignments === 2, 'Opening the Assignments page marks the two items waiting there seen.',
+    'Opening the Assignments page settled ' . $seenAssignments . ' of 2 unread items.');
+$areasAfterSeen = $notifier->unreadByArea($studentId);
+$assert(($areasAfterSeen['assignments'] ?? -1) === 0
+        && ($areasAfterSeen['quizzes'] ?? -1) === 1
+        && ($areasAfterSeen['notifications'] ?? -1) === 1,
+    'Settling one badge leaves every other counter alone.',
+    'After settling Assignments the counters read ' . json_encode($areasAfterSeen) . '.');
+$assert($notifier->markAreaSeen($studentId, 'assignments') === 0,
+    'A second visit to the same page has nothing left to settle.',
+    'A repeat visit settled items the student had already seen.');
+// Put the rows back unread so a rerun against the same scratch database measures the same deltas.
+$db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
+
+/* ------------------------------------------------------------------ usage guide card */
+echo "\n-- the closing usage guide\n";
+// One component renders the walkthrough at the foot of every workspace page, in the same shape as
+// the public course page's steps, so it is checked once here and once for a student.
+$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
+$html = $render(static fn() => (new DashboardController())->show());
+$assert(str_contains($html, 'admin-usage-card') && str_contains($html, 'admin-usage-eyebrow') && str_contains($html, 'admin-usage-title'),
+    'The student workspace closes with its labelled guide card.',
+    'The student dashboard renders no labelled usage card.');
+$assert(preg_match('/<ol class="admin-usage-list">.*<span class="admin-usage-number" aria-hidden="true">1<\/span>.*<span class="admin-usage-number" aria-hidden="true">2<\/span>/s', $html) === 1,
+    'The steps are an ordered list counted from one.',
+    'The guide is not a numbered list starting at 1: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
+$assert(str_contains($html, 'admin-usage-copy"><strong>') && str_contains($html, 'admin-usage-detail'),
+    'Each step prints its short title above the sentence that explains it.',
+    'A guide step carries no title or no detail.');
+
+/* --------------------------------------------------------------- confirmation overlay */
+echo "\n-- confirmation overlay\n";
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/announcements';
+$_SESSION['_flash'] = 'Announcement published to one student.';
+$_SESSION['_flash_error'] = 'The recipient list could not be loaded.';
+$html = $render(static fn() => (new NotificationController())->adminIndex());
+$assert(substr_count($html, 'flash-toast-card is-success') === 1 && substr_count($html, 'flash-toast-card is-error') === 1,
+    'Both outcomes of this page arrive as one overlay card each.',
+    'The announcement page rendered ' . substr_count($html, 'flash-toast-card is-success') . ' success and ' . substr_count($html, 'flash-toast-card is-error') . ' error cards.');
+$assert(str_contains($html, 'flash-toast-label">Success<') && str_contains($html, 'flash-toast-label">Error<'),
+    'Each card states its outcome in a word, not only in a colour.',
+    'An overlay card carries no written outcome.');
+$assert(str_contains($html, 'Announcement published to one student.') && str_contains($html, 'The recipient list could not be loaded.') && str_contains($html, 'role="alert"'),
+    'The full message is carried into the card and the failure is announced to a reader.',
+    'A confirmation sentence or the alert role is missing from the overlay.');
+$assert(stripos($html, 'admin-alert-success') === false && stripos($html, 'admin-alert-error') === false,
+    'No banner is left stacked above the page content.',
+    'The announcement page still prints a flash banner.');
+$assert(!str_contains($html, 'Testing tool'), 'The bulk delete card no longer wears a testing label in its header.',
+    'The bulk delete card still shows a Testing tool pill.');
+// Nothing is floated over a page that has nothing to report, so the overlay never hides a
+// confirmation that belongs to some earlier action.
+$quiet = $render(static fn() => (new NotificationController())->adminIndex());
+$assert(!str_contains($quiet, 'flash-toast-layer'), 'A page with no confirmation prints no overlay.',
+    'An empty overlay layer was printed with nothing to say.');
 
 /* -------------------------------------------------------------------- account identity */
 echo "\n-- student ID scheme\n";

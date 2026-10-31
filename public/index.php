@@ -212,4 +212,25 @@ $router->get('/payments/proof', [\App\Controllers\PaymentController::class, 'pro
 
 $requestMethod = is_string($_SERVER['REQUEST_METHOD'] ?? null) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 $requestUri = is_string($_SERVER['REQUEST_URI'] ?? null) ? $_SERVER['REQUEST_URI'] : '/';
+
+// A student who opens the page a notification pointed at has seen what it was about, so the
+// sidebar badge for that area is settled before the page renders. Announcements are left alone on
+// purpose: the inbox only lists unread items, and emptying it stays an action taken inside it.
+if (($_SESSION['user']['role'] ?? null) === 'student') {
+    $seenBasePath = rtrim(parse_url((string) ($app['url'] ?? ''), PHP_URL_PATH) ?: '', '/');
+    $seenPath = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+    if ($seenBasePath !== '' && str_starts_with($seenPath, $seenBasePath)) {
+        $seenPath = '/' . ltrim(substr($seenPath, strlen($seenBasePath)), '/');
+    }
+    $seenArea = \App\Services\NotificationService::areaForPage($seenPath);
+    if ($seenArea !== '') {
+        try {
+            (new \App\Services\NotificationService(\App\Core\Database::connection()))
+                ->markAreaSeen((int) ($_SESSION['user']['id'] ?? 0), $seenArea);
+        } catch (\Throwable $exception) {
+            // Counters are derived data; the workspace still has to open when they cannot be kept.
+        }
+    }
+}
+
 $router->dispatch($requestMethod, $requestUri);
