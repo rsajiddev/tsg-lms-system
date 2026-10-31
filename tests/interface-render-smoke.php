@@ -42,6 +42,7 @@ foreach (
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/QuizController.php',
         '/app/Controllers/CourseAdminController.php',
+        '/app/Controllers/PublicPageController.php',
         '/app/Controllers/StudentManagementController.php',
     ] as $file
 ) {
@@ -55,6 +56,7 @@ use App\Core\Security;
 use App\Controllers\AccountController;
 use App\Controllers\AssignmentController;
 use App\Controllers\CourseAdminController;
+use App\Controllers\PublicPageController;
 use App\Controllers\StudentManagementController;
 use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
@@ -80,7 +82,13 @@ $assert = static function (bool $condition, string $passMessage, string $failMes
     echo '  FAIL ' . $failMessage . "\n";
 };
 
-$assert(preg_match('/(tmp|check|scratch|test)/i', $dbName) === 1, 'Running against the scratch database ' . $dbName . '.', 'Refusing to run: --database=' . $dbName . ' does not look like a scratch database.');
+// This guard has to stop the run rather than just record a failure: as a soft assertion it once
+// let the whole suite continue against the development database and leave fixture accounts behind.
+if (preg_match('/(tmp|check|scratch|test)/i', $dbName) !== 1) {
+    fwrite(STDERR, 'Refusing to run: --database=' . $dbName . " does not look like a scratch database.\n");
+    exit(1);
+}
+echo "  ok Running against the scratch database " . $dbName . "\.\n";
 
 $mysql = '/Applications/XAMPP/xamppfiles/bin/mysql';
 $user = (string) (getenv('DB_USER') ?: 'root');
@@ -343,6 +351,27 @@ $assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered
     'The student settings page exposes the scheme an admin owns.');
 $assert(stripos($html, 'account-id-input') === false, 'A student sees their ID as read-only text.',
     'The student settings page renders an editable ID field.');
+
+/* ------------------------------------------------------------------- catalogue call to action */
+// The catalogue is the one page a signed-in student and a visitor must not see the same way: the
+// visitor still has to open an account, the student only has to pay. Both readings are checked, and
+// from the same fixture course, so the branch is the session and not the data.
+echo "\n-- catalogue CTA by role\n";
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/courses';
+$studentCatalogue = $render(static fn() => (new PublicPageController())->courses());
+$assert(str_contains($studentCatalogue, 'Render Smoke Course')
+    && str_contains($studentCatalogue, 'Submit payment for further onboarding')
+    && str_contains($studentCatalogue, '/payments/new?course_id='),
+    'A signed-in student\'s course card offers the payment step for the course it shows.',
+    'The student catalogue does not lead with the payment step: ' . substr($studentCatalogue, 0, 200));
+$assert(str_contains($studentCatalogue, 'View course details') && str_contains($studentCatalogue, '/courses/render-smoke-course'),
+    'The student card keeps a way to read the syllabus, so paying does not mean buying blind.',
+    'The student card dropped its details link.');
+$_SESSION = [];
+$guestCatalogue = $render(static fn() => (new PublicPageController())->courses());
+$assert(str_contains($guestCatalogue, 'Explore course') && !str_contains($guestCatalogue, 'Submit payment for further onboarding'),
+    'A visitor\'s card still leads with the course rather than a checkout they cannot finish.',
+    'The guest catalogue is showing a signed-in student\'s payment CTA.');
 
 /* ------------------------------------------------------------------------ badge wiring */
 echo "\n-- sidebar badge wiring\n";

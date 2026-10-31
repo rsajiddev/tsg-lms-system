@@ -62,10 +62,17 @@ final class PublicPageController
             $catalogueAvailable = false;
         }
 
+        // A bounced enrolment lands back here with its reason attached. The key has to be cleared on
+        // this page like everywhere else that reads it, or the notice would reappear on the next
+        // screen the visitor opens.
+        $flashError = $_SESSION['_flash_error'] ?? null;
+        unset($_SESSION['_flash_error']);
+
         View::render('pages/courses', [
             'title' => 'Courses at Tech SG Academy',
             'courses' => $courses,
             'catalogueAvailable' => $catalogueAvailable,
+            'flashError' => is_string($flashError) ? $flashError : null,
             'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
         ]);
     }

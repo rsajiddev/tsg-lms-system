@@ -536,6 +536,46 @@
         update();
     });
 
+    /* Enrolment checkout. The verification code is emailed during the very request that submits    */
+    /* this form, so the wait is real and otherwise silent. The buttons are locked and the progress  */
+    /* panel is revealed while the server is still working, and everything is restored if the        */
+    /* browser hands back the stored page from the back-forward cache.                               */
+
+    document.querySelectorAll('form[data-enrol-form]').forEach((form) => {
+        const sending = form.querySelector('.enrol-sending');
+        const startedHidden = sending ? sending.hidden : false;
+        const buttons = Array.from(form.querySelectorAll('button'));
+        const primary = buttons.find((button) => button.type === 'submit' && !button.getAttribute('formaction'));
+        const label = primary ? (primary.querySelector('.enrol-button-label') || primary) : null;
+        const originalText = label ? label.textContent : '';
+        if (buttons.length === 0) return;
+
+        form.addEventListener('submit', (event) => {
+            if (event.defaultPrevented) return;
+            const action = (event.submitter && event.submitter.formAction) || form.action;
+            const isResend = action.indexOf('/enrol/verify/resend') !== -1;
+            const isBack = action.indexOf('/enrol/back') !== -1;
+            buttons.forEach((button) => { button.disabled = true; });
+            if (isBack) return;
+            if (sending) sending.hidden = false;
+            if (!label) return;
+            if (isResend) {
+                label.textContent = 'Sending a new code…';
+            } else if (originalText.indexOf('Create account') === 0) {
+                label.textContent = 'Creating account and sending code…';
+            } else {
+                label.textContent = 'Checking your code…';
+            }
+        });
+
+        window.addEventListener('pageshow', (event) => {
+            if (!event.persisted) return;
+            buttons.forEach((button) => { button.disabled = false; });
+            if (label) label.textContent = originalText;
+            if (sending && startedHidden) sending.hidden = true;
+        });
+    });
+
     /* Attendance grace window. The deadline is stored server side and re-checked on submit, so    */
     /* this timer only mirrors it visually and stops a student clicking after the window elapsed.  */
 

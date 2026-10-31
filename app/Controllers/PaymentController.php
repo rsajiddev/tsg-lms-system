@@ -112,6 +112,9 @@ final class PaymentController
             throw $exception;
         }
         $currency = (string) ($course['currency'] ?: $course['course_currency']);
+        // The enrolment journey ends here, so the remembered course is dropped. Leaving it behind
+        // would pull a later sign-in back into a checkout that has already been completed.
+        unset($_SESSION['enrol_course_id'], $_SESSION['enrol_course_slug'], $_SESSION['enrol_course_title']);
         (new MailService($db))->sendPaymentSubmitted([
             'student_id' => (int) $student['id'],
             'student_name' => (string) $student['name'],

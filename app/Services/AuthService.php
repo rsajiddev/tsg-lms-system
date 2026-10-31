@@ -18,7 +18,18 @@ final class AuthService
         $this->limiter = new RateLimiter($db);
     }
 
-    public function register(string $name, string $email, string $password): bool
+    /**
+     * Creates the pending account and asks for the email verification step.
+     *
+     * Two very different things used to collapse into one `false`: an address that already has an
+     * account, and an OTP the mail server would not accept. The caller cannot write an honest
+     * message from a boolean that means both, so the outcome is returned as two flags. A duplicate
+     * is reported without confirming that the account exists, which keeps the form from handing out
+     * a list of registered addresses.
+     *
+     * @return array{created: bool, mail: bool}
+     */
+    public function register(string $name, string $email, string $password): array
     {
         $this->validateIdentity($name, $email);
         if (strlen($password) < 12 || strlen($password) > 4096) {
@@ -43,7 +54,7 @@ final class AuthService
             $this->db->commit();
         } catch (PDOException $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            if ((string) $exception->getCode() === '23000') return false;
+            if ((string) $exception->getCode() === '23000') return ['created' => false, 'mail' => false];
             throw new RuntimeException('Registration could not be completed. Please try again later.');
         } catch (\Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -51,7 +62,7 @@ final class AuthService
         }
         $studentEmailSent = $this->mail->sendOtp(strtolower($email), $code, 'verify_email', $this->setting('otp_lifetime_seconds', 600), $name, $userId);
         $this->mail->sendNewStudentAlert($name, strtolower($email), $userId);
-        return $studentEmailSent;
+        return ['created' => true, 'mail' => $studentEmailSent];
     }
 
     public function verifyEmail(string $email, string $code): void
@@ -82,7 +93,13 @@ final class AuthService
         $stmt->execute([$email, $purpose]);
         $created = $stmt->fetchColumn();
         if (!$created) return 0;
-        return max(0, $this->setting('otp_lifetime_seconds', 600) - (time() - (int)strtotime((string)$created . ' UTC')));
+        return max(0, $this->resendCooldownSeconds() - (time() - (int)strtotime((string)$created . ' UTC')));
+    }
+
+    /** How long an issued code stays usable. Read by the pages that have to promise an expiry. */
+    public function otpLifetimeSeconds(): int
+    {
+        return $this->setting('otp_lifetime_seconds', 600);
     }
 
     public function login(string $email, string $password): array
@@ -376,9 +393,20 @@ final class AuthService
         $stmt = $this->db->prepare('SELECT created_at FROM email_otps WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1');
         $stmt->execute([$userId, $purpose]);
         $created = $stmt->fetchColumn();
-        if ($created && strtotime((string) $created . ' UTC') > time() - $this->setting('otp_lifetime_seconds', 600)) {
+        if ($created && strtotime((string) $created . ' UTC') > time() - $this->resendCooldownSeconds()) {
             throw new RuntimeException('Please wait before requesting another code.');
         }
+    }
+
+    /**
+     * How long a student must wait before a code can be sent again. This is deliberately not the
+     * OTP lifetime: waiting out a slow mail server used to cost the full expiry window, which read
+     * to the student as the form being broken. Resending still invalidates the previous code,
+     * because issueOtp() consumes it, so a shorter wait does not put two codes in play at once.
+     */
+    private function resendCooldownSeconds(): int
+    {
+        return $this->setting('otp_resend_cooldown_seconds', 60);
     }
 
     private function setting(string $key, int $fallback): int

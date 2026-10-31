@@ -10,7 +10,7 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $value = static fn(string $name): string => Security::escape((string) ($values[$name] ?? ''));
 
 $copy = match ($mode) {
-  'register' => ['heading' => 'Create your account', 'sub' => 'Start learning practical skills in minutes — registration is free.'],
+  'register' => ['heading' => 'Create your account', 'sub' => 'Enrollment starts from a course. Choose one and the account step opens with it already picked.'],
   'verify' => ['heading' => 'Verify your email', 'sub' => 'Enter the six-digit code we sent to your inbox.'],
   'forgot' => ['heading' => 'Reset your password', 'sub' => 'We will email you a secure reset code.'],
   'reset' => ['heading' => 'Choose a new password', 'sub' => 'Set a new password to secure your account.'],
@@ -41,7 +41,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
           <label class="field">Confirm password<span class="input-wrap"><input name="password_confirmation" type="password" autocomplete="new-password" required minlength="12"><?= $eyeToggle ?></span></label>
           <button class="button auth-submit" type="submit">Create student account</button>
         </form>
-        <p class="auth-links">Already have an account? <a href="<?= Security::escape($baseUrl) ?>/login">Log in</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email?email=<?= rawurlencode((string)($values['email'] ?? '')) ?>">Verify your email</a></p>
+        <p class="auth-links">Already have an account? <a href="<?= Security::escape($baseUrl) ?>/login">Log in</a> · <a href="<?= Security::escape($baseUrl) ?>/courses">Choose a course</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email?email=<?= rawurlencode((string)($values['email'] ?? '')) ?>">Verify your email</a></p>
       <?php elseif ($mode === 'verify'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/verify-email">
           <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
@@ -62,7 +62,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
           </div>
           <button class="button auth-submit" type="submit">Log in</button>
         </form>
-        <p class="auth-links">New here? <a href="<?= Security::escape($baseUrl) ?>/register">Create an account</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify your email</a></p>
+        <p class="auth-links">Want to learn something new? <a href="<?= Security::escape($baseUrl) ?>/courses">Browse courses</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify your email</a></p>
       <?php elseif ($mode === 'forgot'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/forgot-password">
           <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">

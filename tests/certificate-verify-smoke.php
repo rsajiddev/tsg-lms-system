@@ -59,8 +59,13 @@ $assert = static function (bool $condition, string $passMessage, string $failMes
     echo '  FAIL ' . $failMessage . "\n";
 };
 
-$assert(preg_match('/(tmp|check|scratch|test)/i', $dbName) === 1, 'Running against the scratch database ' . $dbName . '.',
-    'Refusing to run: --database=' . $dbName . ' does not look like a scratch database.');
+// Refusing to run has to be final: a recorded failure would let the suite write certificates
+// into the database it was supposed to stay out of.
+if (preg_match('/(tmp|check|scratch|test)/i', $dbName) !== 1) {
+    fwrite(STDERR, 'Refusing to run: --database=' . $dbName . " does not look like a scratch database.\n");
+    exit(1);
+}
+echo "  ok Running against the scratch database " . $dbName . "\.\n";
 
 $mysql = '/Applications/XAMPP/xamppfiles/bin/mysql';
 $user = (string) (getenv('DB_USER') ?: 'root');

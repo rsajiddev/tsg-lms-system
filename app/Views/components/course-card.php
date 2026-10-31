@@ -12,7 +12,11 @@ if ($courseDescription === '') $courseDescription = trim((string) ($course['desc
 if ($courseDescription === '') $courseDescription = 'Practical, project-based training designed to build useful skills.';
 $courseCurrency = (string) ($course['currency'] ?? 'PKR');
 $courseSlug = trim((string) ($course['slug'] ?? ''));
+$courseId = (int) ($course['id'] ?? 0);
 $courseLink = $baseUrl . '/courses/' . rawurlencode($courseSlug);
+// A signed-in student is past the account step, so the card takes them to what is left to do.
+// The details link stays on the card: reading the syllabus before paying is not a reason to start over.
+$isEnrolledStudent = ($isStudent ?? false) === true && $courseId > 0;
 ?>
 <article class="course-card course-card-unified" data-reveal style="--reveal-delay: <?= Security::escape(number_format($courseIndex * 0.07, 2)) ?>s">
     <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
@@ -27,6 +31,11 @@ $courseLink = $baseUrl . '/courses/' . rawurlencode($courseSlug);
             <?php if (($course['recorded_price'] ?? null) !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape($courseCurrency) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?>
             <?php if (($course['live_price'] ?? null) !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape($courseCurrency) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?>
         </div>
-        <a class="button course-cta" href="<?= Security::escape($courseLink) ?>">Explore course</a>
+        <?php if ($isEnrolledStudent): ?>
+            <a class="button course-cta" href="<?= Security::escape($baseUrl) ?>/payments/new?course_id=<?= $courseId ?>">Submit payment for further onboarding</a>
+            <a class="course-card-details-link" href="<?= Security::escape($courseLink) ?>">View course details <span aria-hidden="true">→</span></a>
+        <?php else: ?>
+            <a class="button course-cta" href="<?= Security::escape($courseLink) ?>">Explore course</a>
+        <?php endif; ?>
     </div>
 </article>

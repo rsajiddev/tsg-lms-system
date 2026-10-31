@@ -5,6 +5,13 @@ use App\Core\Security;
 $courses = isset($courses) && is_array($courses) ? $courses : [];
 $catalogueAvailable = isset($catalogueAvailable) ? (bool) $catalogueAvailable : false;
 $baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+// Passed into the course card: a signed-in student has already cleared the account step, so their
+// card should offer the step that is actually left to do.
+$currentUser = isset($_SESSION['user']) && is_array($_SESSION['user']) ? $_SESSION['user'] : [];
+$isStudent = ($currentUser['role'] ?? null) === 'student';
+// Set when an /enrol/{slug} link could not be honoured, so the visitor is not silently dropped back
+// onto the catalogue with no idea what went wrong.
+$flashError = isset($flashError) && is_string($flashError) && $flashError !== '' ? $flashError : null;
 $heroImages = [
     ['file' => 'course-hero1.jpg', 'alt' => 'Learner studying a new skill'],
     ['file' => 'course-hero2.jpg', 'alt' => 'Learner practising and taking notes'],
@@ -40,6 +47,10 @@ $heroImages = [
     </div>
 </section>
 
+<?php if ($flashError !== null): ?>
+    <section class="catalog-notice"><p class="enrol-note enrol-note-error" role="alert"><?= Security::escape($flashError) ?></p></section>
+<?php endif; ?>
+
 <?php if (!$catalogueAvailable): ?>
     <section class="empty-state"><h2>Course catalogue is temporarily unavailable</h2><p>Please try again later or contact the Academy team for current course information.</p></section>
 <?php elseif ($courses === []): ?>
@@ -67,8 +78,8 @@ $heroImages = [
 <?php
 $ctaTitle = 'Build skills you can put to work';
 $ctaDescription = 'Learn with Tech SG Academy through practical courses guided by developers, designers and marketers who build real projects.';
-$ctaPrimaryLabel = 'Create free account';
-$ctaPrimaryHref = $baseUrl . '/register';
+$ctaPrimaryLabel = 'Choose a course to enroll';
+$ctaPrimaryHref = '#course-list';
 $ctaSecondaryLabel = 'Ask about a course';
 $ctaSecondaryHref = $baseUrl . '/contact';
 $ctaNote = 'Practical learning · Clear course pricing · Academy support';

@@ -101,8 +101,13 @@ namespace {
         echo '  FAIL ' . $failMessage . "\n";
     };
 
-    $assert(preg_match('/(tmp|check|scratch|test)/i', $dbName) === 1, 'Running against the scratch database ' . $dbName . '.',
-        'Refusing to run: --database=' . $dbName . ' does not look like a scratch database.');
+    // The child processes this suite spawns re-number real accounts, so the scratch guard cannot
+    // be a recorded failure — it has to end the run before anything connects.
+    if (preg_match('/(tmp|check|scratch|test)/i', $dbName) !== 1) {
+        fwrite(STDERR, 'Refusing to run: --database=' . $dbName . " does not look like a scratch database.\n");
+        exit(1);
+    }
+    echo "  ok Running against the scratch database " . $dbName . "\.\n";
 
     $mysql = '/Applications/XAMPP/xamppfiles/bin/mysql';
     $user = (string) (getenv('DB_USER') ?: 'root');

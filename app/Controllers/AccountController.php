@@ -184,15 +184,9 @@ final class AccountController
     {
         $user = AuthMiddleware::requireRole($role);
         $auth = $this->auth();
-        $lifetime = 600;
-        try {
-            $stmt = Database::connection()->prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'otp_lifetime_seconds' LIMIT 1");
-            $stmt->execute();
-            $configured = $stmt->fetchColumn();
-            if ($configured !== false && ctype_digit((string) $configured)) $lifetime = max(1, (int) $configured);
-        } catch (\Throwable $exception) {
-            // The default expiry is good enough for the hint text.
-        }
+        // This number is only ever used to promise an expiry, so it stays the validity interval and
+        // not the much shorter resend wait.
+        $lifetime = $auth->otpLifetimeSeconds();
         $account = [];
         try {
             $stmt = Database::connection()->prepare('SELECT created_at, last_login_at FROM users WHERE id = ? LIMIT 1');

@@ -8,8 +8,8 @@ $baseUrl = isset($baseUrl) && is_string($baseUrl)
 
 $ctaTitle = isset($ctaTitle) && is_string($ctaTitle) ? $ctaTitle : 'Ready to start learning?';
 $ctaDescription = isset($ctaDescription) && is_string($ctaDescription) ? $ctaDescription : 'Explore practical courses taught by people who build real projects.';
-$ctaPrimaryLabel = isset($ctaPrimaryLabel) && is_string($ctaPrimaryLabel) ? $ctaPrimaryLabel : 'Create free account';
-$ctaPrimaryHref = isset($ctaPrimaryHref) && is_string($ctaPrimaryHref) ? $ctaPrimaryHref : $baseUrl . '/register';
+$ctaPrimaryLabel = isset($ctaPrimaryLabel) && is_string($ctaPrimaryLabel) ? $ctaPrimaryLabel : 'Browse courses';
+$ctaPrimaryHref = isset($ctaPrimaryHref) && is_string($ctaPrimaryHref) ? $ctaPrimaryHref : $baseUrl . '/courses';
 $ctaSecondaryLabel = isset($ctaSecondaryLabel) && is_string($ctaSecondaryLabel) ? $ctaSecondaryLabel : 'Talk to our team';
 $ctaSecondaryHref = isset($ctaSecondaryHref) && is_string($ctaSecondaryHref) ? $ctaSecondaryHref : $baseUrl . '/contact';
 $ctaNote = isset($ctaNote) && is_string($ctaNote) ? $ctaNote : 'Practical learning · Academy support';

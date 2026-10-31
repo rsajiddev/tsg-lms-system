@@ -1363,6 +1363,7 @@ VALUES
        ('password_reset_window_minutes', '15'),
        ('otp_resends_per_window', '3'),
        ('otp_resend_window_minutes', '15'),
+       ('otp_resend_cooldown_seconds', '60'),
        ('payment_account_title', ''),
        ('payment_bank_name', ''),
        ('payment_account_number', ''),
@@ -2061,6 +2062,10 @@ ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 -- never touched, so re-running this cannot renumber a student out of their own certificate.
 -- The casts to UNSIGNED are load-bearing: COALESCE and NULLIF merge MariaDB's integer literals
 -- into DECIMAL, and a DECIMAL sequence would print as "TSG-CER-1.0000000000000000".
+-- Both backfills start clear of the numbers already handed out, and both use UPDATE IGNORE: a
+-- partial earlier import leaves rows with no ID next to rows that have one, and numbering from
+-- 1 in that state used to stop the whole import on '#1062 Duplicate entry'. A row that still
+-- collides with a hand-typed ID is left for AccountIdentity::ensure() instead of failing the file.
 SET
        @student_id_prefix = COALESCE(
               NULLIF((SELECT setting_value FROM app_settings WHERE setting_key = 'student_id_prefix'), ''),
@@ -2069,13 +2074,27 @@ SET
 
 SET
        @student_id_base = CAST(
-              COALESCE(
-                     NULLIF((SELECT CAST(setting_value AS UNSIGNED) FROM app_settings WHERE setting_key = 'student_id_next_number'), 0),
-                     1
+              GREATEST(
+                     COALESCE(
+                            NULLIF((SELECT CAST(setting_value AS UNSIGNED) FROM app_settings WHERE setting_key = 'student_id_next_number'), 0),
+                            1
+                     ),
+                     COALESCE(
+                            (
+                                   SELECT
+                                          MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                                   FROM
+                                          users
+                                   WHERE
+                                          role = 'student'
+                                          AND account_reference IS NOT NULL
+                            ),
+                            0
+                     ) + 1
               ) AS UNSIGNED
        );
 
-UPDATE users u
+UPDATE IGNORE users u
 JOIN (
        SELECT
               id,
@@ -2097,8 +2116,25 @@ SET
               )
        );
 
--- Admins keep the format they were already quoted by in receipts and emails.
-UPDATE users u
+-- Admins keep the format they were already quoted by in receipts and emails. Their numbers are
+-- not driven by a setting, so the highest ID already printed on an admin account is the floor.
+SET
+       @admin_id_base = CAST(
+              COALESCE(
+                     (
+                            SELECT
+                                   MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                            FROM
+                                   users
+                            WHERE
+                                   role = 'admin'
+                                   AND account_reference IS NOT NULL
+                     ),
+                     0
+              ) + 1 AS UNSIGNED
+       );
+
+UPDATE IGNORE users u
 JOIN (
        SELECT
               id,
@@ -2110,7 +2146,10 @@ JOIN (
               AND role = 'admin'
 ) numbered ON numbered.id = u.id
 SET
-       u.account_reference = CONCAT('TSG-ADM-', LPAD(numbered.sequence_step, 5, '0'));
+       u.account_reference = CONCAT(
+              'TSG-ADM-',
+              LPAD(CAST(@admin_id_base + numbered.sequence_step - 1 AS UNSIGNED), 5, '0')
+       );
 
 -- The counter has to move past whatever this backfill just handed out, otherwise the next
 -- registration would collide with an ID that is already taken.

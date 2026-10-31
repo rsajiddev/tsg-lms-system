@@ -22,7 +22,10 @@ final class AuthController
 
     public function registerPage(): void
     {
-        $this->page('register');
+        // Registration is only ever reached from a course, so nobody ends up holding an account with
+        // nothing to enrol in and an empty dashboard to stare at. POST /register stays available for
+        // the recovery paths and the test harnesses.
+        $this->redirect('/courses');
     }
 
     public function register(): void
@@ -36,11 +39,13 @@ final class AuthController
             return;
         }
         try {
-            $sent = $this->auth->register($name, $email, $password);
-            $message = $sent
-                ? 'A verification code was sent. Enter it on the verification page before signing in.'
-                : 'Registration could not confirm email delivery. Check the address, configure SMTP, then request a code from the verification page. Email verification is required before sign in.';
-            $this->page('register', ['email' => $email], $message);
+            $result = $this->auth->register($name, $email, $password);
+            $message = !$result['created']
+                ? 'We could not open a new account with that address. If it already has an account, sign in below or request a code. Otherwise check the spelling and try again. To enroll in a course, pick it from the catalogue first.'
+                : ($result['mail']
+                    ? 'A verification code was sent. Enter it on the verification page before signing in, then choose a course to enroll in.'
+                    : 'The account is created, but we could not confirm that the code was delivered. Check the address, or request a code from the verification page. Email verification is required before sign in.');
+            $this->page('register', ['full_name' => $name, 'email' => $email], $message);
         } catch (RuntimeException $exception) {
             $this->page('register', ['full_name' => $name, 'email' => $email], $exception->getMessage());
         }
@@ -89,7 +94,12 @@ final class AuthController
             session_regenerate_id(true);
             unset($_SESSION['_csrf']);
             $_SESSION['user'] = ['id' => (int) $user['id'], 'name' => $user['full_name'], 'email' => $user['email'], 'role' => $user['role']];
-            $this->redirect('/dashboard');
+            // Someone who came in through a course and already had an account should land on that
+            // course's payment step, not on a dashboard. The payment page authorises the id itself.
+            $intent = filter_var($_SESSION['enrol_course_id'] ?? null, FILTER_VALIDATE_INT);
+            $this->redirect($intent && $user['role'] === 'student'
+                ? '/payments/new?course_id=' . $intent
+                : '/dashboard');
         } catch (RuntimeException $exception) {
             $this->page('login', ['email' => (string) ($_POST['email'] ?? '')], $exception->getMessage());
         }
@@ -158,14 +168,7 @@ final class AuthController
 
     private function otpLifetimeSeconds(): int
     {
-        try {
-            $stmt = Database::connection()->prepare("SELECT setting_value FROM app_settings WHERE setting_key='otp_lifetime_seconds' LIMIT 1");
-            $stmt->execute();
-            $value = $stmt->fetchColumn();
-            return $value !== false && ctype_digit((string)$value) ? max(1, (int)$value) : 600;
-        } catch (\Throwable) {
-            return 600;
-        }
+        return $this->auth->otpLifetimeSeconds();
     }
 
     private function page(string $mode, array $values = [], ?string $message = null): void

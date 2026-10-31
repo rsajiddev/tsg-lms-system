@@ -19,7 +19,8 @@ use App\Core\View;
 final class AdminManagementController
 {
     private const SETTINGS = [
-        'otp_lifetime_seconds' => ['OTP validity and resend wait', 30, 3600, 'seconds', 'One shared interval: the current OTP expires and resend becomes available at the same time.'],
+        'otp_lifetime_seconds' => ['OTP validity', 30, 3600, 'seconds', 'How long a verification code stays usable before the student has to request a new one.'],
+        'otp_resend_cooldown_seconds' => ['OTP resend wait', 10, 600, 'seconds', 'How long a student must wait before the same code can be sent again. Kept short so a slow mail server does not look like a broken form, and independent of the validity interval above.'],
         'otp_max_attempts' => ['OTP verification attempts', 1, 20, 'attempts', 'Wrong codes a student may enter before a new OTP has to be requested.'],
         'otp_resends_per_window' => ['OTP resend requests per window', 1, 20, 'requests', 'How many resend codes one phone number may trigger inside the window below.'],
         'otp_resend_window_minutes' => ['OTP resend limit window', 1, 1440, 'minutes', 'Length of the rolling window used to count OTP resend requests.'],
@@ -34,8 +35,8 @@ final class AdminManagementController
     private const SETTING_GROUPS = [
         [
             'title' => 'One-time password (OTP)',
-            'description' => 'Controls how long a verification code stays valid, how many wrong codes are tolerated, and how often a code can be resent.',
-            'keys' => ['otp_lifetime_seconds', 'otp_max_attempts', 'otp_resends_per_window', 'otp_resend_window_minutes'],
+            'description' => 'Controls how long a verification code stays valid, how long a student waits to receive it again, and how many wrong codes are tolerated.',
+            'keys' => ['otp_lifetime_seconds', 'otp_resend_cooldown_seconds', 'otp_max_attempts', 'otp_resends_per_window', 'otp_resend_window_minutes'],
         ],
         [
             'title' => 'Login protection',

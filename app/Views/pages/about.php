@@ -95,10 +95,10 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 <?php
 $ctaTitle = 'Learn from people who build';
 $ctaDescription = 'Join the Academy and start with a course taught by working developers, designers and marketers.';
-$ctaPrimaryLabel = 'Create free account';
-$ctaPrimaryHref = $baseUrl . '/register';
-$ctaSecondaryLabel = 'Browse courses';
-$ctaSecondaryHref = $baseUrl . '/courses';
+$ctaPrimaryLabel = 'Browse courses';
+$ctaPrimaryHref = $baseUrl . '/courses';
+$ctaSecondaryLabel = 'Talk to our team';
+$ctaSecondaryHref = $baseUrl . '/contact';
 $ctaNote = 'SECP-registered company · Real projects · Verified certificates';
 require BASE_PATH . '/app/Views/components/academy-cta.php';
 ?>

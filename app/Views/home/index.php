@@ -4,6 +4,9 @@ use App\Core\Security;
 
 $courses = isset($courses) && is_array($courses) ? $courses : [];
 $baseUrl = isset($baseUrl) && is_string($baseUrl) ? rtrim($baseUrl, '/') : rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+// Same rule as the catalogue page: a signed-in student's card leads with the payment step.
+$currentUser = isset($_SESSION['user']) && is_array($_SESSION['user']) ? $_SESSION['user'] : [];
+$isStudent = ($currentUser['role'] ?? null) === 'student';
 
 $faqs = [
     ['What is the difference between Live + Recorded and Recorded Only?', 'Live + Recorded includes scheduled Zoom classes and all recorded lectures. Recorded Only includes the recorded lectures, materials, assignments and quizzes, without live classes.'],
@@ -303,11 +306,11 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
 </section>
 <?php
 $ctaTitle = 'Ready to start learning?';
-$ctaDescription = 'Create your account in a minute, explore practical courses and take the next step in your career.';
-$ctaPrimaryLabel = 'Create free account';
-$ctaPrimaryHref = $baseUrl . '/register';
+$ctaDescription = 'Pick a practical course, create your account on the enrollment step and take the next step in your career.';
+$ctaPrimaryLabel = 'Browse courses';
+$ctaPrimaryHref = $baseUrl . '/courses';
 $ctaSecondaryLabel = 'Talk to our team';
 $ctaSecondaryHref = $baseUrl . '/contact';
-$ctaNote = 'Free registration · No hidden fees · Mon–Sat support';
+$ctaNote = 'Course-first enrollment · No hidden fees · Mon–Sat support';
 require BASE_PATH . '/app/Views/components/academy-cta.php';
 ?>

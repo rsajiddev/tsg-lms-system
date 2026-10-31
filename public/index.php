@@ -44,6 +44,7 @@ foreach (
         '/app/Controllers/CertificateController.php',
         '/app/Controllers/AttendanceController.php',
         '/app/Controllers/CodingChallengeController.php',
+        '/app/Controllers/EnrolmentController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -107,6 +108,16 @@ $router->post('/verify-email/resend', [$auth, 'resend']);
 $router->get('/login', [$auth, 'loginPage']);
 $router->post('/login', [$auth, 'login']);
 $router->post('/logout', [$auth, 'logout']);
+
+// Course-bound checkout. The chosen course is held in the session, so the account form and the
+// payment step stay pointed at the same course instead of dropping the visitor on an empty
+// dashboard halfway through buying something.
+$enrol = \App\Controllers\EnrolmentController::class;
+$router->get('/enrol/{slug}', [$enrol, 'start']);
+$router->post('/enrol', [$enrol, 'register']);
+$router->post('/enrol/verify', [$enrol, 'verify']);
+$router->post('/enrol/verify/resend', [$enrol, 'resend']);
+$router->post('/enrol/back', [$enrol, 'back']);
 $router->get('/forgot-password', [$auth, 'forgotPage']);
 $router->post('/forgot-password', [$auth, 'forgot']);
 $router->get('/reset-password', [$auth, 'resetPage']);

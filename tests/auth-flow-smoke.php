@@ -244,7 +244,9 @@ namespace {
     };
 
     try {
-        $auth->register($name, $email, 'Correct Horse Battery 9!');
+        $registration = $auth->register($name, $email, 'Correct Horse Battery 9!');
+        $assert($registration === ['created' => true, 'mail' => true],
+            'Registration reports the account and the mail separately instead of collapsing both into one boolean.');
         $userQuery = $db->prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?');
         $userQuery->execute([$email]);
         $user = $userQuery->fetch();
@@ -285,7 +287,10 @@ namespace {
         $expectFailure(static fn() => $auth->login($email, 'Correct Horse Battery 9!'), 'Email or password is incorrect');
 
         $mailCount = count($delivered());
-        $assert($auth->register($name, $email, 'Another Correct Horse 8!') === false, 'Duplicate registration must be rejected.');
+        // A duplicate and an undeliverable code used to be the same `false`, which is why the form
+        // told a returning student to go and configure SMTP. They are two flags now.
+        $duplicate = $auth->register($name, $email, 'Another Correct Horse 8!');
+        $assert($duplicate === ['created' => false, 'mail' => false], 'Duplicate registration must report no account and no mail.');
         $assert(count($delivered()) === $mailCount, 'Duplicate registration must not send another OTP.');
 
         $logs = $db->query("SELECT template_key, status, related_user_id FROM email_logs WHERE recipient_email IN (" . $db->quote($email) . ",'hr@example.test','dev@example.test') ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
@@ -303,7 +308,31 @@ namespace {
         $expectFailure(static fn() => $rateLimiter->assertAllowed('auth_smoke', $rateSubjects, 5, 3600), 'Too many requests');
         $rateLimiter->clear('auth_smoke', $rateSubjects);
 
-        echo "Auth smoke checks passed: registration, loopback SMTP delivery, OTP activation, replay rejection, login, password reset, duplicate rejection, email log and rate limiting.\n";
+        // The wait for a new code is its own interval now: against a long code lifetime, a student
+        // who cannot see an email used to be locked out for ten minutes and told nothing was wrong.
+        // This suite runs against whatever values the development database holds, so it only proves
+        // the row is seeded and that the browser never gets a countdown longer than that row. The
+        // discriminating check, lifetime and cooldown deliberately set apart, lives in
+        // enrol-flow-smoke.php, which owns a scratch database and can pick both numbers.
+        $rowOf = static function (string $key) use ($db) {
+            $statement = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+            $statement->execute([$key]);
+            $value = $statement->fetchColumn();
+            return $value === false ? null : (int) $value;
+        };
+        $configuredCooldown = $rowOf('otp_resend_cooldown_seconds');
+        $assert($configuredCooldown !== null && $configuredCooldown > 0,
+            'The schema seeds a separate resend interval (' . $configuredCooldown . 's).',
+            'app_settings has no otp_resend_cooldown_seconds row; import database/migrations/001_initial_schema.sql so the resend wait is stored separately from the code lifetime.');
+        // The reset code requested earlier in this run is still fresh, so its remaining wait is the
+        // number the browser would be handed. Asking for another one here would trip the very
+        // cooldown being measured.
+        $resetWait = $auth->resendSecondsRemaining($email, 'reset_password');
+        $assert($resetWait > 0 && $resetWait <= (int) $configuredCooldown,
+            'The countdown handed to the browser runs on the resend wait, so it can never outlive the interval the server enforces.',
+            'resendSecondsRemaining() returned ' . $resetWait . ' against a configured cooldown of ' . $configuredCooldown . '.');
+
+        echo "Auth smoke checks passed: registration, loopback SMTP delivery, OTP activation, replay rejection, login, password reset, duplicate rejection, email log, rate limiting and the separate resend interval.\n";
         $status = 0;
     } catch (Throwable $exception) {
         fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
