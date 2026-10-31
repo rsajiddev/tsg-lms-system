@@ -30,6 +30,7 @@ namespace {
             '/app/Services/EmailLayout.php',
             '/app/Services/EmailMessages.php',
             '/app/Services/AccountIdentity.php',
+            '/app/Services/AdminAttention.php',
             '/app/Services/MailService.php',
             '/app/Services/NotificationService.php',
             '/app/Services/AuthService.php',

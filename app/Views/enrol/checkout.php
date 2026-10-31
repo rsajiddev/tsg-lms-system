@@ -17,9 +17,6 @@ $value = static fn(string $name): string => Security::escape((string) ($values[$
 
 $courseTitle = trim((string) ($course['title'] ?? ''));
 $currency = trim((string) ($course['currency'] ?? '')) ?: 'PKR';
-$category = trim((string) ($course['category'] ?? ''));
-$duration = trim((string) ($course['duration_label'] ?? ''));
-$format = implode(' · ', array_filter([$category, $duration]));
 $prices = [];
 if (($course['recorded_price'] ?? null) !== null) $prices[] = ['label' => 'Recorded only', 'price' => (float) $course['recorded_price']];
 if (($course['live_price'] ?? null) !== null) $prices[] = ['label' => 'Live + recorded', 'price' => (float) $course['live_price']];
@@ -66,7 +63,6 @@ $isSending = $state === 'otp' && $error === null;
           <div class="enrol-summary-main">
             <dt>Enrolling in</dt>
             <dd><?= Security::escape($courseTitle) ?></dd>
-            <?php if ($format !== ''): ?><small><?= Security::escape($format) ?></small><?php endif; ?>
           </div>
           <?php foreach ($prices as $price): ?>
             <div><dt><?= Security::escape($price['label']) ?></dt><dd><?= Security::escape($currency) ?> <?= number_format($price['price'], 0) ?></dd></div>
@@ -125,8 +121,9 @@ $isSending = $state === 'otp' && $error === null;
           <?php endif; ?>
           <label class="field">Six-digit code<span class="input-wrap"><input class="field-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" value="<?= $value('code') ?>"></span></label>
           <button class="button auth-submit" type="submit"><span class="enrol-button-label">Verify and continue to payment</span></button>
-          <p class="otp-resend-row" data-otp-countdown="<?= $resendSeconds ?>"><span>Didn’t receive code?</span> <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/verify/resend" formnovalidate<?= $resendSeconds > 0 ? ' disabled' : '' ?>>Resend</button><span class="otp-resend-timer" aria-live="polite"></span></p>
-          <button class="text-button enrol-edit-email" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/back" formnovalidate>Wrong email? Go back</button>
+          <?php /* One centred line for both escapes: a person who did not get the code is looking
+                    for the way out, and two stacked links under the button read like an error. */ ?>
+          <p class="otp-resend-row" data-otp-countdown="<?= $resendSeconds ?>"><span>Didn’t receive code?</span> <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/verify/resend" formnovalidate<?= $resendSeconds > 0 ? ' disabled' : '' ?>>Resend</button><span class="otp-resend-timer" aria-live="polite"></span><span class="otp-resend-divider" aria-hidden="true">|</span> <button class="text-button enrol-edit-email" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/back" formnovalidate>Wrong email? Go back</button></p>
         </form>
         <p class="auth-links">After this you go straight to the payment step for <strong><?= Security::escape($courseTitle) ?></strong>.</p>
       <?php endif; ?>

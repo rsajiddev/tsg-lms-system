@@ -46,12 +46,15 @@ final class StudentManagementController
         $where = ["u.role = 'student'"];
         $params = [];
         if ($search !== '') {
+            // The directory prints each account's Academy ID, so that is the number an admin pastes
+            // here. The internal row id still resolves for anyone holding an older screenshot.
             if (ctype_digit($search)) {
-                $where[] = '(u.id = ? OR u.full_name LIKE ? OR u.email LIKE ?)';
+                $where[] = '(u.id = ? OR u.full_name LIKE ? OR u.email LIKE ? OR u.account_reference LIKE ?)';
                 $params[] = (int) $search;
             } else {
-                $where[] = '(u.full_name LIKE ? OR u.email LIKE ?)';
+                $where[] = '(u.full_name LIKE ? OR u.email LIKE ? OR u.account_reference LIKE ?)';
             }
+            $params[] = '%' . $search . '%';
             $params[] = '%' . $search . '%';
             $params[] = '%' . $search . '%';
         }
@@ -72,7 +75,7 @@ final class StudentManagementController
                 (SELECT COUNT(*) FROM login_events le WHERE le.user_id=u.id AND le.event_type IN ('failed','blocked')) AS failed_logins"
             : 'NULL AS successful_logins, NULL AS failed_logins';
         $studentsQuery = $db->prepare(
-            "SELECT u.id,u.full_name,u.email,u.status,u.email_verified_at,u.created_at,u.last_login_at,$loginCounts
+            "SELECT u.id,u.full_name,u.email,u.status,u.account_reference,u.email_verified_at,u.created_at,u.last_login_at,$loginCounts
              FROM users u WHERE $whereSql ORDER BY u.created_at DESC,u.id DESC LIMIT " . self::PAGE_SIZE . ' OFFSET ' . $offset
         );
         $studentsQuery->execute($params);
@@ -82,7 +85,7 @@ final class StudentManagementController
         $activity = [];
         $selectedLoginCounts = ['successful' => 0, 'failed' => 0];
         if ($studentId !== null) {
-            $selectedQuery = $db->prepare("SELECT id,full_name,email,status,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
+            $selectedQuery = $db->prepare("SELECT id,full_name,email,status,account_reference,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
             $selectedQuery->execute([$studentId]);
             $selectedStudent = $selectedQuery->fetch() ?: null;
             if ($selectedStudent && $loginHistoryAvailable) {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Security;
+use App\Services\AccountIdentity;
 
 /**
  * View::render() injects these values from StudentManagementController.
@@ -38,6 +39,12 @@ $message = is_string($message ?? null) ? $message : null;
 $error = is_string($error ?? null) && $error !== '' ? $error : null;
 $queryUrl = static function (array $overrides = []) use ($search, $statusFilter): string {
     return http_build_query(array_merge(['q' => $search, 'status' => $statusFilter], $overrides));
+};
+// The ID an admin quotes for a student is the Academy ID on the account — the same number the
+// student sees in their own settings and on a certificate. The row id is internal bookkeeping.
+$accountId = static function (array $account): string {
+    $stored = trim((string) ($account['account_reference'] ?? ''));
+    return $stored !== '' ? $stored : AccountIdentity::derived((int) $account['id']);
 };
 ?>
 <section class="dashboard-page student-management-page" data-reveal>
@@ -150,7 +157,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                     <tbody>
                         <?php foreach ($students as $student): $studentName = (string) $student['full_name']; ?>
                             <tr>
-                                <td data-label="Student"><div class="student-table-identity"><span><strong><?= Security::escape($studentName) ?></strong><small>ID · <?= (int) $student['id'] ?></small></span></div></td>
+                                <td data-label="Student"><div class="student-table-identity"><span><strong><?= Security::escape($studentName) ?></strong><small>ID · <?= Security::escape($accountId($student)) ?></small></span></div></td>
                                 <td class="student-row-actions" data-label="Actions"><a class="student-activity-link" href="<?= Security::escape($baseUrl) ?>/admin/students?<?= Security::escape($queryUrl(['student_id' => (int) $student['id'], 'page' => $page])) ?>">View activity <span aria-hidden="true">→</span></a><?php if (in_array($student['status'], ['active', 'suspended'], true)): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/status" class="student-status-form" onsubmit="return confirm('<?= $student['status'] === 'active' ? 'Block' : 'Unblock' ?> this student account?')">
                                         <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
                                         <input type="hidden" name="student_id" value="<?= (int) $student['id'] ?>">
@@ -175,7 +182,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
                 <div>
                     <p class="eyebrow">STUDENT ACCOUNT</p>
                     <h2 id="student-activity-title"><?= Security::escape($selectedStudent['full_name']) ?></h2>
-                    <p><?= Security::escape($selectedStudent['email']) ?> <span class="student-detail-id">ID <?= (int) $selectedStudent['id'] ?></span></p>
+                    <p><?= Security::escape($selectedStudent['email']) ?> <span class="student-detail-id">ID <?= Security::escape($accountId($selectedStudent)) ?></span></p>
                 </div>
                 <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/admin/students?<?= Security::escape($queryUrl()) ?>">Close activity</a>
             </div>

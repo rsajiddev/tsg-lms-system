@@ -306,6 +306,28 @@ try {
         'The code step still names the course the session holds.',
         'The code step lost the chosen course.');
 
+    echo "\n-- the code step keeps one centred escape line and one course line\n";
+    // A person who did not get the code is looking for the way out, so both escapes share the line
+    // under the fields - and main.js still finds Resend first, because that is the button it drives.
+    preg_match('/<p class="otp-resend-row"[^>]*data-otp-countdown="\d+"[^>]*>(?<row>.*?)<\/p>/s', $tampered['body'], $resendRow);
+    $rowHtml = (string) ($resendRow['row'] ?? '');
+    $assert(str_contains($rowHtml, '>Resend</button>') && str_contains($rowHtml, 'Wrong email? Go back</button>'),
+        'Resend and the way back to the address share the centred line under the code step.',
+        'The code step does not offer both escapes on one resend line.');
+    preg_match('/<button[^>]*>(?<label>[^<]*)<\/button>/', $rowHtml, $firstButton);
+    $assert(trim((string) ($firstButton['label'] ?? '')) === 'Resend',
+        'Resend is the first button in the countdown row, which is the control main.js counts down on.',
+        'The countdown row now opens with another button, so the timer would drive the wrong control.');
+    $assert(str_contains($rowHtml, 'class="otp-resend-timer"'),
+        'The countdown row keeps the element the remaining seconds are written into.',
+        'The countdown row lost its timer element, so the wait would be silent.');
+    // The summary states the course once; the category and duration beside it only repeated it.
+    preg_match('/<div class="enrol-summary-main">(?<main>.*?)<\/div>/s', $tampered['body'], $summary);
+    $summaryMain = trim((string) ($summary['main'] ?? ''));
+    $assert($summaryMain !== '' && str_contains($summaryMain, 'Enrol Smoke Open Course') && stripos($summaryMain, '<small') === false,
+        'The enrolment summary names the course once, with no repeated format line under it.',
+        'The enrolment summary still doubles the course information: ' . $summaryMain);
+
     echo "\n-- a wrong code is survivable and a posted course id is inert\n";
     $wrongCode = $open('POST', '/enrol/verify', [
         '_csrf' => $csrfOf($tampered['body']),

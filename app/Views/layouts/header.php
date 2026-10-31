@@ -16,10 +16,18 @@ $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
 $dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
-// Sidebar counters: unread notifications grouped per workspace area, plus any course item
-// that still needs the student's own action, so a badge never hides real outstanding work.
+// Sidebar counters. A student counts unread notifications plus any course item that still needs
+// their own action; an administrator counts the work a student can leave waiting on the Academy,
+// so neither role has to open a page to find out whether anything is theirs to do.
 $navBadge = array_fill_keys(array_keys(\App\Services\NotificationService::AREAS), 0);
-if ($dashboardArea && $dashboardRole !== 'admin') {
+if ($dashboardArea && $dashboardRole === 'admin') {
+    try {
+        $navBadge = array_merge($navBadge, (new \App\Services\AdminAttention(\App\Core\Database::connection()))->pendingByArea());
+    } catch (\Throwable $exception) {
+        // Navigation must keep rendering even when the workspace schema is mid-import.
+        $navBadge = array_fill_keys(array_keys(\App\Services\NotificationService::AREAS), 0);
+    }
+} elseif ($dashboardArea) {
     $navStudentId = (int)($currentUser['id'] ?? 0);
     if ($navStudentId > 0) {
         try {
@@ -60,18 +68,18 @@ $dashboardNavIcon = static function (string $name): string {
 };
 $dashboardNavItems = $dashboardRole === 'admin'
     ? [
-        ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
+        ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'badge' => 'total', 'active' => $activePath === '/dashboard'],
         ['label' => 'Manage courses', 'href' => '/admin/courses', 'icon' => 'book', 'active' => $activePath === '/admin/courses'],
         ['label' => 'Lesson library', 'href' => '/admin/lessons', 'icon' => 'play', 'active' => $activePath === '/admin/lessons'],
         ['label' => 'Quiz management', 'href' => '/admin/quizzes', 'icon' => 'quiz', 'active' => $activePath === '/admin/quizzes'],
         ['label' => 'Coding challenges', 'href' => '/admin/coding-challenges', 'icon' => 'code', 'active' => $activePath === '/admin/coding-challenges'],
-        ['label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'active' => $activePath === '/admin/quiz-reports'],
-        ['label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'active' => $activePath === '/admin/assignments'],
+        ['label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/admin/quiz-reports'],
+        ['label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/admin/assignments'],
         ['label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
-        ['label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
-        ['label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'active' => str_starts_with($activePath, '/admin/certificates')],
-        ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'active' => $activePath === '/admin/payments'],
-        ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'active' => $activePath === '/admin/reviews'],
+        ['label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'badge' => 'messages', 'active' => str_starts_with($activePath, '/admin/announcements')],
+        ['label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'badge' => 'certificates', 'active' => str_starts_with($activePath, '/admin/certificates')],
+        ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'badge' => 'payments', 'active' => $activePath === '/admin/payments'],
+        ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'badge' => 'reviews', 'active' => $activePath === '/admin/reviews'],
         ['label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
         ['label' => 'My account', 'href' => '/admin/account', 'icon' => 'users', 'active' => $activePath === '/admin/account'],
     ]

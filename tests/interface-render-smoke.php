@@ -29,6 +29,7 @@ foreach (
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
         '/app/Services/AccountIdentity.php',
+        '/app/Services/AdminAttention.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/AuthService.php',
@@ -62,6 +63,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
 use App\Services\AccountIdentity;
+use App\Services\AdminAttention;
 use App\Services\NotificationService;
 
 Env::load(BASE_PATH . '/.env');
@@ -314,6 +316,34 @@ $checkPage('Student directory', '/admin/students', static fn() => (new StudentMa
     'admin-card-testing',
     'confirm_phrase',
 ]);
+// A student row has to print the number an admin is quoted back - the Academy ID on the account,
+// the same one the student sees on their own settings page - and never the internal row id.
+$directoryHtml = $render(static fn() => (new StudentManagementController())->index());
+$storedReference = trim((string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn());
+$directoryId = $storedReference !== '' ? $storedReference : AccountIdentity::derived($studentId);
+$assert(str_contains($directoryHtml, 'ID · ' . $directoryId), 'The directory prints the Academy ID ' . $directoryId . ' for the fixture student.',
+    'The directory does not print ' . $directoryId . ' for the fixture student.');
+$assert(preg_match('/ID · \d+<\/small>/', $directoryHtml) !== 1, 'No student row prints a bare numeric id.',
+    'A student row still prints the internal row number instead of the Academy ID.');
+// An administrator can type an ID by hand, and that is the number the student quotes at the Academy
+// desk - so the directory has to print the stored reference, not whichever row the account sits on.
+$db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute(['TSG-CER-2026-001', $studentId]);
+$typedHtml = $render(static fn() => (new StudentManagementController())->index());
+$assert(str_contains($typedHtml, 'ID · TSG-CER-2026-001'), 'A hand-set Academy ID is what the directory prints.',
+    'The directory ignored the stored Academy ID and printed something else.');
+// The search box promises a student ID, and the ID it shows is now the Academy one.
+$_GET = ['q' => 'TSG-CER-2026-001'];
+$foundHtml = $render(static fn() => (new StudentManagementController())->index());
+$_GET = [];
+$assert(str_contains($foundHtml, 'Render Smoke Student') && str_contains($foundHtml, 'ID · TSG-CER-2026-001'),
+    'Pasting the Academy ID into the search finds that student.',
+    'Searching for the Academy ID printed no matching student row.');
+$_GET = ['student_id' => (string) $studentId];
+$detailHtml = $render(static fn() => (new StudentManagementController())->index());
+$_GET = [];
+$assert(str_contains($detailHtml, 'ID TSG-CER-2026-001'), 'The student detail card prints the ID the row prints.',
+    'The detail card shows a different number from the directory row it came from.');
+$db->exec('UPDATE users SET account_reference = NULL WHERE id = ' . (int) $studentId);
 $checkPage('Admin account settings', '/admin/account', static fn() => (new AccountController())->adminSettings(), [
     'Admin ID',
     'current_password',
@@ -458,6 +488,115 @@ $db->exec('UPDATE users SET account_reference = NULL WHERE email IN (' . $db->qu
 AccountIdentity::saveScheme($db, $schemeBefore['prefix'], $schemeBefore['next'], $adminId);
 $assert(AccountIdentity::scheme($db) === $schemeBefore, 'The scheme the run found is the scheme it left behind.',
     'The identity section did not restore the saved scheme.');
+
+/* ------------------------------------------------------- work waiting on the Academy */
+// A student can leave six kinds of work sitting on the Academy. Each has to be countable straight
+// from the sidebar, so signing in is enough to know where to start looking.
+echo "\n-- administrator attention badges\n";
+$announcementId = (int) $db->query("SELECT id FROM notifications WHERE title = 'Class on Friday' LIMIT 1")->fetchColumn();
+$before = (new AdminAttention($db))->pendingByArea();
+$db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,status) VALUES(?,?,?,'submitted')")
+    ->execute([$assignmentId, $studentId, 'The write-up is in the repository.']);
+$submissionId = (int) $db->lastInsertId();
+$db->prepare("INSERT INTO certificates(student_id,course_id,status,student_remarks) VALUES(?,?,?,'Course finished, please issue it.')")
+    ->execute([$studentId, $courseId, 'requested']);
+$certificateId = (int) $db->lastInsertId();
+$db->prepare("INSERT INTO payments(student_id,course_id,amount,transaction_reference,status) VALUES(?,?,24000,'SMOKE-PENDING-1','pending')")
+    ->execute([$studentId, $courseId]);
+$paymentId = (int) $db->lastInsertId();
+$db->prepare("INSERT INTO reviews(reviewer_type,full_name,rating,content,status) VALUES('student','Render Smoke Student',5,'The course was worth it.','pending')")
+    ->execute();
+$reviewId = (int) $db->lastInsertId();
+$db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    ->execute([$announcementId, $studentId, $studentId, 'Will the class be recorded?']);
+$after = (new AdminAttention($db))->pendingByArea();
+foreach (['assignments' => 'an unreviewed submission', 'certificates' => 'a certificate request', 'payments' => 'a payment to check', 'reviews' => 'a review to moderate', 'messages' => 'a message to answer'] as $area => $what) {
+    $assert(($after[$area] ?? 0) - ($before[$area] ?? 0) === 1, $area . ' counts ' . $what . ' the student just left behind.',
+        $area . ' moved by ' . (($after[$area] ?? 0) - ($before[$area] ?? 0)) . ' instead of one (' . $what . ').');
+}
+// An attempt that finished without a result is the one quiz state automatic grading left open.
+$db->prepare("INSERT INTO quiz_attempts(quiz_id,student_id,started_at,deadline_at,submitted_at,status) VALUES(?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP(),'submitted')")
+    ->execute([$quizId, $studentId]);
+$attemptId = (int) $db->lastInsertId();
+$ungraded = (new AdminAttention($db))->pendingByArea();
+$assert(($ungraded['quizzes'] ?? 0) - ($before['quizzes'] ?? 0) === 1, 'quizzes counts the finished attempt grading could not settle.',
+    'quizzes moved by ' . (($ungraded['quizzes'] ?? 0) - ($before['quizzes'] ?? 0)) . ' instead of one (an ungraded attempt).');
+// Answering takes the thread off the queue: these badges are outstanding work, not alerts that a
+// careful administrator would have to remember to dismiss. That happens below, once the sidebar
+// has been rendered with the message still waiting.
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
+$html = $render(static fn() => (new DashboardController())->show());
+foreach ([
+    '/dashboard' => 'Overview',
+    '/admin/quiz-reports' => 'Quiz reports',
+    '/admin/assignments' => 'Assignments',
+    '/admin/announcements' => 'Announcements',
+    '/admin/certificates' => 'Certificates',
+    '/admin/payments' => 'Revenue and payment',
+    '/admin/reviews' => 'Review moderation',
+] as $href => $label) {
+    // Several links can point at the same page - the brand also goes to /dashboard - so every
+    // match is checked: the badge only ever renders inside the numbered navigation entry.
+    preg_match_all('/<a[^>]*href="[^"]*' . preg_quote($href, '/') . '"[^>]*>(.*?)<\/a>/s', $html, $matches);
+    $badged = false;
+    foreach ($matches[1] as $link) {
+        $badged = $badged || str_contains($link, 'dashboard-nav-badge');
+    }
+    $assert($badged, $label . ' shows a badge in the admin sidebar.',
+        $label . ' carries no badge although a student left work waiting.');
+}
+preg_match('/<a[^>]*href="[^"]*\/admin\/students"[^>]*>(?<link>.*?)<\/a>/s', $html, $matches);
+$studentsLink = (string) ($matches['link'] ?? '');
+$assert($studentsLink !== '' && !str_contains($studentsLink, 'dashboard-nav-badge'),
+    'Students carries no badge, because no student action queues there.',
+    'The Students link is badged even though nothing there waits on the Academy.');
+
+$db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    ->execute([$announcementId, $adminId, $studentId, 'Yes - the recording goes up the same evening.']);
+$answered = (new AdminAttention($db))->pendingByArea();
+$assert(($answered['messages'] ?? 0) === ($before['messages'] ?? 0), 'An Academy answer takes the conversation back off the queue.',
+    'The messages badge still counts a thread the Academy has already answered (' . json_encode($answered) . ' against ' . json_encode($before) . ').');
+
+/* ---------------------------------------------------------------------- private conversation */
+echo "\n-- private conversation\n";
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/notifications/view?notification_id=' . $announcementId;
+$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
+// signIn() clears $_GET, so the thread is addressed after the session is put in place.
+$_GET = ['notification_id' => (string) $announcementId];
+$html = $render(static fn() => (new NotificationController())->show());
+$assert(str_contains($html, 'conversation-page') && str_contains($html, 'conversation-panel') && str_contains($html, 'conversation-bubble'),
+    'The student thread renders its page frame, panel and message bubbles.', 'The student thread did not render the conversation page, panel or bubbles.');
+$assert(str_contains($html, 'Will the class be recorded?'), 'The student sees their own message in the thread.', 'The student\'s message is missing from the thread.');
+$assert(str_contains($html, 'Academy announcement'), 'The announcement opens the thread.', 'The announcement is not printed above the replies.');
+$assert(str_contains($html, 'is-mine'), 'The reader\'s own message is aligned as theirs.', 'Nothing in the thread is recognised as the reader\'s own message.');
+$assert(preg_match('/<time[^>]*>[A-Z][a-z]{2} \d{1,2}, \d{4} · \d{1,2}:\d{2} [AP]M</', $html) === 1,
+    'A message prints its date and time to the minute.', 'No message carries a readable date and time.');
+$assert(str_contains($html, 'action="') && str_contains($html, '/notifications/reply') && str_contains($html, 'name="message"'),
+    'The composer still posts a reply to the same endpoint with the same field.', 'The reply form lost its endpoint or its message field.');
+$assert(stripos($html, 'admin-alert-success') === false && stripos($html, 'Reply added') === false,
+    'The thread keeps no send-confirmation banner above the chat.', 'The conversation still prints a flash banner.');
+
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$_GET = ['notification_id' => (string) $announcementId, 'student_id' => (string) $studentId];
+$html = $render(static fn() => (new NotificationController())->show());
+$assert(str_contains($html, 'conversation-picker') && str_contains($html, 'name="student_id"'),
+    'The admin thread still offers the recipient picker.', 'The admin lost the recipient picker.');
+$assert(str_contains($html, 'Reply privately to Render Smoke Student'),
+    'The composer names the student the reply goes to.', 'The admin composer does not name its recipient.');
+$assert(str_contains($html, 'Academy team') && str_contains($html, 'name="recipient_student_id"'),
+    'The admin\'s own answer is labelled as the Academy and pinned to the thread.', 'An admin reply is not identified or not scoped to the student.');
+
+// Leave every queue exactly as this section found it, so a rerun measures the same deltas.
+$db->exec('DELETE FROM notification_replies WHERE notification_id = ' . (int) $announcementId);
+$db->exec('DELETE FROM assignment_submissions WHERE id = ' . $submissionId);
+$db->exec('DELETE FROM certificates WHERE id = ' . $certificateId);
+$db->exec('DELETE FROM payments WHERE id = ' . $paymentId);
+$db->exec('DELETE FROM reviews WHERE id = ' . $reviewId);
+$db->exec('DELETE FROM quiz_attempts WHERE id = ' . $attemptId);
+$restored = (new AdminAttention($db))->pendingByArea();
+$assert($restored === $before, 'Removing the fixtures leaves the queues where they were.',
+    'The section left work behind: ' . json_encode($restored) . ' against ' . json_encode($before) . '.');
 
 echo "\n";
 if ($failures !== []) {
