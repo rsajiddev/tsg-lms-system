@@ -30,7 +30,7 @@ $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
                 <span class="receipt-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></span>
                 <p class="receipt-status">Payment Successful!</p>
                 <h1 class="receipt-title">Official Receipt</h1>
-                <p class="receipt-subtitle">Tech SG Academy · Course enrolment</p>
+                <p class="receipt-subtitle">Tech SG Academy · Course enrollment</p>
             </div>
 
             <div class="receipt-divider" aria-hidden="true"></div>
@@ -49,11 +49,11 @@ $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
                 </thead>
                 <tbody>
                     <tr>
-                        <td><span class="receipt-qty">1x</span> <?= $escape($payment['course_title'] ?? 'Course enrolment') ?></td>
+                        <td><span class="receipt-qty">1x</span> <?= $escape($payment['course_title'] ?? 'Course enrollment') ?></td>
                         <td class="receipt-table-num"><?= $escape($amountLabel) ?></td>
                     </tr>
                     <tr class="receipt-item-note">
-                        <td colspan="2">Course enrolment payment · fully verified by the Academy</td>
+                        <td colspan="2">Course enrollment payment · fully verified by the Academy</td>
                     </tr>
                 </tbody>
             </table>

@@ -968,6 +968,7 @@ button.button-secondary:active {
   box-shadow: 0 0 0 4px #bfdbfe
 }
 
+.field-code,
 .field-code input {
   letter-spacing: .28em
 }
@@ -1070,6 +1071,492 @@ button.button-secondary:active {
 .auth-foot a:hover {
   color: var(--blue-dark);
   text-decoration: underline
+}
+
+/* ===== Enrollment checkout: the form is the only card on the page. The course, the money and the
+   steps still to run sit loose on the page itself, because they are information to read and not
+   another form to fill in. There is no fixed panel height, so nothing is clipped at the bottom. ===== */
+
+.enrol-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px 24px 78px
+}
+
+.enrol-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px
+}
+
+.enrol-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--blue-dark);
+  font-size: 13.5px;
+  font-weight: 750;
+  text-decoration: none
+}
+
+.enrol-back:hover {
+  text-decoration: underline
+}
+
+.enrol-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 30px;
+  padding: 0;
+  list-style: none
+}
+
+.enrol-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap
+}
+
+.enrol-step-mark {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #eef2f8;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800
+}
+
+.enrol-step.is-current {
+  border-color: rgba(37, 99, 235, .45);
+  background: rgba(37, 99, 235, .06);
+  color: var(--blue-dark)
+}
+
+.enrol-step.is-current .enrol-step-mark {
+  background: var(--blue);
+  color: #fff
+}
+
+.enrol-step.is-done {
+  color: var(--green)
+}
+
+.enrol-step.is-done .enrol-step-mark {
+  background: rgba(22, 163, 74, .16);
+  color: var(--green)
+}
+
+.enrol-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 450px);
+  align-items: start;
+  gap: clamp(28px, 5vw, 62px)
+}
+
+.enrol-intro {
+  min-width: 0
+}
+
+.enrol-intro .eyebrow {
+  margin: 0 0 12px;
+  color: var(--blue-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase
+}
+
+.enrol-title {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(30px, 4.2vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -.04em;
+  overflow-wrap: anywhere
+}
+
+.enrol-lede {
+  max-width: 520px;
+  margin: 16px 0 0;
+  color: #5d6f89;
+  font-size: 15.5px;
+  line-height: 1.72;
+  overflow-wrap: anywhere
+}
+
+.enrol-summary {
+  display: grid;
+  gap: 0;
+  margin: 26px 0 0;
+  padding: 0;
+  border-top: 1px solid #e2eaf5
+}
+
+.enrol-summary>div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eef2f8
+}
+
+.enrol-summary dt {
+  color: #7c8ba1;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase
+}
+
+.enrol-summary dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--navy);
+  font-size: 14.5px;
+  font-weight: 750;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere
+}
+
+.enrol-summary-main {
+  display: block;
+  padding: 14px 0
+}
+
+.enrol-summary-main dt {
+  display: block;
+  margin: 0 0 5px
+}
+
+.enrol-summary-main dd {
+  font-size: 17.5px;
+  letter-spacing: -.015em;
+  text-align: left
+}
+
+.enrol-summary-main small {
+  display: block;
+  margin-top: 4px;
+  color: #7f8ea3;
+  font-size: 12.5px;
+  font-weight: 600
+}
+
+.enrol-how-block {
+  margin-top: 32px
+}
+
+.enrol-how-block h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 19px;
+  letter-spacing: -.02em
+}
+
+.enrol-how-block>p {
+  max-width: 470px;
+  margin: 9px 0 20px;
+  color: #62748c;
+  font-size: 13.5px;
+  line-height: 1.65
+}
+
+.enrol-card {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: clamp(24px, 3vw, 34px) clamp(22px, 2.6vw, 30px) clamp(24px, 2.8vw, 30px);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 26px 64px #1e3a8a17
+}
+
+.enrol-card-head h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 23px;
+  letter-spacing: -.03em
+}
+
+.enrol-card-head p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6
+}
+
+.enrol-card form {
+  display: grid;
+  gap: 15px
+}
+
+.enrol-card>.enrol-note {
+  margin: 0
+}
+
+.enrol-card .enrol-sending {
+  margin: 0
+}
+
+.enrol-card .auth-submit {
+  margin-top: 2px
+}
+
+.enrol-card .auth-links {
+  margin: 0
+}
+
+.enrol-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 2px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid #eef2f8;
+  color: #8695ab;
+  font-size: 11.5px
+}
+
+.enrol-card-foot a {
+  color: #8695ab;
+  text-decoration: none
+}
+
+.enrol-card-foot a:hover {
+  color: var(--blue-dark);
+  text-decoration: underline
+}
+
+.enrol-note {
+  margin: 14px 0 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere
+}
+
+.enrol-note-error {
+  background: #fef2f2;
+  color: #991b1b
+}
+
+.enrol-mail-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6
+}
+
+.enrol-sending {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc
+}
+
+.enrol-sending[hidden] {
+  display: none
+}
+
+.enrol-sending p {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  color: var(--navy);
+  font-size: 13.5px;
+  overflow-wrap: anywhere
+}
+
+.enrol-sending small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55
+}
+
+.enrol-sending-live {
+  border-color: rgba(37, 99, 235, .35);
+  background: rgba(37, 99, 235, .05)
+}
+
+.enrol-spinner {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 2px solid rgba(37, 99, 235, .25);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: enrol-spin .8s linear infinite
+}
+
+@keyframes enrol-spin {
+  to {
+    rotate: 360deg
+  }
+}
+
+.otp-resend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px
+}
+
+.otp-resend-row button[disabled] {
+  color: var(--muted);
+  opacity: .65;
+  cursor: not-allowed
+}
+
+.otp-resend-timer {
+  color: var(--blue-dark);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums
+}
+
+.enrol-edit-email {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700
+}
+
+.enrol-how {
+  display: grid;
+  gap: 15px;
+  margin: 0;
+  padding: 0;
+  list-style: none
+}
+
+.enrol-how li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px
+}
+
+.enrol-how li>span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e0eafc;
+  border-radius: 50%;
+  background: #edf3ff;
+  color: var(--blue-dark);
+  font-size: 12.5px;
+  font-weight: 800
+}
+
+.enrol-how strong {
+  display: block;
+  color: #1b2941;
+  font-size: 14.5px;
+  line-height: 1.4
+}
+
+.enrol-how small {
+  display: block;
+  margin-top: 2px;
+  color: #6b7c94;
+  font-size: 12.5px;
+  line-height: 1.6
+}
+
+@media (max-width: 980px) {
+  .enrol-shell {
+    padding: 22px 20px 64px
+  }
+
+  .enrol-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px
+  }
+
+  /* The form is what a person came to use, so it keeps the first screen when the columns stack. */
+  .enrol-card {
+    order: -1
+  }
+
+  .enrol-lede,
+  .enrol-how-block>p {
+    max-width: none
+  }
+}
+
+@media (max-width: 620px) {
+  .enrol-shell {
+    padding: 18px 16px 56px
+  }
+
+  .enrol-topbar {
+    margin-bottom: 18px
+  }
+
+  .enrol-steps {
+    gap: 6px;
+    margin-bottom: 24px
+  }
+
+  .enrol-step {
+    padding: 6px 10px;
+    font-size: 11.5px
+  }
+
+  .enrol-title {
+    font-size: clamp(27px, 8.4vw, 36px)
+  }
+
+  .enrol-summary>div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px
+  }
+
+  .enrol-summary dd {
+    text-align: left
+  }
+
+  .enrol-card {
+    padding: 22px 18px 24px;
+    border-radius: 19px
+  }
+
+  .enrol-card-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px
+  }
 }
 
 .secure-note {
@@ -10470,6 +10957,8 @@ html.admin-modal-js .admin-modal.is-open {
 .catalog-hero-tile-2:hover,.catalog-hero-tile-5:hover {transform:translateY(20px)}
 .catalog-hero-tile img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.025);transition:opacity .5s ease,transform .8s cubic-bezier(.2,.75,.25,1)}
 .catalog-hero-tile.is-loaded img {opacity:1;transform:scale(1)}
+.catalog-notice {padding:20px 0 0}
+.catalog-notice .enrol-note {max-width:820px;margin:0}
 .catalog-courses {padding:clamp(8px,1.6vw,18px) 0 8px}
 .catalog-courses .section-heading {margin:0 0 12px}
 .catalog-courses .section-heading>div>p:last-child {max-width:600px;margin:10px 0 0;color:var(--muted);line-height:1.65}
@@ -10498,6 +10987,8 @@ html.admin-modal-js .admin-modal.is-open {
 .course-card-prices span {font-size:12px}
 .course-card-prices strong {font-size:13px;white-space:nowrap}
 .course-card-content .course-cta {display:flex;width:100%;min-height:48px;align-items:center;justify-content:center;gap:10px;margin:0;padding:12px 15px;border-radius:13px;font-size:13px;text-align:center}
+.course-card-details-link {align-self:center;display:inline-flex;align-items:center;gap:6px;margin-top:11px;color:var(--blue-dark);font-size:12.5px;font-weight:750;text-decoration:none}
+.course-card-details-link:hover {text-decoration:underline}
 .course-benefits {margin:clamp(42px,7vw,84px) calc(50% - 50dvw) 0;padding:clamp(40px,6vw,68px) max(24px,calc((100dvw - 1120px)/2));background:#f2f5fa}
 .course-benefits-heading {max-width:690px;margin:0 auto 30px;text-align:center}
 .course-benefits-heading .eyebrow {margin:0 0 10px}
@@ -10557,19 +11048,23 @@ html.admin-modal-js .admin-modal.is-open {
   .course-card.course-card-unified,.course-card-image-media,.catalog-hero-tile,.catalog-hero-tile img,.course-benefit-card {transition:none}
 }
 
-/* Public course detail page */
+/* Public course detail page. The curriculum list is not printed here: module and lesson titles
+   belong to the student workspace, so the page sells the course with facts, inclusions and the
+   enrollment flow instead of a syllabus a visitor has not paid for. */
 .course-detail-page {max-width:1200px;margin:0 auto;padding:28px 24px 72px}
 .course-detail-breadcrumb {display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 22px;color:#8190a6;font-size:13px}
 .course-detail-breadcrumb a {color:#52657f;text-decoration:none}
 .course-detail-breadcrumb a:hover {color:var(--blue-dark)}
 .course-detail-breadcrumb span:last-child {min-width:0;overflow-wrap:anywhere;color:#34445e}
-.course-detail-hero {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);align-items:center;gap:clamp(28px,5vw,68px);padding:clamp(30px,5vw,64px);border:1px solid #e0e8f4;border-radius:30px;background:radial-gradient(circle at 90% 10%,#dceaff 0,transparent 38%),linear-gradient(135deg,#f8fbff,#edf4ff);box-shadow:0 18px 50px #172b4d0b}
+.course-detail-hero {display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);align-items:center;gap:clamp(28px,5vw,60px);padding:clamp(30px,5vw,58px);border:1px solid #e0e8f4;border-radius:28px;background:radial-gradient(circle at 88% 6%,#d9e8ff 0,transparent 42%),linear-gradient(140deg,#fbfdff,#eef4ff 62%,#e9f0fd);box-shadow:0 20px 54px #172b4d0d}
 .course-detail-hero-copy {min-width:0}
 .course-detail-hero-copy .eyebrow {margin:0 0 14px;color:var(--blue-dark);font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;overflow-wrap:anywhere}
-.course-detail-hero h1 {max-width:760px;margin:0;color:var(--navy);font-size:clamp(38px,5.7vw,68px);line-height:1.04;letter-spacing:-.055em;overflow-wrap:anywhere}
-.course-detail-lead {max-width:650px;margin:20px 0 0;color:#5d6f89;font-size:clamp(16px,2vw,20px);line-height:1.7;overflow-wrap:anywhere}
-.course-detail-facts {display:flex;flex-wrap:wrap;gap:9px;margin-top:25px}
-.course-detail-facts span {padding:9px 13px;border:1px solid #dce6f4;border-radius:999px;background:#ffffffc9;color:#3c4d66;font-size:12px;font-weight:700}
+.course-detail-hero h1 {max-width:640px;margin:0;color:var(--navy);font-size:clamp(34px,4.4vw,52px);line-height:1.06;letter-spacing:-.04em;overflow-wrap:anywhere}
+.course-detail-lead {max-width:600px;margin:18px 0 0;color:#5d6f89;font-size:clamp(15px,1.7vw,18px);line-height:1.72;overflow-wrap:anywhere}
+.course-detail-facts {display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
+.course-detail-facts span {padding:9px 13px;border:1px solid #dce6f4;border-radius:999px;background:#ffffffcc;color:#3c4d66;font-size:12px;font-weight:700}
+.course-detail-price-tease {margin:20px 0 0;color:#5a6d87;font-size:14px}
+.course-detail-price-tease strong {color:var(--navy);font-size:19px;letter-spacing:-.02em}
 .course-detail-hero-image {min-width:0;overflow:hidden;border:1px solid #dce6f4;border-radius:22px;background:#e8eff9;box-shadow:0 18px 42px #1d37651c}
 .course-detail-image {position:relative;isolation:isolate;overflow:hidden;width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,#e8eff9,#f7faff)}
 .course-detail-image.is-loaded .course-card-image-media {opacity:1;transform:scale(1)}
@@ -10577,52 +11072,50 @@ html.admin-modal-js .admin-modal.is-open {
 .course-detail-image.is-image-error .course-image-placeholder {color:#596b84}
 .course-detail-image.is-image-error .course-image-spinner {display:none}
 .course-detail-layout {display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,350px);align-items:start;gap:24px;margin-top:26px}
-.course-detail-main {display:grid;min-width:0;gap:22px}
-.course-detail-panel {min-width:0;padding:clamp(22px,3.4vw,36px);border:1px solid #e1e8f2;border-radius:24px;background:#fff;box-shadow:0 12px 34px #172b4d09}
-.course-detail-panel>.eyebrow,.course-detail-section-heading .eyebrow {margin:0 0 9px;color:var(--blue-dark);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
-.course-detail-panel h2 {margin:0;color:var(--navy);font-size:clamp(22px,3vw,30px);line-height:1.2;letter-spacing:-.035em;overflow-wrap:anywhere}
-.course-detail-body {margin:15px 0 0;color:#5d6f89;line-height:1.75;overflow-wrap:anywhere}
-.course-detail-outcomes {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:24px}
+.course-detail-main {display:grid;min-width:0;gap:20px}
+.course-detail-panel {min-width:0;padding:clamp(22px,3.2vw,34px);border:1px solid #e1e8f2;border-radius:24px;background:#fff;box-shadow:0 12px 34px #172b4d09}
+.course-detail-panel>.eyebrow {margin:0 0 9px;color:var(--blue-dark);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.course-detail-panel h2 {margin:0;color:var(--navy);font-size:clamp(21px,2.6vw,27px);line-height:1.22;letter-spacing:-.03em;overflow-wrap:anywhere}
+.course-detail-body {margin:14px 0 0;color:#5d6f89;line-height:1.75;overflow-wrap:anywhere}
+.course-detail-outcomes {display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:22px}
 .course-detail-outcomes>div {display:flex;min-width:0;align-items:flex-start;gap:10px;padding:15px;border:1px solid #e7edf6;border-radius:15px;background:#f8faff}
 .course-detail-outcomes>div>span {display:grid;width:23px;height:23px;flex:0 0 23px;place-items:center;border-radius:50%;background:#e7f8ef;color:#15804b;font-weight:800}
 .course-detail-outcomes p {margin:1px 0 0;color:#566983;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
-.course-detail-section-heading {display:flex;min-width:0;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:20px}
-.course-detail-section-heading>span {flex:0 0 auto;padding:8px 11px;border:1px solid #e2e9f2;border-radius:11px;background:#f7f9fc;color:#52647d;font-size:12px;font-weight:700}
-.course-detail-modules {display:grid;gap:12px}
-.course-detail-module {min-width:0;padding:17px 18px;border:1px solid #e5ebf4;border-radius:16px;background:#fbfcfe}
-.course-detail-module-title {display:flex;min-width:0;align-items:center;gap:12px}
-.course-detail-module-title>span {display:grid;width:35px;height:35px;flex:0 0 35px;place-items:center;border-radius:11px;background:#edf3ff;color:var(--blue-dark);font-size:11px;font-weight:800}
-.course-detail-module-title h3 {min-width:0;margin:0;color:#1b2941;font-size:16px;line-height:1.4;overflow-wrap:anywhere}
-.course-detail-module ul {display:grid;gap:9px;margin:14px 0 0;padding:0;list-style:none}
-.course-detail-module li {display:flex;min-width:0;align-items:flex-start;gap:10px;color:#5d6f89;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
-.course-detail-module li span {padding-top:2px;color:#7790b5;font-size:10px}
-.course-detail-module-note {margin:13px 0 0;color:#74849b;font-size:13px;line-height:1.55}
-.course-detail-empty {padding:20px;border:1px dashed #cad8ea;border-radius:15px;background:#f8faff}
-.course-detail-empty strong {color:#253650}
-.course-detail-empty p {margin:7px 0 0;color:#667891;font-size:13px;line-height:1.6}
+.course-detail-includes {display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0 26px;margin-top:20px}
+.course-detail-includes>div {display:flex;min-width:0;align-items:flex-start;gap:13px;padding:15px 0;border-bottom:1px solid #eef2f8}
+.course-detail-includes>div>span {flex:0 0 auto;display:grid;width:32px;height:32px;place-items:center;border-radius:11px;background:#edf3ff;color:var(--blue-dark);font-size:11px;font-weight:800;letter-spacing:.02em}
+.course-detail-includes p {min-width:0;margin:0;color:#5d6f89;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.course-detail-includes strong {display:block;margin-bottom:3px;color:#1b2941;font-size:14.5px;line-height:1.35;overflow-wrap:anywhere}
+.course-detail-flow {display:grid;gap:0;margin:18px 0 0;padding:0;list-style:none;counter-reset:enrol-flow}
+.course-detail-flow li {position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;padding-bottom:20px}
+.course-detail-flow li:last-child {padding-bottom:0}
+.course-detail-flow li::before {position:absolute;top:34px;bottom:0;left:16px;width:2px;background:linear-gradient(#dbe6f8,transparent)}
+.course-detail-flow li:last-child::before {display:none}
+.course-detail-flow li>span {position:relative;z-index:1;display:grid;width:34px;height:34px;place-items:center;border:2px solid #e3ecfb;border-radius:50%;background:#fff;color:var(--blue-dark);font-size:13px;font-weight:800}
+.course-detail-flow p {min-width:0;margin:0;color:#5d6f89;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.course-detail-flow strong {display:block;margin-bottom:2px;color:#1b2941;font-size:14.5px;line-height:1.35;overflow-wrap:anywhere}
 .course-detail-sidebar {position:sticky;top:24px;display:grid;min-width:0;gap:14px}
-.course-detail-enrol h2 {font-size:21px}
-.course-detail-prices {display:grid;gap:9px;margin:20px 0}
+.course-detail-enrol h2 {font-size:20px}
+.course-detail-prices {display:grid;gap:9px;margin:18px 0}
 .course-detail-prices>div {display:flex;min-width:0;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid #e3eaf4;border-radius:14px;background:#f8faff;color:#576a83;font-size:13px}
 .course-detail-prices strong {color:#172b4d;font-size:14px;white-space:nowrap}
 .course-detail-prices>p {margin:0;color:#677991;font-size:13px;line-height:1.6}
 .course-detail-enrol-button {display:flex;min-height:50px;align-items:center;justify-content:center;text-align:center}
 .course-detail-enrol-note {display:flex;align-items:flex-start;gap:8px;margin:15px 0 0;color:#667891;font-size:12px;line-height:1.55}
 .course-detail-enrol-note span {color:#15945b;font-weight:800}
-.course-detail-curriculum-link {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;padding-top:15px;border-top:1px solid #e8edf5;color:var(--blue-dark);font-size:13px;font-weight:750;text-decoration:none}
-.course-detail-help {padding:20px;border:1px solid #dbe7f8;border-radius:18px;background:#f1f6ff}
-.course-detail-help strong {color:#203451}
-.course-detail-help p {margin:8px 0 13px;color:#62748c;font-size:13px;line-height:1.6}
+.course-detail-help {margin-top:18px;padding-top:16px;border-top:1px solid #e8edf5}
+.course-detail-help strong {color:#203451;font-size:14px}
+.course-detail-help p {margin:7px 0 11px;color:#62748c;font-size:12.5px;line-height:1.6}
 .course-detail-help a {color:var(--blue-dark);font-size:13px;font-weight:750;text-decoration:none}
+.course-detail-help a:hover {text-decoration:underline}
 @media(max-width:960px) {
   .course-detail-hero {grid-template-columns:minmax(0,1fr) minmax(250px,.8fr);gap:26px;padding:clamp(24px,4vw,42px)}
   .course-detail-layout {grid-template-columns:minmax(0,1fr) 300px;gap:16px}
-  .course-detail-outcomes {grid-template-columns:1fr}
 }
 @media(max-width:760px) {
   .course-detail-page {padding:20px 18px 48px}
   .course-detail-hero {grid-template-columns:minmax(0,1fr);gap:22px;border-radius:23px}
-  .course-detail-hero h1 {font-size:clamp(36px,9vw,54px)}
+  .course-detail-hero h1 {font-size:clamp(32px,8.4vw,44px)}
   .course-detail-hero-image {max-height:390px}
   .course-detail-image {aspect-ratio:16/10}
   .course-detail-layout {grid-template-columns:minmax(0,1fr);margin-top:18px}
@@ -10633,11 +11126,10 @@ html.admin-modal-js .admin-modal.is-open {
   .course-detail-page {padding-inline:14px}
   .course-detail-breadcrumb {gap:7px;font-size:12px}
   .course-detail-hero {padding:22px 18px;border-radius:20px}
-  .course-detail-hero h1 {font-size:clamp(33px,10vw,43px)}
+  .course-detail-hero h1 {font-size:clamp(30px,9.6vw,40px)}
   .course-detail-facts span {padding:8px 10px;font-size:11px}
   .course-detail-panel {padding:20px 17px;border-radius:19px}
-  .course-detail-section-heading {align-items:flex-start;flex-direction:column;gap:10px}
-  .course-detail-module {padding:15px 13px}
+  .course-detail-includes {gap:0}
   .course-detail-prices>div {align-items:flex-start;flex-direction:column;gap:5px}
 }
 

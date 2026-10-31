@@ -12,11 +12,39 @@ $category = trim((string) ($course['category'] ?? ''));
 $currency = trim((string) ($course['pricing_currency'] ?? $course['currency'] ?? 'PKR'));
 $currentUser = isset($_SESSION['user']) && is_array($_SESSION['user']) ? $_SESSION['user'] : [];
 $isStudent = ($currentUser['role'] ?? null) === 'student';
+// A guest is not sent to a bare sign-in form, which used to lose the course they came for. They go
+// into the course-bound checkout, and the course is remembered until the payment step.
 $enrolHref = $isStudent
     ? $baseUrl . '/payments/new?course_id=' . rawurlencode((string) ($course['id'] ?? ''))
-    : $baseUrl . '/login';
-$enrolLabel = $isStudent ? 'Choose your learning option' : 'Sign in to enrol';
+    : $baseUrl . '/enrol/' . rawurlencode((string) ($course['slug'] ?? ''));
+$enrolLabel = $isStudent ? 'Choose your learning option' : 'Enroll now';
+// The lesson count is printed as a fact, not as a curriculum list: the module and lesson titles
+// belong to the student workspace, and a public page that lists them invites a look at content
+// nobody has paid for.
 $lessonCount = array_sum(array_map(static fn(array $module): int => count($module['lessons'] ?? []), $modules));
+$facts = [];
+if (!empty($course['duration_label'])) $facts[] = (string) $course['duration_label'];
+if (!empty($course['level_label'])) $facts[] = (string) $course['level_label'];
+if ($lessonCount > 0) $facts[] = $lessonCount . ' ' . ($lessonCount === 1 ? 'lesson' : 'lessons');
+$facts[] = 'Certificate on completion';
+// Only the prices that exist. A course with no pricing option at all is a "contact us" case, and the
+// enrollment card says so instead of printing an empty row.
+$prices = [];
+if (($course['recorded_price'] ?? null) !== null) $prices[] = ['label' => 'Recorded Only', 'price' => (float) $course['recorded_price']];
+if (($course['live_price'] ?? null) !== null) $prices[] = ['label' => 'Live + Recorded', 'price' => (float) $course['live_price']];
+$lowestPrice = $prices === [] ? null : min(array_column($prices, 'price'));
+$enrolSteps = [
+    ['label' => 'Create your account', 'copy' => 'One page, and the course you picked travels with you through every step.'],
+    ['label' => 'Confirm your email', 'copy' => 'A six-digit code proves the address is yours before anything is charged.'],
+    ['label' => 'Send your payment proof', 'copy' => 'Transfer to the Academy account and upload the receipt or screenshot.'],
+    ['label' => 'An admin opens access', 'copy' => 'Your lessons, quizzes and assignments unlock, and you get an email and a notification.'],
+];
+$includes = [
+    ['title' => 'Structured lessons', 'copy' => 'Published lessons open in order, with video, notes and practical activities.'],
+    ['title' => 'Quizzes and assignments', 'copy' => 'Each course carries graded work that feeds your completion percentage.'],
+    ['title' => 'Progress tracking', 'copy' => 'Your dashboard shows watch time, submitted work and what is still pending.'],
+    ['title' => 'Verified certificate', 'copy' => 'Meet the grade and attendance bar and request a certificate with your Academy ID.'],
+];
 ?>
 <section class="course-detail-page" aria-labelledby="course-detail-title">
     <nav class="course-detail-breadcrumb" aria-label="Breadcrumb">
@@ -31,10 +59,13 @@ $lessonCount = array_sum(array_map(static fn(array $module): int => count($modul
             <h1 id="course-detail-title"><?= Security::escape($courseTitle) ?></h1>
             <?php if ($description !== ''): ?><p class="course-detail-lead"><?= Security::escape($description) ?></p><?php endif; ?>
             <div class="course-detail-facts" aria-label="Course details">
-                <?php if (!empty($course['duration_label'])): ?><span><?= Security::escape((string) $course['duration_label']) ?></span><?php endif; ?>
-                <?php if (!empty($course['level_label'])): ?><span><?= Security::escape((string) $course['level_label']) ?></span><?php endif; ?>
-                <span>Certificate on completion</span>
+                <?php foreach ($facts as $fact): ?><span><?= Security::escape($fact) ?></span><?php endforeach; ?>
             </div>
+            <?php if ($lowestPrice !== null): ?>
+                <p class="course-detail-price-tease">From <strong><?= Security::escape($currency) ?> <?= number_format($lowestPrice, 0) ?></strong> · <?= count($prices) ?> learning option<?= count($prices) === 1 ? '' : 's' ?></p>
+            <?php else: ?>
+                <p class="course-detail-price-tease">Contact the Academy for current course pricing</p>
+            <?php endif; ?>
         </div>
         <div class="course-detail-hero-image">
             <?php $courseImageFrameClass = 'course-detail-image'; require BASE_PATH . '/app/Views/components/course-image.php'; ?>
@@ -54,41 +85,51 @@ $lessonCount = array_sum(array_map(static fn(array $module): int => count($modul
                 </div>
             </article>
 
-            <article class="course-detail-panel course-detail-curriculum" id="curriculum">
-                <div class="course-detail-section-heading">
-                    <div><p class="eyebrow">LEARNING PATH</p><h2>Course curriculum</h2></div>
-                    <span><?= number_format($lessonCount) ?> published <?= $lessonCount === 1 ? 'lesson' : 'lessons' ?></span>
+            <article class="course-detail-panel">
+                <p class="eyebrow">WHAT THE COURSE INCLUDES</p>
+                <h2>Everything you get with access</h2>
+                <div class="course-detail-includes">
+                    <?php foreach ($includes as $index => $include): ?>
+                        <div>
+                            <span aria-hidden="true"><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span>
+                            <p><strong><?= Security::escape($include['title']) ?></strong><?= Security::escape($include['copy']) ?></p>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-                <?php if ($modules === []): ?>
-                    <div class="course-detail-empty"><strong>Curriculum is being prepared</strong><p>Published modules and lessons will appear here as they become available.</p></div>
-                <?php else: ?>
-                    <div class="course-detail-modules">
-                        <?php foreach ($modules as $moduleIndex => $module): ?>
-                            <?php $moduleLessons = isset($module['lessons']) && is_array($module['lessons']) ? $module['lessons'] : []; ?>
-                            <section class="course-detail-module">
-                                <div class="course-detail-module-title"><span><?= str_pad((string) ($moduleIndex + 1), 2, '0', STR_PAD_LEFT) ?></span><h3><?= Security::escape((string) ($module['title'] ?? 'Course module')) ?></h3></div>
-                                <?php if ($moduleLessons !== []): ?><ul><?php foreach ($moduleLessons as $lessonTitle): ?><li><span aria-hidden="true">▶</span><?= Security::escape((string) $lessonTitle) ?></li><?php endforeach; ?></ul><?php else: ?><p class="course-detail-module-note">Lessons are being prepared for this module.</p><?php endif; ?>
-                            </section>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+            </article>
+
+            <article class="course-detail-panel">
+                <p class="eyebrow">HOW ENROLLMENT WORKS</p>
+                <h2>Four steps from this page to your first lesson</h2>
+                <ol class="course-detail-flow">
+                    <?php foreach ($enrolSteps as $index => $enrolStep): ?>
+                        <li>
+                            <span aria-hidden="true"><?= $index + 1 ?></span>
+                            <p><strong><?= Security::escape($enrolStep['label']) ?></strong><?= Security::escape($enrolStep['copy']) ?></p>
+                        </li>
+                    <?php endforeach; ?>
+                </ol>
             </article>
         </div>
 
-        <aside class="course-detail-sidebar" aria-label="Enrol in this course">
+        <aside class="course-detail-sidebar" aria-label="Enroll in this course">
             <div class="course-detail-panel course-detail-enrol">
                 <p class="eyebrow">START LEARNING</p>
                 <h2>Choose your learning mode</h2>
                 <div class="course-detail-prices">
-                    <?php if (($course['recorded_price'] ?? null) !== null): ?><div><span>Recorded Only</span><strong><?= Security::escape($currency) ?> <?= number_format((float) $course['recorded_price'], 0) ?></strong></div><?php endif; ?>
-                    <?php if (($course['live_price'] ?? null) !== null): ?><div><span>Live + Recorded</span><strong><?= Security::escape($currency) ?> <?= number_format((float) $course['live_price'], 0) ?></strong></div><?php endif; ?>
-                    <?php if (($course['recorded_price'] ?? null) === null && ($course['live_price'] ?? null) === null): ?><p>Contact the Academy for current course pricing.</p><?php endif; ?>
+                    <?php foreach ($prices as $price): ?>
+                        <div><span><?= Security::escape($price['label']) ?></span><strong><?= Security::escape($currency) ?> <?= number_format($price['price'], 0) ?></strong></div>
+                    <?php endforeach; ?>
+                    <?php if ($prices === []): ?><p>Contact the Academy for current course pricing.</p><?php endif; ?>
                 </div>
                 <a class="button course-detail-enrol-button" href="<?= Security::escape($enrolHref) ?>"><?= Security::escape($enrolLabel) ?></a>
-                <p class="course-detail-enrol-note"><span aria-hidden="true">✓</span> Access is enabled after an administrator verifies your payment.</p>
-                <a class="course-detail-curriculum-link" href="#curriculum">View course curriculum <span aria-hidden="true">↓</span></a>
+                <p class="course-detail-enrol-note"><span aria-hidden="true">✓</span> <?= $isStudent ? 'Access is enabled after an administrator verifies your payment.' : 'You create your account and confirm your email on the next step, then pay. Access is enabled after an administrator verifies your payment.' ?></p>
+                <div class="course-detail-help">
+                    <strong>Have a question?</strong>
+                    <p>Our Academy team can help you choose the right learning option.</p>
+                    <a href="<?= Security::escape($baseUrl) ?>/contact">Contact the Academy <span aria-hidden="true">→</span></a>
+                </div>
             </div>
-            <div class="course-detail-help"><strong>Have a question?</strong><p>Our Academy team can help you choose the right learning option.</p><a href="<?= Security::escape($baseUrl) ?>/contact">Contact the Academy <span aria-hidden="true">→</span></a></div>
         </aside>
     </div>
 </section>

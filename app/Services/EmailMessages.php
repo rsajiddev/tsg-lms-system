@@ -361,9 +361,9 @@ final class EmailMessages
             'subject' => 'Monthly Summary Report, ' . $period,
             'view' => [
                 'audience' => 'developer',
-                'preheader' => 'Enrolments and revenue for ' . $period . '.',
+                'preheader' => 'Enrollments and revenue for ' . $period . '.',
                 'greeting' => MailService::developerGreeting(),
-                'paragraphs' => ['We hope you are doing well. Please find below your monthly summary for ' . $period . ', covering student enrolments and revenue for the period.'],
+                'paragraphs' => ['We hope you are doing well. Please find below your monthly summary for ' . $period . ', covering student enrollments and revenue for the period.'],
                 'heading' => 'Monthly Overview',
                 'details' => [
                     ['label' => 'Reporting Period', 'value' => self::when((string) ($report['start_date'] ?? '')) . ' to ' . self::when((string) ($report['end_date'] ?? ''))],

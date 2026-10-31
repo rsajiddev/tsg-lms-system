@@ -36,7 +36,7 @@ $grantedLabel = static function (?string $value): string {
             <h1>My courses</h1>
             <p>Every course your access has been granted for, with your lesson progress.</p>
         </div>
-        <a class="button" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue</a>
+        <a class="button" href="<?= $escape($baseUrl) ?>/courses">Choose a course</a>
     </header>
 
     <?php if ($flashMessage !== null): ?><div class="admin-alert admin-alert-success" role="status"><?= $escape($flashMessage) ?></div><?php endif; ?>
@@ -72,7 +72,7 @@ $grantedLabel = static function (?string $value): string {
     <section class="dashboard-panel">
         <div class="dashboard-panel-heading">
             <div>
-                <p class="eyebrow">ENROLMENT</p>
+                <p class="eyebrow">ENROLLMENT</p>
                 <h2><?= count($courses) ?> course<?= count($courses) === 1 ? '' : 's' ?></h2>
             </div>
         </div>
@@ -80,7 +80,7 @@ $grantedLabel = static function (?string $value): string {
             <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>
                 <div>
                     <h3>Your learning starts here</h3>
-                    <p>You do not have a course access grant yet. Browse the catalogue to explore available courses.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Explore published courses →</a>
+                    <p>You do not have a course access grant yet. Pick a course from the catalogue — enrollment opens with that course already chosen, and access is granted once an administrator verifies your payment.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course to enroll →</a>
                 </div>
             </div>
         <?php else: ?>

@@ -212,7 +212,7 @@ $queryUrl = static function (array $overrides = []) use ($search, $statusFilter)
     $purgeAction = '/admin/students/purge';
     $purgePhrase = 'DELETE ALL STUDENTS';
     $purgeTitle = 'Delete all students';
-    $purgeDescription = 'Removes every student account with its enrolments, attendance, submissions, quiz attempts, payments, grades, certificates and uploaded files. Admin accounts, courses and the email delivery log stay untouched.';
+    $purgeDescription = 'Removes every student account with its enrollments, attendance, submissions, quiz attempts, payments, grades, certificates and uploaded files. Admin accounts, courses and the email delivery log stay untouched.';
     $purgeCount = (int) ($statusCounts['total'] ?? 0);
     require BASE_PATH . '/app/Views/components/purge-zone.php';
     ?>

@@ -145,7 +145,7 @@ unset($dashboardNavItem);
                 <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard">Dashboard</a>
             <?php else: ?>
                 <a href="<?= Security::escape($baseUrl) ?>/login">Sign in</a>
-                <a class="nav-cta" href="<?= Security::escape($baseUrl) ?>/register">Register</a>
+                <a class="nav-cta" href="<?= Security::escape($baseUrl) ?>/courses">Enroll</a>
             <?php endif; ?>
         </nav>
         <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
@@ -164,7 +164,7 @@ unset($dashboardNavItem);
                     <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard">Dashboard</a>
                 <?php else: ?>
                     <a href="<?= Security::escape($baseUrl) ?>/login">Sign in</a>
-                    <a class="nav-cta" href="<?= Security::escape($baseUrl) ?>/register">Register</a>
+                    <a class="nav-cta" href="<?= Security::escape($baseUrl) ?>/courses">Enroll</a>
                 <?php endif; ?>
             </nav>
         </div>

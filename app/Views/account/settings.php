@@ -186,7 +186,7 @@ $csrf = Security::csrfToken();
     <?php if ($role === 'admin'): ?>
         <div class="dashboard-note settings-scope-note"><strong>Why the <?= strtolower($escape($idLabel)) ?> matters</strong><span>The ID is the number a person verifies their certificate with, so it is unique across the Academy and never reused. Changing yours, or re-issuing student IDs, moves the documents already issued as it goes - anyone still holding an old number will be told no certificate matches it.</span></div>
     <?php else: ?>
-        <div class="dashboard-note settings-scope-note"><strong>Why is my <?= strtolower($escape($idLabel)) ?> locked?</strong><span>The ID is the reference your enrolment, attendance, submissions, grades and certificate are all filed under, and it doubles as the certificate number on the public verification page. The Academy team sets it, so if a detail here looks wrong, contact them and it will be corrected.</span></div>
+        <div class="dashboard-note settings-scope-note"><strong>Why is my <?= strtolower($escape($idLabel)) ?> locked?</strong><span>The ID is the reference your enrollment, attendance, submissions, grades and certificate are all filed under, and it doubles as the certificate number on the public verification page. The Academy team sets it, so if a detail here looks wrong, contact them and it will be corrected.</span></div>
     <?php endif; ?>
 
     <?php if ($role === 'admin'): ?>

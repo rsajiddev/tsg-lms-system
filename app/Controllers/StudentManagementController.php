@@ -299,7 +299,7 @@ final class StudentManagementController
             }
         }
         $_SESSION['_flash'] = sprintf(
-            'Deleted %d student account(s) with their enrolments, payments, submissions, grades and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
+            'Deleted %d student account(s) with their enrollments, payments, submissions, grades and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
             $deleted['accounts'],
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );

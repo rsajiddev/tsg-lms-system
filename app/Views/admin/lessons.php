@@ -425,7 +425,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
         'Videos without a length stay manual. Students complete those lessons by hand, and the “Videos missing a length” counter above lists everything that still needs fixing.',
         'The watch-time rule applies course-wide. It sets the share of a video a student must watch before the lesson auto-completes, and takes effect from the next heartbeat a student sends.',
         'Filters drive the whole page. Search, course, status and video filters update the counters, the lesson table and the inline editors below it in one pass.',
-        'Track completion reach. The completion column compares finished students against enrolments, so weak spots in a module are easy to spot.',
+        'Track completion reach. The completion column compares finished students against enrollments, so weak spots in a module are easy to spot.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

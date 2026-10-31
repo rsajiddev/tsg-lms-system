@@ -139,17 +139,17 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 <div class="dashboard-panel-heading">
                     <div>
                         <p class="eyebrow">GROWTH</p>
-                        <h2>New course enrolments</h2>
+                        <h2>New course enrollments</h2>
                         <small>Last 6 months of access grants</small>
                     </div>
                     <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/students">Students <span aria-hidden="true">→</span></a>
                 </div>
                 <?php if ($enrolmentMax <= 1 && array_sum(array_column($enrolmentSeries, 'total')) === 0): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">📈</span>
-                        <div><h3>No enrolments recorded yet</h3><p>Grant course access after a verified payment and the chart fills automatically.</p></div>
+                        <div><h3>No enrollments recorded yet</h3><p>Grant course access after a verified payment and the chart fills automatically.</p></div>
                     </div>
                 <?php else: ?>
-                    <div class="chart-bars" role="img" aria-label="New enrolments per month for the last six months">
+                    <div class="chart-bars" role="img" aria-label="New enrollments per month for the last six months">
                         <?php foreach ($enrolmentSeries as $point):
                             $height = $pct((float) $point['total'], $enrolmentMax); ?>
                             <div class="chart-col">
@@ -285,7 +285,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     <div>
                         <p class="eyebrow">SUBMISSIONS</p>
                         <h2>Assignments &amp; certificates</h2>
-                        <small>Against eligible enrolments</small>
+                        <small>Against eligible enrollments</small>
                     </div>
                 </div>
                 <div class="meter-list">
@@ -313,7 +313,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     <div>
                         <p class="eyebrow">CATALOGUE</p>
                         <h2>Top courses</h2>
-                        <small>Active enrolments</small>
+                        <small>Active enrollments</small>
                     </div>
                     <div class="dashboard-heading-links">
                         <a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/lessons">Lessons <span aria-hidden="true">→</span></a>
@@ -557,15 +557,20 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <section class="dashboard-panel dashboard-searchable" id="my-courses">
                 <div class="dashboard-panel-heading">
                     <div>
-                        <p class="eyebrow">YOUR ENROLMENT</p>
+                        <p class="eyebrow">YOUR ENROLLMENT</p>
                         <h2>My courses</h2>
-                    </div><div class="dashboard-heading-links"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/student/lessons">All lessons →</a><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Browse catalogue →</a></div>
+                    </div><div class="dashboard-heading-links"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/student/lessons">All lessons →</a><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course →</a></div>
                 </div>
                 <?php if (($student['courses'] ?? []) === []): ?>
+                    <?php $pendingPayments = (int) ($student['pendingPaymentCount'] ?? 0); ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>
                         <div>
-                            <h3>Your learning starts here</h3>
-                            <p>You do not have a course access grant yet. Browse the catalogue to explore available courses.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Explore published courses →</a>
+                            <h3><?= $pendingPayments > 0 ? 'Your payment is being verified' : 'Your learning starts here' ?></h3>
+                            <?php if ($pendingPayments > 0): ?>
+                                <p>You have <?= $pendingPayments ?> payment <?= $pendingPayments === 1 ? '' : 's' ?> waiting for an administrator. Course access opens as soon as it is approved — you will get an email and a notification here, so there is nothing to buy again.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/payments">See payment status →</a>
+                            <?php else: ?>
+                                <p>You do not have a course access grant yet. Choose a course, and enrollment opens with it already picked — pay, then the Academy enables access.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course to enroll →</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php else: ?>

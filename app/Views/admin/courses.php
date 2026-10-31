@@ -444,7 +444,7 @@ $totalStudents = count($students);
         'Visibility controls publishing. Draft courses stay invisible on the public catalogue; switching to published lists them immediately with their price cards.',
         'Grant access per student. Assign a course manually and pick the learning format — Live + Recorded or Recorded Only — and the access window stays tied to that choice.',
         'Upload a cover image. JPG, PNG or WebP up to 600 KB; leaving the field empty keeps the current image in place.',
-        'Lessons live elsewhere. Modules and lessons are authored in the Lesson library, and this page only manages the course shell and its enrolments.',
+        'Lessons live elsewhere. Modules and lessons are authored in the Lesson library, and this page only manages the course shell and its enrollments.',
         'Track progress at a glance. The counters above summarise courses, lessons and students as soon as you save, publish or grant access.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
