@@ -38,7 +38,7 @@ $preview = static function (?string $body): string {
     <?php \App\Core\View::toast('success', $message ?? null); ?>
     <?php \App\Core\View::toast('error', $error ?? null); ?>
     <section class="admin-card">
-        <div class="admin-card-header">
+        <div class="admin-card-header chat-desk-header">
             <div class="admin-card-titles">
                 <h2>Conversations</h2>
                 <p><?= $waitingTotal > 0 ? number_format($waitingTotal) . ' thread(s) are waiting for an Academy reply.' : 'Nothing is waiting on a reply right now.' ?></p>
@@ -47,6 +47,9 @@ $preview = static function (?string $body): string {
                 <a class="chat-filter-chip<?= $waitingOnly ? '' : ' is-active' ?>" href="<?= $escape($baseUrl) ?>/admin/chats">All<small><?= number_format($threadTotal) ?></small></a>
                 <a class="chat-filter-chip<?= $waitingOnly ? ' is-active' : '' ?>" href="<?= $escape($baseUrl) ?>/admin/chats?filter=waiting">Waiting for you<small><?= number_format($waitingTotal) ?></small></a>
             </div>
+            <?php /* The desk clears the way a student's list does. Both actions hide a thread from
+                      this list and lower the badge; neither touches a message or a student record. */ ?>
+            <?php if ($threads !== []): ?><form method="post" action="<?= $escape($baseUrl) ?>/admin/chats/delete-all" class="student-status-form" onsubmit="return confirm('Clear every conversation from your desk? Nothing is deleted and a new message from a student brings a conversation back.')"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><button class="chat-delete-button" type="submit">Delete all</button></form><?php endif; ?>
         </div>
         <?php if ($threads === []): ?><div class="admin-empty-state">
                 <h3><?= $waitingOnly ? 'No thread is waiting on you' : 'No conversations yet' ?></h3>
@@ -63,7 +66,15 @@ $preview = static function (?string $body): string {
                                 <span class="chat-thread-foot"><span><?= (int) $thread['message_count'] ?> message<?= (int) $thread['message_count'] === 1 ? '' : 's' ?></span><span class="dashboard-status status-<?= $waiting ? 'pending' : 'approved' ?>"><?= $waiting ? 'Waiting for the Academy' : 'Answered' ?></span></span>
                             </span>
                         </a>
-                        <a class="dashboard-inline-link chat-thread-open" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $thread['id'] ?>&student_id=<?= (int) $thread['student_id'] ?>">Open <span aria-hidden="true">→</span></a>
+                        <div class="chat-thread-action">
+                            <a class="dashboard-inline-link chat-thread-open" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $thread['id'] ?>&student_id=<?= (int) $thread['student_id'] ?>">Open <span aria-hidden="true">→</span></a>
+                            <form method="post" action="<?= $escape($baseUrl) ?>/admin/chats/delete" onsubmit="return confirm('Clear this conversation from your desk? The student keeps it, and their next message brings it back.')">
+                                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                <input type="hidden" name="notification_id" value="<?= (int) $thread['id'] ?>">
+                                <input type="hidden" name="student_id" value="<?= (int) $thread['student_id'] ?>">
+                                <button class="chat-delete-button" type="submit" aria-label="Clear conversation with <?= $escape($thread['student_name']) ?>">Delete</button>
+                            </form>
+                        </div>
                     </article><?php endforeach; ?>
             </div>
         <?php endif; ?>
@@ -75,14 +86,14 @@ $preview = static function (?string $body): string {
     $usageLead = 'One page for every private thread, so a student message is never just a number again.';
     $usageBullets = [
         'Start with the number on Chats. It counts the threads whose last message came from a student, so a clear list means every question has an answer.',
-        'Open any conversation to read it. The thread page shows the announcement it started from, every message in order and the student it belongs to.',
+        'Open any conversation to read it. The thread page is a chat client: your other conversations on the left, the messages in the middle, and the student and the recent chats on the right.',
         'Reply in the thread. Your message reaches that student only, moves their Chats number and reopens the conversation if they had cleared it from their list.',
         'Use the Waiting filter when the list grows. It hides the threads you have already answered so the open ones are the only thing on screen.',
-        'Announcements live elsewhere. Publishing and the board controls stay on the Announcements page; this desk is for reading and replying.',
-        'Nothing can be deleted from your side. A student may clear a conversation from their own list, and it returns the moment you write in it again.',
+        'Delete takes one thread off this desk, Delete all clears the whole desk. Both are bookkeeping for you: the student still sees the conversation, and their next message puts it back here and back on the badge.',
+        'Announcements live elsewhere. Publishing and the board controls stay on the Announcements page; this desk is for reading, replying and tidying.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
 
-    <div class="dashboard-note"><strong>Threads are student records</strong><span>Conversations are kept so a question and its answer stay together. This page has no bulk delete on purpose - clearing the announcement board is the tool that removes them, and it lives with the testing controls.</span></div>
+    <div class="dashboard-note"><strong>Threads are student records</strong><span>Conversations are kept so a question and its answer stay together. Clearing this desk hides a thread from your list only - the real removal tools stay on the Announcements and Recent activity pages, behind a typed confirmation.</span></div>
 </section>

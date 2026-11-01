@@ -53,7 +53,9 @@ final class AdminAttention
     /**
      * A thread is unanswered when its newest message was written by the student it belongs to: the
      * reply row stores its author in `student_id` and the thread in `recipient_student_id`, so the
-     * two being equal means the student wrote it.
+     * two being equal means the student wrote it. A conversation an administrator cleared off the
+     * desk is left out too, because a badge that outlives the list it counts is only noise - the
+     * student's next message brings both the thread and the number back.
      *
      * @return array<string,string>
      */
@@ -67,7 +69,18 @@ final class AdminAttention
                       AND answered.recipient_student_id = r.recipient_student_id
                       AND answered.student_id <> answered.recipient_student_id
                       AND (answered.created_at > r.created_at
-                           OR (answered.created_at = r.created_at AND answered.id > r.id)))",
+                           OR (answered.created_at = r.created_at AND answered.id > r.id)))
+                      AND NOT EXISTS (
+                    SELECT 1 FROM notification_recipients hidden
+                    WHERE hidden.notification_id = r.notification_id
+                      AND hidden.student_id = r.recipient_student_id
+                      AND hidden.admin_chat_deleted_at IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM notification_replies newer
+                          WHERE newer.notification_id = hidden.notification_id
+                            AND newer.recipient_student_id = hidden.student_id
+                            AND newer.student_id = hidden.student_id
+                            AND newer.created_at > hidden.admin_chat_deleted_at))",
             'certificates' => "SELECT COUNT(*) FROM certificates WHERE status = 'requested'",
             'assignments' => "SELECT COUNT(*) FROM assignment_submissions WHERE status = 'submitted'",
             // A finished attempt with no result is one the automatic grading could not settle, and

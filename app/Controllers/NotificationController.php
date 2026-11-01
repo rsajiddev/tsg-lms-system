@@ -372,7 +372,7 @@ final class NotificationController
             return;
         }
         if ($user['role'] === 'admin') {
-            $recipientsStmt = $db->prepare('SELECT u.id,u.full_name,u.email FROM notification_recipients nr JOIN users u ON u.id=nr.student_id WHERE nr.notification_id=? ORDER BY u.full_name');
+            $recipientsStmt = $db->prepare('SELECT u.id,u.full_name,u.email,u.account_reference FROM notification_recipients nr JOIN users u ON u.id=nr.student_id WHERE nr.notification_id=? ORDER BY u.full_name');
             $recipientsStmt->execute([$id]);
             $recipients = $recipientsStmt->fetchAll();
             $recipientId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
@@ -400,9 +400,21 @@ final class NotificationController
             $recipient = $item;
             break;
         }
+        /* The thread is presented as a chat client, so it carries its own inbox: every conversation
+           this reader has, newest first, so the next one is a click away instead of a trip back to
+           the list page. A desk that cannot list its threads still shows the one you opened. */
+        $threads = [];
+        try {
+            $chats = new ChatService($db);
+            $threads = $user['role'] === 'admin'
+                ? $chats->adminThreads()
+                : $chats->studentThreads((int) $user['id']);
+        } catch (\Throwable $exception) {
+            $threads = [];
+        }
         // No flash banner: the reply you just sent appears at the bottom of the thread, which says
         // more than a green bar that would also hide the newest message.
-        View::render('notifications/show', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification, 'replies' => $replies, 'recipients' => $recipients, 'recipient' => $recipient]);
+        View::render('notifications/show', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification, 'replies' => $replies, 'recipients' => $recipients, 'recipient' => $recipient, 'threads' => $threads]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 

@@ -17,11 +17,13 @@ use App\Services\ChatService;
  * Students get one page holding only their conversations, with the three actions a chat list is
  * expected to offer: open a thread, clear one, clear all, and mark everything read. Administrators
  * get the desk the sidebar badge has always pointed at: every conversation on the board, newest
- * first, with the ones still waiting on an Academy answer called out.
+ * first, with the ones still waiting on an Academy answer called out - and the same two clearing
+ * actions, because a desk you cannot tidy is not a desk.
  *
- * Neither side can destroy a message. Hiding is a flag on the student's own recipient row, so the
- * thread keeps existing for the Academy and reappears for the student the moment someone writes in
- * it again - which is why a student action is allowed to be this casual and an admin one is not.
+ * Neither side can destroy a message. Hiding is a flag on the student's own recipient row (the
+ * administrator's half of it sits in its own column), so the thread keeps existing for the other
+ * party and reappears the moment someone writes in it again - which is why both actions are allowed
+ * to be this casual, and why real deleting stays behind the typed-phrase testing cards.
  */
 final class ChatController
 {
@@ -121,6 +123,47 @@ final class ChatController
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Hides one conversation from the administrator's desk.
+     *
+     * The thread stays exactly where it is for the student, and the next message they send puts it
+     * back on this desk and back on the badge, so clearing a list here is bookkeeping and not a
+     * decision about somebody else's records.
+     */
+    public function adminDeleteThread(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $studentId = (int) ($_POST['student_id'] ?? 0);
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        try {
+            $this->csrf();
+            $chats = new ChatService(Database::connection());
+            $chats->adminHideThread($studentId, $notificationId);
+            $this->audit((int) $admin['id'], 'chat.admin_hidden', $notificationId);
+            $_SESSION['_flash'] = 'Conversation cleared from the desk. The next message from that student brings it back.';
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+        }
+        $this->redirect('/admin/chats');
+    }
+
+    /** Hides every conversation on the desk, leaving the announcement board and the students' own lists alone. */
+    public function adminDeleteAll(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->csrf();
+            $hidden = (new ChatService(Database::connection()))->adminHideAllThreads();
+            $this->audit((int) $admin['id'], 'chat.admin_hidden_all', null);
+            $_SESSION['_flash'] = $hidden > 0
+                ? 'Cleared ' . number_format($hidden) . ' conversation(s) from the desk. Nothing was deleted from student records.'
+                : 'The desk was already empty.';
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+        }
+        $this->redirect('/admin/chats');
     }
 
     /**

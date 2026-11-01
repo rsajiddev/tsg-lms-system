@@ -9,8 +9,11 @@ declare(strict_types=1);
  * renders the pages those two roles depend on: the dashboard with its sidebar badges, the
  * announcement board, the two chat pages, the recent activity report, the student inbox, the account
  * settings page and the five workspaces that carry the bulk delete tool. A page that fatals, a badge
- * that stays at zero while unread notifications exist, a conversation that hides the news list, or a
- * purge card without its confirmation phrase all fail this test.
+ * that stays at zero while unread notifications exist, a conversation that hides the news list, that
+ * loses one of its three chat panes or prints a bubble without the sender line above it, or a purge
+ * card without its confirmation phrase all fail this test. The desk's own clearing actions are driven
+ * through ChatService here as well, because the list, the badge and the count have to agree after a
+ * thread is hidden and then revived by a new message from the student.
  *
  *   /Applications/XAMPP/xamppfiles/bin/php tests/interface-render-smoke.php --database=tsg_render_check_tmp
  *
@@ -758,6 +761,15 @@ $assert(($answered['messages'] ?? 0) === ($before['messages'] ?? 0), 'An Academy
 /* ---------------------------------------------------------------------- private conversation */
 echo "\n-- private conversation\n";
 $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/notifications/view?notification_id=' . $announcementId;
+// A second conversation, because the point of the rails is what they hold besides the thread on
+// screen. It is written by the student, so it is a real thread, and it is removed again below.
+$otherThread = $db->query('SELECT nr.notification_id AS id, n.title FROM notification_recipients nr'
+    . ' JOIN notifications n ON n.id = nr.notification_id'
+    . ' WHERE nr.student_id = ' . (int) $studentId . ' AND nr.notification_id <> ' . (int) $announcementId
+    . ' AND n.published_at IS NOT NULL ORDER BY nr.notification_id LIMIT 1')->fetch();
+$otherThreadId = (int) ($otherThread['id'] ?? 0);
+$db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    ->execute([$otherThreadId, $studentId, $studentId, 'Second thread: is there a replay of the session?']);
 $signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
 // signIn() clears $_GET, so the thread is addressed after the session is put in place.
 $_GET = ['notification_id' => (string) $announcementId];
@@ -776,6 +788,26 @@ $assert(str_contains($html, 'action="') && str_contains($html, '/notifications/r
     'The composer still posts a reply to the same endpoint with the same field.', 'The reply form lost its endpoint or its message field.');
 $assert(stripos($html, 'admin-alert-success') === false && stripos($html, 'Reply added') === false,
     'The thread keeps no send-confirmation banner above the chat.', 'The conversation still prints a flash banner.');
+// The page is a chat client, so all three panes have to be on it: the reader's other conversations,
+// the messages, and the update behind the thread with the recent chats under it.
+$assert(str_contains($html, 'chat-shell') && str_contains($html, 'chat-rail-inbox') && str_contains($html, 'chat-main')
+        && str_contains($html, 'chat-rail-side'),
+    'The thread renders as an inbox, a message pane and a details rail.',
+    'The conversation page is missing one of its three chat panes.');
+$assert(substr_count($html, 'class="chat-rail-row is-open') === 1 && substr_count($html, 'aria-current="true"') === 1,
+    'The inbox marks the conversation that is on screen.',
+    'The conversation inbox does not flag the open thread.');
+$assert(str_contains($html, 'chat-recent-list') && str_contains($html, Security::escape((string) $otherThread['title']))
+        && str_contains($html, 'is there a replay of the session?'),
+    'The other conversation is listed in the inbox and again in the recent chats.',
+    'The second conversation did not reach the rails.');
+$assert(str_contains($html, '/student/chats/delete"') && str_contains($html, '/student/chats/delete-all'),
+    'A reader can clear one conversation or the whole list from inside the thread.',
+    'The chat page offers no clearing actions.');
+// The sender and the time are printed above the bubble, so the coloured part holds the message only.
+$assert(preg_match_all('/<div class="conversation-stack">\s*<p class="conversation-caption">.*?<\/p>\s*<div class="conversation-bubble">/s', $html) === 2,
+    'Every message prints its sender and time above its bubble.',
+    'A bubble does not carry its sender line above it.');
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $_GET = ['notification_id' => (string) $announcementId, 'student_id' => (string) $studentId];
@@ -789,6 +821,14 @@ $assert(str_contains($html, 'Academy team') && str_contains($html, 'name="recipi
 $assert(substr_count($html, 'class="conversation-row is-mine"') === 1,
     'The same thread reads mirrored for the Academy: their answer right, the student\'s question left.',
     'The admin view does not mark exactly one of the two messages as their own.');
+$assert(str_contains($html, 'STUDENT') && str_contains($html, 'Academy ID') && str_contains($html, $studentEmail),
+    'The details rail tells the Academy whose thread this is, by name, account id and address.',
+    'The admin thread does not identify the student it belongs to.');
+$assert(str_contains($html, '/admin/chats/delete"') && str_contains($html, '/admin/chats/delete-all')
+        && str_contains($html, 'name="student_id" value="' . $studentId . '"'),
+    'The desk offers the same two clearing actions, scoped to the right student.',
+    'The admin thread is missing its Delete or Delete all control.');
+$db->exec('DELETE FROM notification_replies WHERE notification_id = ' . $otherThreadId);
 
 /* ------------------------------------------------------------------------- the chat list */
 // Eight updates landed in the student inbox above and exactly one of them became a conversation,
@@ -859,6 +899,10 @@ $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipi
     ->execute([$announcementId, $adminId, $studentId, 'Is there anything else I can check for you?']);
 $assert(count($chats->studentThreads($studentId)) === 1, 'An Academy reply reopens a conversation the student had cleared.',
     'A cleared thread stayed hidden after the Academy wrote in it.');
+// A thread that came back is on the list again, so the button beside it has to work a second time.
+$chats->hideThread($studentId, $announcementId);
+$assert($chats->studentThreads($studentId) === [], 'A reopened conversation can be cleared again.',
+    'The second Delete left a revived thread on the student list.');
 $chats->openThread($studentId, $announcementId);
 $cleared = $chats->hideAllThreads($studentId);
 $assert($cleared === 1, 'Delete all clears the conversation and no plain update.',
@@ -889,9 +933,57 @@ $assert(str_contains($deskHtml, 'Waiting for the Academy') && str_contains($desk
 $assert(str_contains($deskHtml, 'notification_id=' . $announcementId) && str_contains($deskHtml, 'student_id=' . $studentId),
     'Every desk row links to the thread for that one student.',
     'The chat row does not carry both halves of the thread address.');
+$assert(str_contains($deskHtml, '/admin/chats/delete"') && str_contains($deskHtml, '/admin/chats/delete-all')
+        && str_contains($deskHtml, 'Delete all'),
+    'The desk carries the Delete and Delete all controls a list is expected to have.',
+    'The admin chat desk still has no way to clear itself.');
+// Clearing the desk is the same promise from the other side: the thread leaves the list and the
+// badge, stays with the student, and comes back the moment that student writes again.
+$chats->openThread($studentId, $announcementId);
+$chats->adminHideThread($studentId, $announcementId);
+$assert($chats->adminThreads() === [] && $chats->adminThreadCount() === 0,
+    'A cleared conversation leaves the desk and both of its counters.',
+    'The desk still listed a thread that had been cleared from it.');
+$assert(count($chats->studentThreads($studentId)) === 1,
+    'The student keeps the conversation the Academy cleared, message for message.',
+    'Clearing the desk reached into the student\'s own list.');
+$clearedQueue = (new AdminAttention($db))->pendingByArea();
+$assert(($clearedQueue['messages'] ?? 0) === 0,
+    'A thread cleared off the desk also comes off the Chats badge.',
+    'The badge still counts a conversation the Academy deliberately cleared: ' . json_encode($clearedQueue) . '.');
+$deskRefusal = '';
+try {
+    $chats->adminHideThread(999999, $announcementId);
+} catch (RuntimeException $exception) {
+    $deskRefusal = $exception->getMessage();
+}
+$assert($deskRefusal !== '', 'A thread that is not on the desk cannot be cleared by id.',
+    'adminHideThread() accepted a pair that holds no conversation.');
+$db->exec('UPDATE notification_recipients SET admin_chat_deleted_at = admin_chat_deleted_at - INTERVAL 1 MINUTE'
+    . ' WHERE student_id = ' . (int) $studentId . ' AND notification_id = ' . (int) $announcementId);
+$db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    ->execute([$announcementId, $studentId, $studentId, 'Still waiting on that link.']);
+$assert(count($chats->adminThreads()) === 1 && $chats->adminThreadCount() === 1,
+    'The next message from the student puts the thread back on the desk.',
+    'A cleared conversation never came back after its student wrote again.');
+$assert((new AdminAttention($db))->pendingByArea()['messages'] === 1,
+    'and the badge comes back with it.',
+    'The reopened thread did not return to the messages queue.');
+$chats->adminHideThread($studentId, $announcementId);
+$assert($chats->adminThreads() === [], 'A conversation that came back can be cleared off the desk again.',
+    'The desk kept a revived thread that its own Delete button was offered for.');
+$db->exec('UPDATE notification_recipients SET admin_chat_deleted_at = NULL'
+    . ' WHERE student_id = ' . (int) $studentId . ' AND notification_id = ' . (int) $announcementId);
+$replyTotal = (int) $db->query('SELECT COUNT(*) FROM notification_replies')->fetchColumn();
+$clearedDesk = $chats->adminHideAllThreads();
+$assert($clearedDesk === 1 && $chats->adminThreads() === []
+        && (int) $db->query('SELECT COUNT(*) FROM notification_replies')->fetchColumn() === $replyTotal,
+    'Delete all clears the desk in one action and destroys nothing.',
+    'Delete all reported ' . $clearedDesk . ' thread(s) against a desk holding one, with ' . $replyTotal . ' message row(s) before.');
 $_GET = [];
 // The chat flags belong to this section; the messages themselves are removed by the cleanup below.
-$db->exec('UPDATE notification_recipients SET chat_deleted_at = NULL, chat_seen_at = NULL WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE notification_recipients SET chat_deleted_at = NULL, chat_seen_at = NULL, admin_chat_deleted_at = NULL WHERE student_id = '
+    . (int) $studentId);
 
 // Leave every queue exactly as this section found it, so a rerun measures the same deltas.
 $db->exec('DELETE FROM notification_replies WHERE notification_id = ' . (int) $announcementId);

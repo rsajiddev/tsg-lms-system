@@ -21,6 +21,10 @@ use RuntimeException;
  *    never swallow the Academy's answer to a question the student asked;
  *  - opening a thread clears the hide and stamps chat_seen_at, which is what the Chats badge and
  *    the "Read all" action count against.
+ *
+ * Administrators hide a thread from their own desk with the same mechanism and the same promise:
+ * admin_chat_deleted_at is a stamp on the recipient row, never a delete, and the next message from
+ * that student puts the conversation back on the desk and back on the badge.
  */
 final class ChatService
 {
@@ -148,13 +152,14 @@ final class ChatService
         if (!$check->fetchColumn()) {
             throw new RuntimeException('That conversation is not on your account.');
         }
-        $this->db->prepare('UPDATE notification_recipients SET chat_deleted_at = UTC_TIMESTAMP() WHERE student_id = ? AND notification_id = ? AND chat_deleted_at IS NULL')
+        $this->db->prepare('UPDATE notification_recipients SET chat_deleted_at = UTC_TIMESTAMP() WHERE student_id = ? AND notification_id = ?')
             ->execute([$studentId, $notificationId]);
     }
 
     /**
      * Hides every conversation on this account. A plain notification with no messages under it is
-     * not a chat, so it is left alone and the count stays honest.
+     * not a chat, so it is left alone and the count stays honest - and the count is taken over the
+     * threads the list is actually showing, so the confirmation always agrees with it.
      */
     public function hideAllThreads(int $studentId): int
     {
@@ -162,16 +167,25 @@ final class ChatService
         $stmt = $this->db->prepare(
             'UPDATE notification_recipients nr
              SET nr.chat_deleted_at = UTC_TIMESTAMP()
-             WHERE nr.student_id = ? AND nr.chat_deleted_at IS NULL
+             WHERE nr.student_id = ?
                AND EXISTS (SELECT 1 FROM notification_replies r
-                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)'
+                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)
+               AND (nr.chat_deleted_at IS NULL OR EXISTS (
+                     SELECT 1 FROM notification_replies revived
+                      WHERE revived.notification_id = nr.notification_id
+                        AND revived.recipient_student_id = nr.student_id
+                        AND revived.student_id <> nr.student_id
+                        AND revived.created_at > nr.chat_deleted_at))'
         );
         $stmt->execute([$studentId]);
         return $stmt->rowCount();
     }
 
     /**
-     * Every conversation on the board, newest activity first, with the student it belongs to.
+     * Every conversation on the desk, newest activity first, with the student it belongs to.
+     *
+     * A thread the administrator cleared off the desk stays out of this list until the student
+     * writes again, which is what keeps the desk, its counts and its badge telling one story.
      *
      * @return list<array<string,mixed>>
      */
@@ -202,6 +216,12 @@ final class ChatService
              WHERE n.published_at IS NOT NULL
                AND EXISTS (SELECT 1 FROM notification_replies r
                             WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)
+               AND (nr.admin_chat_deleted_at IS NULL OR EXISTS (
+                     SELECT 1 FROM notification_replies revived
+                      WHERE revived.notification_id = nr.notification_id
+                        AND revived.recipient_student_id = nr.student_id
+                        AND revived.student_id = nr.student_id
+                        AND revived.created_at > nr.admin_chat_deleted_at))
                ' . $waiting . '
              ORDER BY last_at DESC, nr.notification_id DESC
              LIMIT ' . self::LIST_LIMIT
@@ -211,8 +231,8 @@ final class ChatService
     }
 
     /**
-     * How many conversations exist at all. The list below it is capped, so the counter on the
-     * filter chip has to come from its own query.
+     * How many conversations are on the desk. The list under it is capped, so the counter on the
+     * filter chip has to come from its own query - and it counts the same threads the list shows.
      */
     public function adminThreadCount(): int
     {
@@ -221,8 +241,61 @@ final class ChatService
              JOIN notifications n ON n.id = nr.notification_id
              WHERE n.published_at IS NOT NULL
                AND EXISTS (SELECT 1 FROM notification_replies r
-                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)'
+                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)
+               AND (nr.admin_chat_deleted_at IS NULL OR EXISTS (
+                     SELECT 1 FROM notification_replies revived
+                      WHERE revived.notification_id = nr.notification_id
+                        AND revived.recipient_student_id = nr.student_id
+                        AND revived.student_id = nr.student_id
+                        AND revived.created_at > nr.admin_chat_deleted_at))'
         )->fetchColumn();
+    }
+
+    /**
+     * Hides one conversation from the administrator's desk.
+     *
+     * Throws when no thread of this student is attached to the update, so a forged id cannot clear
+     * somebody else's conversation and the page can report why nothing happened.
+     */
+    public function adminHideThread(int $studentId, int $notificationId): void
+    {
+        if ($studentId < 1 || $notificationId < 1) {
+            throw new RuntimeException('That conversation could not be found.');
+        }
+        $check = $this->db->prepare(
+            'SELECT 1 FROM notification_recipients nr
+             WHERE nr.student_id = ? AND nr.notification_id = ?
+               AND EXISTS (SELECT 1 FROM notification_replies r
+                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)'
+        );
+        $check->execute([$studentId, $notificationId]);
+        if (!$check->fetchColumn()) {
+            throw new RuntimeException('That conversation is not on the desk.');
+        }
+        $this->db->prepare('UPDATE notification_recipients SET admin_chat_deleted_at = UTC_TIMESTAMP() WHERE student_id = ? AND notification_id = ?')
+            ->execute([$studentId, $notificationId]);
+    }
+
+    /**
+     * Clears the desk: every conversation with at least one message in it that the desk is showing,
+     * leaving plain announcements on the board because those are news, not threads.
+     */
+    public function adminHideAllThreads(): int
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE notification_recipients nr
+             SET nr.admin_chat_deleted_at = UTC_TIMESTAMP()
+             WHERE EXISTS (SELECT 1 FROM notification_replies r
+                            WHERE r.notification_id = nr.notification_id AND r.recipient_student_id = nr.student_id)
+               AND (nr.admin_chat_deleted_at IS NULL OR EXISTS (
+                     SELECT 1 FROM notification_replies revived
+                      WHERE revived.notification_id = nr.notification_id
+                        AND revived.recipient_student_id = nr.student_id
+                        AND revived.student_id = nr.student_id
+                        AND revived.created_at > nr.admin_chat_deleted_at))'
+        );
+        $stmt->execute();
+        return $stmt->rowCount();
     }
 
     /**

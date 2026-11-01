@@ -75,10 +75,10 @@ $preview = static function (?string $body): string {
     $usageTitle = 'How to use your chats';
     $usageLead = 'Only the threads that hold messages are listed here, newest activity first.';
     $usageBullets = [
-        'Open a conversation to read it. Opening marks the thread as read, so the number on Chats comes down as you work through the list.',
+        'Open a conversation to read it. It opens as a chat: your other conversations down the left, the messages in the middle, and the update behind the thread with your recent chats on the right. Opening also marks the thread read, so the number on Chats comes down as you work through the list.',
         'Reply inside the thread. Your message reaches the Academy team and their answer comes back to the same conversation - no one else sees it.',
         'Read all clears the number at once. It marks every conversation seen without you opening them one by one, and leaves your notifications untouched.',
-        'Delete takes one conversation off this list. The messages stay with the Academy, and the thread reappears the moment someone writes in it again.',
+        'Delete takes one conversation off this list, and the same two buttons sit inside any thread you have open. The messages stay with the Academy, and the thread reappears the moment someone writes in it again.',
         'Delete all clears the list. Every conversation on your account is hidden in one action; no message is destroyed and no Academy record is changed.',
         'News stays in Notifications. Announcements, lesson, test, assignment and payment updates are read in your inbox - Chats holds only the conversations.',
     ];

@@ -1201,7 +1201,10 @@ CREATE TABLE IF NOT EXISTS notification_recipients (
      chat_deleted_at: the student removed the thread from their chat list. A message written after
                       that stamp brings it back, so hiding a chat can never swallow a reply.
      chat_seen_at:    the last moment the student opened the thread, which is what the Chats badge
-                      counts against. */
+                      counts against.
+admin_chat_deleted_at: the same idea from the other side - an administrator cleared the thread off
+                      their own desk. A message written by the student after that stamp brings it
+                      back, so an admin can tidy the desk without ever losing a question. */
 SET
        @add_recipient_chat_deleted_at = (
               SELECT
@@ -1249,6 +1252,30 @@ FROM
 EXECUTE add_recipient_chat_seen_at_stmt;
 
 DEALLOCATE PREPARE add_recipient_chat_seen_at_stmt;
+
+SET
+@add_recipient_admin_chat_deleted_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+'ALTER TABLE notification_recipients ADD COLUMN admin_chat_deleted_at DATETIME NULL AFTER chat_seen_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notification_recipients'
+AND COLUMN_NAME = 'admin_chat_deleted_at'
+       );
+
+PREPARE add_recipient_admin_chat_deleted_at_stmt
+FROM
+@add_recipient_admin_chat_deleted_at;
+
+EXECUTE add_recipient_admin_chat_deleted_at_stmt;
+
+DEALLOCATE PREPARE add_recipient_admin_chat_deleted_at_stmt;
 
 CREATE TABLE IF NOT EXISTS notification_replies (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

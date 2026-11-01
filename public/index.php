@@ -173,6 +173,10 @@ $router->post('/admin/announcements/purge', [\App\Controllers\NotificationContro
 // The two reports that used to sit under the announcement board have their own desk now, and the
 // conversations a student starts have a page of their own instead of only a sidebar number.
 $router->get('/admin/chats', [\App\Controllers\ChatController::class, 'adminIndex']);
+// The desk clears the same way the student's list does: a stamp on the recipient row, never a
+// delete, so a hidden thread comes back the moment the student writes again.
+$router->post('/admin/chats/delete', [\App\Controllers\ChatController::class, 'adminDeleteThread']);
+$router->post('/admin/chats/delete-all', [\App\Controllers\ChatController::class, 'adminDeleteAll']);
 $router->get('/admin/activity', [\App\Controllers\NotificationController::class, 'activity']);
 $router->post('/admin/activity/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
 $router->post('/admin/activity/clear', [\App\Controllers\NotificationController::class, 'clearActivity']);
