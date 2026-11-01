@@ -10,7 +10,7 @@ declare(strict_types=1);
  * announcement board, the two chat pages, the recent activity report, the student inbox, the account
  * settings page and the five workspaces that carry the bulk delete tool. A page that fatals, a badge
  * that stays at zero while unread notifications exist, a conversation that hides the news list, that
- * loses one of its three chat panes or prints a bubble without the sender line above it, or a purge
+ * loses its details rail or prints a bubble without the role and time line above it, or a purge
  * card without its confirmation phrase all fail this test. The desk's own clearing actions are driven
  * through ChatService here as well, because the list, the badge and the count have to agree after a
  * thread is hidden and then revived by a new message from the student.
@@ -782,32 +782,39 @@ $assert(substr_count($html, 'class="conversation-row is-mine"') === 1 && substr_
     'The thread does not mark exactly one of its two messages as the reader\'s own.');
 $assert(str_contains($html, 'Academy announcement'), 'The announcement opens the thread.', 'The announcement is not printed above the replies.');
 $assert(str_contains($html, 'is-mine'), 'The reader\'s own message is aligned as theirs.', 'Nothing in the thread is recognised as the reader\'s own message.');
-$assert(preg_match('/<time[^>]*>[A-Z][a-z]{2} \d{1,2}, \d{4} · \d{1,2}:\d{2} [AP]M</', $html) === 1,
-    'A message prints its date and time to the minute.', 'No message carries a readable date and time.');
+$assert(preg_match_all('/<p class="conversation-caption"><span class="conversation-role">[^<]*<\/span><time[^>]*>[A-Z][a-z]{2} \d{1,2}, \d{4} · \d{1,2}:\d{2} [AP]M<\/time>/', $html) === 2,
+    'Every message prints its role and its date and time above the bubble.', 'A message line above the bubbles is missing its role or a readable date and time.');
 $assert(str_contains($html, 'action="') && str_contains($html, '/notifications/reply') && str_contains($html, 'name="message"'),
     'The composer still posts a reply to the same endpoint with the same field.', 'The reply form lost its endpoint or its message field.');
 $assert(stripos($html, 'admin-alert-success') === false && stripos($html, 'Reply added') === false,
     'The thread keeps no send-confirmation banner above the chat.', 'The conversation still prints a flash banner.');
-// The page is a chat client, so all three panes have to be on it: the reader's other conversations,
-// the messages, and the update behind the thread with the recent chats under it.
-$assert(str_contains($html, 'chat-shell') && str_contains($html, 'chat-rail-inbox') && str_contains($html, 'chat-main')
-        && str_contains($html, 'chat-rail-side'),
-    'The thread renders as an inbox, a message pane and a details rail.',
-    'The conversation page is missing one of its three chat panes.');
-$assert(substr_count($html, 'class="chat-rail-row is-open') === 1 && substr_count($html, 'aria-current="true"') === 1,
-    'The inbox marks the conversation that is on screen.',
-    'The conversation inbox does not flag the open thread.');
+// The chat gets the width: the inbox lives on its own list page, so the thread is a feed with a
+// narrow details rail beside it and nothing else competing for the space.
+$assert(str_contains($html, 'chat-shell') && str_contains($html, 'chat-main') && str_contains($html, 'chat-rail')
+        && !str_contains($html, 'chat-rail-inbox'),
+    'The thread renders as a message pane with a details rail and no inbox beside it.',
+    'The conversation page still carries an inbox rail or has lost one of its two panes.');
 $assert(str_contains($html, 'chat-recent-list') && str_contains($html, Security::escape((string) $otherThread['title']))
         && str_contains($html, 'is there a replay of the session?'),
-    'The other conversation is listed in the inbox and again in the recent chats.',
-    'The second conversation did not reach the rails.');
+    'The other conversation is listed in the recent chats beside the thread.',
+    'The second conversation did not reach the details rail.');
 $assert(str_contains($html, '/student/chats/delete"') && str_contains($html, '/student/chats/delete-all'),
     'A reader can clear one conversation or the whole list from inside the thread.',
     'The chat page offers no clearing actions.');
-// The sender and the time are printed above the bubble, so the coloured part holds the message only.
+// The coloured part holds the message only, and the line above it holds the role and the time - no
+// name, because the header over the feed already says whose thread this is.
 $assert(preg_match_all('/<div class="conversation-stack">\s*<p class="conversation-caption">.*?<\/p>\s*<div class="conversation-bubble">/s', $html) === 2,
-    'Every message prints its sender and time above its bubble.',
-    'A bubble does not carry its sender line above it.');
+    'Every message prints its line above its bubble.', 'A bubble does not carry its line above it.');
+$assert(preg_match_all('/<p class="conversation-caption">.*?<\/p>/s', $html, $captions) === 2
+        && !str_contains(implode('', $captions[0]), 'Render Smoke Student') && !str_contains(implode('', $captions[0]), '<strong>'),
+    'A caption repeats no name the thread header has already printed.',
+    'The bubbles still print the sender name the header shows above them.');
+$assert(str_contains($html, 'conversation-send') && str_contains($html, 'aria-label="Send message"')
+        && str_contains($html, '<svg') && !str_contains($html, 'Send message<') && !str_contains($html, '>Send<'),
+    'The composer sends with an icon and keeps the word only as its accessible name.',
+    'The send button is still a worded button rather than an icon.');
+$assert(!str_contains($html, 'Hidden, not deleted'),
+    'The thread page carries no standing note about how clearing works.', 'A removed note is still printed in the rail.');
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $_GET = ['notification_id' => (string) $announcementId, 'student_id' => (string) $studentId];

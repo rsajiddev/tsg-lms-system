@@ -5887,10 +5887,10 @@ html.js [data-reveal].is-visible.dash-card:hover {
 }
 
 /* Private conversation. The thread page is a chat client rather than a notice with replies under
-   it: the inbox of conversations on the left, the messages in the middle, and the person you are
-   talking to plus the recent chats on the right. Inside the feed the rules are the ones every
-   messenger uses - the other side's bubbles on the left, yours on the right, and the composer kept
-   directly under the newest message. */
+   it: the messages get the wide half of the page, and the person you are talking to plus the recent
+   chats get the narrow one. Inside the feed the rules are the ones every messenger uses - the other
+   side's bubbles on the left, yours on the right, and the composer kept directly under the newest
+   message. */
 .conversation-panel {
   display: grid;
   gap: 18px
@@ -5996,29 +5996,24 @@ html.js [data-reveal].is-visible.dash-card:hover {
   box-shadow: 0 6px 16px #0f172a08
 }
 
-/* Who sent it and when is printed above the bubble, not inside it, so the coloured part holds
-   nothing but the message. */
+/* The line above a bubble. It carries the role and the time only - whose thread this is stands in
+   the header above the feed, so repeating a name here would only clutter the chat. */
 .conversation-stack {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
-  max-width: min(560px, 78%)
+  max-width: min(620px, 88%)
 }
 
 .conversation-caption {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 3px 8px;
   margin: 0;
   padding: 0 4px;
   color: var(--muted);
   font-size: 11.5px
-}
-
-.conversation-caption strong {
-  color: var(--navy);
-  font-size: 12.5px
 }
 
 .conversation-caption time {
@@ -6040,14 +6035,14 @@ html.js [data-reveal].is-visible.dash-card:hover {
 }
 
 .conversation-row.is-mine .conversation-bubble {
-  border-color: #1e40af;
+  border-color: #c8d8f8;
   border-radius: 16px 4px 16px 16px;
-  background: linear-gradient(180deg, #2f6bf0, #1d4ed8);
-  box-shadow: 0 10px 24px #1d4ed833
+  background: linear-gradient(180deg, #eaf1ff, #d9e6ff);
+  box-shadow: 0 6px 14px #1d4ed812
 }
 
 .conversation-row.is-mine .conversation-text {
-  color: #f2f7ff
+  color: #1e3a8a
 }
 
 .conversation-empty {
@@ -6139,21 +6134,23 @@ html.js [data-reveal].is-visible.dash-card:hover {
   font-size: 11.5px
 }
 
+/* Sending is an arrow, not a word, so the button is a round icon at the end of the bar. */
 .conversation-send {
-  display: inline-flex;
+  display: inline-grid;
   flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 18px;
-  font-size: 13.5px
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--blue), #1d4ed8);
+  color: #fff;
+  box-shadow: 0 8px 18px #2563eb2e
 }
 
-.conversation-send span {
-  transition: translate .18s ease
-}
-
-.conversation-send:hover span {
-  translate: 3px 0
+.conversation-send:hover {
+  box-shadow: 0 10px 22px #2563eb45
 }
 
 /* The messages now sit in their own window, the way a chat app stacks them: a soft inner surface,
@@ -6162,7 +6159,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
   display: grid;
   align-content: start;
   max-height: min(560px, 68vh);
-  padding: 18px;
+  padding: 14px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -6170,7 +6167,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
 }
 
 .conversation-window .conversation-list {
-  gap: 12px
+  gap: 10px
 }
 
 .conversation-day {
@@ -6186,12 +6183,12 @@ html.js [data-reveal].is-visible.dash-card:hover {
   text-transform: uppercase
 }
 
-/* The three panes of the thread page. A wide screen gets inbox, feed and details side by side; a
-   tablet drops the details under the feed; a phone stacks them, feed first, because that is the
-   one thing a small screen is being opened for. */
+/* The two panes of the thread page. The chat takes everything the narrow details rail leaves
+   behind; a small screen stacks them, feed first, because that is the one thing a phone is being
+   opened for. */
 .chat-shell {
   display: grid;
-  grid-template-columns: minmax(224px, 268px) minmax(0, 1fr) minmax(216px, 262px);
+  grid-template-columns: minmax(0, 1fr) minmax(248px, 320px);
   align-items: start;
   gap: 14px;
   padding: 14px;
@@ -6205,145 +6202,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
   align-content: start;
   gap: 12px;
   min-width: 0
-}
-
-.chat-rail-inbox {
-  padding: 13px 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 8px 22px #0f172a08
-}
-
-.chat-rail-head {
-  position: relative;
-  display: grid;
-  gap: 2px;
-  padding: 2px 2px 10px;
-  border-bottom: 1px solid #eef2f8
-}
-
-.chat-rail-head h2 {
-  margin: 0;
-  color: var(--navy);
-  font-size: 15px
-}
-
-.chat-rail-head .count-pill {
-  position: absolute;
-  top: 14px;
-  right: 0
-}
-
-.chat-rail-list {
-  display: grid;
-  gap: 5px;
-  max-height: min(52vh, 430px);
-  margin: 0;
-  padding: 2px 0 0;
-  overflow-y: auto;
-  list-style: none
-}
-
-.chat-rail-empty {
-  margin: 12px 0;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.6
-}
-
-.chat-rail-row {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  padding: 9px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  color: inherit;
-  text-decoration: none;
-  transition: background .15s ease, border-color .15s ease
-}
-
-.chat-rail-row:hover {
-  border-color: #dbe6ff;
-  background: #f4f8ff
-}
-
-.chat-rail-row.is-open {
-  border-color: #c7d6ff;
-  background: #eaf0ff
-}
-
-.chat-rail-row.is-new {
-  box-shadow: inset 3px 0 0 var(--blue, #2563eb)
-}
-
-.chat-rail-row .conversation-avatar {
-  width: 34px;
-  height: 34px;
-  font-size: 11px
-}
-
-.chat-rail-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0
-}
-
-.chat-rail-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px
-}
-
-.chat-rail-top strong {
-  color: var(--navy);
-  font-size: 13px;
-  overflow-wrap: anywhere
-}
-
-.chat-rail-top time {
-  flex: 0 0 auto;
-  color: #94a3b8;
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap
-}
-
-.chat-rail-preview {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere
-}
-
-.chat-rail-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  color: #94a3b8;
-  font-size: 10.5px
-}
-
-.chat-rail-foot-link {
-  display: block;
-  padding: 10px 4px 2px;
-  border-top: 1px solid #eef2f8;
-  color: var(--blue-dark);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none
-}
-
-.chat-rail-foot-link:hover {
-  text-decoration: underline
 }
 
 .chat-main {
@@ -6492,25 +6350,23 @@ html.js [data-reveal].is-visible.dash-card:hover {
   text-decoration: underline
 }
 
-.chat-side-note {
-  display: grid;
-  gap: 5px;
-  padding: 12px 14px;
-  border: 1px solid #dbe6ff;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #f6f9ff, #eef4ff);
-  color: #475569;
+/* The way back to the list of conversations, printed once at the foot of the details rail. */
+.chat-list-link {
+  display: block;
+  padding: 11px 4px 2px;
+  border-top: 1px solid #eef2f8;
+  color: var(--blue-dark);
   font-size: 12px;
-  line-height: 1.6
+  font-weight: 700;
+  text-decoration: none
 }
 
-.chat-side-note strong {
-  color: var(--navy);
-  font-size: 12.5px
+.chat-list-link:hover {
+  text-decoration: underline
 }
 
 /* The recipient picker lives in the details rail, where it is a control rather than a panel. */
-.chat-rail-side .conversation-picker {
+.chat-rail .conversation-picker {
   grid-template-columns: minmax(0, 1fr)
 }
 
@@ -6573,27 +6429,13 @@ html.js [data-reveal].is-visible.dash-card:hover {
   white-space: nowrap
 }
 
-@media (max-width: 1180px) {
-  .chat-shell {
-    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr)
-  }
-
-  .chat-rail-side {
-    grid-column: 1 / -1
-  }
-}
-
-@media (max-width: 860px) {
+@media (max-width: 980px) {
   .chat-shell {
     grid-template-columns: minmax(0, 1fr)
   }
 
   .chat-main {
     order: -1
-  }
-
-  .chat-rail-list {
-    max-height: none
   }
 }
 

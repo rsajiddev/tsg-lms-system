@@ -86,7 +86,7 @@ $preview = static function (?string $body): string {
     $usageLead = 'One page for every private thread, so a student message is never just a number again.';
     $usageBullets = [
         'Start with the number on Chats. It counts the threads whose last message came from a student, so a clear list means every question has an answer.',
-        'Open any conversation to read it. The thread page is a chat client: your other conversations on the left, the messages in the middle, and the student and the recent chats on the right.',
+        'Open any conversation to read it. The thread page is a chat: the messages take the wide half of the page, and the student, the recipient picker and the recent chats sit beside them.',
         'Reply in the thread. Your message reaches that student only, moves their Chats number and reopens the conversation if they had cleared it from their list.',
         'Use the Waiting filter when the list grows. It hides the threads you have already answered so the open ones are the only thing on screen.',
         'Delete takes one thread off this desk, Delete all clears the whole desk. Both are bookkeeping for you: the student still sees the conversation, and their next message puts it back here and back on the badge.',
