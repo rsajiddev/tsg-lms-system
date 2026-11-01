@@ -88,6 +88,24 @@ final class MailService
         return $this->sendAll(EmailMessages::certificateRejected($certificate));
     }
 
+    /** One scheduled digest of the recipient's unfinished personal tasks. */
+    public function sendDashboardTaskReminder(string $email, string $name, int $pendingCount, array $tasks): bool
+    {
+        $list = array_slice(array_map(static fn(string $task): string => '• ' . $task, $tasks), 0, 20);
+        return $this->sendAll([[
+            'to' => $email,
+            'student' => null,
+            'template' => 'dashboard_task_reminder',
+            'subject' => 'Your pending dashboard tasks',
+            'view' => [
+                'preheader' => $pendingCount . ' task(s) are still pending.',
+                'greeting' => 'Hello ' . ($name !== '' ? $name : 'there') . ',',
+                'paragraphs' => ['This is your reminder. You have ' . $pendingCount . ' unfinished task(s) on your dashboard.'],
+                'details' => $list === [] ? [] : [['label' => 'Pending tasks', 'value' => implode("\n", $list)]],
+            ],
+        ]]);
+    }
+
     /**
      * Sends one event's messages in order. A message with no recipient is skipped: that
      * is how optional copies (for example the approving admin's record) stay silent when

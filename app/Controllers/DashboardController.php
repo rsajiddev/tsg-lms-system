@@ -37,6 +37,11 @@ final class DashboardController
         $data = $user['role'] === 'admin'
             ? ['admin' => $this->adminOverview($db)]
             : ['student' => $this->studentOverview($db, (int) $user['id'])];
+        try {
+            $taskStmt=$db->prepare('SELECT id,title,is_done,reminder_at FROM dashboard_tasks WHERE user_id=? ORDER BY is_done ASC,created_at DESC,id DESC');
+            $taskStmt->execute([(int)$user['id']]);
+            $data['dashboardTasks']=$taskStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $exception) { $data['dashboardTasks']=[]; }
 
         View::render('dashboard/index', array_merge([
             'title' => ucfirst($user['role']) . ' Dashboard',

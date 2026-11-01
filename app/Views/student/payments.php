@@ -30,7 +30,6 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
             <h1>Payments</h1>
             <p>Submit a transaction reference and track every review decision made by the academy.</p>
         </div>
-        <a class="button" href="<?= $escape($baseUrl) ?>/payments/new">Submit payment</a>
     </header>
 
     <div class="dashboard-metrics" aria-label="Payment summary">
@@ -71,13 +70,13 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                     <tbody>
                         <?php foreach ($payments as $payment): ?>
                             <tr>
-                                <td><strong><?= $escape($payment['course_title']) ?></strong><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?></td>
-                                <td><?= $money($payment['amount'], $payment['currency']) ?></td>
-                                <td><small><?= $escape($payment['transaction_reference'] ?: '—') ?></small></td>
-                                <td><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
-                                <td><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
-                                <td><?php if (!empty($payment['payment_proof_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View uploaded proof</a><?php else: ?><small>—</small><?php endif; ?></td>
-                                <td><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">View receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
+                                <td data-label="Course"><strong><?= $escape($payment['course_title']) ?></strong><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?></td>
+                                <td data-label="Amount"><?= $money($payment['amount'], $payment['currency']) ?></td>
+                                <td data-label="Reference"><small><?= $escape($payment['transaction_reference'] ?: '—') ?></small></td>
+                                <td data-label="Status"><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
+                                <td data-label="Submitted"><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
+                                <td data-label="Payment proof"><?php if (!empty($payment['payment_proof_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View uploaded proof</a><?php else: ?><small>—</small><?php endif; ?></td>
+                                <td data-label="Academy receipt"><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">View receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -85,6 +84,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
             </div>
         <?php endif; ?>
     </section>
+
 
     <?php
     $usageEyebrow = 'Payments';

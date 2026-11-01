@@ -57,7 +57,7 @@ $inlineTotals = static function (array $totals): string {
   <?php /* The payment controller tags each confirmation, so the overlay can pick its colour. */ ?>
   <?php \App\Core\View::toast(($flash['type'] ?? '') === 'error' ? 'error' : 'success', $flash['text'] ?? null); ?>
 
-  <section class="revenue-kpi-grid" aria-label="Revenue summary">
+  <section class="revenue-summary-shell" aria-label="Revenue summary"><div class="revenue-kpi-grid">
     <article class="revenue-kpi revenue-kpi--hero">
       <div class="revenue-kpi-top"><span class="revenue-kpi-label">Total revenue</span><span class="revenue-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M16 12h.01M3 9h16"/></svg></span></div>
       <div class="revenue-kpi-value"><?= $metricLines($lifetimeTotals) ?></div>
@@ -81,6 +81,15 @@ $inlineTotals = static function (array $totals): string {
       <div class="revenue-kpi-value"><span class="revenue-kpi-line"><b><?= number_format((int) ($revenueTotals['student_count'] ?? 0)) ?></b></span></div>
       <p class="revenue-kpi-foot"><span class="revenue-kpi-foot-label">Unique students</span><span>With an approved payment</span></p>
     </article>
+  </div></section>
+
+  <section class="admin-card approved-payment-history" aria-labelledby="approved-history-title">
+    <div class="admin-card-header"><div class="admin-card-titles"><h2 id="approved-history-title">Student payment history</h2><p>Approved transactions with the student, course, amount and payment date.</p></div><span class="revenue-period-chip"><?= number_format(count($approvedPayments ?? [])) ?> recent</span></div>
+    <?php if (empty($approvedPayments)): ?><div class="revenue-empty-state"><strong>No approved payments yet</strong><span>Verified student transactions will appear here.</span></div><?php else: ?>
+      <div class="dashboard-table-wrap"><table class="dashboard-table approved-payments-table"><thead><tr><th>Student</th><th>Course</th><th>Amount paid</th><th>Transaction reference</th><th>Paid on</th></tr></thead><tbody>
+      <?php foreach ($approvedPayments as $approved): ?><tr><td data-label="Student"><strong><?= $escape($approved['student_name']) ?></strong><small><?= $escape($approved['student_email']) ?></small></td><td data-label="Course"><?= $escape($approved['course_title']) ?></td><td data-label="Amount paid"><strong><?= $escape($approved['currency']) ?> <?= number_format((float)$approved['amount'],2) ?></strong></td><td data-label="Transaction reference"><small><?= $escape($approved['transaction_reference'] ?: '—') ?></small></td><td data-label="Paid on"><time datetime="<?= $escape($approved['paid_at']) ?>"><?= $escape(date('M j, Y · g:i A',strtotime((string)$approved['paid_at']))) ?></time></td></tr><?php endforeach ?>
+      </tbody></table></div>
+    <?php endif ?>
   </section>
 
   <section class="admin-card payment-settings-card">

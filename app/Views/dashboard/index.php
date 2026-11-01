@@ -134,6 +134,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <?php endforeach; ?>
         </div>
 
+        <div class="overview-layout admin-overview-layout">
         <div class="analytics-grid">
             <section class="dashboard-panel chart-card chart-card-wide">
                 <div class="dashboard-panel-heading">
@@ -486,6 +487,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 <div class="assessment-report-link"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/admin/quiz-reports">See report <span aria-hidden="true">→</span></a></div>
             </section>
         </div>
+        <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
+        </div>
 
         <div class="dashboard-note"><strong>Workspace overview</strong><span>Figures are calculated live from the academy database. Attendance is opened by each student sign-in and closes automatically when the grace window ends. Use the sidebar to manage courses, assessments, certificates, payments and settings.</span></div>
 
@@ -553,6 +556,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <article class="kpi-card kpi-rose"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">🔔</span><span class="kpi-label">Unread notices</span></div><strong class="kpi-value"><?= $num($student['unreadNotificationCount'] ?? 0) ?></strong><p class="kpi-hint">From the Academy</p></article>
         </div>
 
+        <div class="overview-layout student-overview-layout">
         <div class="dashboard-columns dashboard-student-overview">
             <section class="dashboard-panel dashboard-searchable" id="my-courses">
                 <div class="dashboard-panel-heading">
@@ -616,6 +620,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     </ul>
                 </section>
             <?php endif; ?>
+        </div>
+        <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
         </div>
     <?php endif; ?>
 

@@ -2287,3 +2287,17 @@ CREATE TABLE IF NOT EXISTS chat_messages (
        CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES users(id),
        INDEX idx_chat_messages_thread(thread_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS dashboard_tasks (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       user_id BIGINT UNSIGNED NOT NULL,
+       title VARCHAR(240) NOT NULL,
+       is_done TINYINT(1) NOT NULL DEFAULT 0,
+       reminder_at DATETIME NULL,
+       reminder_sent_at DATETIME NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       CONSTRAINT fk_dashboard_task_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+       INDEX idx_dashboard_task_reminder(is_done,reminder_at,reminder_sent_at),
+       INDEX idx_dashboard_task_owner(user_id,is_done,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

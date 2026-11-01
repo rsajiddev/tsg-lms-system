@@ -35,6 +35,7 @@ foreach (
         '/app/Controllers/AuthController.php',
         '/app/Controllers/AccountController.php',
         '/app/Controllers/DashboardController.php',
+        '/app/Controllers/DashboardTaskController.php',
         '/app/Controllers/LearningController.php',
         '/app/Controllers/StudentPortalController.php',
         '/app/Controllers/CourseAdminController.php',
@@ -127,6 +128,10 @@ $router->post('/forgot-password', [$auth, 'forgot']);
 $router->get('/reset-password', [$auth, 'resetPage']);
 $router->post('/reset-password', [$auth, 'reset']);
 $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']);
+$router->post('/dashboard/tasks/add', [\App\Controllers\DashboardTaskController::class, 'add']);
+$router->post('/dashboard/tasks/toggle', [\App\Controllers\DashboardTaskController::class, 'toggle']);
+$router->post('/dashboard/tasks/delete', [\App\Controllers\DashboardTaskController::class, 'delete']);
+$router->post('/dashboard/tasks/reminder', [\App\Controllers\DashboardTaskController::class, 'reminder']);
 $router->get('/learning', [\App\Controllers\LearningController::class, 'course']);
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);

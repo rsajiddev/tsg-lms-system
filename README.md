@@ -15,6 +15,8 @@ This README is the single catalogue of what is implemented. Every feature that s
 
 `database/migrations/001_initial_schema.sql` is the canonical schema for fresh installs **and** for incremental upgrades. New schema changes belong in that file; its guarded `ALTER`/`INSERT` statements let an existing database pick up the additions when the updated file is imported again. Back up the database before re-importing. Mail transport must be configured before registration and password-reset OTPs can be delivered.
 
+Dashboard personal tasks and timed email alerts are available to students and admins. After re-importing the schema, schedule `bin/send-dashboard-reminders.php` to run every minute so alerts are sent at their selected time. For this XAMPP install, a macOS/Linux crontab entry is `* * * * * /Applications/XAMPP/xamppfiles/bin/php /Applications/XAMPP/xamppfiles/htdocs/TSG-Academy-LMS/bin/send-dashboard-reminders.php`; on another machine, use its PHP binary and project path. The worker uses the existing `MAIL_*` SMTP settings and safely skips overlapping runs.
+
 ## Implemented features
 
 ### Public website
@@ -76,8 +78,11 @@ This README is the single catalogue of what is implemented. Every feature that s
 - No authorisation moved: a pending account still cannot sign in, and access is still granted only when an administrator approves a payment. The journey got shorter, the gate did not get weaker.
 
 ### Payments
-- Manual payment flow: student submits proof, admin approves or rejects, revenue notifications, receipt PDF download for both sides, payment settings.
+- Manual payment flow: student submits proof, admin approves or rejects, revenue notifications, student receipt and admin revenue summary downloads as JPG, payment settings.
+- A student's **View receipt** opens its own compact receipt page. The receipt is kept small enough to read at a glance, with refund-policy guidance alongside it on wide screens and below it on phones; the page offers JPG download and print actions.
+- Admin **Revenue and payment** groups its four headline figures inside one low-shadow blue summary panel and lists approved student transactions with student, course, amount, reference and paid date.
 - While a transfer is with the Academy, `/payments/new` stays on the bank-details page and puts the state that matters at the top of it: the amount and transaction reference already submitted, the 24-hour expectation, a *Track all your payments* link and a line saying a second submission only delays the review. A student whose dashboard has no course yet but does have a pending payment is told their payment is being verified instead of being invited to browse again.
+- Student **Payments → History** (`/student/payments`) and admin **Revenue and payment → Student payment history** (`/admin/payments`) render each transaction as a labelled card on narrow screens; the history stays readable without horizontal scrolling. The admin page also stacks the revenue summary cards and payment review controls to fit phones.
 
 ### Certificates
 - Admin issues and rejects certificates, students request them, verification and download public endpoints.
@@ -131,8 +136,12 @@ This README is the single catalogue of what is implemented. Every feature that s
 
 ### Dashboards and navigation
 - Admin overview with KPI cards, top courses and operation panels; student overview with enrolments, progress and pending actions.
+- Both overview pages include a live local date/time card and a personal task list. Each signed-in account can add and delete tasks, mark them complete/incomplete, switch between open and completed tasks, and set an **Add alert** time for an open task. The task records are private to that account in `dashboard_tasks`.
+- Timed task alerts are sent to the account email through the configured `MAIL_*` SMTP transport. The worker is `bin/send-dashboard-reminders.php`; import the current schema and schedule the worker once per minute (setup command is in Quick start). It groups due reminders by account and uses a database lock to avoid overlapping worker runs.
+- The dashboard overview places the admin analytics and student learning panels beside the tools rail on wide screens, then stacks the rail below the content on smaller screens. KPI cards, charts, task controls and payment history adapt to phone widths without content overlapping the page background.
 - Sidebar navigation is generated from one ordered list per role: numbering follows list order (inserting an entry never leaves duplicate numbers), each entry has its own icon, and the active entry is highlighted for the whole sub-route group. A student reads **Notifications** for what the Academy published and **Chats** for the conversations they started; an admin answers messages on **Chats** and closes the list with **Recent activity**, because a report is the thing you open after the work, not before it.
-- Consistent page shell across dashboards: topbar with search and breadcrumb, heading with actions, panels, metric grids, data-label responsive tables, empty states and notes; 22 px between major blocks, 20 px inside panels, 16 px grid gaps.
+- Consistent page shell across dashboards: topbar with search and breadcrumb, heading with actions, panels, metric grids, data-label responsive tables, empty states and notes. Dashboard content begins with reduced top spacing; major blocks use a 22 px gap, panels use 20 px inner spacing, and grids use 16 px gaps.
+- On phones the dashboard bottom tab strip horizontally positions the active page after navigation, while the document itself stays at its normal scroll position. At very narrow widths KPI cards collapse to one column to prevent clipping.
 - On a phone (`max-width: 760px`) an admin data table marked `admin-table-stacked` stops being a table: the header row is taken out of the layout, each row becomes a bordered card and every cell a `label / value` line, so nothing is ever hidden behind a horizontal scroll. The workspace tables that list many columns — announcements, assignments, quizzes, challenges, payments, reviews, certificates — carry that class.
 
 ### Confirmations and page guides

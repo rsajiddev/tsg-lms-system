@@ -11917,6 +11917,7 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 /* Final responsive dashboard navigation overrides, after legacy dashboard rules. */
+.dashboard-shell .dashboard-page { padding-top:22px }
 .dashboard-nav-icon {display:none}
 .dashboard-mobile-logout {display:none}
 @media(max-width:902px) {
@@ -11941,11 +11942,26 @@ html.admin-modal-js .admin-modal.is-open {
   .dashboard-topbar {position:static;top:auto;z-index:auto;margin:0;padding:12px 0 8px;background:transparent;backdrop-filter:none}
 }
 @media(max-width:560px) {
+  .dashboard-shell .dashboard-page { padding-top:8px }
   .dashboard-topbar {position:static;top:auto;z-index:auto;display:flex;flex-wrap:wrap;gap:7px 10px;margin:0;padding:10px 0;background:transparent;backdrop-filter:none}
   .dashboard-breadcrumb {display:flex;min-height:24px;flex:1 1 100%;overflow:hidden}
   .dashboard-breadcrumb a {max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dashboard-breadcrumb strong {min-width:0;flex:1}
   .dashboard-search {width:100%;min-width:0;flex:1 1 100%;margin:0}
+}
+
+/* Payment history becomes readable stacked records on phones instead of a wide table. */
+@media(max-width:760px) {
+  .dashboard-page .dashboard-table-wrap:has(.dashboard-table tr td[data-label]) { overflow:visible; border:0; background:transparent; box-shadow:none }
+  .dashboard-table:has(td[data-label]),.dashboard-table:has(td[data-label]) tbody,.dashboard-table:has(td[data-label]) tr,.dashboard-table:has(td[data-label]) td { display:block; width:100% }
+  .dashboard-table:has(td[data-label]) thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
+  .dashboard-table:has(td[data-label]) tbody { display:grid; gap:12px }
+  .dashboard-table:has(td[data-label]) tr { padding:12px 15px; border:1px solid #e3eaf4; border-radius:16px; background:#fff; box-shadow:0 5px 16px #0f172a08 }
+  .dashboard-table:has(td[data-label]) td { display:grid; grid-template-columns:minmax(92px,.38fr) minmax(0,1fr); align-items:start; gap:12px; padding:9px 0; border:0; border-bottom:1px solid #eef2f7; text-align:right; overflow-wrap:anywhere }
+  .dashboard-table:has(td[data-label]) td:last-child { border-bottom:0 }
+  .dashboard-table:has(td[data-label]) td::before { content:attr(data-label); color:#8290a5; font-size:10px; font-weight:800; letter-spacing:.06em; text-align:left; text-transform:uppercase }
+  .dashboard-table:has(td[data-label]) td small { display:block; grid-column:2; overflow-wrap:anywhere }
+  .dashboard-table:has(td[data-label]) td .dashboard-status { justify-self:end }
 }
 
 /* Keep assignment actions together below the task details at every width. */
@@ -11961,6 +11977,73 @@ html.admin-modal-js .admin-modal.is-open {
 .student-assignment-row .dashboard-list-copy {grid-column:2;grid-row:1;gap:4px}
 .student-assignment-row .dashboard-list-copy strong {overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
 .student-assignment-row .dashboard-list-copy small {overflow-wrap:anywhere}
+
+/* Shared overview rail: concise live clock and personal task manager. */
+.overview-layout {display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:18px;min-width:0}
+.overview-layout>.analytics-grid,.overview-layout>.dashboard-columns {min-width:0}
+.dashboard-tools-rail {display:grid;gap:16px;min-width:0}
+.dashboard-tool-card {min-width:0;padding:20px;border:1px solid #e1e9f4;border-radius:20px;background:#fff;box-shadow:0 8px 24px #142b4b08}
+.dashboard-tool-card .eyebrow {margin:0 0 9px;color:#6d7d95;font-size:10px;font-weight:850;letter-spacing:.13em}
+.dashboard-clock-card {overflow:hidden;background:linear-gradient(145deg,#145ce5 0%,#3d6cf2 58%,#5756e8 100%);color:#fff}
+.dashboard-clock-card .eyebrow {color:#dbe7ff}
+.dashboard-clock-card>[data-live-clock] {display:block;font-size:clamp(34px,3vw,43px);font-variant-numeric:tabular-nums;letter-spacing:-.06em;line-height:1.1}
+.dashboard-clock-card>[data-live-date] {display:block;margin-top:7px;color:#e5edff;font-size:13px}
+.dashboard-calendar {display:flex;justify-content:space-between;gap:10px;margin-top:20px;padding-top:14px;border-top:1px solid #ffffff35;font-size:12px}
+.dashboard-calendar span {color:#dbe7ff}.dashboard-calendar b {text-align:right}
+.todo-card {padding:18px}
+.todo-card>header {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.todo-card h2 {margin:0;color:#17243a;font-size:20px;letter-spacing:-.035em}
+.todo-count {flex:0 0 auto;padding:6px 9px;border-radius:999px;background:#edf3ff;color:#225bd6;font-size:11px;font-weight:800}
+.todo-add-form {display:flex;gap:8px}
+.todo-add-form input {min-width:0;flex:1;height:42px;padding:0 12px;border:1px solid #cbd7e8;border-radius:12px;background:#f9fbfe;color:#1b2a41;font:inherit;font-size:13px;outline:none}
+.todo-add-form input:focus {border-color:#3470f2;box-shadow:0 0 0 3px #3470f21c}
+.todo-add-form button {width:42px;height:42px;border:0;border-radius:12px;background:#2863e9;color:white;font-size:25px;line-height:1;cursor:pointer}
+.todo-filter {display:flex;gap:6px;margin:14px 0 8px;padding:4px;border-radius:12px;background:#f2f5fa}
+.todo-filter button {flex:1;padding:8px 10px;border:0;border-radius:9px;background:transparent;color:#66758a;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.todo-filter button.is-active {background:#fff;color:#235fe0;box-shadow:0 1px 4px #172b4d12}
+.todo-list {display:grid;gap:2px;max-height:310px;margin:0;padding:0;overflow:auto;list-style:none}
+.todo-list li {display:grid;grid-template-columns:24px minmax(0,1fr) 30px 30px;align-items:center;gap:7px;padding:10px 0;border-bottom:1px solid #edf1f6}
+.todo-list li:last-child {border-bottom:0}
+.todo-list li[hidden] {display:none}
+.todo-list form {margin:0}
+.todo-check {display:block;width:19px;height:19px;border:1.5px solid #aab8ca;border-radius:7px;background:#fff;cursor:pointer}
+.todo-check.is-done {position:relative;border-color:#2d67e8;background:#2d67e8}
+.todo-check.is-done:after {position:absolute;top:1px;left:5px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;content:"";transform:rotate(45deg)}
+.todo-title {min-width:0;color:#33445c;font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.todo-title.is-done {color:#8895a7;text-decoration:line-through}
+.todo-title small {display:block;margin-top:3px;color:#73839a;font-size:10px;text-decoration:none}
+.todo-reminder {position:relative}
+.todo-reminder summary,.todo-delete {display:grid;width:29px;height:29px;place-items:center;border:0;border-radius:9px;background:#f1f5fb;color:#51647f;font-size:15px;cursor:pointer;list-style:none}
+.todo-reminder summary::-webkit-details-marker {display:none}
+.todo-reminder[open] form {position:absolute;z-index:3;top:34px;right:-33px;width:min(270px,calc(100vw - 44px));padding:13px;border:1px solid #dfe7f2;border-radius:14px;background:white;box-shadow:0 12px 35px #15284a24}
+.todo-reminder label {display:grid;gap:7px;color:#52637b;font-size:12px;font-weight:750}
+.todo-reminder input {width:100%;min-width:0;padding:9px;border:1px solid #cbd7e8;border-radius:9px;font:inherit}
+.todo-reminder .button {width:100%;margin-top:9px;padding:9px;border:0;border-radius:9px;background:#2863e9;color:white;font-weight:750;cursor:pointer}
+.todo-delete {background:#fff3f2;color:#bd3d36;font-size:20px;line-height:1}
+.todo-empty,.todo-email-note {margin:10px 0 0;color:#7a8aa0;font-size:11px;line-height:1.5}
+.todo-email-note {padding-top:10px;border-top:1px solid #edf1f6}
+@media(max-width:1150px) {
+  .overview-layout {grid-template-columns:minmax(0,1fr) 290px;gap:14px}
+  .dashboard-tool-card {padding:16px}
+}
+@media(max-width:980px) {
+  .overview-layout {grid-template-columns:minmax(0,1fr)}
+  .dashboard-tools-rail {grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .overview-layout>.analytics-grid {grid-template-columns:repeat(12,minmax(0,1fr))}
+  .overview-layout>.dashboard-columns {grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:560px) {
+  .dashboard-tools-rail {grid-template-columns:minmax(0,1fr)}
+  .dashboard-tool-card {padding:16px;border-radius:17px}
+  .todo-list {max-height:280px}
+  .kpi-grid,.kpi-grid-student {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-card {min-width:0;padding:14px}
+  .kpi-value {font-size:clamp(25px,8vw,34px)}
+}
+@media(max-width:360px) {
+  .kpi-grid,.kpi-grid-student {grid-template-columns:minmax(0,1fr)}
+  .todo-list li {grid-template-columns:22px minmax(0,1fr) 28px 28px;gap:5px}
+}
 
 /* Admin quiz submission reporting */
 .assessment-report-link {
@@ -12522,6 +12605,21 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 /* --- Payment receipt page (mobile-invoice style) -------------- */
+
+.receipt-layout { display:grid; grid-template-columns:minmax(240px,.72fr) minmax(420px,1.28fr); gap:24px; align-items:start; max-width:1120px; margin:10px auto 28px }
+.receipt-policy-card { position:sticky; top:24px; padding:26px; border:1px solid #dbe5f3; border-radius:20px; background:linear-gradient(155deg,#fff,#f7faff); color:#52627a }
+.receipt-policy-card h2 { margin:0 0 12px; color:#14213d; font-size:21px; line-height:1.25 }.receipt-policy-card>p:not(.eyebrow) { margin:0; font-size:13px; line-height:1.7 }
+.receipt-policy-points { display:grid; gap:10px; margin-top:20px; padding-top:17px; border-top:1px solid #e6edf6; font-size:12px; line-height:1.55 }.receipt-policy-points strong { color:#1e3a8a; font-size:13px }.receipt-policy-points span { position:relative; padding-left:16px }.receipt-policy-points span::before { content:""; position:absolute; left:0; top:.55em; width:6px; height:6px; border-radius:50%; background:#2563eb }
+.receipt-policy-link { display:flex; justify-content:space-between; gap:10px; margin-top:20px; color:#1d4ed8; font-size:13px; font-weight:800; text-decoration:none }.receipt-policy-link:hover { text-decoration:underline }
+.receipt-layout .receipt-shell { padding:0 }.receipt-layout .receipt-card { width:100%; max-width:560px; padding:24px 30px; border-radius:20px; box-shadow:0 8px 24px #0f172a0a }.receipt-layout .receipt-check { width:56px; height:56px; margin-bottom:6px; box-shadow:0 0 0 7px #dcfce7 }.receipt-layout .receipt-check svg { width:28px; height:28px }.receipt-layout .receipt-hero { padding-top:0 }.receipt-layout .receipt-divider { margin:12px 0 }.receipt-layout .receipt-meta { gap:6px }.receipt-layout .receipt-meta dt,.receipt-layout .receipt-meta dd,.receipt-layout .receipt-table td { font-size:12px }.receipt-layout .receipt-party { gap:10px }.receipt-layout .receipt-party dd { font-size:12px }.receipt-layout .receipt-thanks { margin-top:12px }.receipt-layout .receipt-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px }.receipt-layout .receipt-actions .receipt-action { width:auto; flex:1 1 180px; padding:9px 12px; font-size:12px }
+@media(max-width:900px) { .receipt-layout { grid-template-columns:minmax(0,1fr); max-width:560px }.receipt-policy-card { position:static; order:2 }.receipt-layout .receipt-shell { order:1 } }
+@media(max-width:600px) { .receipt-layout { gap:14px; margin-top:0 }.receipt-layout .receipt-card { padding:24px 18px }.receipt-policy-card { padding:20px } }
+
+.revenue-summary-shell { margin:0 0 20px; padding:20px; border-radius:22px; background:linear-gradient(135deg,#2563eb,#1e40af); box-shadow:none }
+.revenue-summary-shell .revenue-kpi-grid { gap:10px }.revenue-summary-shell .revenue-kpi { min-height:166px; padding:17px; border:1px solid #ffffff2b; border-radius:15px; background:#ffffff12; box-shadow:none }
+.revenue-summary-shell .revenue-kpi--hero { background:#ffffff20; box-shadow:none }.revenue-summary-shell .revenue-kpi-label,.revenue-summary-shell .revenue-kpi-foot,.revenue-summary-shell .revenue-kpi-foot-label,.revenue-summary-shell .revenue-kpi-line i { color:#dbeafe }.revenue-summary-shell .revenue-kpi-foot { border-top-color:#ffffff35 }.revenue-summary-shell .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--developer .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--payments .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--students .revenue-kpi-icon { background:#ffffff20; color:#fff }.revenue-summary-shell .revenue-kpi-line b { color:#fff }.revenue-summary-shell .revenue-kpi--developer .revenue-kpi-line b { color:#fff }
+.approved-payment-history { margin-top:20px }.approved-payments-table td { vertical-align:middle }.approved-payments-table td small { display:block; margin-top:3px; color:#718096 }
+@media(max-width:600px) { .revenue-summary-shell { padding:12px; border-radius:17px } }
 
 .receipt-page .dashboard-container,
 .receipt-shell {
@@ -14466,3 +14564,21 @@ html.admin-modal-js .admin-modal.is-open {
     transform: none
   }
 }
+
+/* Final mobile sizing and task reminder placement, after legacy dashboard rules. */
+@media(max-width:560px) {
+  .dashboard-shell .dashboard-page .kpi-grid,
+  .dashboard-shell .dashboard-page .kpi-grid-student {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .dashboard-shell .dashboard-page .kpi-card {padding:13px;border-radius:15px}
+  .dashboard-shell .dashboard-page .kpi-value {font-size:clamp(24px,7.5vw,32px)}
+  .dashboard-tools-rail {grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:360px) {
+  .dashboard-shell .dashboard-page .kpi-grid,
+  .dashboard-shell .dashboard-page .kpi-grid-student {grid-template-columns:minmax(0,1fr)}
+}
+.todo-reminder[open] form {position:static;width:auto;margin:8px 0 2px;grid-column:2/-1;box-shadow:none}
+.todo-list li:has(.todo-reminder[open]) {grid-template-columns:24px minmax(0,1fr) 30px 30px}
+.todo-list li {grid-template-columns:24px minmax(0,1fr) auto 30px}
+.todo-reminder summary {width:auto;min-width:62px;padding:0 7px;font-size:10px;font-weight:800;white-space:nowrap}
+.todo-list li:has(.todo-reminder[open]) {grid-template-columns:24px minmax(0,1fr) auto 30px}

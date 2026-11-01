@@ -22,7 +22,15 @@ $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
         <div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><a href="<?= $escape($baseUrl) ?>/student/payments">Payments</a><i>/</i><strong>Receipt</strong></div>
     </div>
 
-    <div class="receipt-shell">
+    <div class="receipt-layout">
+        <aside class="receipt-policy-card">
+            <p class="eyebrow">PAYMENT &amp; REFUND INFORMATION</p>
+            <h2>Need help with this payment?</h2>
+            <p>Keep your receipt number and transaction reference for any payment question. If you paid twice, paid the wrong amount, or believe there is a problem with your course payment, contact the Academy within 7 days and include these details.</p>
+            <div class="receipt-policy-points"><strong>What happens next</strong><span>We review refund requests within 2 working days.</span><span>Approved refunds are returned to the original payment method where possible, within 5–7 working days.</span><span>Course access or downloads already provided may not be refundable.</span></div>
+            <a class="receipt-policy-link" href="<?= $escape($baseUrl) ?>/refund-policy">Read the full Refund Policy <span aria-hidden="true">→</span></a>
+        </aside>
+        <div class="receipt-shell">
         <article class="receipt-card" role="document" aria-label="Payment receipt <?= $escape($receiptNumber) ?>">
             <div class="receipt-back"><a href="<?= $escape($baseUrl) ?>/student/payments" aria-label="Back to payments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></a></div>
 
@@ -81,5 +89,6 @@ $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
                 <a class="button button-ghost receipt-action" href="<?= $escape($baseUrl) ?>/student/payments">Back to Payments</a>
             </div>
         </article>
+        </div>
     </div>
 </section>

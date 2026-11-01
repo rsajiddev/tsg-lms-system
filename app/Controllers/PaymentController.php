@@ -153,6 +153,7 @@ final class PaymentController
         $revenue = $revenueStmt->fetchAll(PDO::FETCH_ASSOC);
         $totalsStmt = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'");
         $totals = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: ['student_count' => 0, 'payment_count' => 0];
+        $approvedRows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,COALESCE(p.reviewed_at,p.created_at) AS paid_at,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($revenue as &$currencyTotals) {
             $currencyTotals['developer_share'] = (float) $currencyTotals['monthly_revenue'] * 0.15;
             $currencyTotals['lifetime_developer_share'] = (float) $currencyTotals['lifetime_revenue'] * 0.15;
@@ -160,7 +161,7 @@ final class PaymentController
         unset($currencyTotals);
         $paymentValues = [];
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
-        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'paymentValues' => $paymentValues, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 

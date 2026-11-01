@@ -769,7 +769,13 @@
     if (activeNavLink) {
         const navScroller = activeNavLink.closest('.dashboard-side-nav');
 
-        if (navScroller) {
+        if (navScroller && window.matchMedia('(max-width: 902px)').matches) {
+            const linkRect = activeNavLink.getBoundingClientRect();
+            const navRect = navScroller.getBoundingClientRect();
+            if (linkRect.left < navRect.left || linkRect.right > navRect.right) {
+                navScroller.scrollLeft += (linkRect.left - navRect.left) - ((navRect.width - linkRect.width) / 2);
+            }
+        } else if (navScroller) {
             const linkTop = activeNavLink.offsetTop;
             const linkBottom = linkTop + activeNavLink.offsetHeight;
             const visibleTop = navScroller.scrollTop;
@@ -781,6 +787,31 @@
             }
         }
     }
+
+    const liveClock = document.querySelector('[data-live-clock]');
+    const liveDate = document.querySelector('[data-live-date]');
+    if (liveClock || liveDate) {
+        const updateDashboardClock = () => {
+            const now = new Date();
+            if (liveClock) liveClock.textContent = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+            if (liveDate) liveDate.textContent = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(now);
+        };
+        updateDashboardClock();
+        window.setInterval(updateDashboardClock, 1000);
+    }
+    document.querySelectorAll('[data-task-filter]').forEach((filterButton) => {
+        filterButton.addEventListener('click', () => {
+            const mode = filterButton.getAttribute('data-task-filter');
+            const card = filterButton.closest('.todo-card');
+            const list = card?.querySelector('.todo-list');
+            if (!list) return;
+            card.querySelectorAll('[data-task-filter]').forEach((button) => button.classList.toggle('is-active', button === filterButton));
+            list.querySelectorAll('[data-task-row]').forEach((row) => {
+                const completed = row.getAttribute('data-task-done') === '1';
+                row.hidden = mode === 'done' ? !completed : completed;
+            });
+        });
+    });
 
     const dashboardSearch = document.querySelector('[data-dashboard-search]');
     if (dashboardSearch) {
