@@ -9,7 +9,6 @@ use App\Core\Database;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
-use App\Services\ChatService;
 use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
@@ -360,9 +359,6 @@ final class NotificationController
                 return;
             }
             $db->prepare('UPDATE notification_recipients SET read_at=COALESCE(read_at,UTC_TIMESTAMP()) WHERE notification_id=? AND student_id=?')->execute([$id, $recipientId]);
-            // Opening the thread is also how a chat is read: the seen stamp clears the Chats badge,
-            // and a conversation the student had hidden comes back now that they are looking at it.
-            (new ChatService($db))->openThread($recipientId, $id);
         }
         $stmt = $db->prepare('SELECT n.id,n.title,n.body,n.category,n.link,n.published_at,u.full_name AS author_name FROM notifications n JOIN users u ON u.id=n.created_by WHERE n.id=? AND n.published_at IS NOT NULL');
         $stmt->execute([$id]);
@@ -400,21 +396,7 @@ final class NotificationController
             $recipient = $item;
             break;
         }
-        /* The thread is presented as a chat client, so it carries its own inbox: every conversation
-           this reader has, newest first, so the next one is a click away instead of a trip back to
-           the list page. A desk that cannot list its threads still shows the one you opened. */
-        $threads = [];
-        try {
-            $chats = new ChatService($db);
-            $threads = $user['role'] === 'admin'
-                ? $chats->adminThreads()
-                : $chats->studentThreads((int) $user['id']);
-        } catch (\Throwable $exception) {
-            $threads = [];
-        }
-        // No flash banner: the reply you just sent appears at the bottom of the thread, which says
-        // more than a green bar that would also hide the newest message.
-        View::render('notifications/show', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification, 'replies' => $replies, 'recipients' => $recipients, 'recipient' => $recipient, 'threads' => $threads]);
+        View::render('notifications/read', ['title' => 'Announcement', 'user' => $user, 'notification' => $notification]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 

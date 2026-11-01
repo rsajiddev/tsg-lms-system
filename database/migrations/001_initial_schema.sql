@@ -2264,3 +2264,26 @@ WHERE
 DELETE FROM app_settings WHERE setting_key = 'certificate_id_prefix';
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Private chat is intentionally separate from Academy announcements. A notification is read-only
+-- news; a chat thread is one direct student-to-Academy line.
+CREATE TABLE IF NOT EXISTS chat_threads (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       student_seen_at DATETIME NULL,
+       admin_seen_at DATETIME NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE KEY uq_chat_thread_student(student_id),
+       CONSTRAINT fk_chat_thread_student FOREIGN KEY(student_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       thread_id BIGINT UNSIGNED NOT NULL,
+       sender_id BIGINT UNSIGNED NOT NULL,
+       message TEXT NOT NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_chat_message_thread FOREIGN KEY(thread_id) REFERENCES chat_threads(id) ON DELETE CASCADE,
+       CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES users(id),
+       INDEX idx_chat_messages_thread(thread_id,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

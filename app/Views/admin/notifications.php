@@ -55,7 +55,7 @@ $error = $error ?? null; ?>
                             <h3><?= $escape($n['title']) ?></h3>
                             <p><?= $escape(mb_strimwidth($n['body'], 0, 240, '…')) ?></p>
                         </div>
-                        <div class="notification-admin-meta"><span><?= $escape($n['recipient_count']) ?> recipients</span><span><?= $escape($n['reply_count']) ?> replies</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$n['id'] ?>">Open conversation</a></div>
+                        <div class="notification-admin-meta"><span><?= $escape($n['recipient_count']) ?> recipients</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int)$n['id'] ?>">Open announcement</a></div>
                     </article><?php endforeach; ?></div><?php endif; ?>
     </section>
     <section class="admin-card">
@@ -89,8 +89,8 @@ $error = $error ?? null; ?>
         'Choose the audience first. All active verified students reaches every verified account, while Choose students lets you tick the exact list from the same active set.',
         'The title is what gets read. Students see it in their inbox and in the sidebar number that lights up against it, so keep the headline short and put the detail in the message.',
         'Publishing is the point of no editing. A sent announcement has no draft or unpublish control here, so proof-read the body before you press Publish.',
-        'Replies stay inside the thread. Open conversation on a card to read what each student asked and answer them there - no one else receives it.',
-        'Every message has its own desk. The Chats page lists the conversations students have started and counts the ones still waiting on you.',
+        'Announcements are read-only Academy news for students.',
+        'Every private message is handled on Chats, where you can select a student and reply directly.',
         'Automated updates live on Recent activity. Lessons, tests, assignments, payments, grades and certificates notify students on their own, and that report is now the last entry in the sidebar.',
         'The board is built to be emptied. Clearing it removes every announcement and automated update with its replies, which also resets the unread numbers in student sidebars.',
     ];

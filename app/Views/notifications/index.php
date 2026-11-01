@@ -55,10 +55,10 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
     $usageLead = 'Everything the Academy has published to you, newest first.';
     $usageBullets = [
         'Open any card to read it in full. Opening marks that update as read, so the number beside the page it points at comes down.',
-        'News lives here, conversations on Chats. An update you have written back to is listed on your chat page from that moment on.',
+        'News lives here and is read-only. Private messages are available only on Chats.',
         'Mark all read when you are done. The button beside the count clears every unread item in one action.',
         'The sidebar numbers follow the link. A new lesson, test, assignment or payment decision counts on the page it points at, so a marked assignment shows up on Assignments.',
-        'Write back from the update. Opening it shows the message thread underneath, and anything you send there opens a conversation.',
+        'To contact the Academy, use Chats in the sidebar. Notifications do not open or create a conversation.',
         'Nothing disappears here. Read updates stay in the list, so an old announcement is never lost.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';

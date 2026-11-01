@@ -6617,6 +6617,20 @@ html.js [data-reveal].is-visible.dash-card:hover {
   color: var(--blue-dark)
 }
 
+/* Standalone chat: a compact conversation list and a full-height message panel, without a
+   notification-detail rail or any unused space beside the bubbles. */
+.professional-chat-layout { display:grid; grid-template-columns:280px minmax(0,1fr); min-height:620px; overflow:hidden; border:1px solid #dbe4f1; border-radius:18px; background:#fff; box-shadow:0 16px 40px #0f172a0d }
+.professional-chat-list { display:flex; flex-direction:column; gap:5px; padding:14px 10px; border-right:1px solid #e5eaf2; background:#f8fafc; overflow:auto }
+.professional-chat-list-head { display:grid; gap:10px; padding:7px 8px 13px; color:#172554; font-size:14px }
+.professional-chat-list select { width:100%; min-height:38px; padding:8px; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:#334155 }
+.professional-chat-contact { display:flex; align-items:center; gap:10px; padding:11px; border-radius:12px; color:#334155; text-decoration:none }
+.professional-chat-contact:hover,.professional-chat-contact.is-active { background:#e8f0ff; color:#123a93 }
+.professional-chat-contact span:last-child { display:grid; min-width:0; gap:2px }.professional-chat-contact strong,.professional-chat-contact small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }.professional-chat-contact strong { font-size:13px }.professional-chat-contact small { color:#718096; font-size:11px }
+.professional-chat-main { display:grid; grid-template-rows:auto minmax(0,1fr) auto; min-height:620px; background:#fff }.professional-chat-head { display:flex; align-items:center; gap:11px; padding:16px 20px; border-bottom:1px solid #e7edf5 }.professional-chat-head div { display:grid; gap:2px }.professional-chat-head strong { color:#14213d }.professional-chat-head small { color:#75839a; font-size:12px }
+.professional-chat-feed { display:flex; flex-direction:column; gap:12px; min-height:0; overflow:auto; padding:24px; background:linear-gradient(135deg,#f8fbff,#fff 45%,#f8fafc) }.professional-message { display:flex; flex-direction:column; align-items:flex-start; gap:4px; max-width:76% }.professional-message.is-mine { align-self:flex-end; align-items:flex-end }.professional-bubble { padding:11px 14px; border:1px solid #e2e8f0; border-radius:16px 16px 16px 4px; background:#fff; color:#334155; line-height:1.55; box-shadow:0 3px 10px #0f172a08; overflow-wrap:anywhere }.professional-message.is-mine .professional-bubble { border:0; border-radius:16px 16px 4px 16px; background:#2563eb; color:#fff; box-shadow:0 6px 16px #2563eb3b }.professional-message time { color:#94a3b8; font-size:10.5px }
+.professional-composer { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:16px 20px; border-top:1px solid #e5eaf2; background:#fff }.professional-composer textarea { min-height:52px; resize:vertical; padding:13px 14px; border:2px solid #bfdbfe; border-radius:12px; background:#f8fbff; color:#1e293b; font:inherit; outline:none }.professional-composer textarea:focus { border-color:#2563eb; box-shadow:0 0 0 4px #dbeafe }.professional-send { min-width:105px; min-height:52px; justify-content:center; gap:8px; font-weight:800; box-shadow:0 7px 16px #2563eb3d }.professional-chat-empty { display:grid; place-content:center; min-height:100%; padding:40px; text-align:center; color:#64748b }.professional-chat-empty h2 { margin:0 0 6px; color:#1e293b; font-size:18px }.professional-chat-empty p { margin:0 }
+@media(max-width:760px) { .professional-chat-layout { grid-template-columns:1fr; min-height:0 }.professional-chat-list { max-height:210px; border-right:0; border-bottom:1px solid #e5eaf2 }.professional-chat-main { min-height:520px }.professional-composer { padding:12px; grid-template-columns:1fr }.professional-send { width:100% }.professional-message { max-width:90% } }
+
 /* The board sends; these two lines say where the reading and the reporting happen now. */
 .announcement-routing {
   display: grid;

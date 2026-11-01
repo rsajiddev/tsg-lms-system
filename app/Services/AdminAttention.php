@@ -62,25 +62,7 @@ final class AdminAttention
     private static function queries(): array
     {
         return [
-            'messages' => "SELECT COUNT(DISTINCT r.notification_id, r.recipient_student_id) FROM notification_replies r
-                WHERE r.student_id = r.recipient_student_id AND NOT EXISTS (
-                    SELECT 1 FROM notification_replies answered
-                    WHERE answered.notification_id = r.notification_id
-                      AND answered.recipient_student_id = r.recipient_student_id
-                      AND answered.student_id <> answered.recipient_student_id
-                      AND (answered.created_at > r.created_at
-                           OR (answered.created_at = r.created_at AND answered.id > r.id)))
-                      AND NOT EXISTS (
-                    SELECT 1 FROM notification_recipients hidden
-                    WHERE hidden.notification_id = r.notification_id
-                      AND hidden.student_id = r.recipient_student_id
-                      AND hidden.admin_chat_deleted_at IS NOT NULL
-                      AND NOT EXISTS (
-                          SELECT 1 FROM notification_replies newer
-                          WHERE newer.notification_id = hidden.notification_id
-                            AND newer.recipient_student_id = hidden.student_id
-                            AND newer.student_id = hidden.student_id
-                            AND newer.created_at > hidden.admin_chat_deleted_at))",
+            'messages' => "SELECT COUNT(*) FROM chat_threads t JOIN chat_messages m ON m.id=(SELECT cm.id FROM chat_messages cm WHERE cm.thread_id=t.id ORDER BY cm.created_at DESC,cm.id DESC LIMIT 1) WHERE m.sender_id=t.student_id",
             'certificates' => "SELECT COUNT(*) FROM certificates WHERE status = 'requested'",
             'assignments' => "SELECT COUNT(*) FROM assignment_submissions WHERE status = 'submitted'",
             // A finished attempt with no result is one the automatic grading could not settle, and
