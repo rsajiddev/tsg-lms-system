@@ -45,7 +45,7 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
                     <div>
                         <p class="eyebrow"><?= $escape(($isUnread ? 'NEW · ' : '') . $category) ?> · <?= $escape(date('M j, Y', strtotime((string) $n['published_at']))) ?></p>
                         <h2><?= $escape($n['title']) ?></h2>
-                        <p><?= $escape(mb_strimwidth((string) $n['body'], 0, 240, '…')) ?></p><span class="dashboard-inline-link">Read and reply →</span>
+                        <p><?= $escape(mb_strimwidth((string) $n['body'], 0, 200, '…')) ?></p><span class="dashboard-inline-link">Open update →</span>
                     </div>
                 </a><?php endforeach; ?></section><?php endif; ?>
 
@@ -54,11 +54,11 @@ foreach ($notifications as $notification) if (($notification['read_at'] ?? null)
     $usageTitle = 'How to use your inbox';
     $usageLead = 'Everything the Academy has published to you, newest first.';
     $usageBullets = [
-        'Open a card to read it in full. Opening marks that update as read and opens the thread you can reply in.',
-        'Announcements take a reply. Anything you send goes to the Academy, and their answer comes back to this same thread.',
+        'Open any card to read it in full. Opening marks that update as read, so the number beside the page it points at comes down.',
+        'News lives here, conversations on Chats. An update you have written back to is listed on your chat page from that moment on.',
         'Mark all read when you are done. The button beside the count clears every unread item in one action.',
         'The sidebar numbers follow the link. A new lesson, test, assignment or payment decision counts on the page it points at, so a marked assignment shows up on Assignments.',
-        'The number settles where the news is. Opening that page marks its notices read, so you do not have to come back here to clear it.',
+        'Write back from the update. Opening it shows the message thread underneath, and anything you send there opens a conversation.',
         'Nothing disappears here. Read updates stay in the list, so an old announcement is never lost.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';

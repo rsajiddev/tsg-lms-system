@@ -17,8 +17,10 @@ declare(strict_types=1);
  * stored submission file is removed, that the matching student notifications retire, and that an
  * audit row records the scale of the deletion. The last rounds cover the student directory
  * purge (accounts and everything filed under them, while the delivery log keeps its rows), the
- * announcement workspace's Clear activity button, the student's Mark all read shortcut, and the
- * announcement board purge that retires every notification with its recipients and replies. It
+ * Clear delivery log button on the recent activity report, the student's Mark all read shortcut,
+ * the chat list's Read all, Delete and Delete all actions, the Clear recent activity card that
+ * empties the automated updates and the log while leaving the board standing, and the announcement
+ * board purge that retires every notification with its recipients and replies. It
  * only ever runs against a scratch database.
  */
 
@@ -37,11 +39,13 @@ foreach (
         '/app/Services/AdminAttention.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
+        '/app/Services/ChatService.php',
         '/app/Services/CourseDuration.php',
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
         '/app/Services/AttendanceService.php',
         '/app/Controllers/AssignmentController.php',
+        '/app/Controllers/ChatController.php',
         '/app/Controllers/NotificationController.php',
         '/app/Controllers/QuizController.php',
         '/app/Controllers/CourseAdminController.php',
@@ -55,14 +59,16 @@ use App\Core\Database;
 use App\Core\Env;
 use App\Core\Security;
 use App\Controllers\AssignmentController;
+use App\Controllers\ChatController;
 use App\Controllers\CourseAdminController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
 use App\Controllers\StudentManagementController;
+use App\Services\ChatService;
 use App\Services\NotificationService;
 
 Env::load(BASE_PATH . '/.env');
-$options = getopt('', ['database::', 'run::', 'bad::']);
+$options = getopt('', ['database::', 'run::', 'bad::', 'nid::']);
 if (isset($options['database']) && is_string($options['database']) && $options['database'] !== '') {
     putenv('DB_NAME=' . $options['database']);
 }
@@ -99,12 +105,18 @@ $phrases = [
     'quizzes' => 'DELETE ALL QUIZZES',
     'lessons' => 'DELETE ALL LESSONS',
     'students' => 'DELETE ALL STUDENTS',
-    // The delivery log has one row per message and no wording to protect, so its Clear activity
+    // The delivery log has one row per message and no wording to protect, so its Clear delivery log
     // button asks for a browser confirmation instead of a typed phrase.
     'emaillog' => '',
     'announcements' => 'DELETE ALL ANNOUNCEMENTS',
-    // The student's Mark all read has no phrase either; its unsafe variant is a forged request.
+    // The report on the recent activity page empties both generated tables at once.
+    'activity' => 'CLEAR RECENT ACTIVITY',
+    // The student's Mark all read and the three chat actions have no phrase either; their unsafe
+    // variant is a forged request.
     'readall' => '',
+    'chatread' => '',
+    'chatone' => '',
+    'chatall' => '',
 ];
 
 /* --------------------------------------------------------------------- child process */
@@ -115,14 +127,18 @@ if ($run !== '') {
     $find->execute([$adminEmail]);
     $adminId = (int) $find->fetchColumn();
     $assert($adminId > 0, 'The seeded admin is missing; run the parent first.');
-    if ($run === 'readall') {
-        // Mark all read is the student's own action, so this child signs in as whichever student the
-        // parent left standing and the unsafe variant is a request without a valid token.
+    if (in_array($run, ['readall', 'chatread', 'chatone', 'chatall'], true)) {
+        // These are the student's own actions, so this child signs in as whichever student the parent
+        // left standing and the unsafe variant is a request without a valid token.
         $studentRow = $db->query("SELECT id,email FROM users WHERE role='student' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $studentSessionId = (int) ($studentRow['id'] ?? 0);
-        $assert($studentSessionId > 0, 'No student account is left to mark an inbox read; run the parent first.');
+        $assert($studentSessionId > 0, 'No student account is left to act with; run the parent first.');
         $_SESSION = ['user' => ['id' => $studentSessionId, 'name' => 'Purge Smoke Reader', 'email' => (string) $studentRow['email'], 'role' => 'student']];
         $_POST = ['_csrf' => (($options['bad'] ?? '') === '1') ? 'not-a-token' : Security::csrfToken()];
+        if ($run === 'chatone') {
+            // Hiding one conversation is addressed by the thread it belongs to.
+            $_POST['notification_id'] = (string) (int) ($options['nid'] ?? 0);
+        }
     } else {
         $_SESSION = ['user' => ['id' => $adminId, 'name' => 'Purge Smoke Admin', 'email' => $adminEmail, 'role' => 'admin']];
         $_POST = [
@@ -148,8 +164,12 @@ if ($run !== '') {
             'lessons' => (new CourseAdminController())->purgeLessons(),
             'students' => (new StudentManagementController())->purgeAll(),
             'emaillog' => (new NotificationController())->clearEmailLog(),
+            'activity' => (new NotificationController())->clearActivity(),
             'announcements' => (new NotificationController())->purgeAll(),
             'readall' => (new NotificationController())->markAllRead(),
+            'chatread' => (new ChatController())->markAllSeen(),
+            'chatone' => (new ChatController())->deleteThread(),
+            'chatall' => (new ChatController())->deleteAll(),
         };
     } catch (Throwable $exception) {
         echo 'THROWN|' . $exception->getMessage() . "\n";
@@ -276,8 +296,9 @@ try {
     $self = escapeshellarg(\PHP_BINARY);
     $script = escapeshellarg(__FILE__);
     $database = escapeshellarg('--database=' . $dbName);
-    $invoke = static function (string $target, bool $bad = false) use ($self, $script, $database): string {
-        $command = $self . ' ' . $script . ' ' . $database . ' --run=' . escapeshellarg($target) . ($bad ? ' --bad=1' : '') . ' 2>&1';
+    $invoke = static function (string $target, bool $bad = false, int $notificationId = 0) use ($self, $script, $database): string {
+        $command = $self . ' ' . $script . ' ' . $database . ' --run=' . escapeshellarg($target)
+            . ($bad ? ' --bad=1' : '') . ($notificationId > 0 ? ' --nid=' . $notificationId : '') . ' 2>&1';
         $output = (string) shell_exec($command);
         // The child writes and deletes real files behind this process's back, and PHP replays
         // cached stat() results for paths already looked at - a stale is_file() entry would make
@@ -377,7 +398,7 @@ try {
     $output = $invoke('students');
     $assert(str_contains($output, 'FLASH|There are no student accounts to delete.'), 'An empty student purge reported: ' . trim($output));
 
-    /* --------------------------------------------------- the announcement email log */
+    /* --------------------------------------------------- the recent activity report */
     $output = $invoke('emaillog', true);
     $assert(str_contains($output, 'FLASH|Your session expired'), 'The delivery log clear accepted a request without a valid token: ' . trim($output));
     $assert($count('email_logs') === 1, 'An unauthenticated request emptied the delivery log.');
@@ -413,6 +434,88 @@ try {
     $assert((string) $db->query('SELECT read_at FROM notification_recipients')->fetchColumn() !== '',
         'The recipient row was stamped but the counter says otherwise; the badge would keep counting it.');
 
+    /* ------------------------------------------------------ the student's chat actions */
+    // Two automated updates carrying an Academy answer each, so the chat list has something to read,
+    // something to hide one at a time, and something left for Delete all. They are not announcements,
+    // which is what lets the report card below clear them afterwards.
+    $insertAutomated = $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
+        VALUES(?,'lesson',?,'A new lesson is open for you.','selected_students',UTC_TIMESTAMP())");
+    $threadIds = [];
+    foreach (['Lesson one is open', 'Lesson two is open'] as $chatTitle) {
+        $insertAutomated->execute([$adminId, $chatTitle]);
+        $threadIds[] = (int) $db->lastInsertId();
+    }
+    $recipientInsert = $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)');
+    $replyInsert = $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)');
+    foreach ($threadIds as $threadId) {
+        $recipientInsert->execute([$threadId, $readerId]);
+        $replyInsert->execute([$threadId, $adminId, $readerId, 'The Academy answered this update.']);
+    }
+    $chats = new ChatService($db);
+    $assert($chats->unreadCount($readerId) === 2 && count($chats->studentThreads($readerId)) === 2,
+        'The two seeded conversations are unread and listed for the reader.');
+    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+        VALUES('notification.lesson',?,'A new lesson is open','sent',?)")->execute([$readerEmail, $readerId]);
+
+    $output = $invoke('chatread', true);
+    $assert(str_contains($output, 'FLASH|Your session expired'), 'The Read all chat button accepted a request without a valid token: ' . trim($output));
+    $assert($chats->unreadCount($readerId) === 2, 'An unauthenticated request read the conversations anyway.');
+
+    $output = $invoke('chatread');
+    $assert(str_contains($output, 'FLASH|Marked 2 conversation(s) as read.'), 'Read all chat reported: ' . trim($output));
+    $assert($chats->unreadCount($readerId) === 0, 'A conversation survived Read all in the Chats counter.');
+    // Reading a conversation is not reading the news, and the two counters have to stay apart.
+    $assert((int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE read_at IS NULL')->fetchColumn() === 2,
+        'Marking the chats read also settled the unread notifications.');
+
+    $output = $invoke('chatone', false, $threadIds[0]);
+    $assert(str_contains($output, 'FLASH|Conversation removed from your chats.'), 'Hiding one conversation reported: ' . trim($output));
+    $assert((int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE chat_deleted_at IS NOT NULL')->fetchColumn() === 1,
+        'Hiding one conversation touched somebody else\'s row.');
+    $assert($count('notification_replies') === 2 && count($chats->studentThreads($readerId)) === 1,
+        'Hiding a conversation deleted its messages or took the other thread with it.');
+
+    $noticeCount = $count('notifications');
+    $output = $invoke('chatall');
+    $assert(str_contains($output, 'FLASH|Cleared 1 conversation(s) from your chats.'), 'Delete all chat reported: ' . trim($output));
+    $assert($chats->studentThreads($readerId) === [] && $count('notifications') === $noticeCount && $count('notification_replies') === 2,
+        'Clearing the chat list destroyed the threads or the notices behind them: ' . $count('notifications') . ' notification(s) left.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action IN ('chat.hidden','chat.hidden_all')")->fetchColumn() === 2,
+        'The chat actions left no audit trail.');
+
+    /* ---------------------------------------------------- clearing the activity report */
+    // Both generated tables go together here, and nothing an admin published by hand may go with
+    // them - so the numbers are read back from the database rather than assumed, and the surviving
+    // announcement is checked by name.
+    $automatedSql = "category <> 'announcement' AND category <> '' AND category IS NOT NULL";
+    $expectedAutomated = (int) $db->query('SELECT COUNT(*) FROM notifications WHERE ' . $automatedSql)->fetchColumn();
+    $expectedRecipients = (int) $db->query('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.' . $automatedSql)->fetchColumn();
+    $expectedReplies = (int) $db->query('SELECT COUNT(*) FROM notification_replies r JOIN notifications n ON n.id = r.notification_id WHERE n.' . $automatedSql)->fetchColumn();
+    $expectedEmails = $count('email_logs');
+    $expectedTotal = $count('notifications');
+    $expectedFlash = sprintf(
+        'Cleared %d automated update(s) with %d recipient record(s), %d private reply/replies and %d e-mail delivery record(s). Published announcements were left on the board.',
+        $expectedAutomated, $expectedRecipients, $expectedReplies, $expectedEmails
+    );
+
+    $output = $invoke('activity', true);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'A wrong phrase was not rejected with a readable reason: ' . trim($output));
+    $assert($count('notifications') === $expectedTotal, 'A wrong phrase deleted automated updates anyway.');
+
+    $output = $invoke('activity');
+    $assert(str_contains($output, 'FLASH|' . $expectedFlash), 'Clear recent activity reported: ' . trim($output));
+    $assert((int) $db->query('SELECT COUNT(*) FROM notifications WHERE ' . $automatedSql)->fetchColumn() === 0,
+        'Automated updates survived the activity clear.');
+    $assert($count('email_logs') === 0 && $count('notification_replies') === 0, 'The activity clear left the log or the replies behind.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+        'The activity clear deleted an announcement it has no claim on.');
+    $assert($chats->adminThreadCount() === 0, 'A conversation outlived the update it was filed under.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='activity.cleared'")->fetchColumn() === 1,
+        'No audit row for the activity clear.');
+
+    $output = $invoke('activity');
+    $assert(str_contains($output, 'FLASH|Recent activity was already empty.'), 'An empty activity report said: ' . trim($output));
+
     /* ----------------------------------------------------- the announcement board */
     // A private reply filed under the surviving announcement, so the board purge is proven to take
     // the child rows with it instead of stranding a foreign key.
@@ -434,7 +537,7 @@ try {
     $output = $invoke('announcements');
     $assert(str_contains($output, 'FLASH|The announcement board is already empty.'), 'An empty board reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, announcement board purged\n";
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats read and hidden without losing a message, activity report cleared around the board, announcement board purged\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {

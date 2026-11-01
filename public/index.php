@@ -19,6 +19,7 @@ foreach (
         '/app/Services/EmailMessages.php',
         '/app/Services/AccountIdentity.php',
         '/app/Services/AdminAttention.php',
+        '/app/Services/ChatService.php',
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
@@ -42,6 +43,7 @@ foreach (
         '/app/Controllers/QuizController.php',
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/NotificationController.php',
+        '/app/Controllers/ChatController.php',
         '/app/Controllers/StudentManagementController.php',
         '/app/Controllers/CertificateController.php',
         '/app/Controllers/AttendanceController.php',
@@ -167,12 +169,21 @@ $router->post('/admin/assignments/review', [\App\Controllers\AssignmentControlle
 $router->post('/admin/assignments/purge', [\App\Controllers\AssignmentController::class, 'purgeAll']);
 $router->get('/admin/announcements', [\App\Controllers\NotificationController::class, 'adminIndex']);
 $router->post('/admin/announcements/publish', [\App\Controllers\NotificationController::class, 'publish']);
-$router->post('/admin/announcements/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
 $router->post('/admin/announcements/purge', [\App\Controllers\NotificationController::class, 'purgeAll']);
+// The two reports that used to sit under the announcement board have their own desk now, and the
+// conversations a student starts have a page of their own instead of only a sidebar number.
+$router->get('/admin/chats', [\App\Controllers\ChatController::class, 'adminIndex']);
+$router->get('/admin/activity', [\App\Controllers\NotificationController::class, 'activity']);
+$router->post('/admin/activity/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
+$router->post('/admin/activity/clear', [\App\Controllers\NotificationController::class, 'clearActivity']);
 $router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
 $router->post('/notifications/read-all', [\App\Controllers\NotificationController::class, 'markAllRead']);
 $router->get('/notifications/view', [\App\Controllers\NotificationController::class, 'show']);
 $router->post('/notifications/reply', [\App\Controllers\NotificationController::class, 'reply']);
+$router->get('/student/chats', [\App\Controllers\ChatController::class, 'studentIndex']);
+$router->post('/student/chats/read-all', [\App\Controllers\ChatController::class, 'markAllSeen']);
+$router->post('/student/chats/delete', [\App\Controllers\ChatController::class, 'deleteThread']);
+$router->post('/student/chats/delete-all', [\App\Controllers\ChatController::class, 'deleteAll']);
 $router->post('/learning/quiz/start', [\App\Controllers\QuizController::class, 'start']);
 $router->get('/learning/quiz/attempt', [\App\Controllers\QuizController::class, 'attempt']);
 $router->post('/learning/quiz/submit', [\App\Controllers\QuizController::class, 'submit']);

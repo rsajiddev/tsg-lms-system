@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
+use App\Services\AdminAttention;
 use App\Services\AttendanceService;
 use PDO;
 
@@ -273,6 +274,12 @@ final class DashboardController
         $stalePayments = $this->value($db, "SELECT COUNT(*) FROM payments WHERE status = 'pending' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)");
         if ($stalePayments > 0) {
             $push('danger', 'Payments waiting over 24 hours', number_format($stalePayments) . ' submission' . ($stalePayments === 1 ? '' : 's') . ' to verify', '/admin/payments');
+        }
+        // A student who wrote in and got no answer is the queue that should be read first, and the
+        // number is the same one the Chats entry in the sidebar carries.
+        $awaitingReplies = (new AdminAttention($db))->pendingByArea()['messages'] ?? 0;
+        if ($awaitingReplies > 0) {
+            $push('danger', 'Student messages waiting', number_format((int) $awaitingReplies) . ' conversation' . ((int) $awaitingReplies === 1 ? '' : 's') . ' without an Academy reply', '/admin/chats');
         }
         $pendingCertificates = $this->value($db, "SELECT COUNT(*) FROM certificates WHERE status = 'requested'");
         if ($pendingCertificates > 0) {

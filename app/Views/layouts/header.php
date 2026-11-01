@@ -33,6 +33,9 @@ if ($dashboardArea && $dashboardRole === 'admin') {
         try {
             $navDb = \App\Core\Database::connection();
             $navBadge = (new \App\Services\NotificationService($navDb))->unreadByArea($navStudentId);
+            // Chats counts on its own: an unread conversation is a message the Academy wrote since
+            // the student last opened that thread, which is not the same thing as unread news.
+            $navBadge['chats'] = (new \App\Services\ChatService($navDb))->unreadCount($navStudentId);
             $stmt = $navDb->prepare("SELECT COUNT(*) FROM assignments a JOIN student_course_access sca ON sca.course_id=a.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE a.status='published' AND NOT EXISTS (SELECT 1 FROM assignment_submissions s WHERE s.assignment_id=a.id AND s.student_id=?)");
             $stmt->execute([$navStudentId, $navStudentId]);
             $navBadge['assignments'] = max((int)($navBadge['assignments'] ?? 0), (int)$stmt->fetchColumn());
@@ -58,6 +61,8 @@ $dashboardNavIcon = static function (string $name): string {
         'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
         'users' => '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6"/>',
         'megaphone' => '<path d="m3 11 18-6v14L3 13zM5 14l2 7h4l-2-8M21 9a3 3 0 0 1 0 6"/>',
+        'chat' => '<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9 9 0 0 1-3.9-.9L4 21l1.9-4.6A8.4 8.4 0 0 1 5 11.5 8.5 8.5 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/><path d="M9 11.5h.01M12.5 11.5h.01M16 11.5h.01"/>',
+        'activity' => '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
         'certificate' => '<circle cx="12" cy="9" r="6"/><path d="M8.5 14.5 7 22l5-2.6L17 22l-1.5-7.5"/>',
         'star' => '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',
         'settings' => '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/>',
@@ -76,12 +81,16 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['label' => 'Quiz reports', 'href' => '/admin/quiz-reports', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/admin/quiz-reports'],
         ['label' => 'Assignments', 'href' => '/admin/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/admin/assignments'],
         ['label' => 'Students', 'href' => '/admin/students', 'icon' => 'users', 'active' => $activePath === '/admin/students'],
-        ['label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'badge' => 'messages', 'active' => str_starts_with($activePath, '/admin/announcements')],
+        ['label' => 'Announcements', 'href' => '/admin/announcements', 'icon' => 'megaphone', 'active' => str_starts_with($activePath, '/admin/announcements')],
+        ['label' => 'Chats', 'href' => '/admin/chats', 'icon' => 'chat', 'badge' => 'messages', 'active' => $activePath === '/admin/chats'],
         ['label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'badge' => 'certificates', 'active' => str_starts_with($activePath, '/admin/certificates')],
         ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'badge' => 'payments', 'active' => $activePath === '/admin/payments'],
         ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'badge' => 'reviews', 'active' => $activePath === '/admin/reviews'],
         ['label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
         ['label' => 'My account', 'href' => '/admin/account', 'icon' => 'users', 'active' => $activePath === '/admin/account'],
+        // The report sits at the end of the list on purpose: it is the desk you open after everything
+        // else, and the only way to empty it is the testing card at the bottom of that page.
+        ['label' => 'Recent activity', 'href' => '/admin/activity', 'icon' => 'activity', 'active' => $activePath === '/admin/activity'],
     ]
     : [
         ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
@@ -92,6 +101,7 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['label' => 'Code challenges', 'href' => '/learning/challenges', 'icon' => 'code', 'active' => str_starts_with($activePath, '/learning/challenge') || $activePath === '/learning/challenges'],
         ['label' => 'Assignments', 'href' => '/student/assignments', 'icon' => 'assignment', 'badge' => 'assignments', 'active' => $activePath === '/student/assignments' || str_starts_with($activePath, '/learning/assignments')],
         ['label' => 'Notifications', 'href' => '/notifications', 'icon' => 'bell', 'badge' => 'notifications', 'active' => str_starts_with($activePath, '/notifications')],
+        ['label' => 'Chats', 'href' => '/student/chats', 'icon' => 'chat', 'badge' => 'chats', 'active' => $activePath === '/student/chats'],
         ['label' => 'Account settings', 'href' => '/student/settings', 'icon' => 'settings', 'active' => $activePath === '/student/settings'],
     ];
 // Sidebar numbering follows the list order so inserting an entry never leaves duplicate numbers behind.

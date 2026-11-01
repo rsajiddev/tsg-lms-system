@@ -1194,6 +1194,62 @@ CREATE TABLE IF NOT EXISTS notification_recipients (
        INDEX idx_recipient_unread(student_id, read_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+/* Chat bookkeeping lives per recipient, never on the notification itself: a student can hide one
+   conversation or mark it seen without touching the copy another student has of the same
+   announcement. read_at stays what it always was - whether the notice was read - so these two
+   columns only describe the thread under it.
+     chat_deleted_at: the student removed the thread from their chat list. A message written after
+                      that stamp brings it back, so hiding a chat can never swallow a reply.
+     chat_seen_at:    the last moment the student opened the thread, which is what the Chats badge
+                      counts against. */
+SET
+       @add_recipient_chat_deleted_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE notification_recipients ADD COLUMN chat_deleted_at DATETIME NULL AFTER read_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notification_recipients'
+                     AND COLUMN_NAME = 'chat_deleted_at'
+       );
+
+PREPARE add_recipient_chat_deleted_at_stmt
+FROM
+       @add_recipient_chat_deleted_at;
+
+EXECUTE add_recipient_chat_deleted_at_stmt;
+
+DEALLOCATE PREPARE add_recipient_chat_deleted_at_stmt;
+
+SET
+       @add_recipient_chat_seen_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE notification_recipients ADD COLUMN chat_seen_at DATETIME NULL AFTER chat_deleted_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'notification_recipients'
+                     AND COLUMN_NAME = 'chat_seen_at'
+       );
+
+PREPARE add_recipient_chat_seen_at_stmt
+FROM
+       @add_recipient_chat_seen_at;
+
+EXECUTE add_recipient_chat_seen_at_stmt;
+
+DEALLOCATE PREPARE add_recipient_chat_seen_at_stmt;
+
 CREATE TABLE IF NOT EXISTS notification_replies (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        notification_id BIGINT UNSIGNED NOT NULL,

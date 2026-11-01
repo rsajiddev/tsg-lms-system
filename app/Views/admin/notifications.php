@@ -6,9 +6,6 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $v): string => Security::escape((string)$v);
 $students = is_array($students ?? null) ? $students : [];
 $notifications = is_array($notifications ?? null) ? $notifications : [];
-$automated = is_array($automated ?? null) ? $automated : [];
-$emailLog = is_array($emailLog ?? null) ? $emailLog : [];
-$unreadTotal = (int) ($unreadTotal ?? 0);
 $message = $message ?? null;
 $error = $error ?? null; ?>
 <section class="dashboard-page admin-workspace">
@@ -64,46 +61,14 @@ $error = $error ?? null; ?>
     <section class="admin-card">
         <div class="admin-card-header">
             <div class="admin-card-titles">
-                <h2>Automated student updates</h2>
-                <p><?= $unreadTotal > 0 ? $unreadTotal . ' unread notification(s) are still waiting in student workspaces.' : 'Every notification sent so far has been read.' ?> Lessons, tests, assignments, payments, grades and certificates announce themselves here.</p>
+                <h2>What happens after you publish</h2>
+                <p>The board is only the sending side. Reading and answering lives on two other desks.</p>
             </div>
         </div>
-        <?php if ($automated === []): ?><div class="admin-empty-state">
-                <h3>No automated updates yet</h3>
-                <p>Publish a lesson, test, assignment or payment decision and the enrolled students are notified automatically.</p>
-            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table admin-table-stacked"><thead><tr><th>Update</th><th>Area</th><th>Recipients</th><th>Unread</th><th>Published</th></tr></thead><tbody>
-                    <?php foreach ($automated as $row): ?><tr>
-                            <td data-label="Update"><a href="<?= $escape($baseUrl) ?>/notifications/view?notification_id=<?= (int) $row['id'] ?>"><?= $escape($row['title']) ?></a></td>
-                            <td data-label="Area"><span class="dashboard-status"><?= $escape(ucfirst((string) $row['category'])) ?></span></td>
-                            <td data-label="Recipients"><?= (int) $row['recipient_count'] ?></td>
-                            <td data-label="Unread"><?= (int) $row['unread_count'] ?></td>
-                            <td data-label="Published"><?= $escape(date('M j, Y H:i', strtotime((string) $row['published_at']))) ?> UTC</td>
-                        </tr><?php endforeach; ?>
-                </tbody></table></div><?php endif; ?>
-    </section>
-    <section class="admin-card">
-        <div class="admin-card-header">
-            <div class="admin-card-titles">
-                <h2>Email delivery log</h2>
-                <p>The latest <?= count($emailLog) ?> automated emails and whether SMTP accepted them. Message bodies are never stored.</p>
-            </div>
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/announcements/email-log/clear" class="student-status-form" onsubmit="return confirm('Clear every recorded email delivery? The log starts again with the next message.')">
-                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-                <button class="student-action-button is-clear" type="submit"<?= $emailLog === [] ? ' disabled' : '' ?>>Clear activity</button>
-            </form>
+        <div class="announcement-routing">
+            <div class="announcement-routing-item"><strong>Chats</strong><span>Every private thread a student has opened, with the ones still waiting on an Academy answer counted in the sidebar.</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/chats">Open the chat desk <span aria-hidden="true">→</span></a></div>
+            <div class="announcement-routing-item"><strong>Recent activity</strong><span>The automated student updates the platform sent by itself and the e-mail delivery log, with the controls that clear both.</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/activity">Open recent activity <span aria-hidden="true">→</span></a></div>
         </div>
-        <?php if ($emailLog === []): ?><div class="admin-empty-state">
-                <h3>No emails recorded yet</h3>
-                <p>Every message the platform sends is logged here once the email_logs table is imported.</p>
-            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table admin-table-stacked"><thead><tr><th>Event</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Sent</th></tr></thead><tbody>
-                    <?php foreach ($emailLog as $row): ?><tr>
-                            <td data-label="Event"><code><?= $escape($row['template_key']) ?></code></td>
-                            <td data-label="Recipient"><?= $escape($row['recipient_email']) ?></td>
-                            <td data-label="Subject" title="<?= $escape($row['error_message'] ?? '') ?>"><?= $escape($row['subject']) ?></td>
-                            <td data-label="Status"><span class="dashboard-status status-<?= $row['status'] === 'sent' ? 'approved' : 'rejected' ?>"><?= $escape(strtoupper((string) $row['status'])) ?></span></td>
-                            <td data-label="Sent"><?= $escape(date('M j, Y H:i', strtotime((string) $row['created_at']))) ?> UTC</td>
-                        </tr><?php endforeach; ?>
-                </tbody></table></div><?php endif; ?>
     </section>
     <?php
     // The board is the one workspace a test round fills without meaning to: every published lesson,
@@ -125,8 +90,8 @@ $error = $error ?? null; ?>
         'The title is what gets read. Students see it in their inbox and in the sidebar number that lights up against it, so keep the headline short and put the detail in the message.',
         'Publishing is the point of no editing. A sent announcement has no draft or unpublish control here, so proof-read the body before you press Publish.',
         'Replies stay inside the thread. Open conversation on a card to read what each student asked and answer them there - no one else receives it.',
-        'Automated updates share the board. Every published lesson, test, assignment, payment decision and certificate is listed with its recipients and unread count, so you can see who has still not seen the news.',
-        'The delivery log proves the send, not the read. It shows the latest automated emails and whether the mail server accepted them; message bodies are never stored, and Clear activity empties the log only.',
+        'Every message has its own desk. The Chats page lists the conversations students have started and counts the ones still waiting on you.',
+        'Automated updates live on Recent activity. Lessons, tests, assignments, payments, grades and certificates notify students on their own, and that report is now the last entry in the sidebar.',
         'The board is built to be emptied. Clearing it removes every announcement and automated update with its replies, which also resets the unread numbers in student sidebars.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';

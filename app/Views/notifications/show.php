@@ -9,6 +9,9 @@ $notification = is_array($notification ?? null) ? $notification : [];
 $user = is_array($user ?? null) ? $user : [];
 $isAdmin = ($user['role'] ?? '') === 'admin';
 $viewerId = (int)($user['id'] ?? 0);
+// A thread that already holds messages is a conversation and lives on the chat page; an empty one is
+// still just the notice, so the breadcrumb names the page the reader came from.
+$hasMessages = (is_array($replies ?? null) ? count($replies) : 0) > 0;
 
 /**
  * Stored as UTC and printed with the same convention the rest of the workspace uses, so a reply
@@ -30,15 +33,15 @@ $initials = static function (?string $name): string {
 ?>
 <section class="dashboard-page conversation-page">
     <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
-        <div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><a href="<?= $escape($baseUrl) ?>/notifications">Notifications</a><i>/</i><strong>Conversation</strong></div>
+        <div class="dashboard-breadcrumb"><a href="<?= $escape($baseUrl) ?>/dashboard">Workspace</a><i>/</i><?php if ($hasMessages): ?><a href="<?= $escape($baseUrl) . ($isAdmin ? '/admin/chats' : '/student/chats') ?>">Chats</a><?php elseif ($isAdmin): ?><a href="<?= $escape($baseUrl) ?>/admin/announcements">Announcements</a><?php else: ?><a href="<?= $escape($baseUrl) ?>/notifications">Notifications</a><?php endif; ?><i>/</i><strong>Conversation</strong></div>
     </div>
     <header class="dashboard-heading">
         <div>
-            <p class="eyebrow">PRIVATE CONVERSATION</p>
+            <p class="eyebrow"><?= $hasMessages ? 'CONVERSATION' : 'PRIVATE CONVERSATION' ?></p>
             <h1><?= $escape($notification['title'] ?? '') ?></h1>
             <p>Opened <?= $escape($stamp($notification['published_at'] ?? null)) ?> by <?= $escape($notification['author_name'] ?? 'the Academy') ?></p>
         </div>
-        <?php if ($isAdmin && !empty($recipient)): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/notifications">All announcements</a><?php endif; ?>
+        <?php if (!$isAdmin): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/student/chats">Back to chats</a><?php elseif (!empty($recipient)): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/chats">Back to chats</a><?php endif; ?>
     </header>
     <section class="dashboard-panel conversation-panel">
         <article class="conversation-announcement">
@@ -59,20 +62,27 @@ $initials = static function (?string $name): string {
             </form>
         <?php endif; ?>
         <?php if (!$isAdmin || !empty($recipient)): ?>
-            <ul class="conversation-list" aria-label="Messages in this conversation">
-                <?php if ($replies === []): ?>
-                    <li class="conversation-empty"><?= $isAdmin ? 'No messages from this student yet. Your reply opens the thread.' : 'No messages yet. Write the first one below and the Academy will reply here.' ?></li>
-                <?php endif; ?>
-                <?php foreach ($replies as $reply): $mine = (int)($reply['author_id'] ?? 0) === $viewerId; ?>
-                    <li class="conversation-row<?= $mine ? ' is-mine' : '' ?>">
-                        <span class="conversation-avatar<?= $reply['author_role'] === 'admin' ? ' conversation-avatar-academy' : '' ?>" aria-hidden="true"><?= $escape($initials($reply['author_name'])) ?></span>
-                        <div class="conversation-bubble">
-                            <p class="conversation-meta"><strong><?= $escape($reply['author_name']) ?></strong><span class="conversation-role"><?= $reply['author_role'] === 'admin' ? 'Academy team' : 'Student' ?></span><time datetime="<?= $escape($reply['created_at']) ?>"><?= $escape($stamp($reply['created_at'])) ?></time></p>
-                            <div class="conversation-text"><?= nl2br($escape($reply['message'])) ?></div>
-                        </div>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <?php /* The messages sit in their own window with the composer under it, the way every
+                      chat app stacks them: the newest bubble is always the thing above where you type. */ ?>
+            <div class="conversation-window">
+                <ul class="conversation-list" aria-label="Messages in this conversation">
+                    <?php if ($replies === []): ?>
+                        <li class="conversation-empty"><?= $isAdmin ? 'No messages from this student yet. Your reply opens the thread.' : 'No messages yet. Write the first one below and the Academy will reply here.' ?></li>
+                    <?php endif; ?>
+                    <?php $lastDay = null; foreach ($replies as $reply): $mine = (int)($reply['author_id'] ?? 0) === $viewerId; $day = date('Y-m-d', strtotime((string) $reply['created_at'])); ?>
+                        <?php if ($day !== $lastDay): $lastDay = $day; ?>
+                            <li class="conversation-day" aria-hidden="true"><?= $escape(date('M j, Y', strtotime((string) $reply['created_at']))) ?></li>
+                        <?php endif; ?>
+                        <li class="conversation-row<?= $mine ? ' is-mine' : '' ?>">
+                            <span class="conversation-avatar<?= $reply['author_role'] === 'admin' ? ' conversation-avatar-academy' : '' ?>" aria-hidden="true"><?= $escape($initials($reply['author_name'])) ?></span>
+                            <div class="conversation-bubble">
+                                <p class="conversation-meta"><strong><?= $escape($reply['author_name']) ?></strong><span class="conversation-role"><?= $reply['author_role'] === 'admin' ? 'Academy team' : 'Student' ?></span><time datetime="<?= $escape($reply['created_at']) ?>"><?= $escape($stamp($reply['created_at'])) ?></time></p>
+                                <div class="conversation-text"><?= nl2br($escape($reply['message'])) ?></div>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
         <?php endif; ?>
         <?php if (!$isAdmin || !empty($recipient)): ?>
             <form method="post" action="<?= $escape($baseUrl) ?>/notifications/reply" class="conversation-composer">
@@ -85,4 +95,15 @@ $initials = static function (?string $name): string {
             </form>
         <?php endif; ?>
     </section>
+    <?php if ($replies !== []): ?>
+        <?php /* A chat is read from its newest message, so the window opens at the bottom - the same
+                  place the reply you just sent landed. Nothing else on the page moves. */ ?>
+        <script>
+            (() => {
+                const thread = document.querySelector('.conversation-window');
+                if (!thread) return;
+                thread.scrollTop = thread.scrollHeight;
+            })();
+        </script>
+    <?php endif; ?>
 </section>

@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\ChatService;
 use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
@@ -21,8 +22,34 @@ final class NotificationController
         $db = Database::connection();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
         $items = $db->query("SELECT n.id,n.title,n.body,n.category,n.audience,n.published_at,n.created_at,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id) AS recipient_count,(SELECT COUNT(*) FROM notification_replies r WHERE r.notification_id=n.id) AS reply_count FROM notifications n WHERE n.category = 'announcement' OR n.category = '' OR n.category IS NULL ORDER BY n.created_at DESC,n.id DESC LIMIT 100")->fetchAll();
-        // Automated fan-out (lessons, tests, assignments, payments, grades, certificates) is
-        // listed separately so the admin can see what the workspace has already delivered.
+        // The board keeps only what an admin published here. The automated fan-out and the mail log
+        // moved to their own desk, because they report on the platform rather than on this page.
+        $notificationTotal = (int) $db->query('SELECT COUNT(*) FROM notifications')->fetchColumn();
+        View::render('admin/notifications', [
+            'title' => 'Announcements',
+            'user' => $admin,
+            'students' => $students,
+            'notifications' => $items,
+            'notificationTotal' => $notificationTotal,
+            'categories' => NotificationService::AREAS,
+            'error' => $_SESSION['_flash_error'] ?? null,
+            'message' => $_SESSION['_flash'] ?? null,
+        ]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * Recent activity: everything the platform sent on its own, and every e-mail it handed to the
+     * mail server.
+     *
+     * Both lists are read-only reports over data the workspace produces, so the desk is the last
+     * entry in the sidebar and the only action on it is the one that clears it for the next test
+     * round.
+     */
+    public function activity(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $db = Database::connection();
         $automated = $db->query("SELECT n.id,n.title,n.category,n.link,n.published_at,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id) AS recipient_count,(SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id=n.id AND nr.read_at IS NULL) AS unread_count FROM notifications n WHERE n.category <> 'announcement' AND n.category <> '' AND n.category IS NOT NULL ORDER BY n.published_at DESC,n.id DESC LIMIT 60")->fetchAll();
         $emailLog = [];
         try {
@@ -36,18 +63,22 @@ final class NotificationController
         } catch (\Throwable $exception) {
             $unreadTotal = 0;
         }
-        // The two lists above are capped, so the testing card counts the whole board instead.
-        $notificationTotal = (int) $db->query('SELECT COUNT(*) FROM notifications')->fetchColumn();
-        View::render('admin/notifications', [
-            'title' => 'Announcements',
+        // Both lists above are capped, so the clearing card counts the whole table instead.
+        $automatedTotal = (int) $db->query("SELECT COUNT(*) FROM notifications WHERE category <> 'announcement' AND category <> '' AND category IS NOT NULL")->fetchColumn();
+        $emailTotal = 0;
+        try {
+            $emailTotal = (int) $db->query('SELECT COUNT(*) FROM email_logs')->fetchColumn();
+        } catch (\Throwable $exception) {
+            $emailTotal = 0;
+        }
+        View::render('admin/activity', [
+            'title' => 'Recent activity',
             'user' => $admin,
-            'students' => $students,
-            'notifications' => $items,
             'automated' => $automated,
             'emailLog' => $emailLog,
             'unreadTotal' => $unreadTotal,
-            'notificationTotal' => $notificationTotal,
-            'categories' => NotificationService::AREAS,
+            'automatedTotal' => $automatedTotal,
+            'emailTotal' => $emailTotal,
             'error' => $_SESSION['_flash_error'] ?? null,
             'message' => $_SESSION['_flash'] ?? null,
         ]);
@@ -95,7 +126,7 @@ final class NotificationController
     }
 
     /**
-     * Empties the delivery log shown under the announcement workspace.
+     * Empties the delivery log shown on the Recent activity desk.
      *
      * Only the history rows go: an account that was emailed keeps its account, and the log is
      * rebuilt by the very next message, which is exactly what makes it useful while testing the
@@ -108,7 +139,7 @@ final class NotificationController
             $this->performClearEmailLog($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/announcements');
+            $this->redirect('/admin/activity');
         }
     }
 
@@ -126,7 +157,86 @@ final class NotificationController
         $_SESSION['_flash'] = $deleted > 0
             ? 'Cleared ' . number_format($deleted) . ' e-mail delivery record(s).'
             : 'The delivery log was already empty.';
-        $this->redirect('/admin/announcements');
+        $this->redirect('/admin/activity');
+    }
+
+    /**
+     * Clears the Recent activity desk: the automated student updates and the e-mail delivery log.
+     *
+     * Announcements an admin wrote by hand are not activity the platform produced itself, so they
+     * stay on the board and only the typed phrase below retires the machine-made notices. Removing
+     * those rows also lowers the unread numbers in student sidebars, because those count exactly
+     * these recipient records.
+     */
+    public function clearActivity(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->performClearActivity($admin);
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/activity');
+        }
+    }
+
+    private function performClearActivity(array $admin): void
+    {
+        $this->csrf();
+        PurgeGuard::assertConfirmed('CLEAR RECENT ACTIVITY');
+        $db = Database::connection();
+        $ids = array_map('intval', $db->query("SELECT id FROM notifications WHERE category <> 'announcement' AND category <> '' AND category IS NOT NULL ORDER BY id")->fetchAll(PDO::FETCH_COLUMN));
+        if ($ids === []) {
+            $emails = 0;
+            try {
+                $emailStmt = $db->prepare('DELETE FROM email_logs');
+                $emailStmt->execute();
+                $emails = $emailStmt->rowCount();
+            } catch (\Throwable $exception) {
+                throw new RuntimeException('The e-mail delivery log is not available in this database yet. Import the updated schema first.');
+            }
+            $_SESSION['_flash'] = $emails > 0
+                ? 'Cleared ' . number_format($emails) . ' e-mail delivery record(s).'
+                : 'Recent activity was already empty.';
+            $this->redirect('/admin/activity');
+        }
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $db->beginTransaction();
+        try {
+            // Same order as the board purge: the child rows hold the foreign keys.
+            $replyStmt = $db->prepare('DELETE FROM notification_replies WHERE notification_id IN (' . $in . ')');
+            $replyStmt->execute($ids);
+            $replies = $replyStmt->rowCount();
+            $recipientStmt = $db->prepare('DELETE FROM notification_recipients WHERE notification_id IN (' . $in . ')');
+            $recipientStmt->execute($ids);
+            $recipients = $recipientStmt->rowCount();
+            $db->prepare('DELETE FROM notifications WHERE id IN (' . $in . ')')->execute($ids);
+            try {
+                $emailStmt = $db->prepare('DELETE FROM email_logs');
+                $emailStmt->execute();
+                $emails = $emailStmt->rowCount();
+            } catch (\Throwable $exception) {
+                throw new RuntimeException('The e-mail delivery log is not available in this database yet. Import the updated schema first.');
+            }
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?, 'activity.cleared', 'notification', NULL, ?)")
+                ->execute([(int) $admin['id'], json_encode([
+                    'automated_deleted' => count($ids),
+                    'recipients_deleted' => $recipients,
+                    'replies_deleted' => $replies,
+                    'email_logs_deleted' => $emails,
+                ], JSON_THROW_ON_ERROR)]);
+            $db->commit();
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+        $_SESSION['_flash'] = sprintf(
+            'Cleared %d automated update(s) with %d recipient record(s), %d private reply/replies and %d e-mail delivery record(s). Published announcements were left on the board.',
+            count($ids),
+            $recipients,
+            $replies,
+            $emails
+        );
+        $this->redirect('/admin/activity');
     }
 
     /**
@@ -250,6 +360,9 @@ final class NotificationController
                 return;
             }
             $db->prepare('UPDATE notification_recipients SET read_at=COALESCE(read_at,UTC_TIMESTAMP()) WHERE notification_id=? AND student_id=?')->execute([$id, $recipientId]);
+            // Opening the thread is also how a chat is read: the seen stamp clears the Chats badge,
+            // and a conversation the student had hidden comes back now that they are looking at it.
+            (new ChatService($db))->openThread($recipientId, $id);
         }
         $stmt = $db->prepare('SELECT n.id,n.title,n.body,n.category,n.link,n.published_at,u.full_name AS author_name FROM notifications n JOIN users u ON u.id=n.created_by WHERE n.id=? AND n.published_at IS NOT NULL');
         $stmt->execute([$id]);
