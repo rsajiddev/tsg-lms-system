@@ -121,6 +121,17 @@ unset($dashboardNavItem);
     <link rel="stylesheet" href="<?= Security::escape($baseUrl) ?>/public/assets/css/pages.css?v=<?= (string) filemtime(BASE_PATH . '/public/assets/css/pages.css') ?>">
     <script>
         document.documentElement.classList.add('js');
+        /* Browsers restore the previous scroll position on reload by default.
+           For this workspace a refresh should restart at the page top, while
+           back/forward navigation should keep its normal position restoration. */
+        const pageNavigation = performance.getEntriesByType('navigation')[0];
+        if (pageNavigation && pageNavigation.type === 'reload') {
+            history.scrollRestoration = 'manual';
+            window.addEventListener('DOMContentLoaded', () => {
+                window.scrollTo(0, 0);
+                requestAnimationFrame(() => { history.scrollRestoration = 'auto'; });
+            }, { once: true });
+        }
     </script>
     <script src="<?= Security::escape($baseUrl) ?>/public/assets/js/main.js?v=<?= (string) filemtime(BASE_PATH . '/public/assets/js/main.js') ?>" defer></script>
 </head>

@@ -762,15 +762,24 @@
     /* Keep the current page findable. The desktop sidebar and the mobile
        bottom strip are their own scroll boxes, and a fresh load always puts
        them back at the first item, so the highlighted link of a page further
-       down the list can sit out of sight. Bring only the nav box itself back
-       to the active link - preventScroll stops the page moving with it. */
+       down the list can sit out of sight. Do not use scrollIntoView() here:
+       it can scroll every ancestor, including the document, and its options
+       do not support preventScroll. Move the navigation container only. */
     const activeNavLink = document.querySelector('.dashboard-side-nav a.active');
     if (activeNavLink) {
-        activeNavLink.scrollIntoView({
-            block: window.innerWidth > 902 ? 'center' : 'nearest',
-            inline: 'nearest',
-            preventScroll: true
-        });
+        const navScroller = activeNavLink.closest('.dashboard-side-nav');
+
+        if (navScroller) {
+            const linkTop = activeNavLink.offsetTop;
+            const linkBottom = linkTop + activeNavLink.offsetHeight;
+            const visibleTop = navScroller.scrollTop;
+            const visibleBottom = visibleTop + navScroller.clientHeight;
+
+            if (linkTop < visibleTop || linkBottom > visibleBottom) {
+                const centeredTop = linkTop - ((navScroller.clientHeight - activeNavLink.offsetHeight) / 2);
+                navScroller.scrollTop = Math.max(0, centeredTop);
+            }
+        }
     }
 
     const dashboardSearch = document.querySelector('[data-dashboard-search]');
