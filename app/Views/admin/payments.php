@@ -4,6 +4,8 @@ use App\Core\Security;
 
 $escape = [Security::class, 'escape'];
 $paymentValues = is_array($paymentValues ?? null) ? $paymentValues : [];
+$paymentAccounts = is_array($paymentAccounts ?? null) ? $paymentAccounts : [];
+if ($paymentAccounts === []) $paymentAccounts[] = array_fill_keys(['account_title','bank_name','account_number','iban','wallet_name','wallet_number','instructions'], '');
 $payments = is_array($payments ?? null) ? $payments : [];
 $revenue = is_array($revenue ?? null) ? $revenue : [];
 $revenueTotals = is_array($revenueTotals ?? null) ? $revenueTotals : [];
@@ -94,22 +96,22 @@ $inlineTotals = static function (array $totals): string {
 
   <section class="admin-card payment-settings-card">
     <div class="admin-card-header"><div class="admin-card-title-group"><div class="admin-card-icon violet" aria-hidden="true">₨</div><div class="admin-card-titles"><h2>Payment account details</h2><p>Manage the bank and wallet information students see when submitting a payment.</p></div></div></div>
-    <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/settings" class="admin-form">
+    <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/settings" class="admin-form payment-accounts-form" data-payment-accounts-form>
       <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-      <div class="admin-form-row">
-        <div class="admin-field"><label class="admin-label" for="payment-account-title">Account title</label><input class="admin-input" id="payment-account-title" name="payment_account_title" maxlength="150" value="<?= $escape($paymentValues['payment_account_title'] ?? '') ?>" placeholder="Account holder name"></div>
-        <div class="admin-field"><label class="admin-label" for="payment-bank-name">Bank name</label><input class="admin-input" id="payment-bank-name" name="payment_bank_name" maxlength="100" value="<?= $escape($paymentValues['payment_bank_name'] ?? '') ?>" placeholder="Bank or provider"></div>
+      <div class="payment-account-editor-list" data-payment-account-list>
+        <?php foreach ($paymentAccounts as $index => $account): ?>
+          <fieldset class="payment-account-editor"><legend>Payment account <?= (int)$index + 1 ?></legend>
+            <button class="button button-secondary payment-account-remove" type="button" data-remove-payment-account aria-label="Remove payment account <?= (int)$index + 1 ?>">Remove</button>
+            <div class="admin-form-row"><div class="admin-field"><label class="admin-label">Account title</label><input class="admin-input" name="accounts[<?= (int)$index ?>][account_title]" maxlength="150" value="<?= $escape($account['account_title'] ?? '') ?>" placeholder="Account holder name"></div><div class="admin-field"><label class="admin-label">Bank name</label><input class="admin-input" name="accounts[<?= (int)$index ?>][bank_name]" maxlength="100" value="<?= $escape($account['bank_name'] ?? '') ?>" placeholder="Bank or provider"></div></div>
+            <div class="admin-form-row"><div class="admin-field"><label class="admin-label">Account number</label><input class="admin-input" name="accounts[<?= (int)$index ?>][account_number]" maxlength="80" value="<?= $escape($account['account_number'] ?? '') ?>" autocomplete="off"></div><div class="admin-field"><label class="admin-label">IBAN</label><input class="admin-input" name="accounts[<?= (int)$index ?>][iban]" maxlength="80" value="<?= $escape($account['iban'] ?? '') ?>" autocomplete="off"></div></div>
+            <div class="admin-form-row"><div class="admin-field"><label class="admin-label">Mobile wallet name</label><input class="admin-input" name="accounts[<?= (int)$index ?>][wallet_name]" maxlength="100" value="<?= $escape($account['wallet_name'] ?? '') ?>" placeholder="Optional"></div><div class="admin-field"><label class="admin-label">Mobile wallet number</label><input class="admin-input" name="accounts[<?= (int)$index ?>][wallet_number]" maxlength="80" value="<?= $escape($account['wallet_number'] ?? '') ?>" placeholder="Optional"></div></div>
+            <div class="admin-field"><label class="admin-label">Student payment instructions</label><textarea class="admin-textarea" name="accounts[<?= (int)$index ?>][instructions]" rows="2" maxlength="255" placeholder="Include your transaction reference when submitting payment proof."><?= $escape($account['instructions'] ?? '') ?></textarea></div>
+          </fieldset>
+        <?php endforeach; ?>
       </div>
-      <div class="admin-form-row">
-        <div class="admin-field"><label class="admin-label" for="payment-account-number">Account number</label><input class="admin-input" id="payment-account-number" name="payment_account_number" maxlength="80" value="<?= $escape($paymentValues['payment_account_number'] ?? '') ?>" autocomplete="off"></div>
-        <div class="admin-field"><label class="admin-label" for="payment-iban">IBAN</label><input class="admin-input" id="payment-iban" name="payment_iban" maxlength="80" value="<?= $escape($paymentValues['payment_iban'] ?? '') ?>" autocomplete="off"></div>
-      </div>
-      <div class="admin-form-row">
-        <div class="admin-field"><label class="admin-label" for="payment-wallet-name">Mobile wallet name</label><input class="admin-input" id="payment-wallet-name" name="payment_wallet_name" maxlength="100" value="<?= $escape($paymentValues['payment_wallet_name'] ?? '') ?>" placeholder="Optional"></div>
-        <div class="admin-field"><label class="admin-label" for="payment-wallet-number">Mobile wallet number</label><input class="admin-input" id="payment-wallet-number" name="payment_wallet_number" maxlength="80" value="<?= $escape($paymentValues['payment_wallet_number'] ?? '') ?>" placeholder="Optional"></div>
-      </div>
-      <div class="admin-field"><label class="admin-label" for="payment-instructions">Student payment instructions</label><textarea class="admin-textarea" id="payment-instructions" name="payment_instructions" rows="3" maxlength="255" placeholder="For example: include your transaction reference when submitting payment proof."><?= $escape($paymentValues['payment_instructions'] ?? '') ?></textarea><span class="admin-hint">Maximum 255 characters. Leave account fields blank until verified account details are available.</span></div>
-      <div class="form-actions"><button class="button" type="submit">Save payment details</button></div>
+      <template data-payment-account-template><fieldset class="payment-account-editor"><legend>Payment account</legend><button class="button button-secondary payment-account-remove" type="button" data-remove-payment-account>Remove</button><div class="admin-form-row"><div class="admin-field"><label class="admin-label">Account title</label><input class="admin-input" data-field="account_title" maxlength="150" placeholder="Account holder name"></div><div class="admin-field"><label class="admin-label">Bank name</label><input class="admin-input" data-field="bank_name" maxlength="100" placeholder="Bank or provider"></div></div><div class="admin-form-row"><div class="admin-field"><label class="admin-label">Account number</label><input class="admin-input" data-field="account_number" maxlength="80" autocomplete="off"></div><div class="admin-field"><label class="admin-label">IBAN</label><input class="admin-input" data-field="iban" maxlength="80" autocomplete="off"></div></div><div class="admin-form-row"><div class="admin-field"><label class="admin-label">Mobile wallet name</label><input class="admin-input" data-field="wallet_name" maxlength="100" placeholder="Optional"></div><div class="admin-field"><label class="admin-label">Mobile wallet number</label><input class="admin-input" data-field="wallet_number" maxlength="80" placeholder="Optional"></div></div><div class="admin-field"><label class="admin-label">Student payment instructions</label><textarea class="admin-textarea" data-field="instructions" rows="2" maxlength="255"></textarea></div></fieldset></template>
+      <div class="payment-account-editor-actions"><button class="button button-secondary" type="button" data-add-payment-account>+ Add another account</button><span class="admin-hint">Up to 12 accounts. Active accounts appear on the student payment page.</span></div>
+      <div class="form-actions"><button class="button" type="submit">Save payment accounts</button></div>
     </form>
   </section>
 
@@ -146,3 +148,34 @@ $inlineTotals = static function (array $totals): string {
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>
 </section>
+<script>
+(() => {
+  const form = document.querySelector('[data-payment-accounts-form]');
+  if (!form) return;
+  const list = form.querySelector('[data-payment-account-list]');
+  const template = form.querySelector('[data-payment-account-template]');
+  const renumber = () => list.querySelectorAll('.payment-account-editor').forEach((card, index) => {
+    card.querySelector('legend').textContent = `Payment account ${index + 1}`;
+    card.querySelectorAll('[data-field]').forEach(input => { input.name = `accounts[${index}][${input.dataset.field}]`; });
+    card.querySelectorAll('input[name], textarea[name]').forEach(input => {
+      if (input.dataset.field) return;
+      const field = input.name.match(/\]\[([^\]]+)\]$/)?.[1];
+      if (field) input.name = `accounts[${index}][${field}]`;
+    });
+    card.querySelector('[data-remove-payment-account]').setAttribute('aria-label', `Remove payment account ${index + 1}`);
+  });
+  form.addEventListener('click', event => {
+    if (event.target.closest('[data-add-payment-account]')) {
+      if (list.children.length >= 12) return;
+      list.append(template.content.cloneNode(true)); renumber();
+    }
+    if (event.target.closest('[data-remove-payment-account]')) {
+      const card = event.target.closest('.payment-account-editor');
+      if (list.children.length > 1) card.remove();
+      else card.querySelectorAll('input,textarea').forEach(input => { input.value = ''; });
+      renumber();
+    }
+  });
+  renumber();
+})();
+</script>

@@ -45,6 +45,15 @@ final class PaymentController
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {
             $paymentDetails[$setting['setting_key']] = $setting['setting_value'];
         }
+        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM payment_accounts WHERE is_active=1 ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
+        if ($paymentAccounts === [] && count(array_filter($paymentDetails, static fn($value): bool => trim((string)$value) !== '')) > 0) {
+            $paymentAccounts[] = [
+                'account_title' => $paymentDetails['payment_account_title'] ?? '', 'bank_name' => $paymentDetails['payment_bank_name'] ?? '',
+                'account_number' => $paymentDetails['payment_account_number'] ?? '', 'iban' => $paymentDetails['payment_iban'] ?? '',
+                'wallet_name' => $paymentDetails['payment_wallet_name'] ?? '', 'wallet_number' => $paymentDetails['payment_wallet_number'] ?? '',
+                'instructions' => $paymentDetails['payment_instructions'] ?? '',
+            ];
+        }
         $flash = $_SESSION['_flash'] ?? null;
         if (is_string($flash)) $flash = ['type' => 'success', 'text' => $flash];
         View::render('payments/form', [
@@ -54,6 +63,7 @@ final class PaymentController
             'hasPendingPayment' => (bool) $pending->fetchColumn(),
             'payments' => $history->fetchAll(),
             'paymentDetails' => $paymentDetails,
+            'paymentAccounts' => $paymentAccounts,
             'message' => is_array($flash) ? ($flash['text'] ?? null) : null,
             'messageType' => is_array($flash) ? ($flash['type'] ?? 'success') : 'success',
         ]);
@@ -161,7 +171,11 @@ final class PaymentController
         unset($currencyTotals);
         $paymentValues = [];
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
-        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
+        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM payment_accounts ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
+        if ($paymentAccounts === [] && count(array_filter($paymentValues, static fn($value): bool => trim((string)$value) !== '')) > 0) {
+            $paymentAccounts[] = ['account_title'=>$paymentValues['payment_account_title'] ?? '', 'bank_name'=>$paymentValues['payment_bank_name'] ?? '', 'account_number'=>$paymentValues['payment_account_number'] ?? '', 'iban'=>$paymentValues['payment_iban'] ?? '', 'wallet_name'=>$paymentValues['payment_wallet_name'] ?? '', 'wallet_number'=>$paymentValues['payment_wallet_number'] ?? '', 'instructions'=>$paymentValues['payment_instructions'] ?? ''];
+        }
+        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'paymentAccounts' => $paymentAccounts, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 

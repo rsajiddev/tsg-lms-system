@@ -42,6 +42,7 @@ foreach (
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/PaymentController.php',
+        '/app/Controllers/ReportsController.php',
         '/app/Controllers/QuizController.php',
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/NotificationController.php',
@@ -215,6 +216,8 @@ $router->post('/admin/settings', [\App\Controllers\AdminManagementController::cl
 $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::class, 'reviews']);
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
+$router->get('/admin/reports', [\App\Controllers\ReportsController::class, 'index']);
+$router->get('/admin/reports/download', [\App\Controllers\ReportsController::class, 'download']);
 $router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
 $router->get('/admin/payments/revenue-receipt', [\App\Controllers\PaymentController::class, 'revenueReceipt']);
 $router->post('/admin/payments/revenue-notify', [\App\Controllers\PaymentController::class, 'notifyDeveloper']);

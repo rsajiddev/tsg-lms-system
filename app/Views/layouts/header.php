@@ -85,6 +85,7 @@ $dashboardNavItems = $dashboardRole === 'admin'
         ['label' => 'Chats', 'href' => '/admin/chats', 'icon' => 'chat', 'badge' => 'messages', 'active' => $activePath === '/admin/chats'],
         ['label' => 'Certificates', 'href' => '/admin/certificates', 'icon' => 'certificate', 'badge' => 'certificates', 'active' => str_starts_with($activePath, '/admin/certificates')],
         ['label' => 'Revenue and payment', 'href' => '/admin/payments', 'icon' => 'card', 'badge' => 'payments', 'active' => $activePath === '/admin/payments'],
+        ['label' => 'Reports', 'href' => '/admin/reports', 'icon' => 'activity', 'active' => $activePath === '/admin/reports'],
         ['label' => 'Review moderation', 'href' => '/admin/reviews', 'icon' => 'star', 'badge' => 'reviews', 'active' => $activePath === '/admin/reviews'],
         ['label' => 'Security settings', 'href' => '/admin/settings', 'icon' => 'settings', 'active' => $activePath === '/admin/settings'],
         ['label' => 'My account', 'href' => '/admin/account', 'icon' => 'users', 'active' => $activePath === '/admin/account'],

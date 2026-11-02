@@ -102,6 +102,82 @@ final class PaymentReceiptJpg
         return self::jpeg($image);
     }
 
+    public static function renderReport(array $report): string
+    {
+        $rows = array_slice(is_array($report['rows'] ?? null) ? $report['rows'] : [], 0, 60);
+        $metrics = array_slice(is_array($report['metrics'] ?? null) ? $report['metrics'] : [], 0, 3);
+        $chart = array_slice(is_array($report['chart'] ?? null) ? $report['chart'] : [], 0, 4);
+        $columns = is_array($report['columns'] ?? null) ? $report['columns'] : [];
+        $height = 540 + (count($metrics) ? 150 : 0) + (count($rows) + 1) * 42 + 110;
+        $image = self::canvas(max(900, $height));
+        $white = self::color($image, 255, 255, 255);
+        $navy = self::color($image, 15, 23, 42);
+        $muted = self::color($image, 91, 107, 129);
+        $blue = self::color($image, 37, 99, 235);
+        $blueDark = self::color($image, 30, 64, 175);
+        $pale = self::color($image, 245, 248, 255);
+        $line = self::color($image, 226, 232, 240);
+        imagefilledrectangle($image, 2, 2, self::WIDTH - 3, 188, $blueDark);
+        imagefilledrectangle($image, 2, 2, 18, 188, $blue);
+        self::text($image, 'TechSG Studio Academy', 64, 64, $white, 29, true);
+        self::text($image, strtoupper((string)($report['period'] ?? 'Monthly')) . ' REPORT · ' . strtoupper((string)($report['type'] ?? '')), 64, 108, self::color($image, 219, 234, 254), 15, true);
+        self::wrapped($image, (string)($report['title'] ?? 'Academy report'), 64, 154, 950, $white, 23, true, 1);
+        self::text($image, (string)($report['period_range'] ?? ''), 64, 230, $navy, 19, true);
+        self::text($image, 'Generated ' . (string)($report['generated_at'] ?? date('M j, Y · g:i A T')), 64, 262, $muted, 13);
+
+        $metricTop = 296;
+        if ($metrics !== []) {
+            $gap = 14; $metricWidth = (976 - ($gap * (count($metrics) - 1))) / count($metrics);
+            foreach ($metrics as $index => $metric) {
+                $x = 72 + (int)($index * ($metricWidth + $gap));
+                self::box($image, $x, $metricTop, (int)$metricWidth, 112, $pale, $line);
+                self::text($image, strtoupper((string)($metric['label'] ?? '')), $x + 18, $metricTop + 32, $muted, 11, true);
+                self::wrapped($image, (string)($metric['value'] ?? '—'), $x + 18, $metricTop + 76, (int)$metricWidth - 36, $blueDark, 20, true, 2);
+            }
+            $chartTop = 440;
+            self::text($image, 'PERIOD SNAPSHOT', 72, $chartTop, $navy, 13, true);
+            $values = array_map(static fn(array $item): float => max(0, (float)($item['value'] ?? 0)), $chart);
+            $maxValue = max(1.0, ...$values);
+            foreach ($chart as $index => $metric) {
+                $rowY = $chartTop + 30 + ($index * 27);
+                self::text($image, self::fitText((string)($metric['label'] ?? ''), 28), 72, $rowY, $muted, 11, true);
+                imagefilledrectangle($image, 320, $rowY - 13, 900, $rowY - 2, $pale);
+                $barWidth = max(2, (int)(580 * (($values[$index] ?? 0) / $maxValue)));
+                imagefilledrectangle($image, 320, $rowY - 13, 320 + $barWidth, $rowY - 2, $blue);
+                self::text($image, self::fitText((string)($metric['value'] ?? ''), 16), 920, $rowY, $navy, 11, true);
+            }
+            $tableTop = 588;
+        } else $tableTop = 310;
+
+        self::text($image, 'REPORT DETAILS', 72, $tableTop, $navy, 16, true);
+        $headerY = $tableTop + 24;
+        imagefilledrectangle($image, 72, $headerY, 1048, $headerY + 38, $blue);
+        $count = max(1, count($columns));
+        $columnWidth = (int)(976 / $count);
+        foreach ($columns as $index => $column) self::text($image, self::fitText((string)$column, 20), 84 + ($index * $columnWidth), $headerY + 25, $white, 11, true);
+        $y = $headerY + 66;
+        foreach ($rows as $rowIndex => $row) {
+            if ($rowIndex % 2 === 0) imagefilledrectangle($image, 72, $y - 25, 1048, $y + 10, $pale);
+            foreach (array_slice(is_array($row) ? $row : [], 0, $count) as $columnIndex => $value) {
+                self::text($image, self::fitText((string)$value, max(11, (int)floor($columnWidth / 8))), 84 + ($columnIndex * $columnWidth), $y, $navy, 11);
+            }
+            $y += 42;
+        }
+        if ($rows === []) self::text($image, 'No records were found for this period.', 88, $y + 10, $muted, 15);
+        imageline($image, 72, $height - 80, 1048, $height - 80, $line);
+        self::text($image, 'TechSG Studio Academy · Internal administration report', 72, $height - 45, $muted, 12);
+        self::text($image, 'JPG', 1000, $height - 45, $blue, 12, true);
+        return self::jpeg($image);
+    }
+
+    private static function fitText(string $value, int $characters): string
+    {
+        $value = self::safeText($value);
+        if (function_exists('mb_strwidth') && mb_strwidth($value, 'UTF-8') > $characters) return mb_strimwidth($value, 0, max(4, $characters - 1), '…', 'UTF-8');
+        if (strlen($value) > $characters) return substr($value, 0, max(3, $characters - 1)) . '…';
+        return $value;
+    }
+
     private static function canvas(int $height): \GdImage
     {
         if (!extension_loaded('gd') || !function_exists('imagecreatetruecolor') || !function_exists('imagejpeg')) {

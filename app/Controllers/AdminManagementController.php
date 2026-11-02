@@ -55,16 +55,6 @@ final class AdminManagementController
         ],
     ];
 
-    private const PAYMENT_SETTINGS = [
-        'payment_account_title' => ['Account title', 150],
-        'payment_bank_name' => ['Bank name', 100],
-        'payment_account_number' => ['Account number', 80],
-        'payment_iban' => ['IBAN', 80],
-        'payment_wallet_name' => ['Mobile wallet name', 100],
-        'payment_wallet_number' => ['Mobile wallet number', 80],
-        'payment_instructions' => ['Payment instructions', 255],
-    ];
-
     /**
      * Other screens (payments, certificates, students, lesson library) share the app_settings
      * table with this page, so only the keys declared in SETTINGS are read or written here.
@@ -132,17 +122,34 @@ final class AdminManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
-            $saved = [];
-            foreach (self::PAYMENT_SETTINGS as $key => [$label, $max]) {
-                $value = trim((string)($_POST[$key] ?? ''));
-                if (mb_strlen($value) > $max) throw new \RuntimeException($label . ' must be ' . $max . ' characters or fewer.');
-                $upsert->execute([$key, $value, (int)$admin['id']]);
-                $saved[] = $key;
+            $accounts = $_POST['accounts'] ?? [];
+            if (!is_array($accounts) || count($accounts) > 12) throw new \RuntimeException('Add no more than 12 payment accounts.');
+            $columns = ['account_title' => 150, 'bank_name' => 100, 'account_number' => 80, 'iban' => 80, 'wallet_name' => 100, 'wallet_number' => 80, 'instructions' => 255];
+            $clean = [];
+            foreach ($accounts as $account) {
+                if (!is_array($account)) continue;
+                $row = [];
+                foreach ($columns as $key => $max) {
+                    $value = trim((string)($account[$key] ?? ''));
+                    if (mb_strlen($value) > $max) throw new \RuntimeException(ucwords(str_replace('_', ' ', $key)) . ' must be ' . $max . ' characters or fewer.');
+                    $row[$key] = $value;
+                }
+                if (implode('', $row) !== '') $clean[] = $row;
             }
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'payment.settings_updated','app_settings',JSON_OBJECT('keys',?))")->execute([(int)$admin['id'], implode(',', $saved)]);
+            if (count($clean) > 12) throw new \RuntimeException('Add no more than 12 payment accounts.');
+
+            $db->exec('DELETE FROM payment_accounts');
+            $insert = $db->prepare('INSERT INTO payment_accounts(account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions,sort_order) VALUES(?,?,?,?,?,?,?,?)');
+            foreach ($clean as $order => $row) $insert->execute([$row['account_title'], $row['bank_name'], $row['account_number'], $row['iban'], $row['wallet_name'], $row['wallet_number'], $row['instructions'], $order]);
+
+            // Keep the original settings keys in sync for older integrations that still read them.
+            $legacy = $clean[0] ?? array_fill_keys(array_keys($columns), '');
+            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $legacyMap = ['payment_account_title'=>'account_title','payment_bank_name'=>'bank_name','payment_account_number'=>'account_number','payment_iban'=>'iban','payment_wallet_name'=>'wallet_name','payment_wallet_number'=>'wallet_number','payment_instructions'=>'instructions'];
+            foreach ($legacyMap as $key => $field) $upsert->execute([$key, $legacy[$field], (int)$admin['id']]);
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'payment.settings_updated','payment_accounts',JSON_OBJECT('account_count',?))")->execute([(int)$admin['id'], count($clean)]);
             $db->commit();
-            $_SESSION['_flash'] = 'Payment account details saved.';
+            $_SESSION['_flash'] = count($clean) . ' payment account' . (count($clean) === 1 ? '' : 's') . ' saved.';
         } catch (\Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             throw $e;

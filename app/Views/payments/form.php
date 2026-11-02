@@ -2,7 +2,9 @@
 use App\Core\Security;
 $escape = [Security::class, 'escape'];
 $paymentDetails = $paymentDetails ?? [];
-$hasPaymentDetails = count(array_filter($paymentDetails, static fn($value): bool => trim((string) $value) !== '')) > 0;
+$paymentAccounts = is_array($paymentAccounts ?? null) ? $paymentAccounts : [];
+if ($paymentAccounts === [] && count(array_filter($paymentDetails, static fn($value): bool => trim((string) $value) !== '')) > 0) $paymentAccounts[] = ['account_title'=>$paymentDetails['payment_account_title'] ?? '', 'bank_name'=>$paymentDetails['payment_bank_name'] ?? '', 'account_number'=>$paymentDetails['payment_account_number'] ?? '', 'iban'=>$paymentDetails['payment_iban'] ?? '', 'wallet_name'=>$paymentDetails['payment_wallet_name'] ?? '', 'wallet_number'=>$paymentDetails['payment_wallet_number'] ?? '', 'instructions'=>$paymentDetails['payment_instructions'] ?? ''];
+$hasPaymentDetails = $paymentAccounts !== [];
 $options = [];
 if ($course['recorded_price'] !== null && (float) $course['recorded_price'] > 0) $options[] = ['code'=>'recorded_only','label'=>'Recorded Only','price'=>$course['recorded_price']];
 if ($course['live_price'] !== null && (float) $course['live_price'] > 0) $options[] = ['code'=>'live_recorded','label'=>'Live + Recorded','price'=>$course['live_price']];
@@ -22,12 +24,16 @@ foreach ($payments as $payment) {
       <div class="dashboard-panel-heading"><div><p class="eyebrow">SELECTED COURSE</p><h2><?= $escape($course['title']) ?></h2></div></div>
       <?php if ($hasPaymentDetails): ?>
         <div class="payment-help"><strong>Payment account details</strong>
-          <dl class="payment-account-details">
-            <?php foreach (['payment_account_title'=>'Account title','payment_bank_name'=>'Bank / provider','payment_account_number'=>'Account number','payment_iban'=>'IBAN','payment_wallet_name'=>'Mobile wallet','payment_wallet_number'=>'Wallet number'] as $key=>$label): ?>
-              <?php if (!empty($paymentDetails[$key])): ?><div><dt><?= $escape($label) ?></dt><dd><?= $escape($paymentDetails[$key]) ?></dd></div><?php endif; ?>
-            <?php endforeach; ?>
-          </dl>
-          <?php if (!empty($paymentDetails['payment_instructions'])): ?><p><?= nl2br($escape($paymentDetails['payment_instructions'])) ?></p><?php endif; ?>
+          <div class="student-payment-accounts">
+            <?php foreach ($paymentAccounts as $accountIndex => $account): ?><article class="student-payment-account"><h3><?= $escape($account['bank_name'] ?: ($account['wallet_name'] ?: 'Payment option')) ?></h3>
+              <dl class="payment-account-details">
+                <?php foreach (['account_title'=>'Account title','bank_name'=>'Bank / provider','account_number'=>'Account number','iban'=>'IBAN','wallet_name'=>'Mobile wallet','wallet_number'=>'Wallet number'] as $key=>$label): ?>
+                  <?php if (!empty($account[$key])): ?><div><dt><?= $escape($label) ?></dt><dd><?= $escape($account[$key]) ?></dd></div><?php endif; ?>
+                <?php endforeach; ?>
+              </dl>
+              <?php if (!empty($account['instructions'])): ?><p><?= nl2br($escape($account['instructions'])) ?></p><?php endif; ?>
+            </article><?php endforeach; ?>
+          </div>
           <p>Access is granted only after an administrator verifies the submitted transaction.</p>
         </div>
       <?php else: ?>

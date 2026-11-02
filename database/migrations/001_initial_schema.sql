@@ -1459,6 +1459,41 @@ UPDATE
 VALUES
        (setting_key);
 
+-- One institution may publish several transfer destinations for student checkout.
+CREATE TABLE IF NOT EXISTS payment_accounts (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       account_title VARCHAR(150) NOT NULL DEFAULT '',
+       bank_name VARCHAR(100) NOT NULL DEFAULT '',
+       account_number VARCHAR(80) NOT NULL DEFAULT '',
+       iban VARCHAR(80) NOT NULL DEFAULT '',
+       wallet_name VARCHAR(100) NOT NULL DEFAULT '',
+       wallet_number VARCHAR(80) NOT NULL DEFAULT '',
+       instructions VARCHAR(255) NOT NULL DEFAULT '',
+       is_active TINYINT(1) NOT NULL DEFAULT 1,
+       sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       INDEX idx_payment_account_display(is_active, sort_order, id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Preserve the original single-account settings when upgrading an existing installation.
+INSERT INTO payment_accounts(account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions)
+SELECT
+       COALESCE(MAX(CASE WHEN setting_key='payment_account_title' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_bank_name' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_account_number' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_iban' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_wallet_name' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_wallet_number' THEN setting_value END),''),
+       COALESCE(MAX(CASE WHEN setting_key='payment_instructions' THEN setting_value END),'')
+FROM app_settings
+HAVING (COALESCE(MAX(CASE WHEN setting_key='payment_account_title' THEN setting_value END),'') <> ''
+        OR COALESCE(MAX(CASE WHEN setting_key='payment_bank_name' THEN setting_value END),'') <> ''
+        OR COALESCE(MAX(CASE WHEN setting_key='payment_account_number' THEN setting_value END),'') <> ''
+        OR COALESCE(MAX(CASE WHEN setting_key='payment_wallet_name' THEN setting_value END),'') <> ''
+        OR COALESCE(MAX(CASE WHEN setting_key='payment_wallet_number' THEN setting_value END),'') <> '')
+   AND NOT EXISTS (SELECT 1 FROM payment_accounts);
+
 CREATE TABLE IF NOT EXISTS reviews (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        reviewer_type ENUM('student', 'client') NOT NULL,
