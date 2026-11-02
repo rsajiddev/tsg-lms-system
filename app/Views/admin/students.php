@@ -68,12 +68,15 @@ $accountId = static function (array $account): string {
     <?php \App\Core\View::toast('success', $message ?? null); ?>
     <?php \App\Core\View::toast('error', $error ?? null); ?>
 
+    <section class="dashboard-summary-card student-management-summary" aria-label="Student account totals">
+    <div class="dashboard-summary-heading"><div><p class="eyebrow">STUDENT DIRECTORY</p><h2>Account overview</h2></div><span><?= number_format((int) ($statusCounts['total'] ?? 0)) ?> total</span></div>
     <div class="student-overview-grid" aria-label="Student account totals">
         <article class="student-overview-card student-overview-card-primary"><span class="student-overview-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m17-11a4 4 0 0 1 0 8m-6-12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm5 14v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><span>Total students</span><strong><?= number_format((int) ($statusCounts['total'] ?? 0)) ?></strong><small>Accounts registered in the Academy</small></div></article>
         <article class="student-overview-card"><span class="student-overview-icon student-icon-active" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><span>Active</span><strong><?= number_format((int) ($statusCounts['active'] ?? 0)) ?></strong><small>Verified and able to sign in</small></div></article>
         <article class="student-overview-card"><span class="student-overview-icon student-icon-pending" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><span>Pending verification</span><strong><?= number_format((int) ($statusCounts['pending'] ?? 0)) ?></strong><small>Awaiting email confirmation</small></div></article>
         <article class="student-overview-card"><span class="student-overview-icon student-icon-blocked" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="m6 6 12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><div><span>Blocked</span><strong><?= number_format((int) ($statusCounts['suspended'] ?? 0)) ?></strong><small>Sign-in is disabled</small></div></article>
     </div>
+    </section>
 
     <?php if (empty($loginHistoryAvailable)): ?>
         <div class="student-schema-notice" role="status"><strong>Login history needs its database table.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. The student directory is available now; login totals and activity will appear after import.</span></div>

@@ -32,12 +32,15 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         </div>
     </header>
 
+    <section class="dashboard-summary-card dashboard-payment-summary" aria-label="Payment summary">
+        <div class="dashboard-summary-heading"><div><p class="eyebrow">PAYMENT OVERVIEW</p><h2>Your payment summary</h2></div><span><?= number_format(count($payments)) ?> records</span></div>
     <div class="dashboard-metrics" aria-label="Payment summary">
         <article class="dashboard-metric"><span class="dashboard-metric-icon">01</span><span class="dashboard-metric-label">Awaiting review</span><strong><?= number_format($pendingCount) ?></strong><small>Submissions the academy has not verified</small></article>
         <article class="dashboard-metric"><span class="dashboard-metric-icon">02</span><span class="dashboard-metric-label">Approved</span><strong><?= number_format($approvedCount) ?></strong><small>Access granted after verification</small></article>
         <article class="dashboard-metric"><span class="dashboard-metric-icon">03</span><span class="dashboard-metric-label">Rejected</span><strong><?= number_format($rejectedCount) ?></strong><small>Resubmit with corrected details</small></article>
         <article class="dashboard-metric"><span class="dashboard-metric-icon">04</span><span class="dashboard-metric-label">Total submissions</span><strong><?= number_format(count($payments)) ?></strong><small>All payment records on your account</small></article>
     </div>
+    </section>
 
     <section class="dashboard-panel">
         <div class="dashboard-panel-heading">

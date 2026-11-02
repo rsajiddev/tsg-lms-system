@@ -67,7 +67,10 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
     <div class="dashboard-topbar">
         <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
         <div class="dashboard-breadcrumb"><span>Workspace</span><i>/</i><strong><?= $isAdmin ? 'Admin dashboard' : 'Student dashboard' ?></strong></div>
-        <label class="dashboard-search"><span aria-hidden="true">⌕</span><input type="search" data-dashboard-search placeholder="Search dashboard..." aria-label="Search dashboard content"></label>
+        <div class="dashboard-search-wrap" data-dashboard-search-wrap data-search-url="<?= $escape($baseUrl) ?>/dashboard/search" data-search-base="<?= $escape($baseUrl) ?>">
+            <label class="dashboard-search"><span aria-hidden="true">⌕</span><input type="search" data-dashboard-search autocomplete="off" placeholder="Search courses, students, payments…" aria-label="Search across dashboard data" aria-controls="dashboard-search-results" aria-expanded="false"></label>
+            <div class="dashboard-search-results" id="dashboard-search-results" role="listbox" hidden><p class="dashboard-search-hint">Type at least two characters to search your dashboard.</p></div>
+        </div>
     </div>
 
     <div class="dashboard-heading analytics-heading">
@@ -123,6 +126,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             ['label' => 'Assignments to review', 'value' => $num($assignments['pendingReview'] ?? 0), 'hint' => $num($assignments['submitted'] ?? 0) . ' submitted · ' . $num($assignments['notSubmitted'] ?? 0) . ' pending', 'delta' => $num($assignments['late'] ?? 0) . ' late submissions', 'tone' => 'indigo', 'icon' => '✎'],
         ];
         ?>
+        <section class="dashboard-summary-card" aria-label="Key statistics">
+        <div class="dashboard-summary-heading"><div><p class="eyebrow">ACADEMY AT A GLANCE</p><h2>Performance snapshot</h2></div><span>Live overview</span></div>
         <div class="kpi-grid" aria-label="Key statistics">
             <?php foreach ($kpi as $item): ?>
                 <article class="kpi-card kpi-<?= $escape($item['tone']) ?>">
@@ -133,6 +138,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 </article>
             <?php endforeach; ?>
         </div>
+        </section>
 
         <div class="overview-layout admin-overview-layout">
         <div class="analytics-grid">
@@ -547,6 +553,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <?php endif; ?>
         </section>
 
+        <section class="dashboard-summary-card" aria-label="Your learning summary">
+        <div class="dashboard-summary-heading"><div><p class="eyebrow">YOUR PROGRESS</p><h2>Learning snapshot</h2></div><span>Personal overview</span></div>
         <div class="kpi-grid kpi-grid-student" aria-label="Your summary">
             <article class="kpi-card kpi-blue"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">📚</span><span class="kpi-label">My courses</span></div><strong class="kpi-value"><?= $num($student['activeCourseCount'] ?? 0) ?></strong><p class="kpi-hint">Active access grants</p></article>
             <article class="kpi-card kpi-emerald"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">✓</span><span class="kpi-label">Lessons completed</span></div><strong class="kpi-value"><?= $num($student['completedLessonCount'] ?? 0) ?></strong><p class="kpi-hint">Across your courses</p></article>
@@ -555,6 +563,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <article class="kpi-card kpi-amber"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">₨</span><span class="kpi-label">Pending payments</span></div><strong class="kpi-value"><?= $num($student['pendingPaymentCount'] ?? 0) ?></strong><p class="kpi-hint">Awaiting verification</p></article>
             <article class="kpi-card kpi-rose"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">🔔</span><span class="kpi-label">Unread notices</span></div><strong class="kpi-value"><?= $num($student['unreadNotificationCount'] ?? 0) ?></strong><p class="kpi-hint">From the Academy</p></article>
         </div>
+        </section>
 
         <div class="overview-layout student-overview-layout">
         <div class="dashboard-columns dashboard-student-overview">

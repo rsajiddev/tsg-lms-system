@@ -30,6 +30,8 @@ $totalStudents = count($students);
     <?php if (!$courseImagesAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Course image upload needs a database update.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Course management remains available; image uploads will unlock after the update.</span></div><?php endif; ?>
 
     <!-- Summary KPI Metrics -->
+    <section class="dashboard-summary-card admin-course-summary" aria-label="Course and enrollment overview">
+    <div class="dashboard-summary-heading"><div><p class="eyebrow">ACADEMY CATALOGUE</p><h2>Course overview</h2></div><span>Live totals</span></div>
     <div class="admin-stats-grid" aria-label="Course and Enrollment Overview">
         <article class="admin-stat-card">
             <div class="admin-stat-icon">
@@ -86,6 +88,7 @@ $totalStudents = count($students);
             </div>
         </article>
     </div>
+    </section>
 
     <!-- Course creation now owns the whole row; lesson authoring lives on the Lesson library page. -->
     <div class="admin-grid-2 admin-grid-single">

@@ -813,13 +813,92 @@
         });
     });
 
-    const dashboardSearch = document.querySelector('[data-dashboard-search]');
-    if (dashboardSearch) {
+    const searchWrap = document.querySelector('[data-dashboard-search-wrap]');
+    const dashboardSearch = searchWrap?.querySelector('[data-dashboard-search]');
+    const searchResults = searchWrap?.querySelector('.dashboard-search-results');
+    if (searchWrap && dashboardSearch && searchResults) {
+        let searchTimer = 0;
+        let searchRequest = null;
+        const closeSearch = () => {
+            searchResults.hidden = true;
+            dashboardSearch.setAttribute('aria-expanded', 'false');
+        };
+        const showSearchMessage = (message) => {
+            searchResults.replaceChildren();
+            const hint = document.createElement('p');
+            hint.className = 'dashboard-search-hint';
+            hint.textContent = message;
+            searchResults.append(hint);
+            searchResults.hidden = false;
+            dashboardSearch.setAttribute('aria-expanded', 'true');
+        };
+        const searchAcrossDashboard = async () => {
+            const query = dashboardSearch.value.trim();
+            if (query.length < 2) {
+                if (query) showSearchMessage('Type at least two characters to search your dashboard.');
+                else closeSearch();
+                return;
+            }
+            if (searchRequest) searchRequest.abort();
+            searchRequest = new AbortController();
+            showSearchMessage('Searching dashboard records…');
+            try {
+                const endpoint = searchWrap.dataset.searchUrl + '?q=' + encodeURIComponent(query);
+                const response = await fetch(endpoint, { headers: { Accept: 'application/json' }, signal: searchRequest.signal });
+                if (!response.ok) throw new Error('Search is unavailable. Try again.');
+                const payload = await response.json();
+                if (query !== dashboardSearch.value.trim()) return;
+                const items = Array.isArray(payload.results) ? payload.results : [];
+                searchResults.replaceChildren();
+                if (!items.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'dashboard-search-hint';
+                    empty.textContent = 'No matching dashboard records found.';
+                    searchResults.append(empty);
+                } else {
+                    items.forEach((item, index) => {
+                        const link = document.createElement('a');
+                        link.className = 'dashboard-search-result';
+                        link.href = searchWrap.dataset.searchBase + item.path;
+                        link.setAttribute('role', 'option');
+                        link.setAttribute('aria-selected', 'false');
+                        link.dataset.searchResultIndex = String(index);
+                        const copy = document.createElement('span');
+                        copy.className = 'dashboard-search-result-copy';
+                        const title = document.createElement('strong');
+                        title.textContent = item.label || 'Dashboard result';
+                        const detail = document.createElement('small');
+                        detail.textContent = item.detail || '';
+                        copy.append(title, detail);
+                        const type = document.createElement('span');
+                        type.className = 'dashboard-search-result-type';
+                        type.textContent = item.type || 'Result';
+                        link.append(copy, type);
+                        searchResults.append(link);
+                    });
+                }
+                searchResults.hidden = false;
+                dashboardSearch.setAttribute('aria-expanded', 'true');
+            } catch (error) {
+                if (error.name !== 'AbortError') showSearchMessage('Search is unavailable. Try again.');
+            }
+        };
+        dashboardSearch.addEventListener('focus', () => {
+            if (dashboardSearch.value.trim().length < 2) showSearchMessage('Search students, courses, assignments, payments and more.');
+        });
         dashboardSearch.addEventListener('input', () => {
-            const query = dashboardSearch.value.trim().toLocaleLowerCase();
-            document.querySelectorAll('.dashboard-searchable').forEach((item) => {
-                item.hidden = query !== '' && !item.textContent.toLocaleLowerCase().includes(query);
-            });
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(searchAcrossDashboard, 180);
+        });
+        dashboardSearch.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeSearch();
+            if (event.key === 'Enter') {
+                const first = searchResults.querySelector('.dashboard-search-result');
+                if (first) { event.preventDefault(); window.location.assign(first.href); }
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (!searchWrap.contains(event.target)) closeSearch();
         });
     }
 

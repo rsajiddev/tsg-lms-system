@@ -77,8 +77,8 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
     <?php \App\Core\View::toast('error', $error ?? null); ?>
     <?php if (!$videosAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Lesson video columns are missing from this database.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Lessons still appear here; video fields unlock after the import.</span></div><?php endif; ?>
 
-    <section class="admin-card lesson-lib-panel-card" aria-labelledby="lesson-lib-metrics-title">
-        <div class="lesson-lib-panel-head">
+    <section class="admin-card lesson-lib-panel-card dashboard-summary-card" aria-labelledby="lesson-lib-metrics-title">
+        <div class="lesson-lib-panel-head dashboard-summary-heading">
             <div>
                 <p class="eyebrow">AT A GLANCE</p>
                 <h2 id="lesson-lib-metrics-title">Library metrics</h2>

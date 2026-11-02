@@ -14577,8 +14577,134 @@ html.admin-modal-js .admin-modal.is-open {
   .dashboard-shell .dashboard-page .kpi-grid,
   .dashboard-shell .dashboard-page .kpi-grid-student {grid-template-columns:minmax(0,1fr)}
 }
-.todo-reminder[open] form {position:static;width:auto;margin:8px 0 2px;grid-column:2/-1;box-shadow:none}
-.todo-list li:has(.todo-reminder[open]) {grid-template-columns:24px minmax(0,1fr) 30px 30px}
-.todo-list li {grid-template-columns:24px minmax(0,1fr) auto 30px}
-.todo-reminder summary {width:auto;min-width:62px;padding:0 7px;font-size:10px;font-weight:800;white-space:nowrap}
-.todo-list li:has(.todo-reminder[open]) {grid-template-columns:24px minmax(0,1fr) auto 30px}
+.todo-list li {display:block;padding:11px 0}
+.todo-task-main {display:grid;grid-template-columns:24px minmax(0,1fr) 30px;align-items:center;gap:8px;min-width:0}
+.todo-task-main>form {margin:0}
+.todo-task-main .todo-title {min-width:0}
+.todo-reminder {display:block;margin:7px 38px 0 32px}
+.todo-reminder summary {display:inline-flex;min-height:29px;align-items:center;justify-content:center;padding:0 10px;border:1px solid #d7e2f1;border-radius:9px;background:#f7faff;color:#3864b8;font-size:11px;font-weight:800;cursor:pointer;list-style:none}
+.todo-reminder summary::-webkit-details-marker {display:none}
+.todo-reminder summary:focus-visible {outline:3px solid #93b4ff;outline-offset:2px}
+.todo-reminder form {display:grid;gap:10px;position:static;width:auto;margin:9px 0 2px;padding:12px;border:1px solid #dfe7f2;border-radius:13px;background:#f8faff;box-shadow:none;animation:todo-reminder-in .22s ease-out both}
+.todo-reminder[open] form {position:static;z-index:auto;top:auto;right:auto;width:auto;margin:9px 0 2px;padding:12px;border:1px solid #dfe7f2;border-radius:13px;background:#f8faff;box-shadow:none;animation:todo-reminder-in .22s ease-out both}
+.todo-reminder label {display:grid;gap:7px;color:#52637b;font-size:12px;font-weight:750}
+.todo-reminder input {width:100%;min-width:0;padding:9px;border:1px solid #cbd7e8;border-radius:9px;background:#fff;font:inherit}
+.todo-reminder .button {width:100%;margin:0;padding:9px;border:0;border-radius:9px;background:#2863e9;color:#fff;font-weight:750;cursor:pointer}
+@keyframes todo-reminder-in {from {opacity:0;transform:translateY(-5px)} to {opacity:1;transform:translateY(0)}}
+
+/* One blue summary surface replaces disconnected KPI tiles across dashboard modules. */
+.dashboard-summary-card {min-width:0;margin:0 0 22px;padding:22px 24px;border:1px solid #2f70ee;border-radius:22px;background:linear-gradient(125deg,#1559d9 0%,#2868e8 58%,#3155d9 100%);box-shadow:0 10px 25px #1e54c012;color:#fff;overflow:hidden}
+.dashboard-summary-heading {display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 8px;padding:0 0 15px;border-bottom:1px solid #ffffff35}
+.dashboard-summary-heading .eyebrow {margin:0 0 4px;color:#dbe8ff;font-size:10px;font-weight:850;letter-spacing:.14em}
+.dashboard-summary-heading h2 {margin:0;color:#fff;font-size:20px;font-weight:800;letter-spacing:-.035em}
+.dashboard-summary-heading>span {flex:0 0 auto;padding:7px 10px;border:1px solid #ffffff4a;border-radius:999px;background:#ffffff18;color:#fff;font-size:11px;font-weight:750}
+.dashboard-summary-card .kpi-grid,.dashboard-summary-card .student-overview-grid,.dashboard-summary-card .dashboard-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0}
+.dashboard-summary-card .admin-stats-grid,.dashboard-summary-card .lesson-lib-metrics-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:0}
+.dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-summary-card .dashboard-metric {display:flex;min-width:0;min-height:138px;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;padding:16px 18px;border:0;border-right:1px solid #ffffff32;border-bottom:1px solid #ffffff32;border-radius:0;background:transparent;box-shadow:none;color:#fff;overflow-wrap:anywhere}
+.dashboard-summary-card .kpi-card:nth-child(3n),.dashboard-summary-card .student-overview-card:nth-child(3n),.dashboard-summary-card .dashboard-metric:nth-child(3n) {border-right:0}
+.dashboard-summary-card .admin-stat-card,.dashboard-summary-card .lesson-lib-metric {display:flex;min-width:0;min-height:122px;align-items:center;gap:12px;padding:16px;border:0;border-right:1px solid #ffffff32;border-bottom:0;border-radius:0;background:transparent;box-shadow:none;color:#fff}
+.dashboard-summary-card .admin-stat-card:nth-child(4n),.dashboard-summary-card .lesson-lib-metric:nth-child(4n) {border-right:0}
+.dashboard-summary-card .admin-stat-icon,.dashboard-summary-card .lesson-lib-metric .admin-stat-icon {display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border-radius:12px;background:#ffffff20;color:#fff}
+.dashboard-summary-card .admin-stat-icon.green,.dashboard-summary-card .admin-stat-icon.purple,.dashboard-summary-card .admin-stat-icon.amber {background:#ffffff20;color:#fff}
+.dashboard-summary-card .admin-stat-body,.dashboard-summary-card .lesson-lib-metric-body {display:flex;min-width:0;flex-direction:column;gap:3px}
+.dashboard-summary-card .admin-stat-value,.dashboard-summary-card .lesson-lib-metric .admin-stat-value {color:#fff;font-size:clamp(24px,2.1vw,32px);font-weight:850;line-height:1.08}
+.dashboard-summary-card .admin-stat-label,.dashboard-summary-card .lesson-lib-metric .admin-stat-label {color:#e2ecff;font-size:11px;font-weight:750;line-height:1.4}
+.dashboard-summary-card .lesson-lib-panel-head {margin:0 0 8px;padding:0 0 15px;border-bottom:1px solid #ffffff35}
+.dashboard-summary-card .lesson-lib-panel-head .count-pill {border-color:#ffffff4a;background:#ffffff18;color:#fff}
+.dashboard-summary-card .kpi-card:nth-last-child(-n+3),.dashboard-summary-card .student-overview-card:nth-last-child(-n+3),.dashboard-summary-card .dashboard-metric:nth-last-child(-n+3) {border-bottom:0}
+.dashboard-summary-card .kpi-card:hover,.dashboard-summary-card .dashboard-metric:hover {transform:none;box-shadow:none}
+.dashboard-summary-card .kpi-top {display:flex;align-items:center;gap:8px}
+.dashboard-summary-card .kpi-icon,.dashboard-summary-card .dashboard-metric-icon,.dashboard-summary-card .student-overview-icon {display:grid;width:34px;height:34px;flex:0 0 34px;place-items:center;margin:0;border-radius:11px;background:#ffffff20;color:#fff;font-size:15px}
+.dashboard-summary-card .kpi-icon svg,.dashboard-summary-card .student-overview-icon svg {width:18px;height:18px}
+.dashboard-summary-card .kpi-label,.dashboard-summary-card .student-overview-card>div>span,.dashboard-summary-card .dashboard-metric-label {color:#e4edff;font-size:11px;font-weight:750;letter-spacing:.02em}
+.dashboard-summary-card .kpi-value,.dashboard-summary-card .student-overview-card strong,.dashboard-summary-card .dashboard-metric strong {margin:5px 0 0;color:#fff;font-size:clamp(25px,2.1vw,34px);font-weight:850;line-height:1.08;letter-spacing:-.04em}
+.dashboard-summary-card .kpi-hint,.dashboard-summary-card .kpi-delta,.dashboard-summary-card .student-overview-card small,.dashboard-summary-card .dashboard-metric small {margin:0;padding:0;color:#d5e3ff;font-size:10px;line-height:1.45;letter-spacing:0;text-transform:none}
+.dashboard-summary-card .kpi-delta {padding-top:3px}
+.dashboard-summary-card .dashboard-metric {gap:5px}
+.dashboard-payment-summary .dashboard-metrics {grid-template-columns:repeat(4,minmax(0,1fr))}
+.dashboard-payment-summary .dashboard-metric {border-bottom:0}
+.dashboard-payment-summary .dashboard-metric {min-height:128px}
+.dashboard-payment-summary .dashboard-metric:nth-child(3n) {border-right:1px solid #ffffff32}
+.dashboard-payment-summary .dashboard-metric:nth-child(4n) {border-right:0}
+.dashboard-payment-summary .dashboard-metric:nth-last-child(-n+3) {border-bottom:0}
+.dashboard-summary-card .student-overview-grid {grid-template-columns:repeat(4,minmax(0,1fr))}
+.dashboard-summary-card .student-overview-card {display:grid;grid-template-columns:36px minmax(0,1fr);align-content:center;gap:10px}
+.dashboard-summary-card .student-overview-card:nth-child(3n) {border-right:1px solid #ffffff32}
+.dashboard-summary-card .student-overview-card:nth-child(4n) {border-right:0}
+.dashboard-summary-card .student-overview-card:nth-last-child(-n+3) {border-bottom:0}
+.student-management-summary .student-overview-icon,.student-management-summary .student-overview-icon.student-icon-active,.student-management-summary .student-overview-icon.student-icon-pending,.student-management-summary .student-overview-icon.student-icon-blocked {background:#ffffff20;color:#fff}
+.student-management-summary .student-overview-card {border-bottom:0}
+
+/* Keep the content gutter balanced from the sidebar to the right edge. */
+body.dashboard-shell>main.dashboard-container {padding-inline:clamp(18px,2.1vw,34px)}
+body.dashboard-shell .dashboard-breadcrumb {display:none!important}
+body.dashboard-shell:not(.dashboard-overview) .dashboard-search {display:none!important}
+body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
+.dashboard-topbar {justify-content:flex-end;min-height:0;padding-top:10px}
+.dashboard-topbar .dashboard-menu-toggle {margin-right:auto}
+@media(min-width:903px) {body.dashboard-shell:not(.dashboard-overview) .dashboard-topbar {display:none}}
+
+/* The universal search is scoped to Overview and searches role-visible records. */
+.dashboard-search-wrap {position:relative;z-index:30;width:min(470px,48vw);margin-left:auto}
+.dashboard-search-wrap .dashboard-search {width:100%;min-width:0}
+.dashboard-search-results {position:absolute;top:calc(100% + 9px);right:0;left:0;max-height:min(70vh,540px);overflow:auto;border:1px solid #dfe7f2;border-radius:17px;background:#fff;box-shadow:0 18px 46px #11244022}
+.dashboard-search-results[hidden] {display:none}
+.dashboard-search-hint {margin:0;padding:16px;color:#718096;font-size:13px;line-height:1.5}
+.dashboard-search-result {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;border-bottom:1px solid #edf1f6;color:#1b2a41;text-decoration:none;transition:background .15s ease}
+.dashboard-search-result:last-child {border-bottom:0}
+.dashboard-search-result:hover,.dashboard-search-result:focus-visible {outline:0;background:#f4f7ff}
+.dashboard-search-result-copy {display:grid;min-width:0;gap:3px}
+.dashboard-search-result-copy strong {overflow:hidden;font-size:13px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-search-result-copy small {overflow:hidden;color:#75849a;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-search-result-type {flex:0 0 auto;padding:5px 8px;border-radius:999px;background:#edf3ff;color:#285dcc;font-size:10px;font-weight:800}
+
+/* Submission review is first on the admin assignment desk and gets a clear banner. */
+.assignment-submissions-card {padding:0;overflow:hidden}
+.assignment-submissions-banner {display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 24px;background:linear-gradient(120deg,#1559d9,#315fe3);color:#fff}
+.assignment-submissions-banner .eyebrow {margin:0 0 5px;color:#dbe8ff;font-size:10px;font-weight:850;letter-spacing:.14em}
+.assignment-submissions-banner h2 {margin:0;color:#fff;font-size:22px;letter-spacing:-.035em}
+.assignment-submissions-banner p:last-child {margin:6px 0 0;color:#e0eaff;font-size:13px}
+.assignment-review-count {flex:0 0 auto;padding:8px 12px;border:1px solid #ffffff55;border-radius:999px;background:#ffffff1a;color:#fff;font-size:12px;font-weight:800}
+.assignment-submissions-card>.admin-empty-state,.assignment-submissions-card>.assignment-review-list {margin:18px 22px 22px}
+.assignment-submissions-card .assignment-review-item {border:1px solid #e2eaf5;border-radius:18px;box-shadow:0 8px 22px #10284b0a}
+@media(max-width:900px) {
+  body.dashboard-shell>main.dashboard-container {padding-inline:clamp(16px,3vw,24px)}
+  .dashboard-summary-card .kpi-grid,.dashboard-summary-card .student-overview-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-summary-card .kpi-card:nth-child(3n),.dashboard-summary-card .student-overview-card:nth-child(3n) {border-right:1px solid #ffffff32}
+  .dashboard-summary-card .kpi-card:nth-child(2n),.dashboard-summary-card .student-overview-card:nth-child(2n) {border-right:0}
+  .dashboard-summary-card .kpi-card:nth-last-child(-n+3),.dashboard-summary-card .student-overview-card:nth-last-child(-n+3) {border-bottom:1px solid #ffffff32}
+  .dashboard-summary-card .kpi-card:nth-last-child(-n+2),.dashboard-summary-card .student-overview-card:nth-last-child(-n+2) {border-bottom:0}
+  .dashboard-summary-card .admin-stats-grid,.dashboard-summary-card .lesson-lib-metrics-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-summary-card .admin-stat-card:nth-child(2n),.dashboard-summary-card .lesson-lib-metric:nth-child(2n) {border-right:0}
+  .dashboard-summary-card .admin-stat-card:nth-child(-n+2),.dashboard-summary-card .lesson-lib-metric:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
+  .dashboard-summary-card .admin-stat-card:nth-last-child(-n+2),.dashboard-summary-card .lesson-lib-metric:nth-last-child(-n+2) {border-bottom:0}
+  .dashboard-payment-summary .dashboard-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-summary-card .dashboard-metric:nth-child(3n) {border-right:1px solid #ffffff32}
+  .dashboard-summary-card .dashboard-metric:nth-child(2n) {border-right:0}
+  .dashboard-summary-card .dashboard-metric:nth-last-child(-n+3) {border-bottom:1px solid #ffffff32}
+  .dashboard-summary-card .dashboard-metric:nth-last-child(-n+2) {border-bottom:0}
+  .dashboard-payment-summary .dashboard-metric:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
+  .student-management-summary .student-overview-card:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
+}
+@media(max-width:560px) {
+  body.dashboard-shell>main.dashboard-container {padding-inline:14px}
+  .dashboard-topbar {padding:8px 0}
+  .dashboard-search-wrap {width:100%;max-width:none}
+  .dashboard-summary-card {padding:17px 15px;border-radius:18px}
+  .dashboard-summary-heading {align-items:flex-start}
+  .dashboard-summary-heading h2 {font-size:18px}
+  .dashboard-summary-heading>span {padding:6px 8px;font-size:10px}
+  .dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-summary-card .dashboard-metric {min-height:120px;padding:13px 10px}
+  .dashboard-summary-card .kpi-value,.dashboard-summary-card .student-overview-card strong,.dashboard-summary-card .dashboard-metric strong {font-size:25px}
+  .assignment-submissions-banner {align-items:flex-start;padding:18px 16px}
+  .assignment-submissions-banner h2 {font-size:19px}
+  .assignment-submissions-card>.admin-empty-state,.assignment-submissions-card>.assignment-review-list {margin:12px}
+}
+@media(max-width:902px) {body.dashboard-shell:not(.dashboard-overview) .dashboard-topbar {display:flex!important;justify-content:flex-start;padding-top:8px}}
+@media(max-width:380px) {
+  .dashboard-summary-card .kpi-grid,.dashboard-summary-card .student-overview-grid,.dashboard-payment-summary .dashboard-metrics,.dashboard-summary-card .admin-stats-grid,.dashboard-summary-card .lesson-lib-metrics-grid {grid-template-columns:minmax(0,1fr)}
+  .dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-payment-summary .dashboard-metric {border-right:0!important;border-bottom:1px solid #ffffff32!important}
+  .dashboard-summary-card .kpi-card:last-child,.dashboard-summary-card .student-overview-card:last-child,.dashboard-payment-summary .dashboard-metric:last-child {border-bottom:0!important}
+  .dashboard-summary-card .admin-stat-card,.dashboard-summary-card .lesson-lib-metric {border-right:0!important;border-bottom:1px solid #ffffff32!important}
+  .dashboard-summary-card .admin-stat-card:last-child,.dashboard-summary-card .lesson-lib-metric:last-child {border-bottom:0!important}
+}

@@ -36,6 +36,7 @@ foreach (
         '/app/Controllers/AccountController.php',
         '/app/Controllers/DashboardController.php',
         '/app/Controllers/DashboardTaskController.php',
+        '/app/Controllers/DashboardSearchController.php',
         '/app/Controllers/LearningController.php',
         '/app/Controllers/StudentPortalController.php',
         '/app/Controllers/CourseAdminController.php',
@@ -128,6 +129,7 @@ $router->post('/forgot-password', [$auth, 'forgot']);
 $router->get('/reset-password', [$auth, 'resetPage']);
 $router->post('/reset-password', [$auth, 'reset']);
 $router->get('/dashboard', [\App\Controllers\DashboardController::class, 'show']);
+$router->get('/dashboard/search', [\App\Controllers\DashboardSearchController::class, 'search']);
 $router->post('/dashboard/tasks/add', [\App\Controllers\DashboardTaskController::class, 'add']);
 $router->post('/dashboard/tasks/toggle', [\App\Controllers\DashboardTaskController::class, 'toggle']);
 $router->post('/dashboard/tasks/delete', [\App\Controllers\DashboardTaskController::class, 'delete']);

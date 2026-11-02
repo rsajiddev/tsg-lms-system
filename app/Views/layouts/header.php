@@ -136,7 +136,7 @@ unset($dashboardNavItem);
     <script src="<?= Security::escape($baseUrl) ?>/public/assets/js/main.js?v=<?= (string) filemtime(BASE_PATH . '/public/assets/js/main.js') ?>" defer></script>
 </head>
 
-<body<?= $dashboardArea ? ' class="dashboard-shell"' : '' ?>>
+<body<?= $dashboardArea ? ' class="dashboard-shell' . ($activePath === '/dashboard' ? ' dashboard-overview' : '') . '"' : '' ?>>
     <?php if ($dashboardArea): ?>
         <aside class="dashboard-sidebar" id="dashboard-sidebar" aria-label="Dashboard navigation">
             <div class="dashboard-sidebar-head">
