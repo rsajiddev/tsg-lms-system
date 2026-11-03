@@ -659,6 +659,57 @@
         update();
     });
 
+    /* Donut hover tooltip. The ring is a single conic-gradient, so the slice under the pointer is */
+    /* recovered from the angle around the centre and matched to the server-supplied segment list. */
+
+    document.querySelectorAll('[data-donut-tooltip]').forEach((wrap) => {
+        const donut = wrap.querySelector('.donut');
+        const tip = wrap.querySelector('.donut-tooltip');
+        if (!donut || !tip) return;
+
+        let segments = [];
+        try { segments = JSON.parse(donut.dataset.donutSegments || '[]'); } catch (error) { segments = []; }
+        const total = segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0);
+        if (total <= 0) return;
+
+        const hide = () => {
+            tip.classList.remove('is-visible');
+            tip.setAttribute('aria-hidden', 'true');
+        };
+        const show = (clientX, clientY) => {
+            const rect = donut.getBoundingClientRect();
+            const dx = clientX - (rect.left + rect.width / 2);
+            const dy = clientY - (rect.top + rect.height / 2);
+            const radius = rect.width / 2;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance > radius || distance < radius * 0.5) { hide(); return; }
+            let degrees = (Math.atan2(dx, -dy) * 180) / Math.PI;
+            if (degrees < 0) degrees += 360;
+            const point = degrees / 3.6;
+            let cursor = 0;
+            let active = segments[segments.length - 1];
+            for (const segment of segments) {
+                cursor += ((Number(segment.value) || 0) / total) * 100;
+                if (point < cursor) { active = segment; break; }
+            }
+            tip.textContent = '';
+            const swatch = document.createElement('i');
+            swatch.style.background = active.color;
+            const label = document.createTextNode(`${active.label} `);
+            const value = document.createElement('strong');
+            value.textContent = `${active.value} · ${active.pct}%`;
+            tip.append(swatch, label, value);
+            const wrapRect = wrap.getBoundingClientRect();
+            tip.style.left = `${clientX - wrapRect.left}px`;
+            tip.style.top = `${clientY - wrapRect.top}px`;
+            tip.classList.add('is-visible');
+            tip.setAttribute('aria-hidden', 'false');
+        };
+
+        donut.addEventListener('pointermove', (event) => show(event.clientX, event.clientY));
+        donut.addEventListener('pointerleave', hide);
+    });
+
     /* Lesson video player. The browser only ever reports where the playhead has reached, and the */
     /* server turns those reports into capped forward deltas, so nothing here can hand out         */
     /* completion credit by itself. Heartbeats stop while the tab is hidden, because an embed      */

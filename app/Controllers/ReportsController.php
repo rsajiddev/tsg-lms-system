@@ -7,8 +7,7 @@ namespace App\Controllers;
 use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
-use App\Services\PaymentReceiptJpg;
-use App\Services\PaymentReceiptPdf;
+use App\Services\DocumentPdf;
 use PDO;
 
 final class ReportsController
@@ -35,7 +34,7 @@ final class ReportsController
         $reports = $this->reports(Database::connection(), $period);
         $report = $type === 'all' ? $this->consolidated($reports, $period) : $reports[$type];
         $report['type'] = $type;
-        $pdf = PaymentReceiptPdf::fromJpegs(PaymentReceiptJpg::renderReport($report));
+        $pdf = DocumentPdf::report($report);
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="techsg-' . $type . '-' . $period['key'] . '.pdf"');
         header('Content-Length: ' . strlen($pdf));

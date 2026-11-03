@@ -32,7 +32,7 @@ final class EmailLayout
     public const SIGN_ACADEMY = 'academy';
 
     private const NAVY = '#0f172a';
-    private const BLUE = '#2563eb';
+    private const BLUE = '#002147';
     private const TEXT = '#334155';
     private const MUTED = '#64748b';
     private const BORDER = '#e2e8f0';
@@ -81,7 +81,7 @@ final class EmailLayout
         }
 
         if (($view['notice'] ?? '') !== '') {
-            $rows .= self::block('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-left:4px solid ' . self::BLUE . ';background:#eff6ff;margin:0 0 20px;"><tr><td style="padding:12px 16px;font-size:14px;line-height:23px;color:#1e3a8a;">' . $e((string) $view['notice']) . '</td></tr></table>');
+            $rows .= self::block('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-left:4px solid ' . self::BLUE . ';background:#eaf0f8;margin:0 0 20px;"><tr><td style="padding:12px 16px;font-size:14px;line-height:23px;color:#002147;">' . $e((string) $view['notice']) . '</td></tr></table>');
         }
         $rows .= self::paragraphs($view['closing'] ?? [], $e);
 

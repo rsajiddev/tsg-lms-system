@@ -51,7 +51,7 @@ $inlineTotals = static function (array $totals): string {
       <p>Track approved course revenue, manage payment details, and review student submissions.</p>
     </div>
     <div class="revenue-page-toolbar">
-      <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/payments/revenue-receipt?format=pdf"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4-4 4"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>Download PDF</a>
+      <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/payments/revenue-receipt?format=pdf"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4-4 4"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>Download receipt</a>
       <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/revenue-notify"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><button class="button" type="submit"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>Notify developer</button></form>
     </div>
   </header>

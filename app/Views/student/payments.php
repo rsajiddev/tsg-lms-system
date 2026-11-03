@@ -79,7 +79,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                                 <td data-label="Status"><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
                                 <td data-label="Submitted"><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
                                 <td data-label="Payment proof"><?php if (!empty($payment['payment_proof_path'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View uploaded proof</a><?php else: ?><small>—</small><?php endif; ?></td>
-                                <td data-label="Academy receipt"><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt?payment_id=<?= (int) $payment['id'] ?>">View receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
+                                <td data-label="Academy receipt"><?php if ($payment['status'] === 'approved' && !empty($payment['receipt_number'])): ?><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/payments/receipt/download?payment_id=<?= (int) $payment['id'] ?>&amp;format=pdf">Download receipt</a><?php else: ?><small><?= $payment['status'] === 'pending' ? 'After approval' : 'Not issued' ?></small><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -99,7 +99,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         'Attach the receipt or screenshot. A clear image of the confirmation is stored privately with your submission.',
         'Approved unlocks the course. Access, your downloadable receipt and a notification all arrive together.',
         'Declined says why. The review note explains what to correct, and you can send the payment again after fixing it.',
-        'Every row keeps its history. Status, amount, date and the receipt link stay on this page for your records.',
+        'Every row keeps its history. Status, amount, date and the receipt download stay on this page for your records.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
