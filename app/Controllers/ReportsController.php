@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
 use App\Services\PaymentReceiptJpg;
+use App\Services\PaymentReceiptPdf;
 use PDO;
 
 final class ReportsController
@@ -34,17 +35,17 @@ final class ReportsController
         $reports = $this->reports(Database::connection(), $period);
         $report = $type === 'all' ? $this->consolidated($reports, $period) : $reports[$type];
         $report['type'] = $type;
-        $jpg = PaymentReceiptJpg::renderReport($report);
-        header('Content-Type: image/jpeg');
-        header('Content-Disposition: attachment; filename="techsg-' . $type . '-' . $period['key'] . '.jpg"');
-        header('Content-Length: ' . strlen($jpg));
-        echo $jpg;
+        $pdf = PaymentReceiptPdf::fromJpeags(PaymentReceiptJpg::renderReport($report));
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="techsg-' . $type . '-' . $period['key'] . '.pdf"');
+        header('Content-Length: ' . strlen($pdf));
+        echo $pdf;
     }
 
     /**
-     * A single summarised export that rolls every desk except payments into one report: the
-     * headline figure from each section becomes a summary tile, and each section's metrics are
-     * listed as Section / Measure / Value rows so nothing is left out.
+     * A single summarised export that rolls every desk into one report (payments are kept out of
+     * this pack): the headline figure from each section becomes a summary tile, and each section's
+     * metrics are listed as Section / Measure / Value rows so nothing is left out.
      */
     private function consolidated(array $reports, array $period): array
     {
@@ -64,7 +65,7 @@ final class ReportsController
             'type' => 'all',
             'period' => $period['label'],
             'period_range' => $period['start_date'] . ' – ' . $period['end_date'],
-            'title' => 'Consolidated academy report (excluding payments)',
+            'title' => 'Consolidated academy report',
             'generated_at' => date('M j, Y · g:i A T'),
             'metrics' => $metrics,
             'chart' => [],

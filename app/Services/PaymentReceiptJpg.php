@@ -13,13 +13,16 @@ namespace App\Services;
  *  - renderRevenue()  the monthly revenue statement exported from the admin payment desk.
  *  - renderReport()   the branded period report exported from the admin Reports desk.
  *
- * Everything is authored in logical pixels and multiplied by SCALE (2x) so the files come out
- * crisp and HD, and the JPEG is encoded at maximum quality.
+ * Every document is laid out on an A4 portrait canvas at 300 DPI. The report paginates across as
+ * many A4 pages as its rows require (PaymentReceiptPdf wraps those pages into a single PDF). The
+ * JPEG is encoded at maximum quality.
  */
 final class PaymentReceiptJpg
 {
-    private const SCALE = 2;
+    private const SCALE = 3;
     private const QUALITY = 100;
+    private const A4_WIDTH = 2480;
+    private const A4_HEIGHT = 3508;
 
     private const BRAND = 'Tech SG Academy';
     private const COMPANY = 'Tech SG Studio (SMC-Pvt.) Ltd.';
@@ -36,72 +39,91 @@ final class PaymentReceiptJpg
 
     public static function renderReceipt(array $payment): string
     {
-        $width = 760;
-        $height = 1000;
-        $image = self::canvas($width, $height);
+        $width = 827;
+        $height = 1169;
+        $image = self::canvas($width, $height, true);
         $c = self::palette($image);
 
-        // Light page behind the white card, matching the browser view.
         self::rect($image, 0, 0, $width, $height, $c['page']);
-        // Soft shadow, then the card itself.
-        self::roundRect($image, 32, 34, 704, 940, 26, $c['shadow']);
-        self::roundRect($image, 28, 28, 704, 940, 26, $c['white'], $c['border']);
+        self::roundRect($image, 24, 28, 779, 1112, 20, $c['white'], $c['border']);
+        self::roundRect($image, 24, 28, 779, 250, 20, $c['brand']);
+        self::rect($image, 24, 50, 8, 205, $c['blue']);
 
-        $center = (int) ($width / 2);
-        $left = 78;
-        $right = $width - 78;
-
-        // Hero: green success check inside a pale ring.
-        self::circle($image, $center, 112, 112, $c['ring']);
-        self::circle($image, $center, 112, 84, $c['green']);
-        self::check($image, $center, 112, $c['white']);
-
-        self::text($image, 'Payment Successful!', $center, 214, $c['navy'], 30, true, 'serif', 'center');
-        self::text($image, 'OFFICIAL RECEIPT', $center, 246, $c['blue'], 15, true, 'sans', 'center');
-        self::text($image, self::BRAND . ' · Course enrollment', $center, 272, $c['muted'], 15, false, 'sans', 'center');
-
-        self::dashedLine($image, $left, $right, 304, $c['dash']);
-
+        $left = 58;
+        $right = 769;
         $currency = strtoupper(trim((string) ($payment['currency'] ?? ''))) ?: 'PKR';
         $amountLabel = $currency . ' ' . number_format((float) ($payment['amount'] ?? 0), 2);
-        $issued = self::issuedLabel($payment['receipt_issued_at'] ?? null);
+        $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
+        $course = (string) ($payment['course_title'] ?? 'Course enrollment');
+        $center = (int) ($width / 2);
 
-        self::metaRow($image, $left, 340, 'Receipt No:', (string) ($payment['receipt_number'] ?? '—'), $c);
-        self::metaRow($image, $left, 374, 'Issued:', $issued, $c);
-        self::metaRow($image, $left, 408, 'Payment Method:', 'Verified bank / wallet transfer', $c);
+        for ($row = 0; $row < 3; $row++) {
+            for ($col = 0; $col < 3; $col++) {
+                self::circle($image, $left + $col * 13, 61 + $row * 13, 7, $c['bandText']);
+            }
+        }
+        self::text($image, self::BRAND, 112, 68, $c['white'], 24, true);
+        self::text($image, self::COMPANY, 112, 91, $c['bandText'], 11);
+        self::text($image, 'CONTACT', $right, 57, $c['white'], 11, true, 'sans', 'right');
+        self::text($image, self::CITY, $right, 76, $c['bandText'], 10, false, 'sans', 'right');
+        self::text($image, self::PHONE, $right, 94, $c['bandText'], 10, false, 'sans', 'right');
+        self::text($image, self::EMAIL, $right, 112, $c['bandText'], 10, false, 'sans', 'right');
+        self::line($image, $left, 133, $right, 133, $c['brandLine']);
+        self::text($image, 'OFFICIAL PAYMENT RECEIPT', $left, 174, $c['white'], 26, true);
+        self::text($image, 'VERIFIED COURSE ENROLLMENT', $left, 198, $c['bandText'], 11, true);
+        self::text($image, 'RECEIPT NUMBER', $left, 224, $c['bandText'], 9, true);
+        self::text($image, self::fit($image, $receiptNumber, 13, true, 'sans', 300), $left, 247, $c['white'], 13, true);
+        self::text($image, 'ISSUED', $right, 224, $c['bandText'], 9, true, 'sans', 'right');
+        self::text($image, self::issuedLabel($payment['receipt_issued_at'] ?? null), $right, 247, $c['white'], 12, true, 'sans', 'right');
 
-        self::dashedLine($image, $left, $right, 440, $c['dash']);
-
-        self::text($image, 'Items', $left, 474, $c['navy'], 15, true);
-        self::text($image, 'Amount', $right, 474, $c['navy'], 15, true, 'sans', 'right');
-        $course = self::fit($image, (string) ($payment['course_title'] ?? 'Course enrollment'), 15, false, 'sans', $right - $left - 190);
-        self::text($image, '1x', $left, 508, $c['navy'], 15, true);
-        $qtyW = self::textWidth('1x ', 15, true) + 6;
-        self::text($image, $course, $left + $qtyW, 508, $c['text'], 15, false);
-        self::text($image, $amountLabel, $right, 508, $c['navy'], 15, true, 'sans', 'right');
-        self::text($image, 'Course enrollment payment · fully verified by the Academy', $left, 532, $c['muted'], 12, false);
-
-        self::dashedLine($image, $left, $right, 560, $c['dash']);
-
-        self::text($image, 'Subtotal', $left, 592, $c['muted'], 15, false);
-        self::text($image, $amountLabel, $right, 592, $c['navy'], 15, true, 'sans', 'right');
-        self::text($image, 'Total Paid', $left, 632, $c['navy'], 18, true);
-        self::text($image, $amountLabel, $right, 632, $c['navy'], 21, true, 'sans', 'right');
-
-        self::dashedLine($image, $left, $right, 664, $c['dash']);
-
-        $colRight = $center + 24;
-        self::text($image, 'BILLED TO', $left, 692, $c['muted'], 11, true);
-        self::text($image, self::fit($image, (string) ($payment['student_name'] ?? 'Student'), 15, true, 'sans', $center - $left - 20), $left, 720, $c['navy'], 15, true);
+        self::roundRect($image, 48, 302, 354, 124, 12, $c['pale'], $c['border']);
+        self::roundRect($image, 425, 302, 354, 124, 12, $c['pale'], $c['border']);
+        self::text($image, 'BILLED TO', 68, 329, $c['blueDark'], 10, true);
+        self::text($image, self::fit($image, (string) ($payment['student_name'] ?? 'Student'), 17, true, 'sans', 310), 68, 359, $c['navy'], 17, true);
         $email = (string) ($payment['student_email'] ?? '');
-        if ($email !== '') self::text($image, self::fit($image, $email, 12, false, 'sans', $center - $left - 20), $left, 744, $c['muted'], 12, false);
-        self::text($image, 'TRANSACTION REFERENCE', $colRight, 692, $c['muted'], 11, true);
-        self::text($image, self::fit($image, (string) ($payment['transaction_reference'] ?? '—'), 14, false, 'sans', $right - $colRight), $colRight, 720, $c['text'], 14, false);
+        self::text($image, self::fit($image, $email !== '' ? $email : 'Student account', 11, false, 'sans', 310), 68, 385, $c['muted'], 11);
+        self::text($image, 'PAYMENT DETAILS', 445, 329, $c['blueDark'], 10, true);
+        self::text($image, 'Verified bank / wallet transfer', 445, 359, $c['navy'], 13, true);
+        self::text($image, 'TRANSACTION REFERENCE', 445, 385, $c['muted'], 9, true);
+        self::text($image, self::fit($image, (string) ($payment['transaction_reference'] ?? '—'), 11, false, 'sans', 310), 445, 407, $c['text'], 11);
 
-        self::text($image, 'Thanks for learning with ' . self::BRAND . '!', $center, 792, $c['navy'], 17, true, 'sans', 'center');
-        self::text($image, 'Issued by ' . self::COMPANY, $center, 822, $c['muted'], 13, false, 'sans', 'center');
-        self::text($image, 'This receipt confirms payment received for the course listed above.', $center, 846, $c['muted'], 12, false, 'sans', 'center');
-        self::text($image, self::PHONE . '  ·  ' . self::EMAIL . '  ·  ' . self::WEB, $center, 882, $c['blue'], 13, true, 'sans', 'center');
+        self::text($image, 'PAYMENT SUMMARY', $left, 474, $c['navy'], 15, true);
+        self::roundRect($image, $left, 495, $right - $left, 38, 8, $c['navyBand']);
+        self::text($image, 'DESCRIPTION', $left + 14, 520, $c['white'], 10, true);
+        self::text($image, 'QTY.', 645, 520, $c['white'], 10, true, 'sans', 'center');
+        self::text($image, 'AMOUNT', $right - 14, 520, $c['white'], 10, true, 'sans', 'right');
+        self::text($image, self::fit($image, $course, 14, true, 'sans', 490), $left + 14, 563, $c['navy'], 14, true);
+        self::text($image, 'Course enrollment · fully verified', $left + 14, 584, $c['muted'], 10);
+        self::text($image, '1', 645, 558, $c['text'], 13, false, 'sans', 'center');
+        self::text($image, $amountLabel, $right - 14, 558, $c['navy'], 14, true, 'sans', 'right');
+        self::line($image, $left, 600, $right, 600, $c['border']);
+
+        self::roundRect($image, 48, 624, 354, 174, 12, $c['pale'], $c['border']);
+        self::text($image, 'PAYMENT STATUS', 68, 653, $c['blueDark'], 10, true);
+        self::circle($image, 83, 691, 24, $c['ring']);
+        self::check($image, 83, 691, $c['green']);
+        self::text($image, 'PAID IN FULL', 105, 697, $c['navy'], 14, true);
+        self::text($image, 'This receipt confirms payment received', 68, 735, $c['muted'], 11);
+        self::text($image, 'for the course listed above.', 68, 754, $c['muted'], 11);
+        self::text($image, 'Issued by ' . self::COMPANY, 68, 779, $c['muted'], 9);
+
+        self::roundRect($image, 425, 624, 354, 174, 12, $c['white'], $c['border']);
+        self::text($image, 'Subtotal', 447, 657, $c['muted'], 12);
+        self::text($image, $amountLabel, 757, 657, $c['text'], 12, true, 'sans', 'right');
+        self::line($image, 447, 674, 757, 674, $c['border']);
+        self::roundRect($image, 445, 692, 314, 78, 12, $c['brand']);
+        self::text($image, 'TOTAL PAID', 465, 722, $c['bandText'], 10, true);
+        self::text($image, $amountLabel, 739, 749, $c['white'], 20, true, 'sans', 'right');
+
+        self::text($image, 'Thank you for learning with ' . self::BRAND . '!', $center, 869, $c['navy'], 18, true, 'sans', 'center');
+        self::text($image, 'We appreciate your trust in the Academy.', $center, 895, $c['muted'], 12, false, 'sans', 'center');
+        self::line($image, 505, 978, 755, 978, $c['border']);
+        self::text($image, 'AUTHORISED SIGNATURE', 755, 998, $c['muted'], 9, true, 'sans', 'right');
+
+        self::roundRect($image, 48, 1040, 731, 78, 12, $c['navyBand']);
+        self::text($image, self::BRAND . '  ·  ' . self::WEB, 68, 1073, $c['white'], 13, true);
+        self::text($image, self::PHONE . '  ·  ' . self::EMAIL, 68, 1097, $c['bandText'], 10);
+        self::text($image, 'Keep this receipt for your records.', 757, 1085, $c['bandText'], 10, false, 'sans', 'right');
 
         return self::jpeg($image);
     }
@@ -109,9 +131,9 @@ final class PaymentReceiptJpg
     public static function renderRevenue(array $report): string
     {
         $rates = is_array($report['rates'] ?? null) ? $report['rates'] : [];
-        $width = 820;
-        $height = 560 + (count($rates) * 46) + 150;
-        $image = self::canvas($width, $height);
+        $width = 827;
+        $height = 1169;
+        $image = self::canvas($width, $height, true);
         $c = self::palette($image);
 
         self::rect($image, 0, 0, $width, $height, $c['page']);
@@ -143,18 +165,20 @@ final class PaymentReceiptJpg
         $headerY = 470;
         self::rect($image, $left, $headerY - 20, $right - $left, 34, $c['navyBand']);
         foreach ($cols as $col) self::text($image, strtoupper($col['head']), $col['x'], $headerY, $c['white'], 11, true, 'sans', $col['align']);
+        $rowHeight = max(10, min(36, intdiv(510, max(1, count($rates)))));
+        $rowFontSize = max(9, min(13, (int) floor($rowHeight * 0.36)));
         $y = $headerY + 40;
         foreach ($rates as $index => $rate) {
-            if ($index % 2 === 0) self::rect($image, $left, $y - 22, $right - $left, 40, $c['pale']);
+            if ($index % 2 === 0) self::rect($image, $left, $y - (int) floor($rowHeight * 0.55), $right - $left, $rowHeight, $c['pale']);
             foreach ($cols as $col) {
                 if ($col['key'] === 'currency') {
-                    self::text($image, strtoupper((string) ($rate['currency'] ?? '')), $col['x'], $y, $c['navy'], 13, true);
+                    self::text($image, strtoupper((string) ($rate['currency'] ?? '')), $col['x'], $y, $c['navy'], $rowFontSize, true);
                     continue;
                 }
                 $colour = $col['bold'] ? $c['green'] : $c['text'];
-                self::text($image, number_format((float) ($rate[$col['key']] ?? 0), 2), $col['x'], $y, $colour, 13, $col['bold'], 'sans', $col['align']);
+                self::text($image, number_format((float) ($rate[$col['key']] ?? 0), 2), $col['x'], $y, $colour, $rowFontSize, $col['bold'], 'sans', $col['align']);
             }
-            $y += 40;
+            $y += $rowHeight;
         }
         if ($rates === []) self::text($image, 'No approved payments recorded for this month.', $left, $y, $c['muted'], 14, false);
 
@@ -163,171 +187,207 @@ final class PaymentReceiptJpg
         return self::jpeg($image);
     }
 
-    public static function renderReport(array $report): string
+    /**
+     * Build the branded period report as one or more A4 pages (300 DPI). Rows that no longer fit
+     * on a page flow onto the next A4 page with a repeated table header, and every page carries a
+     * footer band with a "Page x of y" marker. The returned JPEG pages are wrapped into a PDF by
+     * PaymentReceiptPdf, so the download itself is always a PDF document.
+     *
+     * @return list<string> one JPEG byte string per A4 page
+     */
+    public static function renderReport(array $report): array
     {
         $rows = array_slice(is_array($report['rows'] ?? null) ? $report['rows'] : [], 0, 60);
         $metrics = array_slice(is_array($report['metrics'] ?? null) ? $report['metrics'] : [], 0, 4);
-        $chart = array_slice(is_array($report['chart'] ?? null) ? $report['chart'] : [], 0, 4);
         $columns = array_values(is_array($report['columns'] ?? null) ? $report['columns'] : []);
+        $title = self::safeText((string) ($report['title'] ?? 'Academy report'));
+        $periodRange = (string) ($report['period_range'] ?? '');
+        $generated = (string) ($report['generated_at'] ?? date('M j, Y'));
 
-        $width = 820;
+        $width = 827;
+        $height = self::A4_HEIGHT / self::SCALE;
+        $height = (int) round($height);
         $left = 56;
         $right = $width - 56;
         $center = (int) ($width / 2);
 
-        // Vertical rhythm is computed up front so the canvas is exactly tall enough and the white
-        // table card always overlaps the header band by a fixed amount.
-        $bandTop = 24;
-        $bandH = 214;
+        // Shared horizontal table geometry.
         $cardLeft = 40;
         $cardRight = $width - 40;
-        $cardTop = $bandTop + $bandH - 30;
-        $padX = 26;
+        $padX = 24;
         $innerLeft = $cardLeft + $padX;
         $innerRight = $cardRight - $padX;
-        $headTop = $cardTop + 40;
-        $headH = 42;
-        $rowH = 34;
-        $rowCount = max(1, count($rows));
-        $tableBottom = $headTop + $headH + $rowCount * $rowH;
-        $cardBottom = $tableBottom + 22;
-        $secTop = $cardBottom + 30;
-        $secH = 176;
-        $secBottom = $secTop + $secH;
-        $footTop = $secBottom + 34;
-        $footH = 60;
-        $height = $footTop + $footH + 24;
-
-        $image = self::canvas($width, (int) $height);
-        $c = self::palette($image);
-
-        self::rect($image, 0, 0, $width, (int) $height, $c['page']);
-        self::roundRect($image, 24, 24, $width - 48, (int) $height - 48, 22, $c['white']);
-
-        // Header band in the requested brand navy (#0B1B3A).
-        self::roundRect($image, 24, $bandTop, $width - 48, $bandH, 22, $c['brand']);
-
-        // Logo mark: a 3x3 dot grid, then the brand name and tagline.
-        $dot = 7;
-        $dotGap = 5;
-        $gridX = $left;
-        $gridY = $bandTop + 34;
-        for ($r = 0; $r < 3; $r++) {
-            for ($col = 0; $col < 3; $col++) {
-                self::rect($image, (int) ($gridX + $col * ($dot + $dotGap)), (int) ($gridY + $r * ($dot + $dotGap)), $dot, $dot, $c['bandText']);
-            }
-        }
-        $logoW = 3 * $dot + 2 * $dotGap;
-        self::text($image, self::BRAND, (int) ($left + $logoW + 16), $bandTop + 52, $c['white'], 24, true, 'sans');
-        self::text($image, self::TAGLINE, (int) ($left + $logoW + 16), $bandTop + 74, $c['bandText'], 12, false, 'sans');
-
-        // Contact block, right aligned.
-        self::text($image, 'CONTACT', $right, $bandTop + 44, $c['white'], 12, true, 'sans', 'right');
-        self::text($image, self::CITY, $right, $bandTop + 64, $c['bandText'], 11, false, 'sans', 'right');
-        self::text($image, self::PHONE, $right, $bandTop + 82, $c['bandText'], 11, false, 'sans', 'right');
-        self::text($image, self::EMAIL, $right, $bandTop + 100, $c['bandText'], 11, false, 'sans', 'right');
-
-        // Lower band row: prepared-for / period / generated. Kept clear of the card overlap below.
-        self::line($image, $left, $bandTop + $bandH - 96, $right, $bandTop + $bandH - 96, $c['brandLine'], 1);
-        $metaLabelY = $bandTop + $bandH - 78;
-        $metaValueY = $bandTop + $bandH - 56;
-        self::text($image, 'PREPARED FOR', $left, $metaLabelY, $c['bandText'], 10, true, 'sans');
-        self::text($image, 'Academy administration', $left, $metaValueY, $c['white'], 13, true, 'sans');
-        self::text($image, 'REPORTING PERIOD', 300, $metaLabelY, $c['bandText'], 10, true, 'sans');
-        self::text($image, self::fit($image, (string) ($report['period_range'] ?? ''), 13, true, 'sans', 250), 300, $metaValueY, $c['white'], 13, true, 'sans');
-        self::text($image, 'GENERATED', $right, $metaLabelY, $c['bandText'], 10, true, 'sans', 'right');
-        self::text($image, (string) ($report['generated_at'] ?? date('M j, Y')), $right, $metaValueY, $c['white'], 12, false, 'sans', 'right');
-
-        // Table card (white, overlapping the band bottom).
-        self::roundRect($image, $cardLeft, $cardTop, $cardRight - $cardLeft, $cardBottom - $cardTop, 16, $c['white'], $c['border']);
-        self::text($image, self::fit($image, (string) ($report['title'] ?? 'Academy report'), 18, true, 'sans', $innerRight - $innerLeft), $innerLeft, $cardTop + 24, $c['navy'], 18, true, 'sans');
-
-        // Header row.
-        self::roundRect($image, $innerLeft, $headTop, $innerRight - $innerLeft, $headH, 8, $c['brand']);
-        $noW = 52;
-        $dataW = ($innerRight - $innerLeft) - $noW;
+        $noW = 46;
         $colCount = max(1, count($columns));
-        $colW = (int) ($dataW / $colCount);
-        $headBase = $headTop + (int) ($headH / 2) + 5;
-        self::text($image, 'NO.', $innerLeft + 14, $headBase, $c['white'], 11, true, 'sans');
-        foreach ($columns as $index => $column) {
-            $cx = $innerLeft + $noW + (int) ($index * $colW);
-            self::text($image, self::fit($image, strtoupper((string) $column), 11, true, 'sans', $colW - 16), $cx + 8, $headBase, $c['white'], 11, true, 'sans');
-        }
+        $colW = (int) ((($innerRight - $innerLeft) - $noW) / $colCount);
 
-        // Data rows with alternating tint and a running number.
-        for ($ri = 0; $ri < $rowCount; $ri++) {
-            $rowTop = $headTop + $headH + (int) ($ri * $rowH);
-            $base = $rowTop + (int) ($rowH / 2) + 5;
-            if ($ri % 2 === 0) self::rect($image, $innerLeft, $rowTop, $innerRight - $innerLeft, $rowH, $c['pale']);
-            $row = is_array($rows[$ri] ?? null) ? $rows[$ri] : null;
-            if ($row === null) {
-                self::text($image, 'No records were found for this period.', $innerLeft + 14, $base, $c['muted'], 12, false, 'sans');
-                continue;
-            }
-            self::text($image, (string) ($ri + 1), $innerLeft + 14, $base, $c['muted'], 12, false, 'sans');
-            foreach (array_slice($row, 0, $colCount) as $ci => $value) {
-                $cx = $innerLeft + $noW + (int) ($ci * $colW);
-                self::text($image, self::fit($image, (string) $value, 12, false, 'sans', $colW - 16), $cx + 8, $base, $c['text'], 12, false, 'sans');
-            }
-        }
+        // Shared vertical geometry.
+        $rowH = 30;
+        $headH = 40;
+        $footBandH = 46;
+        $footBandTop = $height - 24 - $footBandH;
+        $bottomLimit = $footBandTop - 18;
 
-        // Summary box (left).
-        $boxW = 336;
-        self::roundRect($image, $cardLeft, $secTop, $boxW, $secH, 14, $c['white'], $c['border']);
-        self::rect($image, $cardLeft, $secTop, 6, $secH, $c['brand']);
-        self::text($image, 'REPORT SUMMARY', $cardLeft + 22, $secTop + 30, $c['brand'], 12, true, 'sans');
-        if ($metrics === []) {
-            self::text($image, 'No headline figures for this period.', $cardLeft + 22, $secTop + 60, $c['muted'], 12, false, 'sans');
-        }
-        $my = $secTop + 58;
-        foreach ($metrics as $metric) {
-            self::text($image, self::fit($image, (string) ($metric['label'] ?? ''), 12, false, 'sans', $boxW - 130), $cardLeft + 22, $my, $c['muted'], 12, false, 'sans');
-            self::text($image, self::fit($image, (string) ($metric['value'] ?? '—'), 13, true, 'sans', $boxW - 160), $cardLeft + $boxW - 22, $my, $c['navy'], 13, true, 'sans', 'right');
-            self::line($image, $cardLeft + 22, $my + 12, $cardLeft + $boxW - 22, $my + 12, $c['border'], 1);
-            $my += 30;
-        }
+        // Page 1 reserves room for the full header band plus an "at a glance" summary strip.
+        $bandTop = 24;
+        $bandH = 196;
+        $cardTop = $bandTop + $bandH - 30;
+        $sumTop = $cardTop + 50;
+        $sumH = 92;
+        $sumBottom = $sumTop + $sumH;
+        $p1HeadTop = $sumBottom + 18;
+        $p1FirstRow = $p1HeadTop + $headH;
+        $p1Capacity = max(1, intdiv($bottomLimit - $p1FirstRow, $rowH));
 
-        // Period snapshot bars (right).
-        $rx = $cardLeft + $boxW + 24;
-        $rw = $cardRight - $rx;
-        self::text($image, 'PERIOD SNAPSHOT', $rx, $secTop + 30, $c['brand'], 12, true, 'sans');
-        if ($chart !== []) {
-            $values = array_map(static fn(array $item): float => max(0, (float) ($item['value'] ?? 0)), $chart);
-            $maxValue = $values === [] ? 1.0 : max(1.0, ...$values);
-            $barLabelW = 150;
-            $barTrackW = $rw - $barLabelW - 74;
-            $by = $secTop + 58;
-            foreach ($chart as $index => $metric) {
-                self::text($image, self::fit($image, (string) ($metric['label'] ?? ''), 11, false, 'sans', $barLabelW - 8), $rx, $by, $c['muted'], 11, false, 'sans');
-                self::roundRect($image, (int) ($rx + $barLabelW), $by - 10, (int) $barTrackW, 12, 6, $c['pale']);
-                $barW = (int) round($barTrackW * (($values[$index] ?? 0) / $maxValue));
-                if ($barW > 4) self::roundRect($image, (int) ($rx + $barLabelW), $by - 10, $barW, 12, 6, $c['brand']);
-                self::text($image, self::fit($image, (string) ($metric['value'] ?? ''), 11, true, 'sans', 62), $rx + $rw, $by, $c['navy'], 11, true, 'sans', 'right');
-                $by += 30;
-            }
+        // Continuation pages use a slim band and start the table higher up.
+        $contBandBottom = 104;
+        $contCardTop = $contBandBottom - 24;
+        $contHeadTop = $contCardTop + 52;
+        $contFirstRow = $contHeadTop + $headH;
+        $contCapacity = max(1, intdiv($bottomLimit - $contFirstRow, $rowH));
+
+        // Slice the rows across A4 pages: page 1 takes p1Capacity, the rest take contCapacity each.
+        $pages = [];
+        if ($rows === []) {
+            $pages[] = ['rows' => [], 'start' => 0, 'first' => true];
         } else {
-            self::text($image, 'No distribution snapshot for this period.', $rx, $secTop + 58, $c['muted'], 12, false, 'sans');
+            $offset = 0;
+            $firstChunk = array_slice($rows, 0, $p1Capacity);
+            $pages[] = ['rows' => $firstChunk, 'start' => $offset, 'first' => true];
+            $offset += count($firstChunk);
+            while ($offset < count($rows)) {
+                $chunk = array_slice($rows, $offset, $contCapacity);
+                $pages[] = ['rows' => $chunk, 'start' => $offset, 'first' => false];
+                $offset += count($chunk);
+            }
+        }
+        $total = count($pages);
+        $grandTotal = count($rows);
+
+        $images = [];
+        foreach ($pages as $pageIndex => $page) {
+            $pageRows = $page['rows'];
+            $count = max(1, count($pageRows));
+            $first = $page['first'];
+            $headTop = $first ? $p1HeadTop : $contHeadTop;
+            $firstRow = $first ? $p1FirstRow : $contFirstRow;
+            $tableBottom = $firstRow + $count * $rowH;
+            $thisCardTop = $first ? $cardTop : $contCardTop;
+            $cardBottom = max($tableBottom, $first ? $sumBottom : $thisCardTop) + 16;
+
+            $image = self::canvas($width, $height, true);
+            $c = self::palette($image);
+            self::rect($image, 0, 0, $width, $height, $c['page']);
+            self::roundRect($image, 24, 24, $width - 48, $height - 48, 20, $c['white']);
+
+            if ($first) {
+                // Full brand header band with logo, contact, and prepared-for/period/generated row.
+                self::roundRect($image, 24, $bandTop, $width - 48, $bandH, 18, $c['brand']);
+                self::rect($image, 24, $bandTop + 20, 8, $bandH - 40, $c['blue']);
+                $dot = 7;
+                $dotGap = 5;
+                $gridX = $left;
+                $gridY = $bandTop + 30;
+                for ($r = 0; $r < 3; $r++) {
+                    for ($col = 0; $col < 3; $col++) {
+                        self::rect($image, (int) ($gridX + $col * ($dot + $dotGap)), (int) ($gridY + $r * ($dot + $dotGap)), $dot, $dot, $c['bandText']);
+                    }
+                }
+                $logoW = 3 * $dot + 2 * $dotGap;
+                self::text($image, self::BRAND, (int) ($left + $logoW + 16), $bandTop + 48, $c['white'], 22, true);
+                self::text($image, self::TAGLINE, (int) ($left + $logoW + 16), $bandTop + 70, $c['bandText'], 11);
+                self::text($image, 'CONTACT', $right, $bandTop + 40, $c['white'], 11, true, 'sans', 'right');
+                self::text($image, self::CITY, $right, $bandTop + 60, $c['bandText'], 10, false, 'sans', 'right');
+                self::text($image, self::PHONE, $right, $bandTop + 78, $c['bandText'], 10, false, 'sans', 'right');
+                self::text($image, self::EMAIL, $right, $bandTop + 96, $c['bandText'], 10, false, 'sans', 'right');
+                self::line($image, $left, $bandTop + $bandH - 78, $right, $bandTop + $bandH - 78, $c['brandLine']);
+                $metaLabelY = $bandTop + $bandH - 58;
+                $metaValueY = $bandTop + $bandH - 38;
+                self::text($image, 'PREPARED FOR', $left, $metaLabelY, $c['bandText'], 10, true, 'sans');
+                self::text($image, 'Academy administration', $left, $metaValueY, $c['white'], 13, true, 'sans');
+                self::text($image, 'REPORTING PERIOD', 300, $metaLabelY, $c['bandText'], 10, true, 'sans');
+                self::text($image, self::fit($image, $periodRange, 12, true, 'sans', 240), 300, $metaValueY, $c['white'], 12, true, 'sans');
+                self::text($image, 'GENERATED', $right, $metaLabelY, $c['bandText'], 10, true, 'sans', 'right');
+                self::text($image, self::fit($image, $generated, 11, false, 'sans', 220), $right, $metaValueY, $c['white'], 11, false, 'sans', 'right');
+
+                // White table card (overlaps the band) with title + "at a glance" summary strip.
+                self::roundRect($image, $cardLeft, $cardTop, $cardRight - $cardLeft, $cardBottom - $cardTop, 14, $c['white'], $c['border']);
+                self::text($image, self::fit($image, $title, 18, true, 'sans', ($innerRight - $innerLeft) - 130), $innerLeft, $cardTop + 30, $c['navy'], 18, true);
+                self::text($image, number_format($grandTotal) . ' records', $innerRight, $cardTop + 30, $c['muted'], 11, false, 'sans', 'right');
+                self::reportSummary($image, $innerLeft, $sumTop, $innerRight - $innerLeft, $sumH, $metrics, $c);
+            } else {
+                // Slim brand band for continuation pages, then the table card continues.
+                self::roundRect($image, 24, 24, $width - 48, $contBandBottom - 24, 16, $c['brand']);
+                self::rect($image, 24, 44, 8, $contBandBottom - 64, $c['blue']);
+                self::text($image, self::BRAND, $left + 20, 68, $c['white'], 16, true);
+                self::text($image, self::fit($image, $title, 11, false, 'sans', 360), $right, 68, $c['bandText'], 11, false, 'sans', 'right');
+                $contLabel = 'Rows ' . number_format($page['start'] + 1) . '-' . number_format($page['start'] + count($pageRows)) . ' of ' . number_format($grandTotal);
+                self::roundRect($image, $cardLeft, $contCardTop, $cardRight - $cardLeft, $cardBottom - $contCardTop, 14, $c['white'], $c['border']);
+                self::text($image, $title . ' (continued)', $innerLeft, $contCardTop + 32, $c['navy'], 14, true);
+                self::text($image, $contLabel, $innerRight, $contCardTop + 32, $c['muted'], 11, false, 'sans', 'right');
+            }
+
+            // Table header row (repeated on every page).
+            self::roundRect($image, $innerLeft, $headTop, $innerRight - $innerLeft, $headH, 8, $c['brand']);
+            $headBase = $headTop + (int) ($headH / 2) + 5;
+            self::text($image, 'NO.', $innerLeft + 14, $headBase, $c['white'], 10, true);
+            foreach ($columns as $ci => $column) {
+                $cx = $innerLeft + $noW + (int) ($ci * $colW);
+                self::text($image, self::fit($image, strtoupper((string) $column), 10, true, 'sans', $colW - 20), $cx + 10, $headBase, $c['white'], 10, true, 'sans');
+            }
+
+            // Data rows: fixed height, alternating tint, a hairline separator, and padded cells.
+            if ($pageRows === []) {
+                $rowTop = $firstRow;
+                if ($rowTop % 2 === 0) self::rect($image, $innerLeft, $rowTop, $innerRight - $innerLeft, $rowH, $c['pale']);
+                self::text($image, 'No records were found for this period.', $innerLeft + 14, $rowTop + 20, $c['muted'], 12);
+            }
+            foreach ($pageRows as $ri => $row) {
+                $abs = $page['start'] + $ri;
+                $rowTop = $firstRow + (int) ($ri * $rowH);
+                $base = $rowTop + 20;
+                if ($abs % 2 === 0) self::rect($image, $innerLeft, $rowTop, $innerRight - $innerLeft, $rowH, $c['pale']);
+                if ($abs > 0) self::line($image, $innerLeft, $rowTop, $innerRight, $rowTop, $c['border']);
+                self::text($image, (string) ($abs + 1), $innerLeft + 14, $base, $c['muted'], 11, false);
+                foreach (array_slice(is_array($row) ? $row : [], 0, $colCount) as $ci => $value) {
+                    $cx = $innerLeft + $noW + (int) ($ci * $colW);
+                    self::text($image, self::fit($image, (string) $value, 11, false, 'sans', $colW - 20), $cx + 10, $base, $c['text'], 11);
+                }
+            }
+
+            // Authorised signature (only on the final page, just under the table).
+            if ($pageIndex === $total - 1) {
+                $sigY = $tableBottom + 6;
+                self::line($image, $right - 220, $sigY + 14, $right, $sigY + 14, $c['border']);
+                self::text($image, 'Authorised signature', $right, $sigY + 30, $c['muted'], 10, false, 'sans', 'right');
+            }
+
+            // Footer band on every page with the brand line and page marker.
+            self::roundRect($image, $cardLeft, $footBandTop, $cardRight - $cardLeft, $footBandH, 12, $c['brand']);
+            self::text($image, 'Thank you — ' . self::BRAND . ' · Internal administration report · ' . self::WEB, $innerLeft + 8, $footBandTop + (int) ($footBandH / 2) + 4, $c['white'], 12, false, 'sans');
+            self::text($image, 'Page ' . ($pageIndex + 1) . ' of ' . $total, $innerRight - 8, $footBandTop + (int) ($footBandH / 2) + 4, $c['bandText'], 12, true, 'sans', 'right');
+
+            $images[] = self::jpeg($image);
         }
 
-        // Total records pill.
-        $pillW = 210;
-        $pillH = 42;
-        $pillX = $cardRight - $pillW;
-        $pillY = $secBottom - $pillH;
-        self::roundRect($image, $pillX, $pillY, $pillW, $pillH, 10, $c['brand']);
-        self::text($image, 'Total records', $pillX + 16, $pillY + 26, $c['bandText'], 12, false, 'sans');
-        self::text($image, (string) count($rows), $pillX + $pillW - 16, $pillY + 27, $c['white'], 16, true, 'sans', 'right');
+        return $images;
+    }
 
-        // Authorised signature line.
-        self::line($image, $rx, $secBottom - 4, $pillX - 24, $secBottom - 4, $c['border'], 1);
-        self::text($image, 'Authorised signature', $rx, $secBottom + 14, $c['muted'], 10, false, 'sans');
-
-        // Bottom band.
-        self::roundRect($image, $cardLeft, $footTop, $cardRight - $cardLeft, $footH, 14, $c['brand']);
-        self::text($image, self::BRAND . ' · Internal administration report · ' . self::WEB, $center, $footTop + (int) ($footH / 2) + 5, $c['white'], 12, false, 'sans', 'center');
-
-        return self::jpeg($image);
+    /** Draws the "at a glance" summary strip (headline metric tiles) shown at the top of page 1. */
+    private static function reportSummary(\GdImage $image, int $x, int $y, int $w, int $h, array $metrics, array $c): void
+    {
+        self::roundRect($image, $x, $y, $w, $h, 12, $c['pale'], $c['border']);
+        if ($metrics === []) {
+            self::text($image, 'No headline figures for this period.', $x + 20, $y + (int) ($h / 2) + 4, $c['muted'], 12);
+            return;
+        }
+        $cellW = (int) ($w / max(1, count($metrics)));
+        foreach ($metrics as $index => $metric) {
+            $cx = $x + (int) ($index * $cellW);
+            if ($index > 0) self::line($image, $cx, $y + 16, $cx, $y + $h - 16, $c['border']);
+            self::text($image, self::fit($image, strtoupper((string) ($metric['label'] ?? '')), 9, true, 'sans', $cellW - 34), $cx + 20, $y + 34, $c['muted'], 9, true);
+            self::text($image, self::fit($image, (string) ($metric['value'] ?? '—'), 18, true, 'sans', $cellW - 34), $cx + 20, $y + 66, $c['navy'], 18, true);
+        }
     }
 
     /* ------------------------------------------------------------------ shared blocks */
@@ -391,12 +451,16 @@ final class PaymentReceiptJpg
 
     /* ------------------------------------------------------------------ primitives */
 
-    private static function canvas(int $logicalWidth, int $logicalHeight): \GdImage
+    private static function canvas(int $logicalWidth, int $logicalHeight, bool $a4 = false): \GdImage
     {
         if (!extension_loaded('gd') || !function_exists('imagecreatetruecolor') || !function_exists('imagejpeg')) {
             throw new \RuntimeException('The GD extension is required to generate JPG documents.');
         }
-        $image = imagecreatetruecolor($logicalWidth * self::SCALE, $logicalHeight * self::SCALE);
+        $image = imagecreatetruecolor(
+            $a4 ? self::A4_WIDTH : $logicalWidth * self::SCALE,
+            $a4 ? self::A4_HEIGHT : $logicalHeight * self::SCALE
+        );
+        imageresolution($image, 300, 300);
         imageantialias($image, true);
         imagealphablending($image, true);
         imagefill($image, 0, 0, self::color($image, 255, 255, 255));
