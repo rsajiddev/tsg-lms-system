@@ -7034,7 +7034,7 @@ body.dashboard-shell>main.dashboard-container {
   overflow: hidden;
   padding: 20px 17px 16px;
   border-radius: 18px;
-  background: linear-gradient(145deg, #2563eb 0%, #4f46e5 58%, #6d28d9 100%);
+  background: #002147;
   color: #fff;
   box-shadow: 0 14px 28px #4338ca2b
 }
@@ -7064,6 +7064,10 @@ body.dashboard-shell>main.dashboard-container {
   line-height: 1.5
 }
 
+.dashboard-logout-identity {min-width:0;margin:0 0 15px}
+.dashboard-logout-identity strong {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-logout-identity p {margin:4px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 .dashboard-logout-card form {
   margin: 0
 }
@@ -7086,10 +7090,37 @@ body.dashboard-shell>main.dashboard-container {
   cursor: pointer;
   transition: background .18s ease
 }
+.dashboard-logout-card button svg {width:18px;height:18px;flex:0 0 auto}
 
 .dashboard-logout-card button:hover {
   background: #ffffff3d
 }
+
+/* The sidebar account footer deliberately reads as one compact profile row:
+   identity on the left, a recognisable sign-out icon on the right. */
+@media(min-width:901px) {
+  .dashboard-logout-card {display:grid;grid-template-columns:34px minmax(0,1fr) 42px;align-items:center;gap:10px;padding:13px 12px}
+  .dashboard-logout-mark {margin:0}
+  .dashboard-logout-identity {margin:0}
+  .dashboard-logout-identity p {margin-top:3px}
+  .dashboard-logout-card form {height:42px}
+  .dashboard-logout-card button {width:42px;height:42px;min-height:42px;justify-content:center;padding:0;border:1px solid #ffffff45;background:#ffffff18}
+  .dashboard-logout-card button span {display:none}
+  .dashboard-logout-card button:hover {background:#ffffff30}
+}
+
+/* Dashboard pages share the Academy's required navy instead of the generic
+   blue accent used by the public marketing site. */
+body.dashboard-shell {--blue:#002147;--blue-dark:#002147}
+
+.logout-confirm {position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:20px}
+.logout-confirm[hidden] {display:none}
+.logout-confirm-backdrop {position:absolute;inset:0;width:100%;height:100%;border:0;background:#06142699;backdrop-filter:blur(5px);cursor:default}
+.logout-confirm-dialog {position:relative;width:min(420px,100%);padding:30px;border:1px solid #dce6ef;border-radius:22px;background:#fff;box-shadow:0 28px 80px #0614264d;text-align:center;animation:logout-confirm-in .2s ease-out}
+.logout-confirm-icon {display:grid;width:54px;height:54px;margin:0 auto 15px;place-items:center;border-radius:17px;background:#fff1f2;color:#b42318}.logout-confirm-icon svg {width:26px;height:26px}
+.logout-confirm-dialog h2 {margin:0;color:#102a43;font-size:21px;letter-spacing:-.025em}.logout-confirm-dialog p {margin:9px auto 23px;max-width:300px;color:#64748b;font-size:13px;line-height:1.6}
+.logout-confirm-actions {display:grid;grid-template-columns:1fr 1fr;gap:10px}.logout-confirm-actions .button {justify-content:center;min-height:44px}.logout-confirm-submit {border-color:#b42318!important;background:#b42318!important;color:#fff!important}.logout-confirm-submit:hover {background:#991b1b!important}
+@keyframes logout-confirm-in {from {opacity:0;transform:translateY(9px) scale(.98)}to {opacity:1;transform:none}}
 
 .dashboard-sidebar-scrim {
   display: none
@@ -12627,7 +12658,7 @@ html.admin-modal-js .admin-modal.is-open {
 @media(max-width:900px) { .receipt-layout { grid-template-columns:minmax(0,1fr); max-width:560px }.receipt-policy-card { position:static; order:2 }.receipt-layout .receipt-shell { order:1 } }
 @media(max-width:600px) { .receipt-layout { gap:14px; margin-top:0 }.receipt-layout .receipt-card { padding:24px 18px }.receipt-policy-card { padding:20px } }
 
-.revenue-summary-shell { margin:0 0 20px; padding:20px; border-radius:22px; background:linear-gradient(135deg,#2563eb,#1e40af); box-shadow:none }
+.revenue-summary-shell { margin:0 0 20px; padding:20px; border-radius:22px; background:#002147; box-shadow:none }
 .revenue-summary-shell .revenue-kpi-grid { gap:10px }.revenue-summary-shell .revenue-kpi { min-height:166px; padding:17px; border:1px solid #ffffff2b; border-radius:15px; background:#ffffff12; box-shadow:none }
 .revenue-summary-shell .revenue-kpi--hero { background:#ffffff20; box-shadow:none }.revenue-summary-shell .revenue-kpi-label,.revenue-summary-shell .revenue-kpi-foot,.revenue-summary-shell .revenue-kpi-foot-label,.revenue-summary-shell .revenue-kpi-line i { color:#dbeafe }.revenue-summary-shell .revenue-kpi-foot { border-top-color:#ffffff35 }.revenue-summary-shell .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--developer .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--payments .revenue-kpi-icon,.revenue-summary-shell .revenue-kpi--students .revenue-kpi-icon { background:#ffffff20; color:#fff }.revenue-summary-shell .revenue-kpi-line b { color:#fff }.revenue-summary-shell .revenue-kpi--developer .revenue-kpi-line b { color:#fff }
 .approved-payment-history { margin-top:20px }.approved-payments-table td { vertical-align:middle }.approved-payments-table td small { display:block; margin-top:3px; color:#718096 }
@@ -12891,6 +12922,14 @@ html.admin-modal-js .admin-modal.is-open {
 .receipt-actions .receipt-action {
   width: 100%
 }
+
+/* Ticket-like receipt treatment follows the provided successful-payment
+   reference while retaining all receipt data and download actions. */
+.receipt-page {background:linear-gradient(180deg,#f2f6fa 0%,#e8eef5 100%);border-radius:24px;padding:0 clamp(10px,3vw,28px) 28px}
+.receipt-page .receipt-layout {grid-template-columns:minmax(0,560px);justify-content:center;max-width:620px;margin:0 auto 14px}.receipt-page .receipt-policy-card {display:none}
+.receipt-page .receipt-card {padding:30px 34px 28px;border:0;border-radius:24px;box-shadow:0 15px 45px #00214718}.receipt-page .receipt-hero {padding-top:0}.receipt-page .receipt-status {font-family:inherit;font-size:clamp(24px,4vw,30px);font-weight:850;letter-spacing:-.04em}.receipt-page .receipt-title {display:none}.receipt-page .receipt-subtitle {font-size:13px}.receipt-page .receipt-divider {position:relative;margin:21px -34px;border-top:2px dashed #c7d0da}.receipt-page .receipt-divider::before,.receipt-page .receipt-divider::after {position:absolute;top:-13px;width:24px;height:24px;border-radius:50%;background:#e8eef5;content:""}.receipt-page .receipt-divider::before {left:-12px}.receipt-page .receipt-divider::after {right:-12px}
+.receipt-page .receipt-meta {gap:8px}.receipt-page .receipt-table th {padding-bottom:13px}.receipt-page .receipt-table td {padding:9px 0}.receipt-page .receipt-totals {padding:17px 18px;border-radius:18px;background:#f6f8fa}.receipt-page .receipt-total-row--final {margin-top:2px}.receipt-page .receipt-party {margin-top:2px}.receipt-page .receipt-actions {gap:11px;margin-top:24px}.receipt-page .receipt-actions .receipt-action:first-child {order:2;background:#fff;color:#002147;border:1px solid #d8e1ea}.receipt-page .receipt-actions .receipt-action:nth-child(3) {order:1;background:#002147;color:#fff;border-color:#002147}.receipt-page .receipt-actions .receipt-action:nth-child(2) {order:3}
+@media(max-width:600px) {.receipt-page {margin:0 -14px;border-radius:0;padding:0 10px 20px}.receipt-page .receipt-card {padding:26px 22px 24px;border-radius:20px}.receipt-page .receipt-divider {margin-right:-22px;margin-left:-22px}.receipt-page .receipt-divider::before,.receipt-page .receipt-divider::after {background:#e8eef5}.receipt-page .receipt-actions .receipt-action {min-height:46px}.logout-confirm-dialog {padding:25px 20px}}
 
 @media(max-width:600px) {
   .receipt-party {
@@ -14615,7 +14654,7 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 /* One blue summary surface replaces disconnected KPI tiles across dashboard modules. */
-.dashboard-summary-card {min-width:0;margin:0 0 22px;padding:22px 24px;border:1px solid #2f70ee;border-radius:22px;background:linear-gradient(125deg,#1559d9 0%,#2868e8 58%,#3155d9 100%);box-shadow:0 10px 25px #1e54c012;color:#fff;overflow:hidden}
+.dashboard-summary-card {min-width:0;margin:0 0 22px;padding:22px 24px;border:1px solid #12385f;border-radius:22px;background:#002147;box-shadow:0 12px 28px #0021471f;color:#fff;overflow:hidden}
 .dashboard-summary-heading {display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 8px;padding:0 0 15px;border-bottom:1px solid #ffffff35}
 .dashboard-summary-heading .eyebrow {margin:0 0 4px;color:#dbe8ff;font-size:10px;font-weight:850;letter-spacing:.14em}
 .dashboard-summary-heading h2 {margin:0;color:#fff;font-size:20px;font-weight:800;letter-spacing:-.035em}
@@ -14662,6 +14701,13 @@ html.admin-modal-js .admin-modal.is-open {
 .dashboard-summary-card .student-overview-card:nth-child(3n) {border-right:1px solid #ffffff32}
 .dashboard-summary-card .student-overview-card:nth-child(4n) {border-right:0}
 .dashboard-summary-card .student-overview-card:nth-last-child(-n+3) {border-bottom:0}
+
+/* Admin overview: individual KPI tiles echo the reference dashboard's
+   compact visual hierarchy while keeping all six live academy statistics. */
+.admin-dashboard-snapshot {padding:0;border:0;background:transparent;box-shadow:none;overflow:visible}
+.admin-dashboard-snapshot .dashboard-summary-heading {margin:0 0 14px;padding:0 1px 12px;border-bottom:0}.admin-dashboard-snapshot .dashboard-summary-heading .eyebrow {color:#002147}.admin-dashboard-snapshot .dashboard-summary-heading h2 {color:#102a43}.admin-dashboard-snapshot .dashboard-summary-heading>span {border-color:#cbd9e6;background:#f3f7fa;color:#002147}
+.admin-dashboard-snapshot .kpi-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.admin-dashboard-snapshot .kpi-card {min-height:148px;padding:18px;border:1px solid #002147;border-radius:17px;background:#002147;box-shadow:0 12px 24px #0021471f;transition:transform .2s ease,box-shadow .2s ease}.admin-dashboard-snapshot .kpi-card:hover {transform:translateY(-3px);box-shadow:0 18px 32px #0021472e}.admin-dashboard-snapshot .kpi-card:nth-child(2n) {background:#082c55}.admin-dashboard-snapshot .kpi-card:nth-child(3n) {background:#0c365f}.admin-dashboard-snapshot .kpi-icon {background:#ffffff20}.admin-dashboard-snapshot .kpi-delta {color:#dbeafe}
+body.dashboard-shell .dashboard-analytics-page {--att-blue:#002147}body.dashboard-shell .dashboard-live-label {background:#002147;box-shadow:0 4px 10px #00214733}
 .student-management-summary .student-overview-icon,.student-management-summary .student-overview-icon.student-icon-active,.student-management-summary .student-overview-icon.student-icon-pending,.student-management-summary .student-overview-icon.student-icon-blocked {background:#ffffff20;color:#fff}
 .student-management-summary .student-overview-card {border-bottom:0}
 
@@ -14698,6 +14744,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
 .assignment-submissions-card>.admin-empty-state,.assignment-submissions-card>.assignment-review-list {margin:18px 22px 22px}
 .assignment-submissions-card .assignment-review-item {border:1px solid #e2eaf5;border-radius:18px;box-shadow:0 8px 22px #10284b0a}
 @media(max-width:900px) {
+  .admin-dashboard-snapshot .kpi-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
   body.dashboard-shell>main.dashboard-container {padding-inline:clamp(16px,3vw,24px)}
   .dashboard-summary-card .kpi-grid,.dashboard-summary-card .student-overview-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
   .dashboard-summary-card .kpi-card:nth-child(3n),.dashboard-summary-card .student-overview-card:nth-child(3n) {border-right:1px solid #ffffff32}
@@ -14914,3 +14961,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
   .receipt-page .receipt-meta>div,.receipt-page .receipt-party>div {-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .receipt-page .receipt-total-row--final,.receipt-page .receipt-table th,.receipt-page .receipt-hero {-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* Final receipt overrides: the live student/admin receipt is intentionally a
+   clean, centred success ticket (the exported PDF retains the same navy theme). */
+.receipt-page .receipt-layout {grid-template-columns:minmax(0,560px);justify-content:center;max-width:620px;margin:0 auto 14px}.receipt-page .receipt-policy-card {display:none}.receipt-page .receipt-card {max-width:560px;padding:30px 34px 28px;border:0;border-radius:24px;text-align:center;box-shadow:0 15px 45px #00214718}.receipt-page .receipt-back {top:15px;left:15px;right:auto}.receipt-page .receipt-back a {color:#002147;background:transparent}.receipt-page .receipt-hero {display:grid;margin:0;padding:0;background:transparent;text-align:center}.receipt-page .receipt-check {position:static;width:56px;height:56px;margin:0 0 6px;box-shadow:0 0 0 7px #dcfce7}.receipt-page .receipt-status {margin:0;color:#102a43;font-size:clamp(24px,4vw,30px);font-weight:850;letter-spacing:-.04em;text-transform:none}.receipt-page .receipt-title {display:none}.receipt-page .receipt-subtitle {margin:4px 0 0;color:#64748b}.receipt-page .receipt-divider {position:relative;margin:21px -34px;border-top:2px dashed #c7d0da}.receipt-page .receipt-divider::before,.receipt-page .receipt-divider::after {position:absolute;top:-13px;width:24px;height:24px;border-radius:50%;background:#e8eef5;content:""}.receipt-page .receipt-divider::before {left:-12px}.receipt-page .receipt-divider::after {right:-12px}.receipt-page .receipt-meta {display:grid;grid-template-columns:1fr;gap:8px;text-align:left}.receipt-page .receipt-meta>div {padding:0;border:0;background:transparent}.receipt-page .receipt-meta dt {font-size:12px;text-transform:none}.receipt-page .receipt-meta dd {margin-top:0;font-size:12px}.receipt-page .receipt-table th {padding:0 0 13px;border-radius:0;background:transparent;color:#102a43;font-size:13px;text-transform:none;letter-spacing:0}.receipt-page .receipt-table td {padding:9px 0;border:0;color:#334155;font-size:13px}.receipt-page .receipt-totals {max-width:none;margin:0;padding:17px 18px;border-radius:18px;background:#f6f8fa;text-align:left}.receipt-page .receipt-total-row {padding:0}.receipt-page .receipt-total-row--final {margin-top:8px;padding:0;background:transparent}.receipt-page .receipt-total-row--final dt,.receipt-page .receipt-total-row--final dd {color:#102a43;font-size:20px}.receipt-page .receipt-party {grid-template-columns:repeat(2,minmax(0,1fr));margin-top:2px;text-align:left}.receipt-page .receipt-party>div {padding:0;border:0;background:transparent}.receipt-page .receipt-actions {display:grid;gap:11px;margin-top:24px}.receipt-page .receipt-actions .receipt-action {width:100%;min-height:46px;justify-content:center}.receipt-page .receipt-actions .receipt-action:first-child {order:2;border:1px solid #d8e1ea;background:#fff;color:#002147}.receipt-page .receipt-actions .receipt-action:nth-child(3) {order:1;border-color:#002147;background:#002147;color:#fff}.receipt-page .receipt-actions .receipt-action:nth-child(2) {order:3}
+@media(max-width:600px) {.receipt-page .receipt-card {padding:26px 22px 24px}.receipt-page .receipt-divider {margin-right:-22px;margin-left:-22px}.receipt-page .receipt-party {grid-template-columns:1fr}.receipt-page .receipt-divider::before,.receipt-page .receipt-divider::after {background:#e8eef5}}
+@media print {.receipt-page .receipt-card {padding:0 0 18px;border-top:4px solid #002147}.receipt-page .receipt-hero {margin:0 0 20px;padding:0}.receipt-page .receipt-check {position:static}.receipt-page .receipt-divider {margin:14px 0}.receipt-page .receipt-divider::before,.receipt-page .receipt-divider::after {display:none}}

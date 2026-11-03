@@ -129,7 +129,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             ['label' => 'Assignments to review', 'value' => $num($assignments['pendingReview'] ?? 0), 'hint' => $num($assignments['submitted'] ?? 0) . ' submitted · ' . $num($assignments['notSubmitted'] ?? 0) . ' pending', 'delta' => $num($assignments['late'] ?? 0) . ' late submissions', 'tone' => 'indigo', 'icon' => '✎'],
         ];
         ?>
-        <section class="dashboard-summary-card" aria-label="Key statistics">
+        <section class="dashboard-summary-card admin-dashboard-snapshot" aria-label="Key statistics">
         <div class="dashboard-summary-heading"><div><p class="eyebrow">ACADEMY AT A GLANCE</p><h2>Performance snapshot</h2></div><span>Live overview</span></div>
         <div class="kpi-grid" aria-label="Key statistics">
             <?php foreach ($kpi as $item): ?>

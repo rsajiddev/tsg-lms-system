@@ -149,16 +149,25 @@ unset($dashboardNavItem);
                     <?php $badgeCount = isset($item['badge']) ? (int)($navBadge[$item['badge']] ?? 0) : 0; ?>
                     <a<?= $item['active'] ? ' class="active" aria-current="page"' : '' ?> href="<?= Security::escape($baseUrl . $item['href']) ?>"><span class="dashboard-nav-number"><?= Security::escape($item['number']) ?></span><?= $dashboardNavIcon($item['icon']) ?><span class="dashboard-nav-label"><?= Security::escape($item['label']) ?></span><?php if ($badgeCount > 0): ?><span class="dashboard-nav-badge" aria-label="<?= $badgeCount ?> new"><?= $badgeCount > 99 ? '99+' : $badgeCount ?></span><?php endif; ?></a>
                 <?php endforeach; ?>
-                <form class="dashboard-mobile-logout" method="post" action="<?= Security::escape($baseUrl) ?>/logout">
+                <form class="dashboard-mobile-logout" method="post" action="<?= Security::escape($baseUrl) ?>/logout" data-logout-form>
                     <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
                     <button type="submit" aria-label="Log out" title="Log out"><?= $dashboardNavIcon('logout') ?><span>Log out</span></button>
                 </form>
             </nav>
             <div class="dashboard-sidebar-bottom">
-                <div class="dashboard-logout-card"><span class="dashboard-logout-mark">TSG</span><strong>Ready to sign out?</strong><p>Your progress is saved to your account.</p><form method="post" action="<?= Security::escape($baseUrl) ?>/logout"><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><button type="submit">Log out <span aria-hidden="true">→</span></button></form></div>
+                <div class="dashboard-logout-card"><span class="dashboard-logout-mark">TSG</span><div class="dashboard-logout-identity"><strong><?= Security::escape((string)($currentUser['full_name'] ?? $currentUser['name'] ?? 'Account user')) ?></strong><p><?= Security::escape((string)($currentUser['email'] ?? '')) ?></p></div><form method="post" action="<?= Security::escape($baseUrl) ?>/logout" data-logout-form><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><button type="submit" aria-label="Log out" title="Log out"><span>Log out</span><?= $dashboardNavIcon('logout') ?></button></form></div>
             </div>
         </aside>
         <button class="dashboard-sidebar-scrim" type="button" data-dashboard-close aria-label="Close dashboard menu"></button>
+        <div class="logout-confirm" data-logout-confirm hidden role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-copy">
+            <button class="logout-confirm-backdrop" type="button" data-logout-cancel aria-label="Close logout confirmation"></button>
+            <div class="logout-confirm-dialog">
+                <span class="logout-confirm-icon" aria-hidden="true"><?= $dashboardNavIcon('logout') ?></span>
+                <h2 id="logout-confirm-title">Log out of your workspace?</h2>
+                <p id="logout-confirm-copy">Your work is saved. You can sign back in whenever you are ready.</p>
+                <div class="logout-confirm-actions"><button class="button button-secondary" type="button" data-logout-cancel>Cancel</button><button class="button logout-confirm-submit" type="button" data-logout-confirm-submit>Log out</button></div>
+            </div>
+        </div>
     <?php endif; ?>
     <header class="topbar">
         <a class="brand" href="<?= Security::escape($baseUrl) ?>/">

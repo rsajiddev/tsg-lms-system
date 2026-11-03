@@ -52,6 +52,49 @@
         });
     }
 
+    /* =========================================================
+       DASHBOARD LOGOUT CONFIRMATION
+       Both the desktop account card and the mobile tab action use the same
+       accessible confirmation surface, so a destructive session action never
+       depends on the browser's plain confirm dialog.
+       ========================================================= */
+
+    const logoutForms = document.querySelectorAll('[data-logout-form]');
+    const logoutConfirm = document.querySelector('[data-logout-confirm]');
+    let pendingLogoutForm = null;
+    let logoutTrigger = null;
+
+    if (logoutForms.length && logoutConfirm) {
+        const closeLogoutConfirm = () => {
+            logoutConfirm.hidden = true;
+            document.body.classList.remove('logout-confirm-open');
+            if (logoutTrigger) logoutTrigger.focus({ preventScroll: true });
+            pendingLogoutForm = null;
+        };
+        const openLogoutConfirm = (form, trigger) => {
+            pendingLogoutForm = form;
+            logoutTrigger = trigger;
+            logoutConfirm.hidden = false;
+            document.body.classList.add('logout-confirm-open');
+            logoutConfirm.querySelector('[data-logout-cancel]')?.focus({ preventScroll: true });
+        };
+
+        logoutForms.forEach((form) => form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            openLogoutConfirm(form, event.submitter || form.querySelector('button[type="submit"]'));
+        }));
+        logoutConfirm.querySelectorAll('[data-logout-cancel]').forEach((button) => button.addEventListener('click', closeLogoutConfirm));
+        logoutConfirm.querySelector('[data-logout-confirm-submit]')?.addEventListener('click', () => {
+            if (!pendingLogoutForm) return;
+            const form = pendingLogoutForm;
+            pendingLogoutForm = null;
+            form.submit();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !logoutConfirm.hidden) closeLogoutConfirm();
+        });
+    }
+
 
     /* =========================================================
        AUTO-SUBMIT FILTER DROPDOWNS

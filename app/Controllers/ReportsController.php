@@ -35,7 +35,7 @@ final class ReportsController
         $reports = $this->reports(Database::connection(), $period);
         $report = $type === 'all' ? $this->consolidated($reports, $period) : $reports[$type];
         $report['type'] = $type;
-        $pdf = PaymentReceiptPdf::fromJpeags(PaymentReceiptJpg::renderReport($report));
+        $pdf = PaymentReceiptPdf::fromJpegs(PaymentReceiptJpg::renderReport($report));
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="techsg-' . $type . '-' . $period['key'] . '.pdf"');
         header('Content-Length: ' . strlen($pdf));

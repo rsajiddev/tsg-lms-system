@@ -12,6 +12,7 @@ use App\Core\View;
 use App\Services\MailService;
 use App\Services\NotificationService;
 use App\Services\PaymentReceiptJpg;
+use App\Services\PaymentReceiptPdf;
 use PDO;
 use RuntimeException;
 
@@ -262,12 +263,20 @@ final class PaymentController
     {
         $payment = $this->approvedReceipt();
         $jpg = PaymentReceiptJpg::renderReceipt($payment);
-        header('Content-Type: image/jpeg');
-        header('Content-Length: ' . strlen($jpg));
-        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.jpg"');
+        $format = strtolower((string)($_GET['format'] ?? 'jpg'));
+        if ($format === 'pdf') {
+            $document = PaymentReceiptPdf::fromJpegs([$jpg]);
+            header('Content-Type: application/pdf');
+            header('Content-Length: ' . strlen($document));
+            header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.pdf"');
+        } else {
+            header('Content-Type: image/jpeg');
+            header('Content-Length: ' . strlen($jpg));
+            header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9-]/', '-', $payment['receipt_number']) . '.jpg"');
+        }
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
-        echo $jpg;
+        echo $format === 'pdf' ? $document : $jpg;
     }
 
     private function receiptUser(): array
@@ -318,12 +327,20 @@ final class PaymentController
             $report['rates'][] = $row;
         }
         $jpg = PaymentReceiptJpg::renderRevenue($report);
-        header('Content-Type: image/jpeg');
-        header('Content-Length: ' . strlen($jpg));
-        header('Content-Disposition: attachment; filename="TSG-revenue-' . gmdate('Y-m') . '.jpg"');
+        $format = strtolower((string)($_GET['format'] ?? 'jpg'));
+        if ($format === 'pdf') {
+            $document = PaymentReceiptPdf::fromJpegs([$jpg]);
+            header('Content-Type: application/pdf');
+            header('Content-Length: ' . strlen($document));
+            header('Content-Disposition: attachment; filename="TSG-revenue-' . gmdate('Y-m') . '.pdf"');
+        } else {
+            header('Content-Type: image/jpeg');
+            header('Content-Length: ' . strlen($jpg));
+            header('Content-Disposition: attachment; filename="TSG-revenue-' . gmdate('Y-m') . '.jpg"');
+        }
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
-        echo $jpg;
+        echo $format === 'pdf' ? $document : $jpg;
     }
 
     public function notifyDeveloper(): void

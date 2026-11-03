@@ -129,6 +129,12 @@ final class PaymentReceiptPdf
         return $pdf . 'trailer << /Size ' . ($maxId + 1) . " /Root 1 0 R >>\nstartxref\n" . $xref . "\n%%EOF";
     }
 
+    /** Correctly-spelled public alias retained alongside the original internal method name. */
+    public static function fromJpegs(array $jpegs): string
+    {
+        return self::fromJpeags($jpegs);
+    }
+
     /** Read the pixel dimensions from the JPEG's start-of-frame marker. */
     private static function jpegSize(string $jpeg, int &$width, int &$height): bool
     {

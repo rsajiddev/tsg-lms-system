@@ -84,7 +84,7 @@ $receiptNumber = (string) ($payment['receipt_number'] ?? '—');
             <p class="receipt-legal">Issued by Tech SG Studio (SMC-Pvt.) Ltd. · info@techsgstudio.com<br>This receipt confirms payment received for the course listed above.</p>
 
             <div class="receipt-actions">
-                <a class="button receipt-action" href="<?= $escape($baseUrl) ?>/payments/receipt/download?payment_id=<?= (int) ($payment['id'] ?? 0) ?>">Download JPG receipt</a>
+                <a class="button receipt-action" href="<?= $escape($baseUrl) ?>/payments/receipt/download?payment_id=<?= (int) ($payment['id'] ?? 0) ?>&amp;format=pdf">Download PDF receipt</a>
                 <button class="button button-secondary receipt-action" type="button" onclick="window.print()">Print receipt</button>
                 <a class="button button-ghost receipt-action" href="<?= $escape($baseUrl) ?>/student/payments">Back to Payments</a>
             </div>
