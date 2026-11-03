@@ -7,14 +7,24 @@ $baseUrl = $baseUrl ?? '';
 $labels = ['students'=>'Students & regularity','attendance'=>'Attendance','quizzes'=>'Quiz performance','assignments'=>'Assignments','payments'=>'Payments'];
 ?>
 <section class="dashboard-page admin-reports-page" data-reveal>
-  <header class="dashboard-heading admin-report-heading"><div><p class="eyebrow">ACADEMY INSIGHTS</p><h1>Reports</h1><p>Review student activity and export branded JPG reports for the selected period.</p></div></header>
-  <section class="admin-report-controls admin-card" aria-label="Report period">
-    <div><strong>Report period</strong><span>Each report uses records from the selected calendar period.</span></div>
-    <nav class="admin-report-period" aria-label="Choose report period">
-      <a class="<?= $period['key']==='weekly'?'is-active':'' ?>" href="<?= $escape($baseUrl) ?>/admin/reports?period=weekly" <?= $period['key']==='weekly'?'aria-current="page"':'' ?>>Weekly</a>
-      <a class="<?= $period['key']==='monthly'?'is-active':'' ?>" href="<?= $escape($baseUrl) ?>/admin/reports?period=monthly" <?= $period['key']==='monthly'?'aria-current="page"':'' ?>>Monthly</a>
-    </nav>
-  </section>
+  <header class="dashboard-heading admin-report-heading">
+    <div><p class="eyebrow">ACADEMY INSIGHTS</p><h1>Reports</h1><p>Review student activity and export branded JPG reports for the selected period.</p></div>
+    <form class="admin-report-filter" method="get" action="<?= $escape($baseUrl) ?>/admin/reports" aria-label="Report period">
+      <label for="admin-report-period">Period</label>
+      <select class="admin-report-period-select" id="admin-report-period" name="period" data-auto-submit>
+        <option value="weekly" <?= $period['key']==='weekly'?'selected':'' ?>>Weekly</option>
+        <option value="monthly" <?= $period['key']==='monthly'?'selected':'' ?>>Monthly</option>
+      </select>
+    </form>
+  </header>
+  <article class="admin-card admin-report-all-card">
+    <div class="admin-report-all-copy">
+      <p class="eyebrow">FULL PERIOD PACK</p>
+      <h2>All reports in one download</h2>
+      <p>A single summarised JPG covering students, attendance, quizzes and assignments for the selected period. Payment details are intentionally excluded.</p>
+    </div>
+    <a class="button admin-report-all-download" href="<?= $escape($baseUrl) ?>/admin/reports/download?type=all&amp;period=<?= $escape($period['key']) ?>" download>Download All Reports</a>
+  </article>
   <div class="admin-report-grid">
     <?php foreach ($labels as $type => $label): $report = $reports[$type] ?? []; ?>
       <article class="admin-card admin-report-card">

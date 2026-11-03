@@ -68,21 +68,15 @@ $filters = [
     <?php \App\Core\View::toast('success', $message ?? null); ?>
     <?php \App\Core\View::toast('error', $error ?? null); ?>
 
-    <section class="admin-card certificate-eligibility-card" aria-labelledby="certificate-eligibility-title">
-        <div class="admin-card-header">
-            <div class="admin-card-title-group">
-                <div class="admin-card-icon emerald">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M9 11l3 3 8-8"></path>
-                        <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path>
-                    </svg>
-                </div>
-                <div class="admin-card-titles">
-                    <h2 id="certificate-eligibility-title">Eligibility requirements</h2>
-                    <p>A request is accepted only when a student clears all three bars. The same rules are published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page, so nobody has to guess.</p>
-                </div>
+    <section class="dashboard-summary-card certificate-eligibility-card" aria-labelledby="certificate-eligibility-title">
+        <div class="dashboard-summary-heading certificate-eligibility-head">
+            <div>
+                <p class="eyebrow">ELIGIBILITY REQUIREMENTS</p>
+                <h2 id="certificate-eligibility-title">How a certificate is earned</h2>
             </div>
+            <span>Applies to every request</span>
         </div>
+        <p class="certificate-eligibility-lead">A request is accepted only when a student clears all three bars. The same rules are published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page, so nobody has to guess.</p>
         <div class="certificate-eligibility-grid">
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value"><?= (int) $criteria['grade'] ?>%</span>

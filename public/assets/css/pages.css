@@ -4839,19 +4839,20 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
 /* Shared "How to use" guide card (components/usage-guide.php). Deliberately the same shape as
    the public course page's enrollment walkthrough (.course-detail-flow): label, one plain
-   promise, then numbered steps joined by a line, so the reader recognises it instantly. */
+   promise, then numbered steps joined by a line, so the reader recognises it instantly.
+   Readers skip these footnotes, so the card stays compact: modest padding and small type. */
 .admin-usage-card {
   margin-top: 22px;
-  padding: 30px 32px 32px;
+  padding: 20px 22px 22px;
   border: 1px solid #e6eefb;
-  border-radius: 22px;
+  border-radius: 18px;
   background: linear-gradient(180deg, #fbfdff, #f7faff)
 }
 
 .admin-usage-eyebrow {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: var(--blue);
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase
@@ -4860,24 +4861,24 @@ html.js [data-reveal].is-visible.dash-card:hover {
 .admin-usage-title {
   margin: 0;
   color: var(--navy);
-  font-size: 24px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere
 }
 
 .admin-usage-lead {
-  margin: 9px 0 0;
+  margin: 6px 0 0;
   color: #5d6f89;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.5;
   overflow-wrap: anywhere
 }
 
 .admin-usage-list {
   display: grid;
   gap: 0;
-  margin: 24px 0 0;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none
 }
@@ -4885,9 +4886,9 @@ html.js [data-reveal].is-visible.dash-card:hover {
 .admin-usage-list>li {
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  gap: 14px;
-  padding-bottom: 20px
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 12px
 }
 
 .admin-usage-list>li:last-child {
@@ -4897,9 +4898,9 @@ html.js [data-reveal].is-visible.dash-card:hover {
 /* The line joins one step to the next and fades out, so the list reads as one path. */
 .admin-usage-list>li::before {
   position: absolute;
-  top: 32px;
+  top: 23px;
   bottom: 0;
-  left: 15px;
+  left: 10px;
   width: 2px;
   background: linear-gradient(#dbe6f8, transparent);
   content: ""
@@ -4913,14 +4914,14 @@ html.js [data-reveal].is-visible.dash-card:hover {
   position: relative;
   z-index: 1;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border: 2px solid #e3ecfb;
   border-radius: 50%;
   background: #fff;
   color: var(--blue-dark);
-  font-size: 12.5px;
+  font-size: 10px;
   font-weight: 800
 }
 
@@ -4932,9 +4933,9 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
 .admin-usage-copy strong {
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   color: #1b2941;
-  font-size: 15px;
+  font-size: 12.5px;
   font-weight: 800;
   line-height: 1.35
 }
@@ -4942,17 +4943,17 @@ html.js [data-reveal].is-visible.dash-card:hover {
 .admin-usage-detail {
   display: block;
   color: #5d6f89;
-  font-size: 13.5px;
-  line-height: 1.62
+  font-size: 11.5px;
+  line-height: 1.5
 }
 
 @media(max-width:600px) {
   .admin-usage-card {
-    padding: 24px 20px 26px
+    padding: 18px 15px 20px
   }
 
   .admin-usage-title {
-    font-size: 20px
+    font-size: 15.5px
   }
 }
 
@@ -12133,9 +12134,7 @@ html.admin-modal-js .admin-modal.is-open {
   .quiz-report-search-field {grid-column: 1 / -1}
 }
 @media(max-width: 640px) {
-  .quiz-report-metrics {grid-template-columns: 1fr; gap: 11px}
-  .quiz-report-metric {padding: 16px 18px}
-  .quiz-report-metric strong {font-size: 29px}
+  /* Totals now live inside the shared blue summary card; its own breakpoints handle columns. */
   .quiz-report-panel {padding: 17px}
   .quiz-report-heading {align-items: flex-start; flex-direction: column}
   .quiz-report-filters {grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 13px}
@@ -12430,6 +12429,16 @@ html.admin-modal-js .admin-modal.is-open {
 .certificate-eligibility-value {color:#1d4ed8;font-size:22px;font-weight:900;letter-spacing:-.02em}
 .certificate-eligibility-item strong {color:#17233d;font-size:13px}
 .certificate-eligibility-item small {color:#718096;font-size:11.5px;line-height:1.6;overflow-wrap:anywhere}
+/* The eligibility card joins the shared blue summary surface used by the other admin pages, so its
+   header, lead and the three bars are re-tinted for the gradient background. */
+.dashboard-summary-card .certificate-eligibility-lead {margin:0 0 16px;color:#dbe8ff;font-size:13px;line-height:1.6}
+.dashboard-summary-card .certificate-eligibility-lead a {color:#fff;font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.dashboard-summary-card .certificate-eligibility-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0}
+.dashboard-summary-card .certificate-eligibility-item {min-width:0;padding:2px 18px;border:0;border-left:1px solid #ffffff32;border-radius:0;background:transparent}
+.dashboard-summary-card .certificate-eligibility-item:first-child {padding-left:0;border-left:0}
+.dashboard-summary-card .certificate-eligibility-value {color:#fff;font-size:clamp(26px,2.4vw,34px);font-weight:850;letter-spacing:-.03em;line-height:1.05}
+.dashboard-summary-card .certificate-eligibility-item strong {color:#fff;font-size:14px;font-weight:800;margin-top:4px}
+.dashboard-summary-card .certificate-eligibility-item small {color:#d5e3ff;font-size:11.5px;line-height:1.55}
 
 /* Students workspace: the attendance window is a student-facing tool, so it sits on this page. */
 .student-attendance-card {margin-bottom:22px}
@@ -12442,6 +12451,9 @@ html.admin-modal-js .admin-modal.is-open {
 .account-settings-page>.admin-card+.admin-card {margin-top:22px}
 .account-settings-page>.admin-alert {margin-bottom:22px}
 .account-settings-page>.settings-scope-note {margin-top:22px}
+/* The identity card's action row sat flush under the grid fields, so the button looked glued to the
+   Account history box. Give it the same breathing room the other form action rows use. */
+.account-settings-page .form-actions {margin-top:18px}
 @media(max-width:640px) {
   .account-settings-page>.admin-card+.admin-card {margin-top:16px}
   .account-settings-page>.admin-alert {margin-bottom:16px}
@@ -12952,34 +12964,40 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .analytics-ranges {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--att-border);
-  border-radius: 999px;
-  background: var(--surface, #fff)
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto
 }
 
-.analytics-range {
-  padding: 8px 15px;
-  border-radius: 999px;
-  color: var(--att-muted);
+.analytics-ranges label {
+  color: var(--att-muted, #64748b);
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: .02em;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: background .18s ease, color .18s ease
+  letter-spacing: .04em;
+  text-transform: uppercase
 }
 
-.analytics-range:hover {
-  color: var(--att-blue-dark, #1d4ed8)
+.analytics-range-select {
+  min-width: 158px;
+  padding: 10px 38px 10px 14px;
+  border: 1px solid var(--att-border, #e2e8f0);
+  border-radius: 11px;
+  background: var(--surface, #fff);
+  color: #0f172a;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center
 }
 
-.analytics-range.is-active {
-  background: var(--att-blue);
-  color: #fff;
-  box-shadow: 0 6px 14px #2563eb33
+.analytics-range-select:focus {
+  outline: 2px solid #2563eb33;
+  border-color: var(--att-blue, #2563eb)
 }
 
 .kpi-grid {
@@ -14080,13 +14098,12 @@ html.admin-modal-js .admin-modal.is-open {
 
   .analytics-ranges {
     width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none
+    justify-content: space-between
   }
 
-  .analytics-ranges::-webkit-scrollbar {
-    display: none
+  .analytics-range-select {
+    flex: 1;
+    min-width: 0
   }
 
   .kpi-grid,
@@ -14582,7 +14599,9 @@ html.admin-modal-js .admin-modal.is-open {
 .todo-task-main>form {margin:0}
 .todo-task-main .todo-title {min-width:0}
 .todo-reminder {display:block;margin:7px 38px 0 32px}
-.todo-reminder summary {display:inline-flex;min-height:29px;align-items:center;justify-content:center;padding:0 10px;border:1px solid #d7e2f1;border-radius:9px;background:#f7faff;color:#3864b8;font-size:11px;font-weight:800;cursor:pointer;list-style:none}
+.todo-reminder summary {display:inline-flex;width:auto;height:auto;min-height:32px;align-items:center;justify-content:center;gap:6px;padding:0 14px;border:0;border-radius:10px;background:#2863e9;box-shadow:0 6px 14px #1e54c033;color:#fff;font-size:12px;font-weight:800;letter-spacing:.01em;white-space:nowrap;cursor:pointer;list-style:none;transition:background .15s ease,box-shadow .15s ease,transform .15s ease}
+.todo-reminder summary:hover {background:#1b55d0;box-shadow:0 8px 18px #1e54c045;transform:translateY(-1px)}
+.todo-reminder[open] summary {background:#1b55d0}
 .todo-reminder summary::-webkit-details-marker {display:none}
 .todo-reminder summary:focus-visible {outline:3px solid #93b4ff;outline-offset:2px}
 .todo-reminder form {display:grid;gap:10px;position:static;width:auto;margin:9px 0 2px;padding:12px;border:1px solid #dfe7f2;border-radius:13px;background:#f8faff;box-shadow:none;animation:todo-reminder-in .22s ease-out both}
@@ -14591,6 +14610,9 @@ html.admin-modal-js .admin-modal.is-open {
 .todo-reminder input {width:100%;min-width:0;padding:9px;border:1px solid #cbd7e8;border-radius:9px;background:#fff;font:inherit}
 .todo-reminder .button {width:100%;margin:0;padding:9px;border:0;border-radius:9px;background:#2863e9;color:#fff;font-weight:750;cursor:pointer}
 @keyframes todo-reminder-in {from {opacity:0;transform:translateY(-5px)} to {opacity:1;transform:translateY(0)}}
+@media(max-width:360px) {
+  .todo-reminder summary {min-height:34px;padding:0 16px;font-size:12.5px}
+}
 
 /* One blue summary surface replaces disconnected KPI tiles across dashboard modules. */
 .dashboard-summary-card {min-width:0;margin:0 0 22px;padding:22px 24px;border:1px solid #2f70ee;border-radius:22px;background:linear-gradient(125deg,#1559d9 0%,#2868e8 58%,#3155d9 100%);box-shadow:0 10px 25px #1e54c012;color:#fff;overflow:hidden}
@@ -14609,7 +14631,7 @@ html.admin-modal-js .admin-modal.is-open {
 .dashboard-summary-card .admin-stat-body,.dashboard-summary-card .lesson-lib-metric-body {display:flex;min-width:0;flex-direction:column;gap:3px}
 .dashboard-summary-card .admin-stat-value,.dashboard-summary-card .lesson-lib-metric .admin-stat-value {color:#fff;font-size:clamp(24px,2.1vw,32px);font-weight:850;line-height:1.08}
 .dashboard-summary-card .admin-stat-label,.dashboard-summary-card .lesson-lib-metric .admin-stat-label {color:#e2ecff;font-size:11px;font-weight:750;line-height:1.4}
-.dashboard-summary-card .lesson-lib-panel-head {margin:0 0 8px;padding:0 0 15px;border-bottom:1px solid #ffffff35}
+.dashboard-summary-card .lesson-lib-panel-head {margin:0;padding:0 0 15px;border-bottom:0}
 .dashboard-summary-card .lesson-lib-panel-head .count-pill {border-color:#ffffff4a;background:#ffffff18;color:#fff}
 .dashboard-summary-card .kpi-card:nth-last-child(-n+3),.dashboard-summary-card .student-overview-card:nth-last-child(-n+3),.dashboard-summary-card .dashboard-metric:nth-last-child(-n+3) {border-bottom:0}
 .dashboard-summary-card .kpi-card:hover,.dashboard-summary-card .dashboard-metric:hover {transform:none;box-shadow:none}
@@ -14628,6 +14650,14 @@ html.admin-modal-js .admin-modal.is-open {
 .dashboard-payment-summary .dashboard-metric:nth-child(4n) {border-right:0}
 .dashboard-payment-summary .dashboard-metric:nth-last-child(-n+3) {border-bottom:0}
 .dashboard-summary-card .student-overview-grid {grid-template-columns:repeat(4,minmax(0,1fr))}
+/* Quiz report totals join the same blue summary surface as the other admin pages. */
+.dashboard-summary-card .quiz-report-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0}
+.dashboard-summary-card .quiz-report-metric {display:flex;min-width:0;min-height:138px;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;padding:16px 18px;border:0;border-right:1px solid #ffffff32;border-radius:0;background:transparent;box-shadow:none}
+.dashboard-summary-card .quiz-report-metric:nth-child(3n) {border-right:0}
+.dashboard-summary-card .quiz-report-metric span {color:#e4edff;font-size:11px;font-weight:750;letter-spacing:.02em}
+.dashboard-summary-card .quiz-report-metric strong {margin:5px 0 0;color:#fff;font-size:clamp(25px,2.1vw,34px);font-weight:850;line-height:1.08;letter-spacing:-.04em}
+.dashboard-summary-card .quiz-report-metric small {margin:0;padding:0;color:#d5e3ff;font-size:10px;line-height:1.45}
+.dashboard-summary-card .quiz-report-metric-pass strong,.dashboard-summary-card .quiz-report-metric-fail strong {color:#fff}
 .dashboard-summary-card .student-overview-card {display:grid;grid-template-columns:36px minmax(0,1fr);align-content:center;gap:10px}
 .dashboard-summary-card .student-overview-card:nth-child(3n) {border-right:1px solid #ffffff32}
 .dashboard-summary-card .student-overview-card:nth-child(4n) {border-right:0}
@@ -14685,6 +14715,11 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
   .dashboard-summary-card .dashboard-metric:nth-last-child(-n+2) {border-bottom:0}
   .dashboard-payment-summary .dashboard-metric:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
   .student-management-summary .student-overview-card:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
+  .dashboard-summary-card .quiz-report-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-summary-card .quiz-report-metric:nth-child(3n) {border-right:1px solid #ffffff32}
+  .dashboard-summary-card .quiz-report-metric:nth-child(2n) {border-right:0}
+  .dashboard-summary-card .quiz-report-metric:nth-child(-n+2) {border-bottom:1px solid #ffffff32}
+  .dashboard-summary-card .quiz-report-metric:nth-child(3) {border-right:0;border-bottom:0}
 }
 @media(max-width:560px) {
   body.dashboard-shell>main.dashboard-container {padding-inline:14px}
@@ -14695,7 +14730,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
   .dashboard-summary-heading h2 {font-size:18px}
   .dashboard-summary-heading>span {padding:6px 8px;font-size:10px}
   .dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-summary-card .dashboard-metric {min-height:120px;padding:13px 10px}
+  .dashboard-summary-card .quiz-report-metric {min-height:120px;padding:13px 10px}
   .dashboard-summary-card .kpi-value,.dashboard-summary-card .student-overview-card strong,.dashboard-summary-card .dashboard-metric strong {font-size:25px}
+  .dashboard-summary-card .quiz-report-metric strong {font-size:25px}
   .assignment-submissions-banner {align-items:flex-start;padding:18px 16px}
   .assignment-submissions-banner h2 {font-size:19px}
   .assignment-submissions-card>.admin-empty-state,.assignment-submissions-card>.assignment-review-list {margin:12px}
@@ -14703,18 +14740,15 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
 @media(max-width:902px) {body.dashboard-shell:not(.dashboard-overview) .dashboard-topbar {display:flex!important;justify-content:flex-start;padding-top:8px}}
 @media(max-width:380px) {
   .dashboard-summary-card .kpi-grid,.dashboard-summary-card .student-overview-grid,.dashboard-payment-summary .dashboard-metrics,.dashboard-summary-card .admin-stats-grid,.dashboard-summary-card .lesson-lib-metrics-grid {grid-template-columns:minmax(0,1fr)}
-  .dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-payment-summary .dashboard-metric {border-right:0!important;border-bottom:1px solid #ffffff32!important}
-  .dashboard-summary-card .kpi-card:last-child,.dashboard-summary-card .student-overview-card:last-child,.dashboard-payment-summary .dashboard-metric:last-child {border-bottom:0!important}
+  .dashboard-summary-card .quiz-report-metrics {grid-template-columns:minmax(0,1fr)}
+  .dashboard-summary-card .kpi-card,.dashboard-summary-card .student-overview-card,.dashboard-payment-summary .dashboard-metric,.dashboard-summary-card .quiz-report-metric {border-right:0!important;border-bottom:1px solid #ffffff32!important}
+  .dashboard-summary-card .kpi-card:last-child,.dashboard-summary-card .student-overview-card:last-child,.dashboard-payment-summary .dashboard-metric:last-child,.dashboard-summary-card .quiz-report-metric:last-child {border-bottom:0!important}
   .dashboard-summary-card .admin-stat-card,.dashboard-summary-card .lesson-lib-metric {border-right:0!important;border-bottom:1px solid #ffffff32!important}
   .dashboard-summary-card .admin-stat-card:last-child,.dashboard-summary-card .lesson-lib-metric:last-child {border-bottom:0!important}
 }
 
 /* Payment desk: allow every review and account field to shrink inside narrow viewports. */
 .admin-revenue-page,.admin-revenue-page *,.payment-page,.payment-page * {box-sizing:border-box;min-width:0}
-.admin-usage-title {font-size:22px}
-.admin-usage-copy strong {font-size:14px}
-.admin-usage-detail {font-size:12.75px;line-height:1.58}
-.admin-usage-lead {font-size:13.5px}
 .admin-revenue-page {width:100%;max-width:100%}
 .revenue-page-header {align-items:center;padding:24px 26px;border:1px solid #dce7f7;border-radius:22px;background:linear-gradient(140deg,#fff 0%,#f4f8ff 100%);box-shadow:0 8px 24px #10284b08}
 .revenue-page-header>div:first-child {flex:1 1 340px}
@@ -14729,9 +14763,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
 .payment-review-card .dashboard-actions {display:flex;flex-wrap:wrap;gap:10px;min-width:0}
 .payment-review-card .dashboard-actions .button {flex:1 1 190px;min-width:0;white-space:normal;overflow-wrap:anywhere}
 .payment-account-editor-list {display:grid;gap:14px;min-width:0}
-.payment-account-editor {position:relative;display:grid;gap:15px;min-width:0;margin:0;padding:20px;border:1px solid #e2eaf5;border-radius:18px;background:#f9fbff}
+.payment-account-editor {position:relative;display:grid;gap:15px;min-width:0;margin:0;padding:52px 20px 22px;border:1px solid #e2eaf5;border-radius:18px;background:#f9fbff}
 .payment-account-editor legend {padding:0 8px;color:#1e3a8a;font-size:14px;font-weight:850}
-.payment-account-remove {position:absolute;top:10px;right:12px;min-height:34px;padding:6px 10px;font-size:12px}
+.payment-account-remove {position:absolute;top:14px;right:14px;min-height:34px;padding:6px 12px;font-size:12px;z-index:2}
 .payment-account-editor-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .student-payment-accounts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .student-payment-account {min-width:0;padding:13px;border:1px solid #dbeafe;border-radius:12px;background:#fff}
@@ -14741,15 +14775,14 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
 
 /* Reports desk and its live summaries stay readable without a horizontal table on phones. */
 .admin-reports-page {display:grid;gap:20px;min-width:0}
-.admin-report-heading {padding:25px 28px;border:1px solid #dce7f7;border-radius:22px;background:linear-gradient(135deg,#fff,#f2f7ff)}
+/* The Reports title is a plain heading like every other workspace page - no card background -
+   with the period filter as a simple dropdown docked at the top right. */
+.admin-report-heading {display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:0;border:0;border-radius:0;background:none}
 .admin-report-heading>div {min-width:0}
-.admin-report-controls {display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 22px}
-.admin-report-controls>div {display:grid;gap:4px;min-width:0}
-.admin-report-controls>div strong {color:#17233d;font-size:15px}
-.admin-report-controls>div span {color:#718096;font-size:13px;line-height:1.5}
-.admin-report-period {display:flex;gap:5px;padding:5px;border-radius:14px;background:#f0f4fb}
-.admin-report-period a {padding:9px 15px;border-radius:10px;color:#566780;font-size:13px;font-weight:800;text-decoration:none}
-.admin-report-period a.is-active {background:#2563eb;color:#fff}
+.admin-report-filter {display:flex;align-items:center;gap:9px;flex:0 0 auto}
+.admin-report-filter label {color:#566780;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.admin-report-period-select {min-width:158px;padding:10px 38px 10px 14px;border:1px solid #d5e0f0;border-radius:11px;background:#fff;color:#17233d;font:inherit;font-size:14px;font-weight:700;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.admin-report-period-select:focus {outline:2px solid #2563eb33;border-color:#2563eb}
 .admin-report-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;min-width:0}
 .admin-report-card {display:grid;align-content:start;gap:15px;min-width:0;padding:20px}
 .admin-report-card>header {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
@@ -14769,6 +14802,17 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
 .admin-report-row>div strong {min-width:0;color:#25344d;text-align:right;overflow-wrap:anywhere}
 .admin-report-empty,.admin-report-more {margin:0;color:#718096;font-size:12px;line-height:1.5}
 .admin-reports-page>.admin-usage-card {margin-top:0}
+.admin-report-all-card {display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px;padding:22px 24px;border:0;border-radius:16px;background:linear-gradient(135deg,#0B1B3A 0%,#16305c 100%);box-shadow:0 16px 34px #0b1b3a2e}
+.admin-report-all-copy {min-width:0;flex:1 1 320px}
+.admin-report-all-copy .eyebrow {margin:0 0 6px;color:#8fb0e6;font-size:10px;font-weight:850;letter-spacing:.16em}
+.admin-report-all-copy h2 {margin:0;color:#fff;font-size:20px;line-height:1.3}
+.admin-report-all-copy p:last-child {margin:8px 0 0;color:#c7d6ef;font-size:13px;line-height:1.55;max-width:56ch}
+.admin-report-all-download {flex:0 0 auto;min-height:44px;padding:12px 20px;font-size:14px;font-weight:800;color:#0B1B3A;background:#fff;border-radius:12px}
+.admin-report-all-download:hover {background:#eaf0fb}
+@media(max-width:600px) {
+  .admin-report-all-card {align-items:flex-start;flex-direction:column}
+  .admin-report-all-download {width:100%;text-align:center}
+}
 @media(max-width:900px) {
   .revenue-page-header {align-items:flex-start;flex-direction:column}
   .revenue-page-toolbar {width:100%}
@@ -14777,7 +14821,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
   .admin-report-grid {grid-template-columns:minmax(0,1fr)}
 }
 @media(max-width:600px) {
-  .revenue-page-header,.admin-report-heading {padding:18px 16px;border-radius:17px}
+  .admin-report-heading {align-items:flex-start;flex-direction:column;gap:14px}
+  .admin-report-filter {width:100%}
+  .admin-report-period-select {flex:1;width:100%}
   .revenue-page-header>div:first-child {width:100%}
   .revenue-page-header h1 {font-size:clamp(25px,8vw,34px);overflow-wrap:anywhere}
   .revenue-page-header>div>p:last-child {font-size:13px;line-height:1.55}
@@ -14802,8 +14848,6 @@ body.dashboard-shell.dashboard-overview .dashboard-search {display:flex}
   .payment-account-editor legend {max-width:70%;line-height:1.4}
   .student-payment-accounts {grid-template-columns:minmax(0,1fr)}
   .student-payment-account .payment-account-details>div {grid-template-columns:minmax(0,1fr);gap:3px}
-  .admin-report-controls {align-items:stretch;flex-direction:column;padding:16px}
-  .admin-report-period a {flex:1;text-align:center}
   .admin-report-card {padding:15px}
   .admin-report-card>header {flex-direction:column;align-items:stretch}
   .admin-report-download {width:100%;justify-content:center}

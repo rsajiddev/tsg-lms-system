@@ -57,11 +57,14 @@ $queryForPage = static function (int $targetPage) use ($search, $type, $resultFi
         </div>
     </header>
 
-    <div class="quiz-report-metrics" aria-label="Filtered quiz report totals">
-        <article class="quiz-report-metric"><span>Completed attempts</span><strong><?= number_format((int)($summary['total'] ?? 0)) ?></strong><small>Matching the current filters</small></article>
-        <article class="quiz-report-metric quiz-report-metric-pass"><span>Passed</span><strong><?= number_format((int)($summary['passed'] ?? 0)) ?></strong><small>Met the quiz pass mark</small></article>
-        <article class="quiz-report-metric quiz-report-metric-fail"><span>Failed</span><strong><?= number_format((int)($summary['failed'] ?? 0)) ?></strong><small>Below the quiz pass mark</small></article>
-    </div>
+    <section class="dashboard-summary-card" aria-label="Filtered quiz report totals">
+        <div class="dashboard-summary-heading"><div><p class="eyebrow">ASSESSMENT ACTIVITY</p><h2>Report overview</h2></div><span>Filtered totals</span></div>
+        <div class="quiz-report-metrics" aria-label="Filtered quiz report totals">
+            <article class="quiz-report-metric"><span>Completed attempts</span><strong><?= number_format((int)($summary['total'] ?? 0)) ?></strong><small>Matching the current filters</small></article>
+            <article class="quiz-report-metric quiz-report-metric-pass"><span>Passed</span><strong><?= number_format((int)($summary['passed'] ?? 0)) ?></strong><small>Met the quiz pass mark</small></article>
+            <article class="quiz-report-metric quiz-report-metric-fail"><span>Failed</span><strong><?= number_format((int)($summary['failed'] ?? 0)) ?></strong><small>Below the quiz pass mark</small></article>
+        </div>
+    </section>
 
     <section class="dashboard-panel quiz-report-panel" aria-label="Quiz attempt reports">
         <div class="dashboard-panel-heading quiz-report-heading">

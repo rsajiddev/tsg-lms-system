@@ -12,7 +12,7 @@ use PDO;
 
 final class ReportsController
 {
-    private const TYPES = ['students', 'attendance', 'quizzes', 'assignments', 'payments'];
+    private const TYPES = ['students', 'attendance', 'quizzes', 'assignments', 'payments', 'all'];
 
     public function index(): void
     {
@@ -31,13 +31,46 @@ final class ReportsController
         $type = (string)($_GET['type'] ?? '');
         if (!in_array($type, self::TYPES, true)) { http_response_code(404); return; }
         $period = $this->period($_GET['period'] ?? 'monthly');
-        $report = $this->reports(Database::connection(), $period)[$type];
+        $reports = $this->reports(Database::connection(), $period);
+        $report = $type === 'all' ? $this->consolidated($reports, $period) : $reports[$type];
         $report['type'] = $type;
         $jpg = PaymentReceiptJpg::renderReport($report);
         header('Content-Type: image/jpeg');
         header('Content-Disposition: attachment; filename="techsg-' . $type . '-' . $period['key'] . '.jpg"');
         header('Content-Length: ' . strlen($jpg));
         echo $jpg;
+    }
+
+    /**
+     * A single summarised export that rolls every desk except payments into one report: the
+     * headline figure from each section becomes a summary tile, and each section's metrics are
+     * listed as Section / Measure / Value rows so nothing is left out.
+     */
+    private function consolidated(array $reports, array $period): array
+    {
+        $sections = ['students' => 'Students', 'attendance' => 'Attendance', 'quizzes' => 'Quizzes', 'assignments' => 'Assignments'];
+        $metrics = [];
+        $rows = [];
+        foreach ($sections as $key => $name) {
+            $report = $reports[$key] ?? [];
+            $sectionMetrics = array_slice(is_array($report['metrics'] ?? null) ? $report['metrics'] : [], 0, 3);
+            foreach ($sectionMetrics as $index => $metric) {
+                $label = (string) ($metric['label'] ?? '');
+                $rows[] = [$name, $label, (string) ($metric['value'] ?? '—')];
+                if ($index === 0) $metrics[] = ['label' => $name . ' · ' . $label, 'value' => (string) ($metric['value'] ?? '—')];
+            }
+        }
+        return [
+            'type' => 'all',
+            'period' => $period['label'],
+            'period_range' => $period['start_date'] . ' – ' . $period['end_date'],
+            'title' => 'Consolidated academy report (excluding payments)',
+            'generated_at' => date('M j, Y · g:i A T'),
+            'metrics' => $metrics,
+            'chart' => [],
+            'columns' => ['Section', 'Measure', 'Value'],
+            'rows' => $rows,
+        ];
     }
 
     private function period(mixed $value): array

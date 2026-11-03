@@ -179,7 +179,10 @@ final class QuizController
             $body = 'A ' . strtolower($kind) . ', “' . $title . '”, is ' . ($status === 'released' ? 'now open' : 'scheduled to open') . ' in ' . $courseTitle . '. Questions: ' . $questionCount . '; pass mark: ' . rtrim(rtrim(number_format((float)$passMark, 2), '0'), '.') . '%.' . $timing . ' Find it under Quizzes & results in your workspace.';
             (new NotificationService($db))->notifyCourse($courseId, NotificationService::QUIZ, $kind . ' ' . ($status === 'released' ? 'open' : 'scheduled') . ': ' . $title, $body, 'quiz', $quizId, '/learning/quizzes?course_id=' . $courseId, (int)$admin['id']);
         }
-        $_SESSION['_flash'] = 'Quiz saved.';
+        // The confirmation belongs to creating a brand-new assessment only. Editing the details of
+        // an existing quiz (title, week, timing) already shows its saved values inline, so a flash on
+        // every settings save just repeats what the admin can already see and reads as noise.
+        if ($id === 0) $_SESSION['_flash'] = 'Quiz created.';
         $this->redirect('/admin/quizzes#quiz-' . $quizId);
     }
 

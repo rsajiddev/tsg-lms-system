@@ -54,6 +54,19 @@
 
 
     /* =========================================================
+       AUTO-SUBMIT FILTER DROPDOWNS
+       A period/range <select> inside a GET form reloads the page on change,
+       so choosing an option behaves like the pill links it replaces.
+       ========================================================= */
+
+    document.querySelectorAll('select[data-auto-submit]').forEach((select) => {
+        select.addEventListener('change', () => {
+            if (select.form) select.form.submit();
+        });
+    });
+
+
+    /* =========================================================
        SCROLL REVEAL ANIMATIONS
        ========================================================= */
 

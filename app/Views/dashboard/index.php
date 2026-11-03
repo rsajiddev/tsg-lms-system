@@ -82,11 +82,14 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     : 'Mark today\'s attendance, then track your courses, lessons and assessment progress.' ?></p>
         </div>
         <?php if ($isAdmin): ?>
-            <nav class="analytics-ranges" aria-label="Statistics period">
-                <?php foreach ((array) ($admin['ranges'] ?? [7, 14, 30]) as $option): ?>
-                    <a class="analytics-range<?= (int) $option === $range ? ' is-active' : '' ?>" href="<?= $escape($baseUrl) ?>/dashboard?range=<?= (int) $option ?>"><?= (int) $option ?> days</a>
-                <?php endforeach; ?>
-            </nav>
+            <form class="analytics-ranges" method="get" action="<?= $escape($baseUrl) ?>/dashboard" aria-label="Statistics period">
+                <label for="analytics-range-select">Show stats for</label>
+                <select class="analytics-range-select" id="analytics-range-select" name="range" data-auto-submit>
+                    <?php foreach ((array) ($admin['ranges'] ?? [7, 14, 30]) as $option): ?>
+                        <option value="<?= (int) $option ?>" <?= (int) $option === $range ? 'selected' : '' ?>>Last <?= (int) $option ?> days</option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
         <?php endif; ?>
     </div>
 
