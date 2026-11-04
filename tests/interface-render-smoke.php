@@ -831,6 +831,16 @@ $assert(!str_contains($html, 'chat-delete-confirm') && !str_contains($html, '/ad
         && !str_contains($html, 'Delete conversation'),
     'No permanent delete is offered on a student page, because a student cannot destroy the Academy\'s copy.',
     'A permanent delete control reached the student chat.');
+/* Both panels are printed closed and the button only flips the attribute, so the stylesheet has to
+   name the attribute as well: a display written by the author on the class outranks the browser's own
+   [hidden] handling, which is exactly how the menu and the picker were found open on every load. */
+$stylesheet = (string) file_get_contents(BASE_PATH . '/public/assets/css/pages.css');
+foreach (['chat-menu' => 'the three-dot menu', 'chat-emoji-popover' => 'the emoji picker'] as $panelClass => $panelName) {
+    $printedClosed = str_contains($html, 'class="' . $panelClass . '" id="') && str_contains($html, ' hidden>');
+    $closedByCss = preg_match('/\.' . preg_quote($panelClass, '/') . '\[hidden\]\s*\{\s*display:\s*none/', $stylesheet) === 1;
+    $assert($printedClosed && $closedByCss, $panelName . ' is printed closed and the stylesheet keeps it closed.',
+        $panelName . ' ' . ($printedClosed ? 'is printed closed but nothing in the stylesheet honours [hidden] on it' : 'is not printed with its hidden attribute') . ', so it opens before anyone asks.');
+}
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $_GET = ['thread_id' => (string) $threadId];

@@ -6357,6 +6357,13 @@ html.js [data-reveal].is-visible.dash-card:hover {
   box-shadow: 0 18px 38px #0f172a24
 }
 
+/* The panel is printed closed and the button only flips the attribute, so the attribute needs its own
+   line: a display set by the author above outranks the browser's own [hidden] handling, and without
+   this rule the menu sits open on every load and the button appears to do nothing. */
+.chat-menu[hidden] {
+  display: none
+}
+
 .chat-menu-label {
   margin: 2px 8px 6px;
   color: #94a3b8;
@@ -6468,6 +6475,11 @@ html.js [data-reveal].is-visible.dash-card:hover {
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 18px 38px #0f172a24
+}
+
+/* The picker is closed the same way as the menu above, for the same reason. */
+.chat-emoji-popover[hidden] {
+  display: none
 }
 
 .chat-emoji-group {
@@ -8456,6 +8468,12 @@ body.dashboard-shell {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+
+/* One field is printed hidden by the quiz form - the practice-quiz line, which only the practice type
+   needs - and the flex above would otherwise hold it on screen whatever the script does. */
+.admin-field[hidden] {
+  display: none;
 }
 
 .admin-label {
