@@ -6,23 +6,94 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\Security;
 use App\Core\View;
 use App\Services\DocumentPdf;
+use App\Services\NotificationService;
+use App\Services\ReportSharing;
 use PDO;
 
 final class ReportsController
 {
-    private const TYPES = ['students', 'attendance', 'quizzes', 'assignments', 'payments', 'all'];
+    private const TYPES = ['students', 'attendance', 'quizzes', 'assignments', 'all'];
 
     public function index(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
+        $db = Database::connection();
         $period = $this->period($_GET['period'] ?? 'monthly');
-        $reports = $this->reports(Database::connection(), $period);
+        $reports = $this->reports($db, $period);
+        // The send panel needs someone to send to, and the admin likes to see what already went out.
+        $students = $db->query("SELECT id, full_name, email FROM users WHERE role = 'student' AND status = 'active' ORDER BY full_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
         View::render('admin/reports', [
             'title' => 'Reports', 'user' => $admin, 'period' => $period,
-            'reports' => $reports, 'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
+            'reports' => $reports, 'students' => $students, 'shares' => ReportSharing::recent($db, 5),
+            // Passed as "flash" because View::render narrows the "message" local to a string, and
+            // a send result carries its tone alongside the sentence.
+            'flash' => $_SESSION['_flash'] ?? null,
+            'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
         ]);
+        unset($_SESSION['_flash']);
+    }
+
+    /**
+     * Share one desk with one student.
+     *
+     * The period is resolved here and its boundaries are stored on the row, so the report the
+     * student opens later still describes the window the admin was looking at rather than whatever
+     * "this month" means by then. No document is written: the PDF is rebuilt per student at
+     * download time, filtered to their own records.
+     */
+    public function send(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            return;
+        }
+        $db = Database::connection();
+        $studentId = (int) ($_POST['student_id'] ?? 0);
+        $type = (string) ($_POST['report_type'] ?? '');
+        $period = $this->period($_POST['period'] ?? 'monthly');
+        $back = '/admin/reports?period=' . $period['key'];
+        if ($studentId < 1 || !in_array($type, ReportSharing::DESKS, true)) {
+            $_SESSION['_flash'] = ['type' => 'error', 'text' => 'Choose a student and one of the four report desks before sending.'];
+            $this->redirect($back);
+        }
+        // The id arrives from the browser, so the account has to be re-checked: a student, and an
+        // active one, is the only kind of recipient a report can go to.
+        $student = $db->prepare("SELECT full_name FROM users WHERE id = ? AND role = 'student' AND status = 'active' LIMIT 1");
+        $student->execute([$studentId]);
+        $studentName = $student->fetchColumn();
+        if (!is_string($studentName) || $studentName === '') {
+            $_SESSION['_flash'] = ['type' => 'error', 'text' => 'That student is not an active account, so no report was sent.'];
+            $this->redirect($back);
+        }
+        $shareId = ReportSharing::create($db, $studentId, $type, $period, (int) $admin['id']);
+        // Telling the student is derived data: a notification that fails must not undo a share
+        // that was recorded, and the report is on their page either way.
+        try {
+            (new NotificationService($db))->notifyStudents(
+                [$studentId],
+                NotificationService::REPORT,
+                'Your ' . strtolower(ReportSharing::label($type)) . ' report is ready',
+                'An administrator shared your ' . strtolower(ReportSharing::label($type)) . ' report for the ' . $period['label'] . ' period. Open Reports to download it.',
+                'report_share',
+                $shareId,
+                '/student/reports',
+                (int) $admin['id']
+            );
+        } catch (\Throwable $exception) {
+            error_log(sprintf('[REPORTS] Share notification failed for student %d: %s', $studentId, $exception->getMessage()));
+        }
+        $_SESSION['_flash'] = ['type' => 'success', 'text' => ReportSharing::label($type) . ' report sent to ' . $studentName . '. They can open it from their Reports page.'];
+        $this->redirect($back);
+    }
+
+    private function redirect(string $path): never
+    {
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $path);
+        exit;
     }
 
     public function download(): void
@@ -42,9 +113,9 @@ final class ReportsController
     }
 
     /**
-     * A single summarised export that rolls every desk into one report (payments are kept out of
-     * this pack): the headline figure from each section becomes a summary tile, and each section's
-     * metrics are listed as Section / Measure / Value rows so nothing is left out.
+     * A single summarised export that rolls every desk into one report: the headline figure from
+     * each section becomes a summary tile, and each section's metrics are listed as
+     * Section / Measure / Value rows so nothing is left out.
      */
     private function consolidated(array $reports, array $period): array
     {
@@ -99,15 +170,10 @@ final class ReportsController
         $quizRows->execute([$from, $until]);
         $assignmentRows = $db->prepare("SELECT u.full_name,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM assignment_submissions s JOIN users u ON u.id=s.student_id JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id WHERE s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60");
         $assignmentRows->execute([$from, $until]);
-        $paymentRows = $db->prepare("SELECT u.full_name,c.title AS course_title,p.amount,p.currency,p.transaction_reference,COALESCE(p.reviewed_at,p.created_at) AS paid_at FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' AND COALESCE(p.reviewed_at,p.created_at)>=? AND COALESCE(p.reviewed_at,p.created_at)<? ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC LIMIT 60");
-        $paymentRows->execute([$from, $until]);
-        $paymentData = $paymentRows->fetchAll(PDO::FETCH_ASSOC);
         $quizData = $quizRows->fetchAll(PDO::FETCH_ASSOC);
         $assignmentData = $assignmentRows->fetchAll(PDO::FETCH_ASSOC);
         $studentData = $studentRows->fetchAll(PDO::FETCH_ASSOC);
         $attendanceData = $attendanceRows->fetchAll(PDO::FETCH_ASSOC);
-        $paidTotal = [];
-        foreach ($paymentData as $row) $paidTotal[$row['currency']] = ($paidTotal[$row['currency']] ?? 0) + (float)$row['amount'];
         $passCount = count(array_filter($quizData, static fn($row): bool => ($row['result'] ?? '') === 'pass'));
         $assignmentReviewed = count(array_filter($assignmentData, static fn($row): bool => ($row['status'] ?? '') === 'reviewed'));
         $dateLabel = $period['start_date'] . ' – ' . $period['end_date'];
@@ -116,7 +182,6 @@ final class ReportsController
             'attendance' => ['type'=>'attendance','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Attendance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Records','value'=>(string)(int)($attendanceTotals['total'] ?? 0)],['label'=>'Present','value'=>(string)(int)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(string)(int)($attendanceTotals['absent'] ?? 0)]],'chart'=>[['label'=>'Present','value'=>(float)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(float)($attendanceTotals['absent'] ?? 0)],['label'=>'Pending','value'=>(float)($attendanceTotals['pending'] ?? 0)]],'columns'=>['Date','Student','Status','First login','Confirmed'],'rows'=>array_map(static fn($r)=>[$r['attendance_date'],$r['full_name'],ucfirst($r['status']),$r['first_login_at'],$r['marked_at'] ?: '—'],$attendanceData)],
             'quizzes' => ['type'=>'quizzes','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Quiz performance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submitted attempts','value'=>(string)count($quizData)],['label'=>'Passed','value'=>(string)$passCount],['label'=>'Failed','value'=>(string)(count($quizData)-$passCount)]],'chart'=>[['label'=>'Passed attempts','value'=>(float)$passCount],['label'=>'Failed attempts','value'=>(float)(count($quizData)-$passCount)]],'columns'=>['Student','Course','Quiz','Score','Result'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['course_title'],$r['quiz_title'],($r['score'] ?? '—').'/'.($r['total_marks'] ?? '—'),strtoupper((string)($r['result'] ?? 'pending'))],$quizData)],
             'assignments' => ['type'=>'assignments','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Assignment submissions report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submissions','value'=>(string)count($assignmentData)],['label'=>'Reviewed','value'=>(string)$assignmentReviewed],['label'=>'Awaiting review','value'=>(string)(count($assignmentData)-$assignmentReviewed)]],'chart'=>[['label'=>'Reviewed','value'=>(float)$assignmentReviewed],['label'=>'Awaiting review','value'=>(float)(count($assignmentData)-$assignmentReviewed)]],'columns'=>['Student','Course','Assignment','Status','Marks'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['course_title'],$r['assignment_title'],ucwords(str_replace('_',' ',$r['status'])),($r['marks_awarded'] ?? '—').'/'.$r['max_marks']],$assignmentData)],
-            'payments' => ['type'=>'payments','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Approved payment report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Approved payments','value'=>(string)count($paymentData)],['label'=>'Currencies','value'=>(string)count($paidTotal)],['label'=>'Revenue','value'=>implode(' · ',array_map(static fn($c,$v)=>$c.' '.number_format($v,2),array_keys($paidTotal),array_values($paidTotal))) ?: '0.00']],'chart'=>array_map(static fn($currency,$value)=>['label'=>$currency.' revenue','value'=>(float)$value],array_keys($paidTotal),array_values($paidTotal)),'columns'=>['Student','Course','Amount','Reference','Paid on'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['course_title'],$r['currency'].' '.number_format((float)$r['amount'],2),$r['transaction_reference'],$r['paid_at']],$paymentData)],
         ];
     }
 }

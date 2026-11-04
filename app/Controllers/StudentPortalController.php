@@ -8,7 +8,9 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
 use App\Services\CourseGrading;
+use App\Services\DocumentPdf;
 use App\Services\LessonMedia;
+use App\Services\ReportSharing;
 
 /**
  * Dedicated workspace pages for signed-in students.
@@ -266,6 +268,44 @@ final class StudentPortalController
             'user' => $user,
             'assignments' => $stmt->fetchAll(),
         ]);
+    }
+
+    /**
+     * The reports an administrator has shared with this student.
+     *
+     * The page lists metadata only. The document is rebuilt when the student downloads it, so a
+     * share can never hand over another student's rows and nothing has to be kept in storage.
+     */
+    public function reports(): void
+    {
+        $user = AuthMiddleware::requireRole('student');
+        $shares = ReportSharing::forStudent(Database::connection(), (int) $user['id']);
+
+        View::render('student/reports', [
+            'title' => 'Reports',
+            'user' => $user,
+            'shares' => $shares,
+        ]);
+    }
+
+    public function reportDownload(): void
+    {
+        $user = AuthMiddleware::requireRole('student');
+        $studentId = (int) $user['id'];
+        $db = Database::connection();
+        $share = ReportSharing::find($db, (int) ($_GET['share_id'] ?? 0));
+        // A share id is not a permission. The row has to belong to whoever is signed in before
+        // anything at all is built from it, so guessing an id reveals nothing.
+        if ($share === null || (int) $share['student_id'] !== $studentId) {
+            http_response_code(404);
+            return;
+        }
+        $report = ReportSharing::studentReport($db, $share, $studentId);
+        $pdf = DocumentPdf::report($report);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="techsg-' . $report['type'] . '-' . strtolower((string) $share['period_key']) . '-' . $studentId . '.pdf"');
+        header('Content-Length: ' . strlen($pdf));
+        echo $pdf;
     }
 
     private function count(\PDO $db, string $sql, array $params): int

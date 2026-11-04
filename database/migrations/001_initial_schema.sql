@@ -2336,3 +2336,21 @@ CREATE TABLE IF NOT EXISTS dashboard_tasks (
        INDEX idx_dashboard_task_reminder(is_done,reminder_at,reminder_sent_at),
        INDEX idx_dashboard_task_owner(user_id,is_done,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- A report an admin sends to a student is a promise about a period, not about the moment the
+-- student opens it, so the period boundaries are stored on the share itself. Only the metadata
+-- lives here: the PDF is rebuilt from these bounds when the student downloads it, which keeps
+-- the document scoped to that student's own records and leaves no file to clean up afterwards.
+CREATE TABLE IF NOT EXISTS report_shares (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       report_type ENUM('students','attendance','quizzes','assignments') NOT NULL,
+       period_key ENUM('weekly','monthly') NOT NULL,
+       period_start DATETIME NOT NULL,
+       period_end DATETIME NOT NULL,
+       sent_by BIGINT UNSIGNED NOT NULL,
+       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_report_share_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_report_share_sender FOREIGN KEY(sent_by) REFERENCES users(id),
+       INDEX idx_report_share_student(student_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

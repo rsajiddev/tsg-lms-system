@@ -25,6 +25,7 @@ foreach (
         '/app/Services/CourseDuration.php',
         '/app/Services/PdfCanvas.php',
         '/app/Services/DocumentPdf.php',
+        '/app/Services/ReportSharing.php',
         '/app/Services/AuthService.php',
         '/app/Services/AttendanceService.php',
         '/app/Services/LessonMedia.php',
@@ -151,6 +152,8 @@ $router->get('/student/lessons', [\App\Controllers\StudentPortalController::clas
 $router->get('/student/payments', [\App\Controllers\StudentPortalController::class, 'payments']);
 $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::class, 'quizzes']);
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
+$router->get('/student/reports', [\App\Controllers\StudentPortalController::class, 'reports']);
+$router->get('/student/reports/download', [\App\Controllers\StudentPortalController::class, 'reportDownload']);
 $router->get('/student/settings', [\App\Controllers\AccountController::class, 'studentSettings']);
 $router->get('/admin/account', [\App\Controllers\AccountController::class, 'adminSettings']);
 $account = \App\Controllers\AccountController::class;
@@ -218,6 +221,7 @@ $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementContro
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
 $router->get('/admin/reports', [\App\Controllers\ReportsController::class, 'index']);
 $router->get('/admin/reports/download', [\App\Controllers\ReportsController::class, 'download']);
+$router->post('/admin/reports/send', [\App\Controllers\ReportsController::class, 'send']);
 $router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
 $router->get('/admin/payments/revenue-receipt', [\App\Controllers\PaymentController::class, 'revenueReceipt']);
 $router->post('/admin/payments/revenue-notify', [\App\Controllers\PaymentController::class, 'notifyDeveloper']);

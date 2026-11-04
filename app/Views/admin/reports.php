@@ -4,7 +4,14 @@ $escape = [Security::class, 'escape'];
 $reports = is_array($reports ?? null) ? $reports : [];
 $period = $period ?? ['key'=>'monthly'];
 $baseUrl = $baseUrl ?? '';
-$labels = ['students'=>'Students & regularity','attendance'=>'Attendance','quizzes'=>'Quiz performance','assignments'=>'Assignments','payments'=>'Payments'];
+$labels = ['students'=>'Students & regularity','attendance'=>'Attendance','quizzes'=>'Quiz performance','assignments'=>'Assignments'];
+$students = is_array($students ?? null) ? $students : [];
+$shares = is_array($shares ?? null) ? $shares : [];
+// The controller tags each result, so the overlay can pick its colour; a plain string still reads
+// as a success.
+$flash = $flash ?? null;
+if (is_string($flash) && $flash !== '') $flash = ['type' => 'success', 'text' => $flash];
+if (!is_array($flash)) $flash = null;
 // Real figures for the overview card: headline metric + record count per desk.
 $counts = [];
 foreach ($labels as $type => $label) $counts[$type] = count($reports[$type]['rows'] ?? []);
@@ -27,6 +34,7 @@ $rangeLabel = $reports['students']['period_range'] ?? '';
       </select>
     </form>
   </header>
+  <?php \App\Core\View::toast(($flash['type'] ?? '') === 'error' ? 'error' : 'success', $flash['text'] ?? null); ?>
   <section class="dashboard-summary-card admin-report-summary">
     <div class="dashboard-summary-heading">
       <div><p class="eyebrow">ACADEMY INSIGHTS</p><h2>Reports overview</h2></div>
@@ -71,11 +79,48 @@ $rangeLabel = $reports['students']['period_range'] ?? '';
         <?php endforeach; ?>
       </div>
     </article>
+    <article class="admin-card admin-report-card admin-report-send-card">
+      <header><div><p class="eyebrow">SHARE ONE REPORT</p><h2>Send a report to a student</h2><p>The student sees their own records only, for the period chosen here — it appears on their Reports page.</p></div></header>
+      <?php if ($students === []): ?>
+        <p class="admin-report-empty">There is no active student account to send a report to yet.</p>
+      <?php else: ?>
+        <form class="admin-report-send-form" method="post" action="<?= $escape($baseUrl) ?>/admin/reports/send">
+          <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+          <label><span>Student</span>
+            <select name="student_id" required>
+              <option value="">Choose a student…</option>
+              <?php foreach ($students as $student): ?><option value="<?= (int) $student['id'] ?>"><?= $escape($student['full_name']) ?> · <?= $escape($student['email']) ?></option><?php endforeach; ?>
+            </select>
+          </label>
+          <label><span>Report</span>
+            <select name="report_type" required>
+              <?php foreach ($labels as $type => $label): ?><option value="<?= $escape($type) ?>"><?= $escape($label) ?></option><?php endforeach; ?>
+            </select>
+          </label>
+          <label><span>Period</span>
+            <select name="period">
+              <option value="weekly" <?= $period['key']==='weekly'?'selected':'' ?>>Weekly</option>
+              <option value="monthly" <?= $period['key']==='monthly'?'selected':'' ?>>Monthly</option>
+            </select>
+          </label>
+          <button class="button" type="submit">Send report</button>
+        </form>
+      <?php endif; ?>
+      <div class="admin-report-sent">
+        <p class="admin-report-sent-title">Recently sent</p>
+        <?php if ($shares === []): ?><p class="admin-report-empty">Nothing has been shared with a student yet.</p>
+        <?php else: ?><ul class="admin-report-sent-list">
+          <?php foreach ($shares as $share): ?>
+            <li><strong><?= $escape($share['student_name'] ?? '') ?></strong><span><?= $escape($labels[$share['report_type']] ?? (string) $share['report_type']) ?> · <?= $escape(ucfirst((string) $share['period_key'])) ?> · by <?= $escape($share['sender_name'] ?? '') ?></span></li>
+          <?php endforeach; ?>
+        </ul><?php endif; ?>
+      </div>
+    </article>
   </div>
   <?php
   $usageEyebrow = 'Reporting desk'; $usageTitle = 'How to use reports';
   $usageLead = 'Use a weekly or monthly view to review saved records, then export the selected report as a PDF.';
-  $usageBullets = ['Choose the period. Weekly reports run from Monday through Sunday; monthly reports cover the current calendar month.','Review each desk. Student regularity, attendance, quiz attempts, assignment submissions, and approved payments come from their saved records.','Export a branded document. Each download includes the TechSG Studio Academy header, reporting period, generation time, key totals, and record rows as a PDF.'];
+  $usageBullets = ['Choose the period. Weekly reports run from Monday through Sunday; monthly reports cover the current calendar month.','Review each desk. Student regularity, attendance, quiz attempts and assignment submissions come from their saved records.','Export a branded document. Each download includes the TechSG Studio Academy header, reporting period, generation time, key totals, and record rows as a PDF.','Send one to a student. Pick a student and a desk, and the report reaches their own Reports page with only their records in it.'];
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>
 </section>

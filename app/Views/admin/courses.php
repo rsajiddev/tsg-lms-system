@@ -155,11 +155,11 @@ $totalStudents = count($students);
                 <div class="admin-field course-image-upload-field">
                     <label class="admin-label" for="course-image">Course cover image</label>
                     <input class="admin-input" id="course-image" name="image" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"<?= $courseImagesAvailable ? '' : ' disabled' ?>>
-                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 600 KB. Use a clear landscape image; a course-related image is shown automatically if you leave this empty.</span>
+                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 3 MB. Use a clear landscape image; a course-related image is shown automatically if you leave this empty.</span>
                 </div>
 
                 <div class="admin-form-row">
-                    <div class="admin-field"><label class="admin-label" for="course-duration">Duration <span class="req">*</span></label><input class="admin-input" id="course-duration" name="duration_label" required pattern="[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" placeholder="e.g. 3 Months"><span class="admin-hint">Access expires after this duration from payment approval. Use days, weeks, months, or years.</span></div>
+                    <div class="admin-field"><label class="admin-label" for="course-duration">Duration <span class="req">*</span></label><input class="admin-input" id="course-duration" name="duration_label" required pattern="(?i)[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" placeholder="e.g. 3 Months"><span class="admin-hint">Access expires after this duration from payment approval. Use days, weeks, months, or years.</span></div>
                     <div class="admin-field"><label class="admin-label" for="course-level">Level</label><input class="admin-input" id="course-level" name="level_label" maxlength="50" placeholder="e.g. Beginner"></div>
                 </div>
 
@@ -439,7 +439,7 @@ $totalStudents = count($students);
         'Create the course first. A course record is the container every lesson, quiz, assignment and payment in the Academy hangs from.',
         'Visibility controls publishing. Draft courses stay invisible on the public catalogue; switching to published lists them immediately with their price cards.',
         'Grant access per student. Assign a course manually and pick the learning format — Live + Recorded or Recorded Only — and the access window stays tied to that choice.',
-        'Upload a cover image. JPG, PNG or WebP up to 600 KB; leaving the field empty keeps the current image in place.',
+        'Upload a cover image. JPG, PNG or WebP up to 3 MB; leaving the field empty keeps the current image in place.',
         'Lessons live elsewhere. Modules and lessons are authored in the Lesson library, and this page only manages the course shell and its enrollments.',
         'Track progress at a glance. The counters above summarise courses, lessons and students as soon as you save, publish or grant access.',
     ];
@@ -515,7 +515,7 @@ $totalStudents = count($students);
                 <div class="admin-form-row">
                     <div class="admin-field">
                         <label class="admin-label" for="course-edit-<?= $courseId ?>-duration">Duration <span class="req">*</span></label>
-                        <input class="admin-input" id="course-edit-<?= $courseId ?>-duration" name="duration_label" required pattern="[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" value="<?= $escape($course['duration_label'] ?? '') ?>">
+                        <input class="admin-input" id="course-edit-<?= $courseId ?>-duration" name="duration_label" required pattern="(?i)[1-9][0-9]{0,2}\s*(days?|weeks?|months?|years?)" maxlength="100" value="<?= $escape($course['duration_label'] ?? '') ?>">
                         <span class="admin-hint">Access expires after this duration from payment approval.</span>
                     </div>
                     <div class="admin-field">
@@ -544,7 +544,7 @@ $totalStudents = count($students);
                     <label class="admin-label" for="course-edit-<?= $courseId ?>-image">Course cover image</label>
                     <?php if ($modalImagePath !== ''): ?><img class="course-image-edit-preview" src="<?= $escape($baseUrl) ?>/public/<?= $escape($modalImagePath) ?>" alt="Current cover for <?= $escape($course['title']) ?>" loading="lazy" decoding="async"><?php endif; ?>
                     <input class="admin-input" id="course-edit-<?= $courseId ?>-image" name="image" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"<?= $courseImagesAvailable ? '' : ' disabled' ?>>
-                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 600 KB. Leave empty to keep the current image.</span>
+                    <span class="admin-hint">Optional · JPG, PNG, or WebP · maximum 3 MB. Leave empty to keep the current image.</span>
                 </div>
 
                 <div class="admin-field">

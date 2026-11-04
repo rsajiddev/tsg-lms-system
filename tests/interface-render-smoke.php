@@ -513,23 +513,26 @@ $assert($notifier->markAreaSeen($studentId, 'assignments') === 0,
 // Put the rows back unread so a rerun against the same scratch database measures the same deltas.
 $db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
 
-/* ------------------------------------------------------------------ usage guide card */
+/* ------------------------------------------------------------------ closing usage reference */
 echo "\n-- the closing usage guide\n";
-// One component renders the walkthrough at the foot of every workspace page, in the same shape as
-// the public course page's steps, so a reader who learns it once re-reads nothing on the next page.
-// Placement is part of the rule as well: it is always the last card on the page.
+// One component prints the reference list at the foot of every workspace page. Readers skip long
+// walkthroughs, so it is a quiet footnote - a ticked line per point, no card of its own - and the
+// placement is part of the rule as well: it always closes the page.
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/lessons';
 $html = $render(static fn() => (new CourseAdminController())->lessons());
 $assert(str_contains($html, 'admin-usage-card') && str_contains($html, 'admin-usage-eyebrow') && str_contains($html, 'admin-usage-title'),
-    'The Lesson library closes with its labelled guide card.',
-    'The Lesson library renders no labelled usage card.');
-$assert(preg_match('/<ol class="admin-usage-list">.*<span class="admin-usage-number" aria-hidden="true">1<\/span>.*<span class="admin-usage-number" aria-hidden="true">2<\/span>/s', $html) === 1,
-    'The steps are an ordered list counted from one.',
-    'The guide is not a numbered list starting at 1: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
+    'The Lesson library closes with its labelled reference list.',
+    'The Lesson library renders no labelled usage reference.');
+$assert(preg_match('/<ul class="admin-usage-list">.*<span class="admin-usage-check" aria-hidden="true"><svg.*<span class="admin-usage-check" aria-hidden="true"><svg/s', $html) === 1,
+    'The reference is an unordered list whose lines each open with a ticked ring.',
+    'The guide is not a ticked list: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
+$assert(substr_count($html, 'admin-usage-number') === 0,
+    'No step counter survives from the old numbered walkthrough.',
+    'The reference still prints numbered step chips.');
 $assert(str_contains($html, 'admin-usage-copy"><strong>') && str_contains($html, 'admin-usage-detail'),
-    'Each step prints its short title above the sentence that explains it.',
-    'A guide step carries no title or no detail.');
+    'Each line prints its short title and the sentence that explains it.',
+    'A reference line carries no title or no detail.');
 // The walkthrough is the last card on the page, so it never cuts the workflow above it in half -
 // and that holds even on a desk that ends with a guarded bulk delete.
 $assert(stripos($html, 'admin-usage-card') > stripos($html, 'admin-card-testing'),

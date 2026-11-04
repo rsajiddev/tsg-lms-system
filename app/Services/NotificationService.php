@@ -29,6 +29,7 @@ final class NotificationService
     public const PAYMENT = 'payment';
     public const GRADE = 'grade';
     public const CERTIFICATE = 'certificate';
+    public const REPORT = 'report';
 
     /** How the sidebar groups notification categories under its navigation links. */
     public const AREAS = [
@@ -38,6 +39,7 @@ final class NotificationService
         'assignments' => [self::ASSIGNMENT, self::GRADE],
         'quizzes' => [self::QUIZ],
         'payments' => [self::PAYMENT],
+        'reports' => [self::REPORT],
     ];
 
     /**
@@ -59,6 +61,7 @@ final class NotificationService
         '/student/lessons' => 'lessons',
         '/student/courses' => 'courses',
         '/student/payments' => 'payments',
+        '/student/reports' => 'reports',
         '/payments' => 'payments',
         '/certificate' => 'courses',
         '/notifications' => 'notifications',

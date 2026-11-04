@@ -229,13 +229,13 @@ final class CourseAdminController
         $error = $upload['error'] ?? UPLOAD_ERR_NO_FILE;
         if ($error === UPLOAD_ERR_NO_FILE) return null;
         if ($error !== UPLOAD_ERR_OK || !is_string($upload['tmp_name'] ?? null) || !is_uploaded_file($upload['tmp_name'])) {
-            throw new RuntimeException('The course image could not be uploaded. Choose a JPG, PNG, or WebP image up to 600 KB.');
+            throw new RuntimeException('The course image could not be uploaded. Choose a JPG, PNG, or WebP image up to 3 MB.');
         }
 
         $temporaryPath = $upload['tmp_name'];
         $size = filesize($temporaryPath);
-        if ($size === false || $size < 1 || $size > 600 * 1024) {
-            throw new RuntimeException('Course images must be no larger than 600 KB.');
+        if ($size === false || $size < 1 || $size > 3 * 1024 * 1024) {
+            throw new RuntimeException('Course images must be no larger than 3 MB.');
         }
 
         $imageTypes = [IMAGETYPE_JPEG => ['image/jpeg', 'jpg'], IMAGETYPE_PNG => ['image/png', 'png']];
