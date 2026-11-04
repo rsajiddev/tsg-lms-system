@@ -18,8 +18,8 @@ declare(strict_types=1);
  * audit row records the scale of the deletion. The last rounds cover the student directory
  * purge (accounts and everything filed under them, while the delivery log keeps its rows), the
  * Clear delivery log button on the recent activity report, the student's Mark all read shortcut,
- * the chat list's Read all, Delete and Delete all actions and the same two clearing actions on the
- * admin desk, the Clear recent activity card that
+ * the chat clear on either side of a conversation and the desk's phrase-guarded delete of the
+ * messages, the Clear recent activity card that
  * empties the automated updates and the log while leaving the board standing, and the announcement
  * board purge that retires every notification with its recipients and replies. It
  * only ever runs against a scratch database.
@@ -112,14 +112,13 @@ $phrases = [
     'announcements' => 'DELETE ALL ANNOUNCEMENTS',
     // The report on the recent activity page empties both generated tables at once.
     'activity' => 'CLEAR RECENT ACTIVITY',
-    // The student's Mark all read and the chat actions have no phrase either; their unsafe
-    // variant is a forged request. The desk on the admin side clears its list the same way.
+    // The student's Mark all read and the two clears have no phrase; their unsafe variant is a forged
+    // request. Clearing is one endpoint both sides of a conversation use, and only the desk's delete
+    // of the messages asks for a typed phrase.
     'readall' => '',
-    'chatread' => '',
-    'chatone' => '',
-    'chatall' => '',
-    'admchatone' => '',
-    'admchatall' => '',
+    'clarchat' => '',
+    'admclearchat' => '',
+    'admdeletechat' => 'DELETE THIS CONVERSATION',
 ];
 
 /* --------------------------------------------------------------------- child process */
@@ -130,7 +129,7 @@ if ($run !== '') {
     $find->execute([$adminEmail]);
     $adminId = (int) $find->fetchColumn();
     $assert($adminId > 0, 'The seeded admin is missing; run the parent first.');
-    if (in_array($run, ['readall', 'chatread', 'chatone', 'chatall'], true)) {
+    if (in_array($run, ['readall', 'clarchat'], true)) {
         // These are the student's own actions, so this child signs in as whichever student the parent
         // left standing and the unsafe variant is a request without a valid token.
         $studentRow = $db->query("SELECT id,email FROM users WHERE role='student' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
@@ -138,9 +137,9 @@ if ($run !== '') {
         $assert($studentSessionId > 0, 'No student account is left to act with; run the parent first.');
         $_SESSION = ['user' => ['id' => $studentSessionId, 'name' => 'Purge Smoke Reader', 'email' => (string) $studentRow['email'], 'role' => 'student']];
         $_POST = ['_csrf' => (($options['bad'] ?? '') === '1') ? 'not-a-token' : Security::csrfToken()];
-        if ($run === 'chatone') {
-            // Hiding one conversation is addressed by the thread it belongs to.
-            $_POST['notification_id'] = (string) (int) ($options['nid'] ?? 0);
+        if ($run === 'clarchat') {
+            // Clearing a conversation is addressed by the thread it belongs to.
+            $_POST['thread_id'] = (string) (int) ($options['nid'] ?? 0);
         }
     } else {
         $_SESSION = ['user' => ['id' => $adminId, 'name' => 'Purge Smoke Admin', 'email' => $adminEmail, 'role' => 'admin']];
@@ -155,9 +154,10 @@ if ($run !== '') {
         } else {
             $_POST['confirm_phrase'] = (($options['bad'] ?? '') === '1') ? 'DELETE EVERYTHING PLEASE' : $phrases[$run];
         }
-        if ($run === 'admchatone') {
-            // The desk hides one thread of one student, so both halves of the address go with it.
-            $_POST['notification_id'] = (string) (int) ($options['nid'] ?? 0);
+        if ($run === 'admclearchat' || $run === 'admdeletechat') {
+            // Both desk actions are addressed by the thread, and the thread belongs to a student whose
+            // id the parent passes along.
+            $_POST['thread_id'] = (string) (int) ($options['nid'] ?? 0);
             $_POST['student_id'] = (string) (int) ($options['sid'] ?? 0);
         }
     }
@@ -175,11 +175,9 @@ if ($run !== '') {
             'activity' => (new NotificationController())->clearActivity(),
             'announcements' => (new NotificationController())->purgeAll(),
             'readall' => (new NotificationController())->markAllRead(),
-            'chatread' => (new ChatController())->markAllSeen(),
-            'chatone' => (new ChatController())->deleteThread(),
-            'chatall' => (new ChatController())->deleteAll(),
-            'admchatone' => (new ChatController())->adminDeleteThread(),
-            'admchatall' => (new ChatController())->adminDeleteAll(),
+            'clarchat' => (new ChatController())->clear(),
+            'admclearchat' => (new ChatController())->clear(),
+            'admdeletechat' => (new ChatController())->deleteThread(),
         };
     } catch (Throwable $exception) {
         echo 'THROWN|' . $exception->getMessage() . "\n";
@@ -190,6 +188,9 @@ if ($run !== '') {
 /* ------------------------------------------------------------------------- test data */
 $tables = [
     'course_grades', 'certificates', 'notification_reads',
+    // A conversation holds its messages with a cascade and its thread with a plain foreign key, so
+    // both tables are emptied before any account is removed.
+    'chat_messages', 'chat_threads',
     'quiz_answers', 'quiz_attempt_options', 'quiz_attempt_questions', 'quiz_options',
     'quiz_retake_approvals', 'quiz_attempts', 'quiz_questions', 'quizzes',
     'assignment_submissions', 'assignments', 'lesson_progress', 'lessons', 'course_modules',
@@ -445,96 +446,98 @@ try {
     $assert((string) $db->query('SELECT read_at FROM notification_recipients')->fetchColumn() !== '',
         'The recipient row was stamped but the counter says otherwise; the badge would keep counting it.');
 
-    /* ------------------------------------------------------ the student's chat actions */
-    // Two automated updates carrying an Academy answer each, so the chat list has something to read,
-    // something to hide one at a time, and something left for Delete all. They are not announcements,
-    // which is what lets the report card below clear them afterwards.
-    $insertAutomated = $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
-        VALUES(?,'lesson',?,'A new lesson is open for you.','selected_students',UTC_TIMESTAMP())");
-    $threadIds = [];
-    foreach (['Lesson one is open', 'Lesson two is open'] as $chatTitle) {
-        $insertAutomated->execute([$adminId, $chatTitle]);
-        $threadIds[] = (int) $db->lastInsertId();
-    }
-    $recipientInsert = $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)');
-    $replyInsert = $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)');
-    foreach ($threadIds as $threadId) {
-        $recipientInsert->execute([$threadId, $readerId]);
-        $replyInsert->execute([$threadId, $adminId, $readerId, 'The Academy answered this update.']);
-    }
+    /* -------------------------------------------------- the two sides clearing one chat */
+    // A real conversation, in the tables the chat itself uses: the reader's question and the Academy's
+    // answer. Clearing is measured from both ends because its whole promise is that one side's list
+    // empties while the other side keeps reading exactly the same rows.
     $chats = new ChatService($db);
-    $assert($chats->unreadCount($readerId) === 2 && count($chats->studentThreads($readerId)) === 2,
-        'The two seeded conversations are unread and listed for the reader.');
+    $threadId = $chats->studentThread($readerId);
+    // Messages are written a full minute apart and the marks are moved to whole minutes, so the reopen
+    // below measures the rule rather than the second a request happened to land in.
+    $messageInsert = $db->prepare('INSERT INTO chat_messages(thread_id,sender_id,message,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL ? MINUTE)');
+    $messageInsert->execute([$threadId, $readerId, 'Is the replay available?', 30]);
+    $messageInsert->execute([$threadId, $adminId, 'Yes, it is posted under the lesson.', 20]);
+    $assert(count($chats->messages($threadId, 'student')) === 2 && count($chats->messages($threadId, 'admin')) === 2,
+        'Both sides read both seeded messages.');
+    $assert($chats->unreadCount($readerId) === 1 && $chats->waitingCount() === 0,
+        'The Academy answer is unread for the student, and an answered thread is not waiting for the desk.');
     $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
         VALUES('notification.lesson',?,'A new lesson is open','sent',?)")->execute([$readerEmail, $readerId]);
 
-    $output = $invoke('chatread', true);
-    $assert(str_contains($output, 'FLASH|Your session expired'), 'The Read all chat button accepted a request without a valid token: ' . trim($output));
-    $assert($chats->unreadCount($readerId) === 2, 'An unauthenticated request read the conversations anyway.');
+    $output = $invoke('clarchat', true, $threadId);
+    $assert(str_contains($output, 'FLASH|Your session expired'), 'The chat clear accepted a request without a valid token: ' . trim($output));
+    $assert(count($chats->messages($threadId, 'student')) === 2, 'An unauthenticated request cleared the chat anyway.');
 
-    $output = $invoke('chatread');
-    $assert(str_contains($output, 'FLASH|Marked 2 conversation(s) as read.'), 'Read all chat reported: ' . trim($output));
-    $assert($chats->unreadCount($readerId) === 0, 'A conversation survived Read all in the Chats counter.');
-    // Reading a conversation is not reading the news, and the two counters have to stay apart.
-    $assert((int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE read_at IS NULL')->fetchColumn() === 2,
-        'Marking the chats read also settled the unread notifications.');
+    $output = $invoke('clarchat', false, $threadId);
+    $assert(str_contains($output, 'FLASH|Cleared for you. 2 messages are hidden on this side only, the Academy still reads them'),
+        'The student clear reported: ' . trim($output));
+    $assert($chats->messages($threadId, 'student') === [], 'The student still reads what they cleared.');
+    $assert(count($chats->messages($threadId, 'admin')) === 2 && count($chats->adminThreads()) === 1,
+        'The student clear reached into the Academy\'s copy.');
+    $assert($chats->studentThreads($readerId) === [], 'A cleared chat stayed on the student list.');
+    $assert($chats->unreadCount($readerId) === 0, 'The Chats badge outlived the list it counts.');
+    $assert($count('chat_messages') === 2, 'Clearing deleted message rows instead of hiding them.');
 
-    $output = $invoke('chatone', false, $threadIds[0]);
-    $assert(str_contains($output, 'FLASH|Conversation removed from your chats.'), 'Hiding one conversation reported: ' . trim($output));
-    $assert((int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE chat_deleted_at IS NOT NULL')->fetchColumn() === 1,
-        'Hiding one conversation touched somebody else\'s row.');
-    $assert($count('notification_replies') === 2 && count($chats->studentThreads($readerId)) === 1,
-        'Hiding a conversation deleted its messages or took the other thread with it.');
+    /* ------------------------------------------------------ the same clear from the desk */
+    // One endpoint, two sides: what the desk loses is the desk's own view, and the student keeps the
+    // conversation exactly where they left it.
+    $output = $invoke('admclearchat', false, $threadId, $readerId);
+    $assert(str_contains($output, 'FLASH|Cleared for you. 2 messages are hidden on this side only, the student still reads them'),
+        'The desk clear reported: ' . trim($output));
+    $assert($chats->adminThreads() === [] && $chats->messages($threadId, 'admin') === [], 'The desk still lists what it cleared.');
+    $assert($chats->adminThreadCount() === 1, 'Clearing the desk deleted the thread itself, so the student could not write again.');
+    $assert($count('chat_messages') === 2 && $chats->messages($threadId, 'student') === [],
+        'The desk clear moved the student\'s own view of the conversation.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.cleared'")->fetchColumn() === 1,
+        'The desk clear left no audit row.');
 
-    $noticeCount = $count('notifications');
-    $output = $invoke('chatall');
-    $assert(str_contains($output, 'FLASH|Cleared 1 conversation(s) from your chats.'), 'Delete all chat reported: ' . trim($output));
-    $assert($chats->studentThreads($readerId) === [] && $count('notifications') === $noticeCount && $count('notification_replies') === 2,
-        'Clearing the chat list destroyed the threads or the notices behind them: ' . $count('notifications') . ' notification(s) left.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action IN ('chat.hidden','chat.hidden_all')")->fetchColumn() === 2,
-        'The chat actions left no audit trail.');
+    // A second clear has nothing left to hide, and has to say so instead of reporting a number.
+    $output = $invoke('admclearchat', false, $threadId, $readerId);
+    $assert(str_contains($output, 'FLASH|This chat has nothing to clear.'), 'An already cleared chat reported: ' . trim($output));
 
-    /* ------------------------------------------------------ the admin clearing the desk */
-    // The same promise from the other side of the thread: the desk loses the conversation, the
-    // student's rows do not move, and the next message from that student puts it back.
-    $output = $invoke('admchatone', true, $threadIds[0], $readerId);
-    $assert(str_contains($output, 'FLASH|Your session expired'), 'The desk accepted a clear without a valid token: ' . trim($output));
-    $assert($chats->adminThreadCount() === 2, 'An unauthenticated request cleared a thread off the desk anyway.');
-
-    $output = $invoke('admchatone', false, $threadIds[0], $readerId);
-    $assert(str_contains($output, 'FLASH|Conversation cleared from the desk.'), 'Clearing one conversation reported: ' . trim($output));
-    $deskKept = $chats->adminThreads();
-    $assert($chats->adminThreadCount() === 1 && count($deskKept) === 1 && (int) ($deskKept[0]['id'] ?? 0) === $threadIds[1],
-        'The desk kept the other conversation and lost exactly the one that was cleared.',
-        'The desk read ' . json_encode(array_map(static fn(array $thread): int => (int) $thread['id'], $deskKept)) . ' after one clear.');
-    $assert($count('notification_replies') === 2
-            && (int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE chat_deleted_at IS NOT NULL')->fetchColumn() === 2,
-        'Clearing the desk reached into the messages or the student\'s own list.');
-
-    $output = $invoke('admchatall');
-    $assert(str_contains($output, 'FLASH|Cleared 1 conversation(s) from the desk.'), 'Delete all on the desk reported: ' . trim($output));
-    $assert($chats->adminThreads() === [] && $chats->adminThreadCount() === 0 && $count('notification_replies') === 2,
-        'Clearing the whole desk destroyed a message or reported a number that did not match it.');
-
-    $output = $invoke('admchatall');
-    $assert(str_contains($output, 'FLASH|The desk was already empty.'), 'An empty desk reported: ' . trim($output));
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.admin_hidden'")->fetchColumn() === 1
-            && (int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.admin_hidden_all'")->fetchColumn() === 2,
-        'The desk actions left no audit trail, or recorded something other than what they did.',
-        'Audit rows: ' . (int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.admin_hidden'")->fetchColumn() . ' single, '
-            . (int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.admin_hidden_all'")->fetchColumn() . ' bulk.');
-
-    // The rule that makes an admin-side clear safe: the student's next message reopens the thread
-    // here too. The stamps are rewound because they are kept to the second, so the rule and not the
-    // clock is what this measures.
-    $db->exec('UPDATE notification_recipients SET admin_chat_deleted_at = admin_chat_deleted_at - INTERVAL 1 MINUTE');
-    $replyInsert->execute([$threadIds[0], $readerId, $readerId, 'The reader wrote again.']);
+    // The rule that makes a clear safe: a message newer than the mark brings the thread back on its own.
+    $db->exec('UPDATE chat_threads SET student_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE, admin_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE WHERE id=' . $threadId);
+    $messageInsert->execute([$threadId, $readerId, 'One more question, please.', 5]);
     $backOnDesk = $chats->adminThreads();
-    $assert(count($backOnDesk) === 1 && (int) ($backOnDesk[0]['id'] ?? 0) === $threadIds[0] && ChatService::awaitsReply($backOnDesk[0]),
+    $assert(count($backOnDesk) === 1 && (int) ($backOnDesk[0]['id'] ?? 0) === $threadId && ChatService::awaitsReply($backOnDesk[0]),
         'A new message from the student puts the conversation back on the desk, waiting for an answer.',
         'The desk read ' . json_encode(array_map(static fn(array $thread): int => (int) $thread['id'], $backOnDesk)) . ' after the student wrote again.');
+    $assert(count($chats->messages($threadId, 'student')) === 1 && $chats->waitingCount() === 1,
+        'The reopened chat came back holding only the new message.');
+
+    /* -------------------------------------------------- the desk's permanent delete */
+    // The one action that is not offered to a student, so it carries the same phrase guard as every
+    // other bulk delete here - and it stops at the messages, because the thread is where the student's
+    // next question has to land.
+    $output = $invoke('admdeletechat', true, $threadId, $readerId);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'A wrong phrase was not rejected with a readable reason: ' . trim($output));
+    $assert($count('chat_messages') === 3, 'A wrong phrase deleted messages anyway.');
+
+    $output = $invoke('admdeletechat', false, $threadId, $readerId);
+    $assert(str_contains($output, 'FLASH|3 messages were deleted from this conversation for both sides.'),
+        'The conversation delete reported: ' . trim($output));
+    $assert($count('chat_messages') === 0 && $chats->messages($threadId, 'admin') === [] && $chats->messages($threadId, 'student') === [],
+        'The delete left a message on one side of the conversation.');
+    $assert($chats->adminThreadCount() === 1 && $chats->studentThread($readerId) === $threadId,
+        'The thread row has to outlive its messages, or the student would be sent to a dead link.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.messages_deleted'")->fetchColumn() === 1,
+        'No audit row for the conversation delete.');
+
+    $output = $invoke('admdeletechat', false, $threadId, $readerId);
+    $assert(str_contains($output, 'FLASH|This conversation had no messages left to delete.'),
+        'An empty conversation delete reported: ' . trim($output));
 
     /* ---------------------------------------------------- clearing the activity report */
+    // One automated update of the report's own, with a recipient row and a private reply under it.
+    // The chat round above no longer seeds notifications, and a report round should not depend on
+    // another section's fixtures anyway: it has to bring its own generated activity.
+    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
+        VALUES(?,'lesson','Lesson replay opened','A new lesson is open for you.','selected_students',UTC_TIMESTAMP())")->execute([$adminId]);
+    $automatedId = (int) $db->lastInsertId();
+    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+        ->execute([$automatedId, $readerId]);
+    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+        ->execute([$automatedId, $readerId, $adminId, 'Is the replay on the lesson page?']);
     // Both generated tables go together here, and nothing an admin published by hand may go with
     // them - so the numbers are read back from the database rather than assumed, and the surviving
     // announcement is checked by name.
@@ -560,7 +563,10 @@ try {
     $assert($count('email_logs') === 0 && $count('notification_replies') === 0, 'The activity clear left the log or the replies behind.');
     $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
         'The activity clear deleted an announcement it has no claim on.');
-    $assert($chats->adminThreadCount() === 0, 'A conversation outlived the update it was filed under.');
+    // Clearing the activity report has no claim on a private conversation: the thread above stays
+    // standing with its messages already deleted by the desk's own action.
+    $assert($count('chat_threads') === 1 && $count('chat_messages') === 0,
+        'The activity clear reached into the chat tables it has no claim on.');
     $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='activity.cleared'")->fetchColumn() === 1,
         'No audit row for the activity clear.');
 
@@ -588,7 +594,7 @@ try {
     $output = $invoke('announcements');
     $assert(str_contains($output, 'FLASH|The announcement board is already empty.'), 'An empty board reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats read and hidden on both sides without losing a message, activity report cleared around the board, announcement board purged\n";
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats cleared on each side without losing a message and deleted by the desk behind its phrase, activity report cleared around the board, announcement board purged\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {

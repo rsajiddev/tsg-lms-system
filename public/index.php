@@ -185,6 +185,11 @@ $router->post('/admin/announcements/purge', [\App\Controllers\NotificationContro
 // conversations a student starts have a page of their own instead of only a sidebar number.
 $router->get('/admin/chats', [\App\Controllers\ChatController::class, 'adminIndex']);
 $router->post('/chats/send', [\App\Controllers\ChatController::class, 'send']);
+// Clearing is one shared endpoint because it means the same thing on both sides of a conversation:
+// hide it from me, leave it for the other side. Deleting is not offered to a student at all, since
+// only an administrator may destroy a record of what the Academy was told.
+$router->post('/chats/clear', [\App\Controllers\ChatController::class, 'clear']);
+$router->post('/admin/chats/delete', [\App\Controllers\ChatController::class, 'deleteThread']);
 $router->get('/admin/activity', [\App\Controllers\NotificationController::class, 'activity']);
 $router->post('/admin/activity/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
 $router->post('/admin/activity/clear', [\App\Controllers\NotificationController::class, 'clearActivity']);
@@ -222,6 +227,9 @@ $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adm
 $router->get('/admin/reports', [\App\Controllers\ReportsController::class, 'index']);
 $router->get('/admin/reports/download', [\App\Controllers\ReportsController::class, 'download']);
 $router->post('/admin/reports/send', [\App\Controllers\ReportsController::class, 'send']);
+// The Recently sent shelf is the admin's own view of what went out, so clearing it is a desk action
+// and not a deletion - the student keeps every report already shared with them.
+$router->post('/admin/reports/clear-recent', [\App\Controllers\ReportsController::class, 'clearRecent']);
 $router->post('/admin/payments/decision', [\App\Controllers\PaymentController::class, 'decision']);
 $router->get('/admin/payments/revenue-receipt', [\App\Controllers\PaymentController::class, 'revenueReceipt']);
 $router->post('/admin/payments/revenue-notify', [\App\Controllers\PaymentController::class, 'notifyDeveloper']);

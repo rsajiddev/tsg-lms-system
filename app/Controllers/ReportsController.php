@@ -90,6 +90,49 @@ final class ReportsController
         $this->redirect($back);
     }
 
+    /**
+     * Empty the admin's Recently sent list.
+     *
+     * The promise is the one the chat desk already makes: the list clears, nothing is deleted. The
+     * share rows keep their place, so the student still sees the report they were sent and their
+     * download link still works, and the next report the admin sends lands on a fresh list.
+     */
+    public function clearRecent(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            return;
+        }
+        $db = Database::connection();
+        $period = $this->period($_POST['period'] ?? 'monthly');
+        $back = '/admin/reports?period=' . $period['key'];
+        try {
+            $hidden = ReportSharing::clearRecent($db, (int) $admin['id']);
+        } catch (\Throwable $exception) {
+            error_log('[REPORTS] Recently sent list could not be cleared: ' . $exception->getMessage());
+            $_SESSION['_flash'] = ['type' => 'error', 'text' => 'The Recently sent list could not be cleared. Please try again.'];
+            $this->redirect($back);
+        }
+        if ($hidden < 1) {
+            $_SESSION['_flash'] = ['type' => 'success', 'text' => 'The Recently sent list has nothing new on it, so there was nothing to clear.'];
+            $this->redirect($back);
+        }
+        try {
+            // Recording who emptied the desk is derived bookkeeping: the list is already cleared, so
+            // a database that will not take the audit row is logged rather than shown as a failure.
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'reports.recent_cleared','report_share',JSON_OBJECT('hidden_shares', ?))")
+                ->execute([(int) $admin['id'], $hidden]);
+        } catch (\Throwable $exception) {
+            error_log('[REPORTS] Recently sent clear was not audited: ' . $exception->getMessage());
+        }
+        // Saying what was not done matters as much as the count, because this list is where an admin
+        // looks to see what students received; clearing it changes the desk view, not their access.
+        $_SESSION['_flash'] = ['type' => 'success', 'text' => 'Recently sent is cleared. Nothing was deleted: the ' . $hidden . ' report' . ($hidden === 1 ? '' : 's')
+            . " already sent are still on the students' Reports pages."];
+        $this->redirect($back);
+    }
+
     private function redirect(string $path): never
     {
         header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $path);

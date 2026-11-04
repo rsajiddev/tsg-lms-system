@@ -62,7 +62,10 @@ final class AdminAttention
     private static function queries(): array
     {
         return [
-            'messages' => "SELECT COUNT(*) FROM chat_threads t JOIN chat_messages m ON m.id=(SELECT cm.id FROM chat_messages cm WHERE cm.thread_id=t.id ORDER BY cm.created_at DESC,cm.id DESC LIMIT 1) WHERE m.sender_id=t.student_id",
+            // Newest message wins, and only among the ones the desk can still see: a conversation an
+            // administrator cleared is left out, because a badge that outlives the list it counts is
+            // only noise. The student's next message brings the thread and the number back together.
+            'messages' => "SELECT COUNT(*) FROM chat_threads t JOIN chat_messages m ON m.id=(SELECT cm.id FROM chat_messages cm WHERE cm.thread_id=t.id AND (t.admin_cleared_at IS NULL OR cm.created_at>t.admin_cleared_at) ORDER BY cm.created_at DESC,cm.id DESC LIMIT 1) WHERE m.sender_id=t.student_id",
             'certificates' => "SELECT COUNT(*) FROM certificates WHERE status = 'requested'",
             'assignments' => "SELECT COUNT(*) FROM assignment_submissions WHERE status = 'submitted'",
             // A finished attempt with no result is one the automatic grading could not settle, and

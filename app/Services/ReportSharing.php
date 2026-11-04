@@ -20,6 +20,12 @@ final class ReportSharing
     /** The desks a student may be sent. The consolidated academy pack stays with the admin. */
     public const DESKS = ['students', 'attendance', 'quizzes', 'assignments'];
 
+    /**
+     * app_settings key holding the highest share id the admin has already cleared away. The desk
+     * list shows shares above it only, so clearing is a view change rather than a deletion.
+     */
+    public const RECENT_CEILING_KEY = 'reports_recent_cleared_share_id';
+
     /** How a desk is named to a student, on their page and in the notification. */
     public static function label(string $type): string
     {
@@ -85,9 +91,47 @@ final class ReportSharing
     /** The most recent shares across the academy, so an admin can see what already went out. */
     public static function recent(PDO $db, int $limit = 5): array
     {
-        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM report_shares rs JOIN users u ON u.id = rs.student_id JOIN users s ON s.id = rs.sent_by ORDER BY rs.created_at DESC, rs.id DESC LIMIT ' . max(1, min(20, $limit)));
-        $stmt->execute();
+        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM report_shares rs JOIN users u ON u.id = rs.student_id JOIN users s ON s.id = rs.sent_by WHERE rs.id > ? ORDER BY rs.created_at DESC, rs.id DESC LIMIT ' . max(1, min(20, $limit)));
+        $stmt->execute([self::recentCeiling($db)]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Push the admin's Recently sent list past everything that already exists.
+     *
+     * Only the ceiling moves - the share rows stay, so each student still finds the report that was
+     * sent to them and their download link keeps working. A share created after the click carries a
+     * higher id and comes straight back onto the desk.
+     *
+     * @return int how many shares the desk stopped showing
+     */
+    public static function clearRecent(PDO $db, int $adminId): int
+    {
+        $ceiling = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM report_shares')->fetchColumn();
+        $current = self::recentCeiling($db);
+        if ($ceiling <= $current) {
+            return 0;
+        }
+        $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+            ->execute([self::RECENT_CEILING_KEY, (string) $ceiling, $adminId]);
+        return $ceiling - $current;
+    }
+
+    /** The id the desk list starts above, or zero while nothing has ever been cleared. */
+    public static function recentCeiling(PDO $db): int
+    {
+        try {
+            $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt->execute([self::RECENT_CEILING_KEY]);
+            $value = $stmt->fetchColumn();
+        } catch (\PDOException $exception) {
+            // A database that predates app_settings still has shares to list.
+            if ((string) $exception->getCode() !== '42S02') {
+                throw $exception;
+            }
+            return 0;
+        }
+        return $value === false ? 0 : max(0, (int) $value);
     }
 
     /**
@@ -107,12 +151,23 @@ final class ReportSharing
             (string) ($share['period_end'] ?? 'now')
         );
         $range = $period['start_date'] . ' – ' . $period['end_date'];
+        $stampTs = strtotime($period['start']) ?: time();
         $report = [
             'type' => $type,
             'period' => $period['label'],
             'period_range' => $range,
             'title' => 'Your ' . strtolower(self::label($type)) . ' report',
             'generated_at' => date('M j, Y · g:i A T'),
+            // The printed copy names its reader and the admin who sent it, and carries the share id, so a
+            // page on a student's desk can be matched to the exact row the admin created.
+            'audience' => [
+                'name' => (string) ($share['student_name'] ?? 'Student'),
+                'detail' => 'Shared by ' . (($share['sender_name'] ?? '') !== '' ? (string) $share['sender_name'] : 'the Academy') . ' from the admin Reports desk',
+            ],
+            'reference' => 'TSG-REP-' . strtoupper(substr($type, 0, 3))
+                . '-' . ($period['key'] === 'weekly' ? 'W' : 'M')
+                . '-' . date($period['key'] === 'weekly' ? 'o-\WW' : 'Y-m', $stampTs)
+                . '-' . str_pad((string) (int) ($share['id'] ?? 0), 4, '0', STR_PAD_LEFT),
             'metrics' => [],
             'chart' => [],
             'columns' => [],

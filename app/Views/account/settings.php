@@ -26,6 +26,10 @@ $moment = static function (?string $value): string {
     return $timestamp === false ? '—' : date('j M Y', $timestamp);
 };
 $csrf = Security::csrfToken();
+// Same show/hide control the sign-in and enrolment screens use, so a password typed here can be
+// checked before it is submitted. main.js looks for the input inside the wrapper around it.
+$eyeIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+$eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">' . $eyeIcon . '</button>';
 ?>
 <section class="dashboard-page account-settings-page">
     <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
@@ -153,7 +157,7 @@ $csrf = Security::csrfToken();
             <input type="hidden" name="_csrf" value="<?= $escape($csrf) ?>">
             <div class="admin-grid-2">
                 <div class="admin-field"><label class="admin-label" for="new_email">New email address <span class="req">*</span></label><input class="admin-input" id="new_email" name="new_email" type="email" maxlength="190" required autocomplete="email" placeholder="you@example.com"></div>
-                <div class="admin-field"><label class="admin-label" for="email_current_password">Current password <span class="req">*</span></label><input class="admin-input" id="email_current_password" name="current_password" type="password" required autocomplete="current-password" placeholder="Confirm it is really you"></div>
+                <div class="admin-field"><label class="admin-label" for="email_current_password">Current password <span class="req">*</span></label><span class="admin-input-wrap"><input class="admin-input" id="email_current_password" name="current_password" type="password" required autocomplete="current-password" placeholder="Confirm it is really you"><?= $eyeToggle ?></span></div>
             </div>
             <span class="admin-hint">We send a confirmation code to the new address first, so a typo can never cost you access to your account. Sending a new code replaces the previous one.</span>
             <div class="form-actions"><button class="button<?= $pendingEmail !== null ? ' button-secondary' : '' ?>" type="submit"><?= $pendingEmail !== null ? 'Send a new code' : 'Send confirmation code' ?></button></div>
@@ -175,10 +179,10 @@ $csrf = Security::csrfToken();
         <form method="post" action="<?= $escape($baseUrl) ?>/account/password" class="admin-form">
             <input type="hidden" name="_csrf" value="<?= $escape($csrf) ?>">
             <div class="admin-grid-2">
-                <div class="admin-field"><label class="admin-label" for="current_password">Current password <span class="req">*</span></label><input class="admin-input" id="current_password" name="current_password" type="password" required autocomplete="current-password"></div>
-                <div class="admin-field"><label class="admin-label" for="new_password">New password <span class="req">*</span></label><input class="admin-input" id="new_password" name="new_password" type="password" required minlength="<?= (int) $minPassword ?>" maxlength="4096" autocomplete="new-password"></div>
+                <div class="admin-field"><label class="admin-label" for="current_password">Current password <span class="req">*</span></label><span class="admin-input-wrap"><input class="admin-input" id="current_password" name="current_password" type="password" required autocomplete="current-password"><?= $eyeToggle ?></span></div>
+                <div class="admin-field"><label class="admin-label" for="new_password">New password <span class="req">*</span></label><span class="admin-input-wrap"><input class="admin-input" id="new_password" name="new_password" type="password" required minlength="<?= (int) $minPassword ?>" maxlength="4096" autocomplete="new-password"><?= $eyeToggle ?></span></div>
             </div>
-            <div class="admin-field"><label class="admin-label" for="confirm_password">Repeat new password <span class="req">*</span></label><input class="admin-input" id="confirm_password" name="confirm_password" type="password" required minlength="<?= (int) $minPassword ?>" maxlength="4096" autocomplete="new-password"></div>
+            <div class="admin-field"><label class="admin-label" for="confirm_password">Repeat new password <span class="req">*</span></label><span class="admin-input-wrap"><input class="admin-input" id="confirm_password" name="confirm_password" type="password" required minlength="<?= (int) $minPassword ?>" maxlength="4096" autocomplete="new-password"><?= $eyeToggle ?></span></div>
             <div class="form-actions"><button class="button" type="submit">Change password</button></div>
         </form>
     </section>

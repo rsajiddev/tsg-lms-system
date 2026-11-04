@@ -6042,26 +6042,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
   box-shadow: 0 0 0 4px #eaf0ff
 }
 
-/* Private conversation. The thread page is a chat client rather than a notice with replies under
-   it: the messages get the wide half of the page, and the person you are talking to plus the recent
-   chats get the narrow one. Inside the feed the rules are the ones every messenger uses - the other
-   side's bubbles on the left, yours on the right, and the composer kept directly under the newest
-   message. */
-.conversation-panel {
-  display: grid;
-  gap: 18px
-}
-
-.conversation-announcement {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 12px;
-  padding: 16px 18px;
-  border: 1px solid #dbe6ff;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #f6f9ff, #eef4ff)
-}
-
 .conversation-avatar {
   display: grid;
   place-items: center;
@@ -6080,662 +6060,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
   background: linear-gradient(140deg, var(--blue), #0d3a6b);
   color: #fff;
   box-shadow: 0 8px 18px #00214733
-}
-
-.conversation-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px 8px;
-  margin: 0 0 6px;
-  color: var(--muted);
-  font-size: 12px
-}
-
-.conversation-meta strong {
-  color: var(--navy);
-  font-size: 13px
-}
-
-.conversation-meta time {
-  font-variant-numeric: tabular-nums
-}
-
-.conversation-dot {
-  color: #cbd5e1
-}
-
-.conversation-role {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #002147;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .07em;
-  text-transform: uppercase
-}
-
-.conversation-text {
-  color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.7;
-  overflow-wrap: anywhere
-}
-
-.conversation-list {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none
-}
-
-.conversation-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px
-}
-
-.conversation-row .conversation-avatar {
-  width: 38px;
-  height: 38px;
-  font-size: 12px
-}
-
-.conversation-bubble {
-  max-width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: 4px 16px 16px 16px;
-  background: #fff;
-  box-shadow: 0 6px 16px #0f172a08
-}
-
-/* The line above a bubble. It carries the role and the time only - whose thread this is stands in
-   the header above the feed, so repeating a name here would only clutter the chat. */
-.conversation-stack {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  max-width: min(620px, 88%)
-}
-
-.conversation-caption {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px 8px;
-  margin: 0;
-  padding: 0 4px;
-  color: var(--muted);
-  font-size: 11.5px
-}
-
-.conversation-caption time {
-  color: #94a3b8;
-  font-variant-numeric: tabular-nums
-}
-
-.conversation-row.is-mine {
-  flex-direction: row-reverse;
-  justify-content: flex-end
-}
-
-.conversation-row.is-mine .conversation-stack {
-  justify-items: end
-}
-
-.conversation-row.is-mine .conversation-caption {
-  justify-content: flex-end
-}
-
-.conversation-row.is-mine .conversation-bubble {
-  border-color: #c8d8f8;
-  border-radius: 16px 4px 16px 16px;
-  background: linear-gradient(180deg, #eaf1ff, #d9e6ff);
-  box-shadow: 0 6px 14px #00214712
-}
-
-.conversation-row.is-mine .conversation-text {
-  color: #002147
-}
-
-.conversation-empty {
-  padding: 22px;
-  border: 1px dashed #dbe3f0;
-  border-radius: 14px;
-  background: #f8fafc;
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.6;
-  text-align: center
-}
-
-.conversation-picker {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #f8fafc
-}
-
-.conversation-picker-label {
-  display: grid;
-  gap: 6px;
-  color: var(--navy);
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: .07em;
-  text-transform: uppercase
-}
-
-.conversation-composer {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 10px 26px #0f172a0a
-}
-
-.conversation-composer:focus-within {
-  border-color: #c3d3e8;
-  box-shadow: 0 10px 26px #0021471a
-}
-
-.conversation-composer-label {
-  color: var(--navy);
-  font-size: 12.5px;
-  font-weight: 750
-}
-
-.conversation-input {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 46px;
-  max-height: 150px;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 14.5px;
-  line-height: 1.65;
-  resize: vertical
-}
-
-.conversation-input:focus {
-  outline: none
-}
-
-.conversation-input::placeholder {
-  color: #94a3b8
-}
-
-/* The composer is one bar you type into and send from, the way it sits in every chat app. */
-.conversation-composer-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px
-}
-
-.conversation-composer-note {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 11.5px
-}
-
-/* Sending is an arrow, not a word, so the button is a round icon at the end of the bar. */
-.conversation-send {
-  display: inline-grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: linear-gradient(140deg, var(--blue), #0d3a6b);
-  color: #fff;
-  box-shadow: 0 8px 18px #0021472e
-}
-
-.conversation-send:hover {
-  box-shadow: 0 10px 22px #00214745
-}
-
-/* The messages now sit in their own window, the way a chat app stacks them: a soft inner surface,
-   a divider whenever the day changes, and the composer kept directly under the newest bubble. */
-.conversation-window {
-  display: grid;
-  align-content: start;
-  max-height: min(560px, 68vh);
-  padding: 14px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: linear-gradient(180deg, #f7f9fd, #eef3fb)
-}
-
-.conversation-window .conversation-list {
-  gap: 10px
-}
-
-.conversation-day {
-  margin: 0 auto;
-  padding: 3px 12px;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 1px 2px #0f172a0f;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase
-}
-
-/* The two panes of the thread page. The chat takes everything the narrow details rail leaves
-   behind; a small screen stacks them, feed first, because that is the one thing a phone is being
-   opened for. */
-.chat-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(248px, 320px);
-  align-items: start;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f8fafc, #eef3fb)
-}
-
-.chat-rail {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-width: 0
-}
-
-.chat-main {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 8px 22px #0f172a0a
-}
-
-.chat-main-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 11px;
-  border-bottom: 1px solid #eef2f8
-}
-
-.chat-main-who {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0
-}
-
-.chat-main-title {
-  margin: 0;
-  color: var(--navy);
-  font-size: 14.5px;
-  font-weight: 750
-}
-
-.chat-main-sub {
-  margin: 0;
-  color: #64748b;
-  font-size: 12px;
-  overflow-wrap: anywhere
-}
-
-.chat-main-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px
-}
-
-.chat-main-picker-only {
-  display: grid;
-  place-content: center;
-  gap: 8px;
-  min-height: 320px;
-  padding: 26px;
-  border: 1px dashed #dbe3f0;
-  border-radius: 14px;
-  background: #f8fafc;
-  text-align: center
-}
-
-.chat-main-picker-only h2 {
-  margin: 0;
-  color: var(--navy);
-  font-size: 16px
-}
-
-.chat-main-picker-only p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.65
-}
-
-.chat-main .conversation-window {
-  max-height: min(58vh, 560px)
-}
-
-.chat-side-card {
-  display: grid;
-  gap: 9px;
-  padding: 13px 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 6px 16px #0f172a08
-}
-
-.chat-side-card .eyebrow {
-  margin: 0
-}
-
-.chat-side-name {
-  margin: 0;
-  color: var(--navy);
-  font-size: 14px;
-  font-weight: 750;
-  overflow-wrap: anywhere
-}
-
-.chat-side-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.6
-}
-
-.chat-side-facts {
-  display: grid;
-  gap: 7px;
-  margin: 0
-}
-
-.chat-side-facts>div {
-  display: grid;
-  gap: 1px;
-  min-width: 0
-}
-
-.chat-side-facts dt {
-  color: #94a3b8;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .05em;
-  text-transform: uppercase
-}
-
-.chat-side-facts dd {
-  margin: 0;
-  color: #334155;
-  font-size: 12.5px;
-  overflow-wrap: anywhere
-}
-
-.chat-side-link {
-  color: var(--blue-dark);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none
-}
-
-.chat-side-link:hover {
-  text-decoration: underline
-}
-
-/* The way back to the list of conversations, printed once at the foot of the details rail. */
-.chat-list-link {
-  display: block;
-  padding: 11px 4px 2px;
-  border-top: 1px solid #eef2f8;
-  color: var(--blue-dark);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none
-}
-
-.chat-list-link:hover {
-  text-decoration: underline
-}
-
-/* The recipient picker lives in the details rail, where it is a control rather than a panel. */
-.chat-rail .conversation-picker {
-  grid-template-columns: minmax(0, 1fr)
-}
-
-.chat-recent-list {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none
-}
-
-.chat-recent-row {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 6px;
-  border-radius: 10px;
-  color: inherit;
-  text-decoration: none;
-  transition: background .15s ease
-}
-
-.chat-recent-row:hover {
-  background: #f4f8ff
-}
-
-.chat-recent-row .conversation-avatar {
-  width: 28px;
-  height: 28px;
-  font-size: 10px
-}
-
-.chat-recent-copy {
-  display: grid;
-  gap: 1px;
-  min-width: 0
-}
-
-.chat-recent-copy strong {
-  color: var(--navy);
-  font-size: 12.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap
-}
-
-.chat-recent-copy small {
-  color: #64748b;
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap
-}
-
-.chat-recent-row time {
-  color: #94a3b8;
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap
-}
-
-@media (max-width: 980px) {
-  .chat-shell {
-    grid-template-columns: minmax(0, 1fr)
-  }
-
-  .chat-main {
-    order: -1
-  }
-}
-
-/* Chat lists. Both dashboards read the same way: the person you are talking to on the left, their
-   newest line under the subject, and the control that keeps the list tidy on the right. */
-.chat-heading-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px
-}
-
-.chat-thread-list {
-  display: grid;
-  gap: 10px
-}
-
-.chat-thread-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: 14px;
-  background: #fff;
-  transition: border-color .18s ease, box-shadow .18s ease
-}
-
-.chat-thread-row:hover {
-  border-color: #c3d3e8;
-  box-shadow: 0 8px 20px #0f172a0a
-}
-
-.chat-thread-row.is-unread {
-  border-color: #c3d3e8;
-  background: linear-gradient(180deg, #f8faff, #fff)
-}
-
-.chat-thread-main {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none
-}
-
-.chat-thread-copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0
-}
-
-.chat-thread-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 10px
-}
-
-.chat-thread-top strong {
-  color: var(--navy);
-  font-size: 14.5px
-}
-
-.chat-thread-top time {
-  color: #94a3b8;
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap
-}
-
-.chat-thread-subject {
-  color: #64748b;
-  font-size: 11.5px;
-  overflow-wrap: anywhere
-}
-
-.chat-thread-preview {
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.55;
-  overflow-wrap: anywhere
-}
-
-.chat-thread-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  color: #94a3b8;
-  font-size: 11.5px
-}
-
-.chat-thread-badge {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--blue, #002147);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 750;
-  letter-spacing: .04em
-}
-
-.chat-thread-action {
-  display: grid;
-  justify-items: end;
-  gap: 8px
-}
-
-/* The desk header carries the filters and the clearing action, so it is allowed to wrap. */
-.chat-desk-header {
-  flex-wrap: wrap
-}
-
-.chat-thread-open {
-  margin: 0;
-  white-space: nowrap
-}
-
-.chat-delete-button {
-  padding: 7px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #fff;
-  color: #b91c1c;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 750;
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease
-}
-
-.chat-delete-button:hover {
-  border-color: #fecaca;
-  background: #fef2f2
-}
-
-.chat-delete-button:focus-visible {
-  outline: 3px solid #93c5fd;
-  outline-offset: 2px
 }
 
 .chat-filter-chips {
@@ -6804,14 +6128,31 @@ html.js [data-reveal].is-visible.dash-card:hover {
   font-size: 14px
 }
 
+/* The student picker is the one control on this rail that has to look deliberate. The native arrow
+   sat against the border, so the box carries its own: appearance is switched off, the text keeps a
+   right gutter, and the chevron is drawn in the theme navy at a measured distance from the edge. */
 .professional-chat-list select {
   width: 100%;
   min-height: 38px;
-  padding: 8px;
+  padding: 8px 34px 8px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 9px;
-  background: #fff;
-  color: #334155
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23002147' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color: #334155;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  cursor: pointer
+}
+
+.professional-chat-list select:hover {
+  border-color: #94a3b8
+}
+
+.professional-chat-list select:focus-visible {
+  outline: none;
+  border-color: var(--blue, #002147);
+  box-shadow: 0 0 0 4px #dbeafe
 }
 
 .professional-chat-contact {
@@ -6867,7 +6208,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
   border-bottom: 1px solid #e7edf5
 }
 
-.professional-chat-head div {
+.professional-chat-head .chat-head-copy {
   display: grid;
   gap: 2px
 }
@@ -6930,7 +6271,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
 .professional-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 16px 20px;
@@ -6962,6 +6303,215 @@ html.js [data-reveal].is-visible.dash-card:hover {
   gap: 8px;
   font-weight: 800;
   box-shadow: 0 7px 16px #0021473d
+}
+
+/* A conversation's own actions are kept behind one quiet button at the right end of the header. The
+   panel is placed under the button rather than after it, so opening it never pushes the feed down. */
+.chat-thread-menu {
+  position: relative;
+  margin-left: auto
+}
+
+.chat-menu-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer
+}
+
+.chat-menu-toggle svg {
+  width: 18px;
+  height: 18px
+}
+
+.chat-menu-toggle:hover,
+.chat-menu-toggle[aria-expanded="true"] {
+  border-color: #dbe4f1;
+  background: #eef4ff;
+  color: var(--blue, #002147)
+}
+
+.chat-menu-toggle:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px
+}
+
+.chat-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 24;
+  display: grid;
+  gap: 2px;
+  width: 248px;
+  padding: 8px;
+  border: 1px solid #dbe4f1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 38px #0f172a24
+}
+
+.chat-menu-label {
+  margin: 2px 8px 6px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase
+}
+
+.chat-menu-form {
+  display: grid;
+  margin: 0
+}
+
+/* One shape for both lines, so the button that clears and the link that deletes read as the same
+   choice list rather than as two kinds of control. */
+.chat-menu-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #1e293b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer
+}
+
+.chat-menu-item small {
+  color: #75839a;
+  font-size: 11px;
+  font-weight: 500
+}
+
+.chat-menu-item:hover,
+.chat-menu-item:focus-visible {
+  background: #eef4ff;
+  color: var(--blue, #002147);
+  outline: none
+}
+
+.chat-menu-item.is-danger,
+.chat-menu-item.is-danger small {
+  color: #b42318
+}
+
+.chat-menu-item.is-danger:hover,
+.chat-menu-item.is-danger:focus-visible {
+  background: #fef2f2;
+  color: #981c13
+}
+
+/* Emoji are inserted as text, so the picker is a panel of buttons and never a form control: it cannot
+   submit the composer by itself. It opens upward, because the composer sits at the foot of the page,
+   and it stops short of the screen edges on a phone. */
+.chat-emoji-anchor {
+  position: relative;
+  display: grid;
+  justify-items: start
+}
+
+.chat-emoji-toggle {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #dbe4f1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer
+}
+
+.chat-emoji-toggle svg {
+  width: 20px;
+  height: 20px
+}
+
+.chat-emoji-toggle:hover,
+.chat-emoji-toggle[aria-expanded="true"] {
+  border-color: var(--blue, #002147);
+  background: #eaf0ff;
+  color: var(--blue, #002147)
+}
+
+.chat-emoji-toggle:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px
+}
+
+.chat-emoji-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 26;
+  display: grid;
+  gap: 6px;
+  width: min(320px, 78vw);
+  max-height: 268px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid #dbe4f1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 38px #0f172a24
+}
+
+.chat-emoji-group {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase
+}
+
+.chat-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px
+}
+
+.chat-emoji {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer
+}
+
+.chat-emoji:hover,
+.chat-emoji:focus-visible {
+  background: #eef4ff;
+  outline: none
+}
+
+/* Nothing on the rail is a different case from an empty thread: here not even a conversation exists
+   yet, and the reader should be told which of the two they are looking at. */
+.professional-chat-none {
+  margin: 6px 8px;
+  color: #75839a;
+  font-size: 12px;
+  line-height: 1.5
 }
 
 .professional-chat-empty {
@@ -7001,10 +6551,11 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
   .professional-composer {
     padding: 12px;
-    grid-template-columns: 1fr
+    grid-template-columns: auto minmax(0, 1fr)
   }
 
   .professional-send {
+    grid-column: 1/-1;
     width: 100%
   }
 
@@ -7152,43 +6703,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
   .notification-admin-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    white-space: normal
-  }
-
-  .conversation-picker {
-    grid-template-columns: 1fr
-  }
-
-  .conversation-picker .button {
-    width: 100%
-  }
-
-  .conversation-bubble {
-    max-width: calc(100% - 48px)
-  }
-
-  .conversation-composer-foot {
-    align-items: stretch;
-    flex-direction: column
-  }
-
-  .conversation-send {
-    justify-content: center
-  }
-
-  .conversation-window {
-    padding: 14px
-  }
-
-  .chat-thread-row {
-    grid-template-columns: minmax(0, 1fr)
-  }
-
-  .chat-thread-action {
-    justify-items: start
-  }
-
-  .chat-thread-top time {
     white-space: normal
   }
 
@@ -9105,6 +8619,30 @@ body.dashboard-shell {
   background-color: #f8fafc;
   color: #334155;
   cursor: default;
+}
+
+/* Password fields on the account settings screens reuse the .pw-toggle eye control from the sign-in
+   and enrolment forms, but sit in admin-field styling rather than the auth .input-wrap. The flex
+   line is what gives the absolutely positioned button its vertical anchor inside the field. */
+.admin-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.admin-input-wrap .admin-input {
+  padding-right: 46px;
+}
+
+.admin-input-wrap .pw-toggle {
+  right: 6px;
+  width: 32px;
+  height: 32px;
+}
+
+.admin-input-wrap .pw-toggle svg {
+  width: 17px;
+  height: 17px;
 }
 
 .form-actions {
@@ -20977,6 +20515,16 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase
+}
+
+/* The shelf heading and its clearing action share one line, and wrap instead of crowding on narrow
+   cards. */
+.admin-report-sent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px
 }
 
 .admin-report-sent-list {

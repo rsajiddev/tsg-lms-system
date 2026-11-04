@@ -107,8 +107,17 @@ $rangeLabel = $reports['students']['period_range'] ?? '';
         </form>
       <?php endif; ?>
       <div class="admin-report-sent">
-        <p class="admin-report-sent-title">Recently sent</p>
-        <?php if ($shares === []): ?><p class="admin-report-empty">Nothing has been shared with a student yet.</p>
+        <div class="admin-report-sent-head">
+          <p class="admin-report-sent-title">Recently sent</p>
+          <?php /* The shelf is the admin's own running note, not the record of what a student holds, so
+                    emptying it only moves the note forward - the shares behind it stay untouched. */ ?>
+          <?php if ($shares !== []): ?><form method="post" action="<?= $escape($baseUrl) ?>/admin/reports/clear-recent" class="student-status-form" onsubmit="return confirm('Clear this list from your desk? Nothing is deleted - each student keeps the report already sent to them, and your next send shows up here again.')">
+            <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+            <input type="hidden" name="period" value="<?= $escape($period['key']) ?>">
+            <button class="student-action-button is-clear" type="submit">Clear recently sent</button>
+          </form><?php endif; ?>
+        </div>
+        <?php if ($shares === []): ?><p class="admin-report-empty">Nothing is listed here right now. Reports you send appear on this shelf, and clearing it only empties the shelf.</p>
         <?php else: ?><ul class="admin-report-sent-list">
           <?php foreach ($shares as $share): ?>
             <li><strong><?= $escape($share['student_name'] ?? '') ?></strong><span><?= $escape($labels[$share['report_type']] ?? (string) $share['report_type']) ?> · <?= $escape(ucfirst((string) $share['period_key'])) ?> · by <?= $escape($share['sender_name'] ?? '') ?></span></li>

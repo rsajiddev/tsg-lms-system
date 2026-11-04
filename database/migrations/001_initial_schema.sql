@@ -1194,89 +1194,6 @@ CREATE TABLE IF NOT EXISTS notification_recipients (
        INDEX idx_recipient_unread(student_id, read_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-/* Chat bookkeeping lives per recipient, never on the notification itself: a student can hide one
-   conversation or mark it seen without touching the copy another student has of the same
-   announcement. read_at stays what it always was - whether the notice was read - so these two
-   columns only describe the thread under it.
-     chat_deleted_at: the student removed the thread from their chat list. A message written after
-                      that stamp brings it back, so hiding a chat can never swallow a reply.
-     chat_seen_at:    the last moment the student opened the thread, which is what the Chats badge
-                      counts against.
-admin_chat_deleted_at: the same idea from the other side - an administrator cleared the thread off
-                      their own desk. A message written by the student after that stamp brings it
-                      back, so an admin can tidy the desk without ever losing a question. */
-SET
-       @add_recipient_chat_deleted_at = (
-              SELECT
-                     IF(
-                            COUNT(*) = 0,
-                            'ALTER TABLE notification_recipients ADD COLUMN chat_deleted_at DATETIME NULL AFTER read_at',
-                            'SELECT 1'
-                     )
-              FROM
-                     information_schema.COLUMNS
-              WHERE
-                     TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_recipients'
-                     AND COLUMN_NAME = 'chat_deleted_at'
-       );
-
-PREPARE add_recipient_chat_deleted_at_stmt
-FROM
-       @add_recipient_chat_deleted_at;
-
-EXECUTE add_recipient_chat_deleted_at_stmt;
-
-DEALLOCATE PREPARE add_recipient_chat_deleted_at_stmt;
-
-SET
-       @add_recipient_chat_seen_at = (
-              SELECT
-                     IF(
-                            COUNT(*) = 0,
-                            'ALTER TABLE notification_recipients ADD COLUMN chat_seen_at DATETIME NULL AFTER chat_deleted_at',
-                            'SELECT 1'
-                     )
-              FROM
-                     information_schema.COLUMNS
-              WHERE
-                     TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_recipients'
-                     AND COLUMN_NAME = 'chat_seen_at'
-       );
-
-PREPARE add_recipient_chat_seen_at_stmt
-FROM
-       @add_recipient_chat_seen_at;
-
-EXECUTE add_recipient_chat_seen_at_stmt;
-
-DEALLOCATE PREPARE add_recipient_chat_seen_at_stmt;
-
-SET
-@add_recipient_admin_chat_deleted_at = (
-              SELECT
-                     IF(
-                            COUNT(*) = 0,
-'ALTER TABLE notification_recipients ADD COLUMN admin_chat_deleted_at DATETIME NULL AFTER chat_seen_at',
-                            'SELECT 1'
-                     )
-              FROM
-                     information_schema.COLUMNS
-              WHERE
-                     TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_recipients'
-AND COLUMN_NAME = 'admin_chat_deleted_at'
-       );
-
-PREPARE add_recipient_admin_chat_deleted_at_stmt
-FROM
-@add_recipient_admin_chat_deleted_at;
-
-EXECUTE add_recipient_admin_chat_deleted_at_stmt;
-
-DEALLOCATE PREPARE add_recipient_admin_chat_deleted_at_stmt;
-
 CREATE TABLE IF NOT EXISTS notification_replies (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        notification_id BIGINT UNSIGNED NOT NULL,
@@ -2302,11 +2219,18 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- Private chat is intentionally separate from Academy announcements. A notification is read-only
 -- news; a chat thread is one direct student-to-Academy line.
+--   student_seen_at / admin_seen_at: when each side last opened the thread, which is what the unread
+--   count and the desk's waiting list measure against.
+--   student_cleared_at / admin_cleared_at: when each side cleared the chat for themselves. Messages
+--   written at or before that stamp are hidden from that side only, so clearing a chat can never
+--   destroy the copy the other side still reads, and the next message brings the thread back.
 CREATE TABLE IF NOT EXISTS chat_threads (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        student_seen_at DATETIME NULL,
        admin_seen_at DATETIME NULL,
+       student_cleared_at DATETIME NULL,
+       admin_cleared_at DATETIME NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        UNIQUE KEY uq_chat_thread_student(student_id),
        CONSTRAINT fk_chat_thread_student FOREIGN KEY(student_id) REFERENCES users(id)
@@ -2322,6 +2246,56 @@ CREATE TABLE IF NOT EXISTS chat_messages (
        CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES users(id),
        INDEX idx_chat_messages_thread(thread_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+/* A database that already holds conversations is not rebuilt for two columns, so the clearing stamps
+   are added to it the same guarded way the rest of this schema uses. */
+SET
+       @add_thread_student_cleared_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE chat_threads ADD COLUMN student_cleared_at DATETIME NULL AFTER admin_seen_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'chat_threads'
+                     AND COLUMN_NAME = 'student_cleared_at'
+       );
+
+PREPARE add_thread_student_cleared_at_stmt
+FROM
+       @add_thread_student_cleared_at;
+
+EXECUTE add_thread_student_cleared_at_stmt;
+
+DEALLOCATE PREPARE add_thread_student_cleared_at_stmt;
+
+SET
+       @add_thread_admin_cleared_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE chat_threads ADD COLUMN admin_cleared_at DATETIME NULL AFTER student_cleared_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'chat_threads'
+                     AND COLUMN_NAME = 'admin_cleared_at'
+       );
+
+PREPARE add_thread_admin_cleared_at_stmt
+FROM
+       @add_thread_admin_cleared_at;
+
+EXECUTE add_thread_admin_cleared_at_stmt;
+
+DEALLOCATE PREPARE add_thread_admin_cleared_at_stmt;
 
 CREATE TABLE IF NOT EXISTS dashboard_tasks (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

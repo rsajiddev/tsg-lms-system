@@ -209,11 +209,12 @@
 
     /* =========================================================
        PASSWORD VISIBILITY TOGGLE
+       Works inside the auth .input-wrap and the admin .admin-input-wrap.
        ========================================================= */
 
     document.querySelectorAll('[data-toggle-password]').forEach((button) => {
         button.addEventListener('click', () => {
-            const input = button.closest('.input-wrap')?.querySelector('input');
+            const input = button.closest('.input-wrap, .admin-input-wrap')?.querySelector('input');
 
             if (!input) {
                 return;
@@ -225,6 +226,91 @@
             button.classList.toggle('is-on', show);
             button.setAttribute('aria-pressed', String(show));
             button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+    });
+
+
+    /* =========================================================
+       CHAT PANELS
+       The three-dot menu over a conversation and the emoji grid in the composer are the same shape:
+       one button, one panel, closed by a click anywhere else or by Escape. Neither sends anything - a
+       panel only ever opens something, and only the Send button submits.
+       ========================================================= */
+
+    const chatPanels = document.querySelectorAll('[data-chat-panel-toggle]');
+
+    const closeChatPanels = () => {
+        chatPanels.forEach((toggle) => {
+            const panel = document.getElementById(toggle.getAttribute('data-chat-panel-toggle'));
+
+            if (!panel) {
+                return;
+            }
+
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    chatPanels.forEach((toggle) => {
+        const panel = document.getElementById(toggle.getAttribute('data-chat-panel-toggle'));
+
+        if (!panel) {
+            return;
+        }
+
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            const wasOpen = !panel.hidden;
+            closeChatPanels();
+            panel.hidden = wasOpen;
+            toggle.setAttribute('aria-expanded', String(!wasOpen));
+
+            if (!wasOpen && panel.hasAttribute('data-chat-focus-first')) {
+                const first = panel.querySelector('button, a[href], input, textarea');
+
+                if (first) {
+                    first.focus();
+                }
+            }
+        });
+
+        panel.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+    });
+
+    document.addEventListener('click', closeChatPanels);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeChatPanels();
+        }
+    });
+
+
+    /* =========================================================
+       CHAT EMOJI INSERT
+       The glyph goes in where the caret is, not glued to the end, so a message can be fixed as it is
+       written. Length is counted in UTF-16 units because that is what the caret positions mean.
+       ========================================================= */
+
+    document.querySelectorAll('[data-chat-composer] button[data-emoji]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const composer = button.closest('[data-chat-composer]');
+            const input = composer ? composer.querySelector('[data-chat-input]') : null;
+            const glyph = button.getAttribute('data-emoji') || '';
+
+            if (!input || !glyph) {
+                return;
+            }
+
+            const from = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+            const to = typeof input.selectionEnd === 'number' ? input.selectionEnd : from;
+
+            input.value = input.value.slice(0, from) + glyph + input.value.slice(to);
+            input.focus();
+            input.setSelectionRange(from + glyph.length, from + glyph.length);
         });
     });
 
