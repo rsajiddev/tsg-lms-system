@@ -7426,134 +7426,121 @@ body.dashboard-shell>main.dashboard-container {
 
 .dashboard-logout-card {
   position: relative;
-  overflow: hidden;
-  padding: 20px 17px 16px;
-  border-radius: 18px;
-  background: #002147;
-  color: #fff;
-  box-shadow: 0 14px 28px #0021472b
-}
-
-.dashboard-logout-mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 18px;
-  place-items: center;
-  border: 1px solid #ffffff55;
-  border-radius: 11px;
-  background: #ffffff1e;
-  font-size: 10px;
-  font-weight: 900
-}
-
-.dashboard-logout-card strong {
+  overflow: visible;
   display: block;
-  font-size: 14px
+  margin-top: 24px;
+  padding: 32px 18px 18px;
+  border-radius: 20px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cpath d='M4 26c14-22 26-22 40 0s26 22 40 0 20-16 32-6' fill='none' stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") top right 10px/104px 34px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cpath d='M4 26c14-22 26-22 40 0s26 22 40 0 20-16 32-6' fill='none' stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") bottom left 10px/104px 34px no-repeat, linear-gradient(160deg, #002147, #001530);
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 18px 34px #00214740
 }
 
-.dashboard-logout-card p {
-  margin: 6px 0 15px;
-  color: #e0e7ff;
-  font-size: 11px;
-  line-height: 1.5
+/* TSG logo badge (same mark as the sidebar brand) that overlaps the top edge. */
+.dashboard-logout-mark {
+  position: absolute;
+  z-index: 2;
+  top: -21px;
+  left: 50%;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  transform: translateX(-50%);
+  place-items: center;
+  border: 0;
+  border-radius: 13px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 0 0 4px #fff, 0 8px 16px #00152f4d
 }
 
 .dashboard-logout-identity {
+  position: relative;
+  z-index: 1;
   min-width: 0;
-  margin: 0 0 15px
+  margin: 0 0 16px
 }
 
 .dashboard-logout-identity strong {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: #fff
+}
+
+.dashboard-logout-role {
+  padding: 2px 9px;
+  border: 1px solid #ffffff40;
+  border-radius: 999px;
+  background: #ffffff1f;
+  color: #dbe7ff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase
 }
 
 .dashboard-logout-identity p {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap
+  white-space: nowrap;
+  color: #a9bdd8;
+  font-size: 12px;
+  line-height: 1.5
 }
 
 .dashboard-logout-card form {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
   margin: 0
 }
 
 .dashboard-logout-card button {
-  display: flex;
-  width: 100%;
+  display: inline-flex;
+  width: auto;
   min-height: 40px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
-  padding: 0 13px;
+  padding: 0 20px;
   border: 0;
-  border-radius: 11px;
-  background: #ffffff26;
-  color: #fff;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #002147;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
+  letter-spacing: .01em;
   cursor: pointer;
-  transition: background .18s ease
-}
-
-.dashboard-logout-card button svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto
+  box-shadow: 0 8px 18px #00152f59;
+  transition: transform .16s ease, background .18s ease
 }
 
 .dashboard-logout-card button:hover {
-  background: #ffffff3d
+  background: #fff;
+  transform: translateY(-1px)
 }
 
-/* The sidebar account footer deliberately reads as one compact profile row:
-   identity on the left, a recognisable sign-out icon on the right. */
+.dashboard-logout-card button:active {
+  transform: translateY(0)
+}
+
+/* The sidebar account footer is a centered card with an overlapping badge:
+   icon, name + role, email and a compact pill sign-out button. */
 @media(min-width:901px) {
   .dashboard-logout-card {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 42px;
-    align-items: center;
-    gap: 10px;
-    padding: 13px 12px
-  }
-
-  .dashboard-logout-mark {
-    margin: 0
-  }
-
-  .dashboard-logout-identity {
-    margin: 0
-  }
-
-  .dashboard-logout-identity p {
-    margin-top: 3px
-  }
-
-  .dashboard-logout-card form {
-    height: 42px
-  }
-
-  .dashboard-logout-card button {
-    width: 42px;
-    height: 42px;
-    min-height: 42px;
-    justify-content: center;
-    padding: 0;
-    border: 1px solid #ffffff45;
-    background: #ffffff18
-  }
-
-  .dashboard-logout-card button span {
-    display: none
-  }
-
-  .dashboard-logout-card button:hover {
-    background: #ffffff30
+    padding: 34px 20px 20px
   }
 }
 
@@ -13985,33 +13972,92 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .todo-card {
-  padding: 18px
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 18px 16px
+}
+
+.todo-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #002147, #2f6bb0)
 }
 
 .todo-card>header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 14px
+  gap: 10px;
+  margin-bottom: 15px
+}
+
+.todo-head-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0
+}
+
+.todo-head-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(140deg, #002147, #1c4f86);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: 0 10px 20px #00214733
+}
+
+.todo-head-text {
+  min-width: 0
+}
+
+.todo-head-text .eyebrow {
+  margin: 0 0 2px;
+  color: #6d7d95;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .13em;
+  text-transform: uppercase
 }
 
 .todo-card h2 {
   margin: 0;
-  color: #17243a;
+  color: #131f33;
   font-size: 20px;
-  letter-spacing: -.035em
+  font-weight: 800;
+  letter-spacing: -.04em
 }
 
 .todo-count {
   flex: 0 0 auto;
-  padding: 6px 9px;
+  padding: 7px 12px;
+  border: 1px solid #dbe6f4;
   border-radius: 999px;
-  background: #eaf0f8;
-  color: #002147;
+  background: linear-gradient(180deg, #f3f7fd, #e9f0fa);
+  color: #556883;
   font-size: 11px;
-  font-weight: 800
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 #ffffffcc
 }
+
+.todo-count b {
+  color: #002147;
+  font-weight: 850
+}
+
+/* ---------- add form ---------- */
 
 .todo-add-form {
   display: flex;
@@ -14021,83 +14067,136 @@ html.admin-modal-js .admin-modal.is-open {
 .todo-add-form input {
   min-width: 0;
   flex: 1;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid #cbd7e8;
-  border-radius: 12px;
-  background: #f9fbfe;
-  color: #1b2a41;
+  height: 46px;
+  padding: 0 15px;
+  border: 1.5px solid #d3deee;
+  border-radius: 13px;
+  background: #f7fafd;
+  color: #17243a;
   font: inherit;
-  font-size: 13px;
-  outline: none
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease
+}
+
+.todo-add-form input::placeholder {
+  color: #9aa8bc
 }
 
 .todo-add-form input:focus {
   border-color: #002147;
-  box-shadow: 0 0 0 3px #00214726
+  background: #fff;
+  box-shadow: 0 0 0 4px #00214718
 }
 
 .todo-add-form button {
-  width: 42px;
-  height: 42px;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
   border: 0;
-  border-radius: 12px;
-  background: #002147;
-  color: white;
-  font-size: 25px;
+  border-radius: 13px;
+  background: linear-gradient(140deg, #002147, #1c4f86);
+  color: #fff;
+  font-size: 22px;
   line-height: 1;
-  cursor: pointer
+  cursor: pointer;
+  box-shadow: 0 10px 18px #00214733;
+  transition: transform .16s ease, box-shadow .16s ease
 }
+
+.todo-add-form button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 22px #00214740
+}
+
+.todo-add-form button span {
+  display: block;
+  margin-top: -2px
+}
+
+/* ---------- filter ---------- */
 
 .todo-filter {
   display: flex;
-  gap: 6px;
-  margin: 14px 0 8px;
+  gap: 4px;
+  margin: 16px 0 8px;
   padding: 4px;
   border-radius: 12px;
-  background: #f2f5fa
+  background: #eef2f8
 }
 
 .todo-filter button {
   flex: 1;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #66758a;
+  color: #6a7a90;
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 750;
-  cursor: pointer
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease, box-shadow .15s ease
 }
 
 .todo-filter button.is-active {
   background: #fff;
   color: #002147;
-  box-shadow: 0 1px 4px #172b4d12
+  box-shadow: 0 3px 8px #172b4d1c
 }
+
+/* ---------- list ---------- */
 
 .todo-list {
   display: grid;
-  gap: 2px;
-  max-height: 310px;
-  margin: 0;
+  gap: 3px;
+  max-height: 330px;
+  margin: 4px 0 0;
   padding: 0;
   overflow: auto;
   list-style: none
 }
 
 .todo-list li {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 30px 30px;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 0;
-  border-bottom: 1px solid #edf1f6
+  position: relative;
+  padding: 2px 10px 2px 12px;
+  border-radius: 12px;
+  transition: background .15s ease
 }
 
-.todo-list li:last-child {
-  border-bottom: 0
+.todo-list li::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 2px;
+  width: 3px;
+  border-radius: 3px;
+  background: transparent;
+  transition: background .15s ease
+}
+
+.todo-list li:hover::before {
+  background: linear-gradient(#002147, #2f6bb0)
+}
+
+.todo-task-main {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 9px 0
+}
+
+.todo-list li+li {
+  border-top: 1px solid #eef2f7
+}
+
+.todo-list li:hover {
+  background: #f6f9fd
 }
 
 .todo-list li[hidden] {
@@ -14108,28 +14207,37 @@ html.admin-modal-js .admin-modal.is-open {
   margin: 0
 }
 
+.todo-toggle-form {
+  display: flex
+}
+
 .todo-check {
   display: block;
-  width: 19px;
-  height: 19px;
-  border: 1.5px solid #aab8ca;
-  border-radius: 7px;
+  width: 22px;
+  height: 22px;
+  border: 1.7px solid #b3c0d2;
+  border-radius: 8px;
   background: #fff;
-  cursor: pointer
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease
+}
+
+.todo-check:hover {
+  border-color: #002147
 }
 
 .todo-check.is-done {
   position: relative;
-  border-color: #002147;
-  background: #002147
+  border-color: transparent;
+  background: linear-gradient(140deg, #002147, #1c4f86)
 }
 
 .todo-check.is-done:after {
   position: absolute;
-  top: 1px;
-  left: 5px;
-  width: 5px;
-  height: 10px;
+  top: 3px;
+  left: 7px;
+  width: 4px;
+  height: 9px;
   border: solid #fff;
   border-width: 0 2px 2px 0;
   content: "";
@@ -14137,43 +14245,75 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .todo-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
-  color: #33445c;
-  font-size: 13px;
+  color: #2a3a52;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere
 }
 
 .todo-title.is-done {
-  color: #8895a7;
+  color: #93a1b4;
+  font-weight: 500;
   text-decoration: line-through
 }
 
-.todo-title small {
-  display: block;
-  margin-top: 3px;
-  color: #73839a;
-  font-size: 10px;
-  text-decoration: none
+.todo-reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid #f2d9a6;
+  border-radius: 999px;
+  background: #fdf4e3;
+  color: #97690f;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap
 }
+
+.todo-reminder-chip span {
+  font-size: 10px
+}
+
+/* ---------- row actions ---------- */
 
 .todo-reminder {
-  position: relative
+  margin: 0 0 8px 33px
 }
 
-.todo-reminder summary,
-.todo-delete {
-  display: grid;
-  width: 29px;
-  height: 29px;
-  place-items: center;
-  border: 0;
+.todo-reminder summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed #c6d5ea;
   border-radius: 9px;
-  background: #f1f5fb;
-  color: #51647f;
-  font-size: 15px;
+  background: #f7fafd;
+  color: #3f6091;
+  font-size: 11.5px;
+  font-weight: 750;
+  white-space: nowrap;
   cursor: pointer;
-  list-style: none
+  list-style: none;
+  transition: background .15s ease, border-color .15s ease, color .15s ease
+}
+
+.todo-reminder summary:hover {
+  border-color: #002147;
+  background: #eef4fc;
+  color: #002147
+}
+
+.todo-reminder-plus {
+  font-size: 12px;
+  line-height: 1
 }
 
 .todo-reminder summary::-webkit-details-marker {
@@ -14181,65 +14321,133 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .todo-reminder[open] form {
-  position: absolute;
-  z-index: 3;
-  top: 34px;
-  right: -33px;
-  width: min(270px, calc(100vw - 44px));
-  padding: 13px;
+  display: grid;
+  gap: 10px;
+  width: min(300px, 100%);
+  margin: 3px 0 4px;
+  padding: 14px;
   border: 1px solid #dfe7f2;
-  border-radius: 14px;
-  background: white;
-  box-shadow: 0 12px 35px #15284a24
+  border-radius: 13px;
+  background: #f6f9fe;
+  box-shadow: 0 8px 18px #172b4d12;
+  animation: todoReminderIn .2s ease-out both
+}
+
+@keyframes todoReminderIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px)
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0)
+  }
 }
 
 .todo-reminder label {
   display: grid;
   gap: 7px;
   color: #52637b;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 750
 }
 
 .todo-reminder input {
   width: 100%;
   min-width: 0;
-  padding: 9px;
+  padding: 10px;
   border: 1px solid #cbd7e8;
   border-radius: 9px;
-  font: inherit
+  background: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  outline: none
+}
+
+.todo-reminder input:focus {
+  border-color: #002147;
+  box-shadow: 0 0 0 3px #00214722
 }
 
 .todo-reminder .button {
   width: 100%;
-  margin-top: 9px;
-  padding: 9px;
+  margin-top: 4px;
+  padding: 10px;
   border: 0;
   border-radius: 9px;
-  background: #002147;
-  color: white;
+  background: linear-gradient(140deg, #002147, #1c4f86);
+  color: #fff;
   font-weight: 750;
-  cursor: pointer
+  font-size: 12.5px;
+  cursor: pointer;
+  box-shadow: 0 8px 16px #00214730;
+  transition: transform .15s ease, box-shadow .15s ease
+}
+
+.todo-reminder .button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px #0021473c
+}
+
+.todo-delete-form {
+  display: flex
 }
 
 .todo-delete {
-  background: #fff3f2;
-  color: #bd3d36;
-  font-size: 20px;
-  line-height: 1
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #f2f6fb;
+  color: #8494a8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease
 }
 
-.todo-empty,
-.todo-email-note {
-  margin: 10px 0 0;
+.todo-delete:hover {
+  border-color: #f2c9c5;
+  background: #fff1f0;
+  color: #c23a32
+}
+
+/* ---------- footer notes ---------- */
+
+.todo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 18px 14px;
+  border: 1px dashed #d7e0ee;
+  border-radius: 13px;
+  background: #f7fafd;
   color: #7a8aa0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center
+}
+
+.todo-email-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid #edf1f6;
+  color: #8493a8;
   font-size: 11px;
   line-height: 1.5
 }
 
-.todo-email-note {
-  padding-top: 10px;
-  border-top: 1px solid #edf1f6
+.todo-email-note span {
+  flex: 0 0 auto;
+  color: #002147
 }
 
 @media(max-width:1150px) {
@@ -14308,21 +14516,16 @@ html.admin-modal-js .admin-modal.is-open {
     grid-template-columns: minmax(0, 1fr)
   }
 
-  .todo-list li {
-    grid-template-columns: 22px minmax(0, 1fr) 28px 28px;
-    gap: 5px
+  .todo-task-main {
+    gap: 6px
+  }
+
+  .todo-reminder {
+    margin-left: 24px
   }
 }
 
 /* Admin quiz submission reporting */
-.assessment-report-link {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-  padding-top: 15px;
-  border-top: 1px solid var(--border, #e1e8f2)
-}
-
 .quiz-reports-page {
   display: grid;
   gap: 22px
@@ -17264,6 +17467,7 @@ html.admin-modal-js .admin-modal.is-open {
 /* The main visual of a card swallows the spare height instead of leaving it under the content. */
 .chart-card>.alert-list,
 .chart-card>.chart-bars,
+.chart-card>.chart-line,
 .chart-card>.chart-spark,
 .chart-card>.donut-wrap,
 .chart-card>.meter-list,
@@ -17272,6 +17476,11 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .chart-card>.chart-bars {
+  height: auto;
+  min-height: 212px
+}
+
+.chart-card>.chart-line {
   height: auto;
   min-height: 212px
 }
@@ -17420,14 +17629,6 @@ html.admin-modal-js .admin-modal.is-open {
   background: linear-gradient(180deg, #1f4f8f, #002147)
 }
 
-.bar-emerald {
-  background: linear-gradient(180deg, #34d399, #059669)
-}
-
-.bar-rose {
-  background: linear-gradient(180deg, #fb7185, #e11d48)
-}
-
 .chart-label {
   min-height: 14px;
   color: #94a3b8;
@@ -17438,21 +17639,129 @@ html.admin-modal-js .admin-modal.is-open {
   white-space: nowrap
 }
 
-.chart-bars-paired {
-  gap: 6px
-}
+/* ---------- attendance line chart ---------- */
 
-.chart-pair {
+.chart-line {
+  position: relative;
   display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 3px
+  min-width: 0;
+  height: 212px;
+  margin-top: 18px;
+  padding-top: 6px;
+  flex-direction: column
 }
 
-.chart-bars-paired .chart-bar {
-  max-width: 14px
+.chart-line-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 150px
+}
+
+.chart-line-svg {
+  display: block;
+  width: 100%;
+  height: 100%
+}
+
+.line-grid {
+  stroke: #e2e8f0;
+  stroke-width: 1
+}
+
+/* Vertical band behind the highlighted (today) column. */
+.line-band {
+  fill: var(--att-blue);
+  opacity: .08
+}
+
+.line-fill {
+  fill: url(#attLineFill);
+  stroke: none
+}
+
+.line-stroke {
+  fill: none;
+  stroke: var(--att-blue);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round
+}
+
+/* Absent trend reads as a lighter companion line under the present hero line. */
+.line-stroke-secondary {
+  fill: none;
+  stroke: var(--att-rose);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 4 3;
+  opacity: .7
+}
+
+.line-guide {
+  stroke: var(--att-blue);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 2;
+  opacity: .55
+}
+
+.line-dot {
+  position: absolute;
+  top: var(--py, 50%);
+  left: var(--px, 50%);
+  width: 13px;
+  height: 13px;
+  transform: translate(-50%, -50%);
+  border: 3px solid var(--att-blue);
+  border-radius: 50%;
+  background: #fff
+}
+
+.chart-line-ylabels {
+  position: absolute;
+  /* Data band runs from viewBox y=10 (max) to y=60 (zero); 74-unit tall box. */
+  top: 13.5%;
+  bottom: 18.9%;
+  left: 0;
+  width: 7%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-right: 5px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none
+}
+
+.chart-line-ylabels>span {
+  line-height: 1
+}
+
+.chart-line-labels {
+  position: relative;
+  flex: 0 0 auto;
+  height: 20px;
+  margin-top: 6px
+}
+
+.chart-line-labels>span {
+  position: absolute;
+  top: 0;
+  left: var(--px, 50%);
+  transform: translateX(-50%);
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap
+}
+
+.chart-line-labels>span.is-active {
+  color: var(--att-blue)
 }
 
 .chart-legend {
@@ -17903,6 +18212,233 @@ html.admin-modal-js .admin-modal.is-open {
   color: #9f1239;
   font-weight: 850;
   white-space: nowrap
+}
+
+/* ---------- admin performance snapshot (redesigned navy KPI surface) ---------- */
+
+/* Each metric is a translucent tile with a tone-coloured accent bar, so the six figures read as one
+   premium panel rather than a bordered spreadsheet grid. */
+.admin-dashboard-snapshot .snapshot-range {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid #ffffff33;
+  border-radius: 999px;
+  background: #ffffff14;
+  color: #dbe8ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  white-space: nowrap
+}
+
+/* Two columns: the trend chart reads on the left, the headline metrics sit on the right with no
+   card of their own so the single navy surface stays the only background. */
+.admin-dashboard-snapshot .snapshot-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
+  margin-top: 14px
+}
+
+/* ---------- left: multi-line trend chart ---------- */
+
+.admin-dashboard-snapshot .snapshot-chart {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 262px;
+  flex-direction: column
+}
+
+.admin-dashboard-snapshot .snapshot-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 190px
+}
+
+.admin-dashboard-snapshot .snapshot-svg {
+  display: block;
+  width: 100%;
+  height: 100%
+}
+
+.admin-dashboard-snapshot .sn-grid {
+  stroke: #ffffff22;
+  stroke-width: 1
+}
+
+.admin-dashboard-snapshot .sn-guide {
+  stroke: #ffffff5c;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3
+}
+
+.admin-dashboard-snapshot .sn-line {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round
+}
+
+/* Data band runs from viewBox y=10 (peak) to y=60 (zero) inside a 74-unit tall box. */
+.admin-dashboard-snapshot .snapshot-ylabels {
+  position: absolute;
+  top: 13.5%;
+  bottom: 18.9%;
+  left: 0;
+  width: 7%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-right: 5px;
+  color: #9fb6d6;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none
+}
+
+.admin-dashboard-snapshot .snapshot-ylabels>span {
+  line-height: 1
+}
+
+.admin-dashboard-snapshot .snapshot-xlabels {
+  position: relative;
+  flex: 0 0 auto;
+  height: 18px;
+  margin-top: 6px
+}
+
+.admin-dashboard-snapshot .snapshot-xlabels>span {
+  position: absolute;
+  top: 0;
+  left: var(--px, 50%);
+  transform: translateX(-50%);
+  color: #9fb6d6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  white-space: nowrap
+}
+
+.admin-dashboard-snapshot .snapshot-xlabels>span.is-active {
+  color: #fff
+}
+
+/* ---------- right: compact KPI rows on the navy surface ---------- */
+
+.admin-dashboard-snapshot .snapshot-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px
+}
+
+.admin-dashboard-snapshot .snapshot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 2px;
+  border-bottom: 1px solid #ffffff1f
+}
+
+.admin-dashboard-snapshot .snapshot-row:last-child {
+  border-bottom: 0
+}
+
+.admin-dashboard-snapshot .snapshot-key {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px
+}
+
+/* The dot carries each metric's own line colour so the chart and the number pair without labels. */
+.admin-dashboard-snapshot .snapshot-dot {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--tile-accent, #7dd3fc);
+  box-shadow: 0 0 0 3px #ffffff1f
+}
+
+.admin-dashboard-snapshot .snapshot-figure {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right
+}
+
+.admin-dashboard-snapshot .snapshot-label {
+  min-width: 0;
+  color: #dbe8ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere
+}
+
+.admin-dashboard-snapshot .snapshot-value {
+  color: #fff;
+  font-size: clamp(20px, 1.8vw, 24px);
+  line-height: 1;
+  letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums
+}
+
+.admin-dashboard-snapshot .snapshot-hint {
+  max-width: 160px;
+  color: #a9c1e0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere
+}
+
+@media (max-width: 1080px) {
+  .admin-dashboard-snapshot .snapshot-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px
+  }
+
+  .admin-dashboard-snapshot .snapshot-chart {
+    min-height: 220px
+  }
+
+  .admin-dashboard-snapshot .snapshot-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px
+  }
+
+  .admin-dashboard-snapshot .snapshot-row:last-child {
+    border-bottom: 1px solid #ffffff1f
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-dashboard-snapshot .snapshot-list {
+    grid-template-columns: minmax(0, 1fr)
+  }
+
+  .admin-dashboard-snapshot .snapshot-row:last-child {
+    border-bottom: 0
+  }
+}
+
+/* Attendance day labels are thinned server-side to about six, but the card is narrow, so the
+   type is reduced to keep the visible dates from colliding into one another. */
+.admin-overview-layout .chart-line-labels>span {
+  font-size: 9px;
+  letter-spacing: .01em
 }
 
 /* ---------- student dashboard hero (attendance + snapshot on one navy surface) ---------- */
@@ -18446,10 +18982,6 @@ html.admin-modal-js .admin-modal.is-open {
     max-width: 32px
   }
 
-  .chart-bars-paired .chart-bar {
-    max-width: 9px
-  }
-
   .donut-wrap {
     flex-direction: column;
     align-items: center
@@ -18496,8 +19028,8 @@ html.admin-modal-js .admin-modal.is-open {
     letter-spacing: .02em
   }
 
-  .chart-bars-paired .chart-label {
-    display: none
+  .chart-line-labels>span {
+    font-size: 8px
   }
 
   .student-dashboard-hero .donut,
@@ -18924,152 +19456,7 @@ html.admin-modal-js .admin-modal.is-open {
   }
 }
 
-.todo-list li {
-  display: block;
-  padding: 11px 0
-}
-
-.todo-task-main {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 30px;
-  align-items: center;
-  gap: 8px;
-  min-width: 0
-}
-
-.todo-task-main>form {
-  margin: 0
-}
-
-.todo-task-main .todo-title {
-  min-width: 0
-}
-
-.todo-reminder {
-  display: block;
-  margin: 7px 38px 0 32px
-}
-
-.todo-reminder summary {
-  display: inline-flex;
-  width: auto;
-  height: auto;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 10px;
-  background: #002147;
-  box-shadow: 0 6px 14px #00214733;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .01em;
-  white-space: nowrap;
-  cursor: pointer;
-  list-style: none;
-  transition: background .15s ease, box-shadow .15s ease, transform .15s ease
-}
-
-.todo-reminder summary:hover {
-  background: #002147;
-  box-shadow: 0 8px 18px #00214745;
-  transform: translateY(-1px)
-}
-
-.todo-reminder[open] summary {
-  background: #002147
-}
-
-.todo-reminder summary::-webkit-details-marker {
-  display: none
-}
-
-.todo-reminder summary:focus-visible {
-  outline: 3px solid #93b4ff;
-  outline-offset: 2px
-}
-
-.todo-reminder form {
-  display: grid;
-  gap: 10px;
-  position: static;
-  width: auto;
-  margin: 9px 0 2px;
-  padding: 12px;
-  border: 1px solid #dfe7f2;
-  border-radius: 13px;
-  background: #f8faff;
-  box-shadow: none;
-  animation: todo-reminder-in .22s ease-out both
-}
-
-.todo-reminder[open] form {
-  position: static;
-  z-index: auto;
-  top: auto;
-  right: auto;
-  width: auto;
-  margin: 9px 0 2px;
-  padding: 12px;
-  border: 1px solid #dfe7f2;
-  border-radius: 13px;
-  background: #f8faff;
-  box-shadow: none;
-  animation: todo-reminder-in .22s ease-out both
-}
-
-.todo-reminder label {
-  display: grid;
-  gap: 7px;
-  color: #52637b;
-  font-size: 12px;
-  font-weight: 750
-}
-
-.todo-reminder input {
-  width: 100%;
-  min-width: 0;
-  padding: 9px;
-  border: 1px solid #cbd7e8;
-  border-radius: 9px;
-  background: #fff;
-  font: inherit
-}
-
-.todo-reminder .button {
-  width: 100%;
-  margin: 0;
-  padding: 9px;
-  border: 0;
-  border-radius: 9px;
-  background: #002147;
-  color: #fff;
-  font-weight: 750;
-  cursor: pointer
-}
-
-@keyframes todo-reminder-in {
-  from {
-    opacity: 0;
-    transform: translateY(-5px)
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0)
-  }
-}
-
-@media(max-width:360px) {
-  .todo-reminder summary {
-    min-height: 34px;
-    padding: 0 16px;
-    font-size: 12.5px
-  }
-}
+/* Todo card styling lives with the dashboard-tools component rules above (single source). */
 
 /* One blue summary surface replaces disconnected KPI tiles across dashboard modules. */
 .dashboard-summary-card {
@@ -19426,15 +19813,13 @@ html.admin-modal-js .admin-modal.is-open {
   border-bottom: 0
 }
 
-/* The public and workspace blue accents read from one global brand token. */
+/* The public and workspace blue accents read from one global brand token.
+   The todo card owns its own button styling, so its controls are excluded here. */
 .button,
 .button:hover,
 .button:focus-visible,
 .nav-cta,
-.verify-search-button,
-.todo-add-form button,
-.todo-reminder summary,
-.todo-reminder .button {
+.verify-search-button {
   background: var(--blue)
 }
 
@@ -19479,60 +19864,8 @@ html.admin-modal-js .admin-modal.is-open {
   background: #eaf0f6
 }
 
-.dashboard-logout-card button {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  min-width: 42px;
-  padding: 0
-}
-
-.dashboard-logout-card button span {
-  display: none
-}
-
-.dashboard-logout-card button svg {
-  display: block;
-  width: 20px;
-  height: 20px
-}
-
-.dashboard-logout-identity {
-  grid-column: 2;
-  grid-row: 1;
-  min-width: 0;
-  margin: 0
-}
-
-.dashboard-logout-card .dashboard-logout-mark {
-  grid-column: 1;
-  grid-row: 1;
-  margin: 0
-}
-
-.dashboard-logout-card form {
-  grid-column: 3;
-  grid-row: 1
-}
-
-.dashboard-logout-card {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 42px;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 12px
-}
-
-.dashboard-logout-card button {
-  height: 42px;
-  min-height: 42px;
-  border: 1px solid #ffffff45;
-  background: #ffffff18
-}
-
-.dashboard-logout-card button:hover {
-  background: #ffffff30
-}
+/* Sidebar logout card uses the centered overlapping-badge layout defined
+   above; the old compact single-row grid overrides were removed. */
 
 .dashboard-overview .bar-blue {
   background: linear-gradient(180deg, var(--blue), var(--blue))
@@ -19665,70 +19998,35 @@ html.admin-modal-js .admin-modal.is-open {
   }
 }
 
-/* Admin overview: individual KPI tiles echo the reference dashboard's
-   compact visual hierarchy while keeping all six live academy statistics. */
+/* Admin overview: the six live academy statistics sit together on one navy hero panel. The card
+   carries the navy surface and each metric is a translucent glass tile (styled by the snapshot
+   rules above), so the block reads as a single dashboard header rather than detached boxes. */
 .admin-dashboard-snapshot {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible
+  padding: 22px 24px;
+  border: 1px solid #12385f;
+  background: linear-gradient(135deg, #002147, #062a52);
+  box-shadow: 0 16px 34px #00214733;
+  overflow: hidden
 }
 
 .admin-dashboard-snapshot .dashboard-summary-heading {
-  margin: 0 0 14px;
-  padding: 0 1px 12px;
-  border-bottom: 0
+  margin: 0 0 8px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid #ffffff35
 }
 
 .admin-dashboard-snapshot .dashboard-summary-heading .eyebrow {
-  color: #002147
+  color: #dbe8ff
 }
 
 .admin-dashboard-snapshot .dashboard-summary-heading h2 {
-  color: #102a43
+  color: #fff
 }
 
 .admin-dashboard-snapshot .dashboard-summary-heading>span {
-  border-color: #cbd9e6;
-  background: #f3f7fa;
-  color: #002147
-}
-
-.admin-dashboard-snapshot .kpi-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px
-}
-
-.admin-dashboard-snapshot .kpi-card {
-  min-height: 148px;
-  padding: 18px;
-  border: 1px solid #002147;
-  border-radius: 17px;
-  background: #002147;
-  box-shadow: 0 12px 24px #0021471f;
-  transition: transform .2s ease, box-shadow .2s ease
-}
-
-.admin-dashboard-snapshot .kpi-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 32px #0021472e
-}
-
-.admin-dashboard-snapshot .kpi-card:nth-child(2n) {
-  background: #082c55
-}
-
-.admin-dashboard-snapshot .kpi-card:nth-child(3n) {
-  background: #0c365f
-}
-
-.admin-dashboard-snapshot .kpi-icon {
-  background: #ffffff20
-}
-
-.admin-dashboard-snapshot .kpi-delta {
-  color: #dbeafe
+  border-color: #ffffff4a;
+  background: #ffffff18;
+  color: #fff
 }
 
 body.dashboard-shell .dashboard-analytics-page {
@@ -19933,10 +20231,6 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
 }
 
 @media(max-width:900px) {
-  .admin-dashboard-snapshot .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
-  }
-
   body.dashboard-shell>main.dashboard-container {
     padding-inline: clamp(16px, 3vw, 24px)
   }

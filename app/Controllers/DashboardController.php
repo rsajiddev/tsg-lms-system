@@ -69,6 +69,7 @@ final class DashboardController
             'attendance' => (new AttendanceService($db))->adminSummary($range),
             'topCourses' => $this->topCourses($db),
             'enrolmentSeries' => $this->enrolmentSeries($db),
+            'snapshotTrend' => $this->snapshotTrend($db, $range),
             'revenue' => $this->revenue($db),
             'alerts' => $this->alerts($db),
             'recentPayments' => $this->rows($db,
@@ -225,6 +226,55 @@ final class DashboardController
             $series[] = ['key' => $key, 'label' => strtoupper(date('M', $stamp)), 'total' => $byMonth[$key] ?? 0];
         }
         return $series;
+    }
+
+    /**
+     * Per-day activity counts behind the "Academy at a glance" trend lines, oldest day first, over
+     * the selected range. Each metric is the number of that event recorded on the day, so every line
+     * reads on one shared scale. Every read fails open to zeros so a partially imported schema still
+     * renders a flat line instead of an error.
+     *
+     * @return array<string, mixed>
+     */
+    private function snapshotTrend(PDO $db, int $range): array
+    {
+        $range = max(2, min(60, $range));
+        $dates = [];
+        for ($offset = $range - 1; $offset >= 0; $offset--) {
+            $dates[] = gmdate('Y-m-d', strtotime('-' . $offset . ' days'));
+        }
+        $since = $dates[0];
+
+        $bucketize = function (string $sql, array $params) use ($db, $dates): array {
+            $counts = array_fill_keys($dates, 0);
+            foreach ($this->rows($db, $sql, $params) as $row) {
+                $bucket = (string) ($row['bucket'] ?? '');
+                if (array_key_exists($bucket, $counts)) $counts[$bucket] = (int) ($row['total'] ?? 0);
+            }
+            return array_values($counts);
+        };
+
+        return [
+            'dates' => $dates,
+            'students' => $bucketize(
+                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM users
+                 WHERE role = 'student' AND created_at >= ? GROUP BY bucket", [$since]),
+            'present' => $bucketize(
+                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
+                 WHERE status = 'present' AND attendance_date >= ? GROUP BY bucket", [$since]),
+            'absent' => $bucketize(
+                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
+                 WHERE status = 'absent' AND attendance_date >= ? GROUP BY bucket", [$since]),
+            'payments' => $bucketize(
+                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM payments
+                 WHERE created_at >= ? GROUP BY bucket", [$since]),
+            'quizzes' => $bucketize(
+                "SELECT DATE(started_at) AS bucket, COUNT(*) AS total FROM quiz_attempts
+                 WHERE started_at >= ? GROUP BY bucket", [$since]),
+            'assignments' => $bucketize(
+                "SELECT DATE(submitted_at) AS bucket, COUNT(*) AS total FROM assignment_submissions
+                 WHERE submitted_at >= ? GROUP BY bucket", [$since]),
+        ];
     }
 
     /** Approved revenue by currency so mixed PKR/USD records are never summed together. */
