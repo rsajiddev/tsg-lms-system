@@ -91,12 +91,12 @@ $purgeCount = count($assignments);
   $usageTitle = 'How to use assignments';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [
-      'Attach every assignment to a course and module. Students only see assignments that belong to a course they have access to.',
-      'Set a clear deadline. Submissions that arrive after it are flagged, so you can decide whether to accept or reject them.',
-      'Published is the switch. Draft assignments stay hidden from students until you publish them from the assignment card.',
-      'Students upload their work. Files are stored privately and stay visible only to you and the submitting student.',
-      'Review from one list. The submissions card shows each upload with the student, lesson and deadline state next to your grade and feedback fields.',
-      'Feedback goes straight to the student. Grading an assignment notifies the student and shows your notes inside their own assignments view.',
+      'Attach it to a course and module.',
+      'Set a clear deadline.',
+      'Published is the switch.',
+      'Students upload their work.',
+      'Review from one list.',
+      'Feedback goes straight to the student.',
   ];
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>

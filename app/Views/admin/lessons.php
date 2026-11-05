@@ -481,14 +481,14 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
     $usageTitle = 'How to use the Lesson library';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [
-        'Author in drafts first. Every lesson is saved as a draft and stays invisible to students until its status is switched to Published.',
-        'Modules are matched by title. Reusing an existing module title adds the lesson to that section; a new title creates the next sequential module in the course.',
-        'Register a video length. Direct .mp4 / .webm files track the playhead exactly, while YouTube and Vimeo links are re-written to an embed player — the length is required either way.',
-        'Videos without a length stay manual. Students complete those lessons by hand, and the “Videos missing a length” counter above lists everything that still needs fixing.',
-        'Live classes are per lesson. Paste the Zoom or Google Meet address (https only) and an optional UTC start time; the link reaches students whose enrolment is on the Live + Recorded plan and nobody else.',
-        'The watch-time rule applies course-wide. It sets the share of a video a student must watch before the lesson auto-completes, and takes effect from the next heartbeat a student sends.',
-        'Filters drive the whole page. Search, course, status and video filters update the counters, the lesson table and the inline editors below it in one pass.',
-        'Track completion reach. The completion column compares finished students against enrollments, so weak spots in a module are easy to spot.',
+        'Author in drafts first.',
+        'Modules are matched by title.',
+        'Register a video length.',
+        'Leave short videos manual.',
+        'Attach a live class link.',
+        'Set the watch-time rule.',
+        'Filters drive the whole page.',
+        'Track completion reach.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

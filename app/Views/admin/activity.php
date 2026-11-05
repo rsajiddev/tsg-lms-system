@@ -115,15 +115,15 @@ $error = $error ?? null; ?>
     $usageTitle = 'How to use recent activity';
     $usageLead = 'Two read-only reports, plus the controls that empty them before the next test round.';
     $usageBullets = [
-        'The first table is fan-out. Every lesson, test, assignment, payment decision, grade and certificate the platform published is listed with its recipients and how many of them are still unread.',
-        'Open any update to check it. The link shows the notice with the list of students it reached, which is the quickest way to confirm the wording after a change.',
-        'The unread column is student-side. It counts the same records the sidebar numbers do, so a row stuck above zero means someone has not looked yet.',
-        'The delivery log proves the send, not the read. It shows the latest automated emails and whether the mail server accepted them; message bodies are never stored.',
-        'The lesson view log is the player reporting resistance, not a student being accused. A blocked download, a refused fullscreen, a right-click on the recording or a jump forward of more than a few heartbeats appears here with the Account ID it happened under, and rows older than the retention window on the Security settings page are dropped the next time this desk is opened.',
-        'Clearing the viewing log is not a punishment. It empties the report only: watch time, completion, grades and certificates are untouched by anything on this page.',
-        'Clear delivery log empties one table. Use it between test rounds to start the mail history again while every notification stays where it is.',
-        'Clear recent activity empties both. Automated updates, their recipient rows, the replies filed under them and the whole log go, and the unread numbers in student sidebars drop with them.',
-        'Announcements are never touched here. Anything you wrote on the Announcements page stays on the board, and its own clearing card lives there.',
+        'The first table is fan-out.',
+        'Open any update to check it.',
+        'The unread column is student-side.',
+        'The delivery log proves the send, not the read.',
+        'The viewing log records player resistance.',
+        'Clearing the viewing log empties a report.',
+        'Clear delivery log empties one table.',
+        'Clear recent activity empties both.',
+        'Announcements are never touched here.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

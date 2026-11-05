@@ -89,15 +89,15 @@ $emojiGroups=[
         ? 'One private line per student, and the desk only ever shows what you can still read.'
         : 'Your line to the Academy, kept in one place.';
     $usageBullets=$isAdmin?[
-        'Pick a student. The dropdown opens that student\'s private line, and the list holds every conversation with a message you can still see.',
-        'Waiting for you. The chip counts the conversations whose newest message came from a student and no reply has gone out.',
-        'Clearing is for you only. Clear this chat hides its messages from your desk; the student keeps reading the same conversation, and their next message brings it back.',
-        'Deleting needs the phrase. Delete conversation removes the messages for both sides and cannot be undone.',
+        'Pick a student.',
+        'Waiting for you.',
+        'Clearing is for you only.',
+        'Deleting needs the phrase.',
     ]:[
-        'Write to the Academy. Only your own conversation is listed here, and the team answers on this same page.',
-        'One line, never two. Everything you send goes into the same thread, so an old answer is never lost in a second chat.',
-        'Clearing is for you only. Clear this chat hides the messages on your side; the Academy still has them, and a new reply shows here again.',
-        'Emoji are part of the message. They are sent as text, so the Academy reads exactly what you saw.',
+        'Write to the Academy.',
+        'One line, never two.',
+        'Clearing is for you only.',
+        'Emoji are part of the message.',
     ];
     require BASE_PATH.'/app/Views/components/usage-guide.php';
 ?>

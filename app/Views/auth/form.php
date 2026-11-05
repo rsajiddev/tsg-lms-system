@@ -64,7 +64,9 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
           </div>
           <button class="button auth-submit" type="submit">Log in</button>
         </form>
-        <p class="auth-links">Want to learn something new? <a href="<?= Security::escape($baseUrl) ?>/courses">Browse courses</a> · <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify your email</a></p>
+        <p class="auth-links">Want to learn something new? <a href="<?= Security::escape($baseUrl) ?>/courses">Browse courses</a> ·
+         <!-- <a href="<?= Security::escape($baseUrl) ?>/verify-email">Verify your email</a> -->
+        </p>
       <?php elseif ($mode === 'forgot'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/forgot-password">
           <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">

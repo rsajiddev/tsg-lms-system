@@ -129,7 +129,7 @@ $rangeLabel = $reports['students']['period_range'] ?? '';
   <?php
   $usageEyebrow = 'Reporting desk'; $usageTitle = 'How to use reports';
   $usageLead = 'Use a weekly or monthly view to review saved records, then export the selected report as a PDF.';
-  $usageBullets = ['Choose the period. Weekly reports run from Monday through Sunday; monthly reports cover the current calendar month.','Review each desk. Student regularity, attendance, quiz attempts and assignment submissions come from their saved records.','Export a branded document. Each download includes the TechSG Studio Academy header, reporting period, generation time, key totals, and record rows as a PDF.','Send one to a student. Pick a student and a desk, and the report reaches their own Reports page with only their records in it.'];
+  $usageBullets = ['Choose the period.','Review each desk.','Export a branded document.','Send one to a student.'];
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>
 </section>

@@ -86,13 +86,13 @@ $error = $error ?? null; ?>
     $usageTitle = 'How to use the announcement board';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [
-        'Choose the audience first. All active verified students reaches every verified account, while Choose students lets you tick the exact list from the same active set.',
-        'The title is what gets read. Students see it in their inbox and in the sidebar number that lights up against it, so keep the headline short and put the detail in the message.',
-        'Publishing is the point of no editing. A sent announcement has no draft or unpublish control here, so proof-read the body before you press Publish.',
-        'Announcements are read-only Academy news for students.',
-        'Every private message is handled on Chats, where you can select a student and reply directly.',
-        'Automated updates live on Recent activity. Lessons, tests, assignments, payments, grades and certificates notify students on their own, and that report is now the last entry in the sidebar.',
-        'The board is built to be emptied. Clearing it removes every announcement and automated update with its replies, which also resets the unread numbers in student sidebars.',
+        'Choose the audience first.',
+        'The title is what gets read.',
+        'Publishing is the point of no editing.',
+        'Announcements are read-only news.',
+        'Private messages are handled on Chats.',
+        'Automated updates live on Recent activity.',
+        'The board is built to be emptied.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

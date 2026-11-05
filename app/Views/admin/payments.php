@@ -138,12 +138,12 @@ $inlineTotals = static function (array $totals): string {
   $usageTitle = 'How to use revenue and payment';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [
-      'Account details feed the student form. The bank and wallet information you save here is exactly what students see when they submit a payment.',
-      'Students submit proof. Each submission carries a transaction reference and an optional receipt file, and lands in the review queue above.',
-      'Verify before access. Checking the proof and reference, then approving, grants the student course access in one step.',
-      'Rejections are explained. A review note tells the student what needs correcting, and they can resubmit after fixing it.',
-      'Receipts are generated per payment. Approved payments get a private receipt the student can download any time.',
-      'Revenue stays in view. The summary cards track verified income across periods, including the developer share split.',
+      'Account details feed the student form.',
+      'Students submit proof.',
+      'Verify before you approve.',
+      'Rejections are explained.',
+      'Receipts are generated per payment.',
+      'Revenue stays in view.',
   ];
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>

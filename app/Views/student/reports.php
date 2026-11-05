@@ -96,11 +96,11 @@ $latest = $shares === [] ? '—' : $rangeLabel($shares[0]);
     $usageTitle = 'How to use Reports';
     $usageLead = 'Reports the academy has prepared for you, one download each.';
     $usageBullets = [
-        'An administrator sends a report; you do not request one. When something is shared, it lands here and a notice appears in your inbox.',
-        'Every document holds only your records. Attendance, quiz attempts and assignment submissions are yours alone, never the class list.',
-        'The period is the one that was chosen when it was sent. A report shared in November still describes November, however late you open it.',
-        'Downloads are rebuilt when you ask for them, so a correction the academy saves later is reflected the next time you download.',
-        'A badge on this entry counts the reports that arrived since you last looked; opening the page settles it.',
+        'An administrator sends a report.',
+        'Every document holds only your records.',
+        'The period is the one that was sent.',
+        'Downloads are rebuilt on demand.',
+        'A badge counts new reports.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

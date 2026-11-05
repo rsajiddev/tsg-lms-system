@@ -579,7 +579,7 @@ $db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = 
 /* ------------------------------------------------------------------ closing usage reference */
 echo "\n-- the closing usage guide\n";
 // One component prints the reference list at the foot of every workspace page. Readers skip long
-// walkthroughs, so it is a quiet footnote - a ticked line per point, no card of its own - and the
+// walkthroughs, so it is a quiet footnote - one short pointer per line, no card of its own - and the
 // placement is part of the rule as well: it always closes the page.
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/lessons';
@@ -588,14 +588,14 @@ $assert(str_contains($html, 'admin-usage-card') && str_contains($html, 'admin-us
     'The Lesson library closes with its labelled reference list.',
     'The Lesson library renders no labelled usage reference.');
 $assert(preg_match('/<ul class="admin-usage-list">.*<span class="admin-usage-check" aria-hidden="true"><svg.*<span class="admin-usage-check" aria-hidden="true"><svg/s', $html) === 1,
-    'The reference is an unordered list whose lines each open with a ticked ring.',
-    'The guide is not a ticked list: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
+    'The reference is an unordered list whose lines each open with an arrow ring.',
+    'The guide is not an arrowed list: ' . substr((string) strstr($html, 'admin-usage-list'), 0, 200));
 $assert(substr_count($html, 'admin-usage-number') === 0,
     'No step counter survives from the old numbered walkthrough.',
     'The reference still prints numbered step chips.');
-$assert(str_contains($html, 'admin-usage-copy"><strong>') && str_contains($html, 'admin-usage-detail'),
-    'Each line prints its short title and the sentence that explains it.',
-    'A reference line carries no title or no detail.');
+$assert(!str_contains($html, 'admin-usage-detail'),
+    'A reference line is one short pointer, with no explanatory sentence trailing it.',
+    'The reference still prints the long explanation after each line title.');
 // The walkthrough is the last card on the page, so it never cuts the workflow above it in half -
 // and that holds even on a desk that ends with a guarded bulk delete.
 $assert(stripos($html, 'admin-usage-card') > stripos($html, 'admin-card-testing'),

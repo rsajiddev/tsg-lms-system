@@ -243,7 +243,7 @@ $accountId = static function (array $account): string {
     $purgeAction = '/admin/students/purge';
     $purgePhrase = 'DELETE ALL STUDENTS';
     $purgeTitle = 'Delete all students';
-    $purgeDescription = 'Removes every student account with its enrollments, attendance, submissions, quiz attempts, payments, grades, certificates and uploaded files. Admin accounts, courses and the email delivery log stay untouched.';
+    $purgeDescription = 'Removes every student account with its enrollments, attendance, submissions, quiz attempts, payments, grades, certificates, chat conversations and uploaded files. Admin accounts, courses and the email delivery log stay untouched.';
     $purgeCount = (int) ($statusCounts['total'] ?? 0);
     require BASE_PATH . '/app/Views/components/purge-zone.php';
     ?>
@@ -253,13 +253,13 @@ $accountId = static function (array $account): string {
     $usageTitle = 'How to use the student directory';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [
-        'Search before you open a card. One box matches a name, an email address or an Academy ID, and the status selector narrows the count above the table as you change it.',
-        'The number beside a name is the one that matters. It is the account’s Academy ID - the same ID printed on their certificate and the one a visitor types into the public verification page.',
-        'Block and Unblock act on the login only. A blocked student cannot sign in, while their enrollments, payments, submissions and grades stay exactly as they were.',
-        'Set the attendance window here. It decides how long a student has to confirm presence after signing in before the day is recorded as absent, and it applies from the next sign-in.',
-        'Read the account card. Status, registration date, last successful sign-in and the counts of successful and failed attempts sit above the latest 50 records, all in server UTC time.',
-        'Clearing activity is not deleting a student. It empties that one account’s recorded sign-ins; the account, its courses and its payments remain untouched.',
-        'Passwords and OTPs never reach this page. They are hidden by design, and a failed attempt on an unknown email address is never linked to an account.',
+        'Search before you open a card.',
+        'The Academy ID is the key.',
+        'Block and Unblock act on the login only.',
+        'Set the attendance window here.',
+        'Read the account card.',
+        'Clear activity, not the account.',
+        'Passwords and OTPs stay hidden.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

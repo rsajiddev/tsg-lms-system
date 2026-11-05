@@ -172,11 +172,11 @@ $lastWatchedLabel = static function (?string $value): string {
     $usageTitle = 'How to use the lesson list';
     $usageLead = 'Every published lesson in the courses you can open right now.';
     $usageBullets = [
-        'Start from the lesson title. The video, notes and materials open in the player with your position restored.',
-        'Progress saves itself. The player records where you stopped, so closing the tab costs you nothing.',
-        'Some lessons need watch time. Where the academy sets a rule, the lesson completes once you have watched the required share.',
-        'Mark the rest when you are done. Lessons without a tracked video are completed by hand so the progress bar stays accurate.',
-        'Narrow it by course. The filters keep the list to the lessons you can open today.',
+        'Start from the lesson title.',
+        'Progress saves itself.',
+        'Some lessons need watch time.',
+        'Complete the rest by hand.',
+        'Narrow it by course.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

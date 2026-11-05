@@ -330,12 +330,18 @@ final class StudentManagementController
             foreach ($statements as $table => $sql) {
                 $deleted[$table] = (int) $db->exec($sql);
             }
-            // The protection tables are tried separately. A database that has not been re-imported
-            // with them is missing nothing a student purge depends on, and a half-imported schema
-            // must not stop the directory from clearing.
+            // The protection and chat tables are tried separately. A database that has not been
+            // re-imported with them is missing nothing a student purge depends on, and a
+            // half-imported schema must not stop the directory from clearing. A student's chat is
+            // deleted through its thread row: chat_messages hangs off chat_threads with ON DELETE
+            // CASCADE, so removing the thread takes every message with it and clears both foreign
+            // keys that point back at users (chat_threads.student_id and chat_messages.sender_id).
+            // Deleting only the messages - as the admin chat desk does - would leave the thread row
+            // holding the student_id key and block the account delete with an FK 1451.
             foreach ([
                 'lesson_view_events' => 'DELETE FROM lesson_view_events WHERE student_id IN ' . $students,
                 'user_sessions' => 'DELETE FROM user_sessions WHERE user_id IN ' . $students,
+                'chat_threads' => 'DELETE FROM chat_threads WHERE student_id IN ' . $students,
             ] as $table => $sql) {
                 try {
                     $deleted[$table] = (int) $db->exec($sql);
@@ -365,7 +371,7 @@ final class StudentManagementController
             }
         }
         $_SESSION['_flash'] = sprintf(
-            'Deleted %d student account(s) with their enrollments, payments, submissions, grades, sessions and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
+            'Deleted %d student account(s) with their enrollments, payments, submissions, grades, sessions, chats and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
             $deleted['accounts'],
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );

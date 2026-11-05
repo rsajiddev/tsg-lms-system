@@ -53,13 +53,13 @@ $message = is_string($message ?? null) ? $message : null;
     $usageTitle = 'How to use coding challenges';
     $usageLead = 'Build the page in the browser, run its checks and save as many practice runs as you like.';
     $usageBullets = [
-        'Open the editor from a card. Each challenge tells you how many checks it runs and how many practice attempts you have already saved.',
-        'Write all three files. HTML, CSS and JavaScript each get their own pane, and the preview shows the page they build together.',
-        'The preview fills in as you type. HTML and CSS update while you edit; press Run JavaScript & checks when your script is in place.',
-        'Save the run you like. A saved attempt lists its pass or fail verdict with the number of checks it cleared, newest first.',
-        'Nothing here is graded. A pass is a practice signal - challenge results never touch your assignment or quiz marks.',
-        'The frame cannot reach your account. It is isolated on purpose, so network calls and form submission are blocked and the checks only read the rendered page.',
-        'Challenges come from your course. Your instructor publishes the set, and the lab only opens for a course that carries one - Open course takes you back to that workspace.',
+        'Open the editor from a card.',
+        'Write all three files.',
+        'The preview fills in as you type.',
+        'Save the run you like.',
+        'Nothing here is graded.',
+        'The frame cannot reach your account.',
+        'Challenges come from your course.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

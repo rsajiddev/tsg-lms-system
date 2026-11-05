@@ -469,12 +469,12 @@ $optionLetters = ['A', 'B', 'C', 'D'];
   $usageTitle = 'How to use quiz management';
   $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
   $usageBullets = [
-      'Pick the quiz type first. Practice, lesson, module and final quizzes each carry their own policy for attempts, timing and pass rules — the form adjusts automatically as you switch.',
-      'Drafts stay invisible. A quiz only reaches students once it is released inside its unlock and close window.',
-      'Question banks are edited inline. Every quiz below expands for direct edits, and the lesson quiz option links a quiz straight to a lesson.',
-      'Final tests support retakes. Students request one extra attempt after finishing, and each request waits for your approval in the retake card above.',
-      'Timing is enforced server-side. Timed quizzes count down from the configured limit and submit themselves when the clock runs out.',
-      'Results land in Quiz reports. Every attempt, score and submission reason shows up on the reports page for review.',
+      'Pick the quiz type first.',
+      'Drafts stay invisible.',
+      'Edit questions inline.',
+      'Final tests support retakes.',
+      'Timing is enforced server-side.',
+      'Results land in Quiz reports.',
   ];
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>

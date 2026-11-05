@@ -5132,8 +5132,9 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
 /* Shared "How to use" reference list (components/usage-guide.php). Most readers never work through a
    walkthrough, so this block is a footnote and not a feature: no card of its own, a hairline rule
-   above it, one small heading line and a quiet column-friendly list of ticked reference lines in the
-   site's own navy. Nothing here is allowed to compete with the work printed above it. */
+   above it, one small heading line and a single quiet column of short arrow-marked pointers in the
+   site's own navy. Each line is a phrase, not a paragraph, and nothing here is allowed to compete
+   with the work printed above it. */
 .admin-usage-card {
   margin-top: 22px;
   padding: 14px 2px 4px;
@@ -5174,58 +5175,48 @@ html.js [data-reveal].is-visible.dash-card:hover {
   overflow-wrap: anywhere
 }
 
-/* Lines flow into columns while the page is wide, which keeps the whole reference under one screen. */
+/* One pointer per row, spaced so the block reads as a list of links rather than a paragraph. */
 .admin-usage-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 8px 26px;
-  margin: 12px 0 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none
 }
 
 .admin-usage-list>li {
   display: grid;
-  grid-template-columns: 17px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center
 }
 
-/* Ticked ring, stroked so it inherits the brand navy from the colour above. */
+/* Arrow in a soft ring, stroked so it inherits its colour from the CSS instead of a fixed fill. */
 .admin-usage-check {
   display: grid;
-  width: 17px;
-  height: 17px;
-  margin-top: 1px;
+  width: 22px;
+  height: 22px;
   place-items: center;
+  border-radius: 50%;
+  background: #eaf0fb;
   color: var(--blue)
 }
 
 .admin-usage-check svg {
   display: block;
-  width: 100%;
-  height: 100%
+  width: 15px;
+  height: 15px
 }
 
 .admin-usage-copy {
   min-width: 0;
   margin: 0;
-  font-size: 11.8px;
-  line-height: 1.55;
-  overflow-wrap: anywhere
-}
-
-.admin-usage-copy strong {
-  display: inline;
   color: var(--navy);
-  font-weight: 700
-}
-
-/* The explanation runs on after the title in muted grey, so a skimming reader can stop at the title. */
-.admin-usage-detail {
-  display: inline;
-  margin-left: 4px;
-  color: var(--muted)
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere
 }
 
 @media(max-width:600px) {
@@ -5234,7 +5225,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
   }
 
   .admin-usage-list {
-    grid-template-columns: minmax(0, 1fr)
+    gap: 11px
   }
 }
 

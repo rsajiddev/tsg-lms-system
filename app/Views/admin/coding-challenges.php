@@ -57,12 +57,12 @@ $testExample = "[\n  {\"name\":\"Page heading exists\",\"selector\":\"h1\",\"ass
     $usageTitle = 'How to use coding challenges';
     $usageLead = 'A quick walkthrough of the workflow this page manages end to end.';
     $usageBullets = [
-        'Attach the challenge to a course. Students only see it inside that course’s learning workspace.',
-        'Drafts stay private. A challenge becomes visible to students only when its status is switched to published.',
-        'Ship starter code. Separate HTML, CSS and JavaScript fields give learners a working baseline to start from.',
-        'Write test cases as JSON. Each test runs against the student’s live preview and returns an instant pass or fail verdict.',
-        'Results are practice signals. The sandboxed preview checks the work — nothing here counts as an official graded mark.',
-        'Edit any time from the library. Every saved challenge expands below with its full form and live attempt count.',
+        'Attach the challenge to a course.',
+        'Drafts stay private.',
+        'Ship starter code.',
+        'Write test cases in JSON.',
+        'Results are practice signals.',
+        'Edit any time from the library.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

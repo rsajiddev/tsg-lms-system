@@ -172,11 +172,11 @@ $grantedLabel = static function (?string $value): string {
     $usageTitle = 'How to use My courses';
     $usageLead = 'The courses you are enrolled in, how long each one stays open and what is unlocked inside it.';
     $usageBullets = [
-        'Access has a window. Every card shows the date the course closes; its lessons, tests and assignments close with it.',
-        'Open the course page. The card links to the full learning workspace where the modules, lessons and materials live.',
-        'Progress is counted per course. The bar compares the lessons you finished against everything published in that course so far.',
-        'A missing course means no access yet. Enrol from the public course page or send your payment proof, and the academy opens it for you.',
-        'Grades and certificates land here. Once a course is complete, its result and the certificate request appear on the same card.',
+        'Access has a window.',
+        'Open the course page.',
+        'Progress is counted per course.',
+        'Enrol if a course is missing.',
+        'Grades and certificates land here.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

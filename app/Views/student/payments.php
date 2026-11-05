@@ -95,13 +95,13 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
     $usageTitle = 'How to use your payments page';
     $usageLead = 'Send your proof, follow the review and collect the receipt afterwards.';
     $usageBullets = [
-        'Use the account shown on the form. Bank, wallet and card details are exactly what the academy saved for you.',
-        'Add the transaction reference. That ID is the first thing the academy checks, so a payment without it waits longest.',
-        'Attach the receipt or screenshot. A clear image of the confirmation is stored privately with your submission.',
-        'Approved unlocks the course. Access, your downloadable receipt and a notification all arrive together.',
-        'Declined says why. The review note explains what to correct, and you can send the payment again after fixing it.',
-        'Every row keeps its history. Status, amount, date and the receipt download stay on this page for your records.',
-        'The learning option is printed under the amount. Live + Recorded is what unlocks a lesson’s live class link; a payment made before options were stored shows no line.',
+        'Use the account shown on the form.',
+        'Add the transaction reference.',
+        'Attach the receipt or screenshot.',
+        'Approved unlocks the course.',
+        'Declined says why.',
+        'Every row keeps its history.',
+        'The learning option is printed under the amount.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>
