@@ -646,7 +646,7 @@ final class CertificateController
 
     private function contactAddress(): string
     {
-        $configured = trim((string) (getenv('MAIL_CERTIFICATE_REQUEST_ADDRESS') ?: ''));
+        $configured = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
         if (filter_var($configured, FILTER_VALIDATE_EMAIL) !== false) return $configured;
         return self::CONTACT_FALLBACK;
     }

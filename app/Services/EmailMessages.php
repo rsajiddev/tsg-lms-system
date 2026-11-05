@@ -16,8 +16,8 @@ namespace App\Services;
  *    'view'     => EmailLayout view array]
  *
  * Recipients are resolved from the environment only — see MailService::hrAddress(),
- * developerAddress() and certificateAddress() — so a client redirects all mail by
- * editing the MAIL_* block.
+ * developerAddress() and certificateAddress(), all of which deliver to the sending
+ * mailbox — so a client redirects all mail by editing the MAIL_* block.
  */
 final class EmailMessages
 {
@@ -485,6 +485,73 @@ final class EmailMessages
                 'signature' => EmailLayout::SIGN_HR,
             ],
         ]];
+    }
+
+    /* ---------------------------------------------------------------- public enquiries */
+
+    /**
+     * A visitor used the public contact form. Two messages fire from one event: the internal
+     * alert that lands in the company inbox, and the acknowledgement that reassures the sender
+     * their message was received and someone will reply. Both are sent from the same mailbox.
+     * Keys: name, email, phone, subject, body, submitted_at.
+     */
+    public static function contactReceived(array $enquiry): array
+    {
+        $company = EmailLayout::company();
+        $name = trim((string) ($enquiry['name'] ?? '')) ?: 'there';
+        $email = trim((string) ($enquiry['email'] ?? ''));
+        $phone = trim((string) ($enquiry['phone'] ?? ''));
+        $subject = trim((string) ($enquiry['subject'] ?? '')) ?: 'General enquiry';
+        $body = trim((string) ($enquiry['body'] ?? ''));
+        $when = self::when((string) ($enquiry['submitted_at'] ?? ''));
+
+        return [
+            [
+                'template' => 'contact.admin',
+                'to' => MailService::hrAddress(),
+                'subject' => 'New Contact Enquiry: ' . $subject,
+                'view' => [
+                    'audience' => 'hr',
+                    'preheader' => $name . ' (' . $email . ') sent a message from the contact page.',
+                    'greeting' => 'Dear Team,',
+                    'paragraphs' => ['A new message has arrived through the contact form on the ' . $company['short'] . ' website. The details are below - please reply to the sender from your usual inbox.'],
+                    'heading' => 'Enquiry Details',
+                    'details' => [
+                        ['label' => 'Name', 'value' => $name],
+                        ['label' => 'Email', 'value' => $email],
+                        ['label' => 'Phone', 'value' => $phone !== '' ? $phone : '—'],
+                        ['label' => 'Subject', 'value' => $subject],
+                        ['label' => 'Received On', 'value' => $when],
+                        ['label' => 'Message', 'value' => $body],
+                    ],
+                    'signature' => EmailLayout::SIGN_SYSTEM,
+                ],
+            ],
+            [
+                'template' => 'contact.acknowledgement',
+                'to' => $email,
+                'subject' => 'We have received your message',
+                'view' => [
+                    'audience' => 'student',
+                    'preheader' => 'Thanks for reaching out - our team will reply shortly.',
+                    'greeting' => 'Dear ' . $name . ',',
+                    'paragraphs' => [
+                        'Thank you for contacting ' . $company['short'] . '. We have received your message and a member of our team will get back to you as soon as we can, usually within one working day.',
+                        'There is nothing you need to do right now. For anything urgent you can also reach us through the details on our contact page.',
+                    ],
+                    'heading' => 'Your Message',
+                    'details' => [
+                        ['label' => 'Subject', 'value' => $subject],
+                        ['label' => 'Sent From', 'value' => $email],
+                        ['label' => 'Received On', 'value' => $when],
+                        ['label' => 'Message', 'value' => $body],
+                    ],
+                    'closing' => ['We look forward to speaking with you.'],
+                    'legal' => true,
+                    'signature' => EmailLayout::SIGN_ACADEMY,
+                ],
+            ],
+        ];
     }
 
     /* ------------------------------------------------------------------------ helpers */

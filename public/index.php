@@ -103,6 +103,7 @@ $router->get('/about', [\App\Controllers\PublicPageController::class, 'about']);
 $router->get('/courses', [\App\Controllers\PublicPageController::class, 'courses']);
 $router->get('/courses/{slug}', [\App\Controllers\PublicPageController::class, 'courseDetails']);
 $router->get('/contact', [\App\Controllers\PublicPageController::class, 'contact']);
+$router->post('/contact', [\App\Controllers\PublicPageController::class, 'submitContact']);
 $router->get('/terms', [\App\Controllers\PublicPageController::class, 'terms']);
 $router->get('/privacy', [\App\Controllers\PublicPageController::class, 'privacy']);
 $router->get('/refund-policy', [\App\Controllers\PublicPageController::class, 'refundPolicy']);

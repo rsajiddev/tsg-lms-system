@@ -12,9 +12,9 @@ use RuntimeException;
  *
  * Configuration comes from the environment only, so a client installs the platform by
  * filling in the MAIL_* block: SMTP host/port/encryption, the mailbox and app password,
- * the display name, the sender address and the internal notification inboxes. Nothing in
- * this class hardcodes a personal address — unset notification inboxes fall back to the
- * sender address, so a single credential pair still reaches the right people.
+ * the display name and the sender address. Every internal alert - HR registration and
+ * payment notices, developer summaries, certificate requests - is delivered to the
+ * sending mailbox itself, so one address pair in .env routes the whole installation.
  */
 final class MailService
 {
@@ -88,6 +88,12 @@ final class MailService
         return $this->sendAll(EmailMessages::certificateRejected($certificate));
     }
 
+    /** Public contact form submitted: the company inbox is alerted and the sender is acknowledged. */
+    public function sendContactReceived(array $enquiry): bool
+    {
+        return $this->sendAll(EmailMessages::contactReceived($enquiry));
+    }
+
     /** One scheduled digest of the recipient's unfinished personal tasks. */
     public function sendDashboardTaskReminder(string $email, string $name, int $pendingCount, array $tasks): bool
     {
@@ -129,23 +135,22 @@ final class MailService
 
     /* ------------------------------------------------------- recipients & formatting */
 
+    /** Internal alerts all land in the company's own sending mailbox; see sendingAddress(). */
     public static function hrAddress(): string
     {
-        return self::address(['MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
+        return self::sendingAddress();
     }
 
-    /**
-     * The developer inbox, named after the environment key so there is one place to look.
-     * Blank means the company's own sending mailbox already receives these alerts.
-     */
+    /** Developer alerts are delivered to the same sending mailbox as every other message. */
     public static function developerAddress(): string
     {
-        return self::address(['DEVELOPER_NOTIFICATION_MAIL_ADDRESS', 'MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
+        return self::sendingAddress();
     }
 
+    /** Certificate requests join the sending mailbox too, keeping one inbox for the company. */
     public static function certificateAddress(): string
     {
-        return self::address(['MAIL_CERTIFICATE_REQUEST_ADDRESS', 'MAIL_ADMIN_NOTIFICATION_ADDRESS', 'MAIL_FROM_ADDRESS']);
+        return self::sendingAddress();
     }
 
     /** Greeting used in developer-facing mail; the name lives in the environment. */
@@ -183,13 +188,11 @@ final class MailService
         return $label . number_format($amount, $amount < 1000 && $amount != (int) $amount ? 2 : 0);
     }
 
-    private static function address(array $keys): string
+    /** The company mailbox that authenticates SMTP; it also receives every internal alert. */
+    private static function sendingAddress(): string
     {
-        foreach ($keys as $key) {
-            $value = trim((string) (getenv($key) ?: ''));
-            if (filter_var($value, FILTER_VALIDATE_EMAIL)) return $value;
-        }
-        return '';
+        $value = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
+        return filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : '';
     }
 
     /* ---------------------------------------------------------------------- internals */

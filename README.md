@@ -9,7 +9,7 @@ This README is the single catalogue of what is implemented. Every feature that s
 1. Copy this folder into `htdocs/`.
 2. Create the MySQL database `tsg_academy_lms` in phpMyAdmin.
 3. Import `database/migrations/001_initial_schema.sql`.
-4. Copy `.env.example` to `.env` and set `APP_URL`, the DB values, and the `MAIL_*` block (the sending mailbox, its app password and the internal inboxes). Every comment in `.env.example` states what its variable is for, so a new owner can configure the installation without reading any PHP.
+4. Open `.env` and set `APP_URL`, the DB values, and the `MAIL_*` block (the sending mailbox and its app password). That one mailbox is the "from" address of every automated email and the inbox that receives all internal alerts, so nothing else has to be configured. Every comment in `.env` states what its variable is for, so a new owner can configure the installation without reading any PHP.
 5. Start Apache and MySQL, then open the project URL.
 6. Create the first admin with `php bin/create-admin.php`.
 
@@ -379,3 +379,54 @@ Submission Process:
 * Password change kar sakega.
 * Apni personal profile details update kar sakega.
 * Account security aur login credentials manage kar sakega.
+
+### 14\. Public Contact Workflow
+* Website par ek dedicated contact page hai (left side par "get in touch" intro aur phone/WhatsApp/email/office details, right side par dark navy enquiry form).
+* Koi bhi visitor (account ke bagair) form bhar kar naam, email, phone (optional), subject aur message bhej sakega.
+* Form submit hone par do professional emails jate hain, dono same company mailbox (`MAIL_FROM_ADDRESS`) se:
+  * **Admin/Company inbox** par enquiry ki full details (naam, email, phone, subject, message) — reply karne ke liye.
+  * **Sender** ko acknowledgement — "aapka message receive ho gaya, hamari team jald contact karegi".
+* Message ka content database me save nahi hota; sirf emails me jata hai. `email_logs` table me delivery trace (template, recipient, subject, status, time) record hota hai, body nahi.
+* Submission par CSRF check, field validation aur IP-based throttle (RateLimiter, 5 per hour) lagta hai, taake spam na ho.
+* Handover par company sirf `MAIL_USERNAME`, `MAIL_PASSWORD` aur `MAIL_FROM_ADDRESS` badle to enquiry usi ki mailbox par aayengi, koi code edit ki zaroorat nahi.
+
+## Automated test suite (smoke tests)
+The `tests/` directory holds standalone CLI smoke tests. Each one exercises a specific feature or
+end-to-end flow, prints a `PASS`/`FAIL` line per assertion, and exits non-zero on any failure so the
+result is easy to script. They need no browser and send no real mail.
+
+### How to run
+```
+/Applications/XAMPP/xamppfiles/bin/php -d error_reporting=0 tests/<name>.php --database=<scratch_db>
+```
+Point `--database` at a throwaway schema (name must contain `tmp`, `check`, `scratch` or `test`);
+import `database/migrations/001_initial_schema.sql` into it first. Never aim a test at the live
+database. Every test cleans up the rows and files it creates, and restores any settings it changes.
+
+### Safety mechanisms
+* **Scratch-database guard** — a test refuses to run unless the schema name looks temporary, so a
+  routine check cannot wipe or pollute real data.
+* **Loopback SMTP catcher** — mail tests start a throwaway SMTP server on `127.0.0.1`, point the
+  mail env at it, and read the raw messages off the wire. This verifies the full SMTP transport
+  (auth, headers, MIME body) without any internet or inbox.
+* **Self-contained fixtures** — each test seeds only what it needs and removes it afterwards.
+
+### What each file covers
+| Test file | Purpose |
+| --- | --- |
+| `auth-flow-smoke.php` | Registration, OTP verification and resend throttle, activation (with one-time token revoke and replay rejection), successful/failed login, password reset, duplicate handling, and the OTP/reset rows written to `email_logs`. |
+| `enrol-flow-smoke.php` | Course-first checkout: enrolment, access plans and the enrolment intent/checkout flow. |
+| `contact-flow-smoke.php` | Public contact form: visitor enquiry sends both the company notification and the sender acknowledgement, carries the right recipients, survives CSRF/field validation, and is logged in `email_logs`. |
+| `email-notification-smoke.php` | All twelve email templates render as real HTML + plain-text alternatives, with correct recipient routing (OTP, payment, certificate, contact, admin alerts) and the in-app notification badge counts. |
+| `interface-render-smoke.php` | Renders every admin and student surface against seeded fixtures (no PHP notices, no failed reads), asserts the sidebar unread/due badges, and checks the `.env` handover surface so the mail keys stay consistent with the code that reads them. |
+| `attendance-flow-smoke.php` | Daily attendance rows, the confirmation window and grace minutes, present/absent sweeps, and admin/student summary consistency. |
+| `lesson-watch-flow-smoke.php` | Opening a lesson and recording watch time / completion. |
+| `video-protection-flow-smoke.php` | Video protection rules: lesson media access, concurrent-device limits and anti-piracy behaviour. |
+| `live-class-flow-smoke.php` | Live class meeting links, scheduling and access gating. |
+| `certificate-verify-smoke.php` | Public certificate verification: valid/expired states, one certificate ID issuing many certificates, and the invalid page. |
+| `admin-identity-flow-smoke.php` | Admin account provisioning, unified ID prefixes and identity handling. |
+| `purge-tools-smoke.php` | Admin data-purge tools: FK-safe deletion order and the audit trail (destructive, so it only ever runs on a scratch schema). |
+| `TEST-PLAN.md` | The living log of what has been tested, the results, and the items deliberately left untested (e.g. browser-only visual checks). |
+
+Run the suite after any code change to the affected area — a green test is the project's definition
+of "this flow still works". New features should ship with a matching smoke test.

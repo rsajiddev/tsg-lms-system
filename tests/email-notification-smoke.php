@@ -90,11 +90,13 @@ try {
     }
     $assert(filter_var(MailService::hrAddress(), FILTER_VALIDATE_EMAIL) !== false, 'The HR inbox does not resolve to an address.');
     $assert(filter_var(MailService::certificateAddress(), FILTER_VALIDATE_EMAIL) !== false, 'The certificate inbox does not resolve to an address.');
-    $developerKey = trim((string) (getenv('DEVELOPER_NOTIFICATION_MAIL_ADDRESS') ?: ''));
-    if ($developerKey !== '') {
-        $assert(MailService::developerAddress() === $developerKey, 'developerAddress() ignores DEVELOPER_NOTIFICATION_MAIL_ADDRESS.');
+    // Every internal alert - HR, developer, certificate - resolves to the one sending mailbox,
+    // so a company that swaps in its no-reply address receives all of it without further edits.
+    $sending = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
+    foreach (['hr' => MailService::hrAddress(), 'developer' => MailService::developerAddress(), 'certificates' => MailService::certificateAddress()] as $label => $resolved) {
+        $assert($resolved === $sending, 'The ' . $label . ' inbox does not resolve to MAIL_FROM_ADDRESS.');
     }
-    printf("environment: from=%s hr=%s developer=%s certificates=%s\n", MailService::hrAddress() === '' ? '-' : (string) getenv('MAIL_FROM_ADDRESS'), MailService::hrAddress(), MailService::developerAddress(), MailService::certificateAddress());
+    printf("environment: from=%s hr=%s developer=%s certificates=%s\n", $sending, MailService::hrAddress(), MailService::developerAddress(), MailService::certificateAddress());
 
     /* -------------------------------------------------------------------- 2. templates */
     $student = ['student_id' => 42, 'student_name' => 'Ayesha Khan', 'student_email' => 'student@example.test'];
@@ -111,8 +113,8 @@ try {
     $assert($legalLinksForStudent(EmailMessages::paymentSubmitted($payment)), 'The student payment-request mail must carry the three legal links.');
     $recipients = array_map(static fn(array $m): string => (string) $m['to'], EmailMessages::paymentSubmitted($payment));
     $assert(in_array($student['student_email'], $recipients, true), 'A payment request must reach the student.');
-    $assert(in_array(MailService::developerAddress(), $recipients, true), 'A payment request must reach the developer inbox.');
-    $assert(in_array(MailService::hrAddress(), $recipients, true), 'A payment request must reach the HR inbox.');
+    $assert(in_array(MailService::developerAddress(), $recipients, true), 'A payment request must reach the developer copy of the sending inbox.');
+    $assert(in_array(MailService::hrAddress(), $recipients, true), 'A payment request must reach the HR copy of the sending inbox.');
     $approved = EmailMessages::paymentDecision($payment + ['decision' => 'approved', 'note' => 'Receipt verified.', 'decided_at' => gmdate('Y-m-d H:i:s'), 'receipt_number' => 'TSG-RCP-0001', 'reviewer_name' => 'Admin', 'reviewer_email' => 'admin@example.test']);
     $check($approved, 'payment.approved', 3);
     $assert($legalLinksForStudent($approved), 'The student approval mail must carry the three legal links.');
@@ -132,7 +134,12 @@ try {
     $check(EmailMessages::certificateRequest($payment + ['reference' => 7, 'remarks' => 'Completed the final project.']), 'certificate.requested', 1);
     $check(EmailMessages::certificateIssued($student + ['course_title' => 'Full Stack Web Development', 'certificate_id' => 'TSG-CERT-0007', 'issued_on' => gmdate('Y-m-d'), 'expires_on' => gmdate('Y-m-d', strtotime('+1 year')), 'verify_url' => 'https://techsgstudio.com/verify?id=TSG-CERT-0007']), 'certificate.issued', 1);
     $check(EmailMessages::certificateRejected($student + ['course_title' => 'Full Stack Web Development', 'remarks' => 'Attendance is below the requirement.']), 'certificate.rejected', 1);
-    echo "templates: 11 events rendered as HTML and plain text\n";
+    $contact = EmailMessages::contactReceived(['name' => 'Ayesha Khan', 'email' => 'visitor@example.test', 'phone' => '+92 300 1234567', 'subject' => 'Course enquiry', 'body' => 'I would like to know the fee for the live batch.', 'submitted_at' => gmdate('Y-m-d H:i:s')]);
+    $check($contact, 'contact.received', 2);
+    $contactRecipients = array_map(static fn(array $m): string => (string) $m['to'], $contact);
+    $assert(in_array('visitor@example.test', $contactRecipients, true), 'The contact sender must receive an acknowledgement.');
+    $assert(in_array(MailService::hrAddress(), $contactRecipients, true), 'The contact enquiry must reach the company inbox.');
+    echo "templates: 12 events rendered as HTML and plain text\n";
 
     /* ----------------------------------------------------------- 2b. the MIME envelope */
     // Getting the words right is only half of a message: the envelope has to be valid MIME or a

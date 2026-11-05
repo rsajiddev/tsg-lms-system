@@ -120,8 +120,6 @@ namespace {
     putenv('MAIL_FROM_ADDRESS=academy@example.test');
     putenv('MAIL_FROM_NAME=TSG Academy Test');
     putenv('MAIL_REPLY_TO_ADDRESS=');
-    putenv('MAIL_ADMIN_NOTIFICATION_ADDRESS=hr@example.test');
-    putenv('DEVELOPER_NOTIFICATION_MAIL_ADDRESS=dev@example.test');
     $child = proc_open(
         [\PHP_BINARY, __FILE__, '--serve-mail', (string) $port, '--mailbox', $mailbox],
         [1 => ['file', $logFile, 'a'], 2 => ['file', $logFile, 'a']],
@@ -269,8 +267,10 @@ namespace {
             || str_contains(strtolower((string) $students[0]['subject']), 'confirm'),
             'The student message is not recognisable as a verification mail: "' . $students[0]['subject'] . '".');
         $recipients = array_map(static fn(array $m): string => $m['to'], $messages);
-        $assert(in_array('hr@example.test', $recipients, true), 'HR did not get the new student alert: ' . json_encode($recipients));
-        $assert(in_array('dev@example.test', $recipients, true), 'The developer did not get the new student alert: ' . json_encode($recipients));
+        // Both internal alerts share the company's sending mailbox now, so the two copies are
+        // what prove the HR and developer fan-out fired - one recipient address, two messages.
+        $internal = array_values(array_filter($messages, static fn(array $m): bool => $m['to'] === 'academy@example.test'));
+        $assert(count($internal) === 2, 'The sending inbox must receive both the HR and developer alerts, saw ' . count($internal) . ': ' . json_encode($recipients));
 
         $verificationCode = $codeFrom($students, 'confirm your email address');
         $auth->verifyEmail($email, $verificationCode);
@@ -309,7 +309,7 @@ namespace {
         $assert($duplicate === ['created' => false, 'mail' => false], 'Duplicate registration must report no account and no mail.');
         $assert(count($delivered()) === $mailCount, 'Duplicate registration must not send another OTP.');
 
-        $logs = $db->query("SELECT template_key, status, related_user_id FROM email_logs WHERE recipient_email IN (" . $db->quote($email) . ",'hr@example.test','dev@example.test') ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
+        $logs = $db->query("SELECT template_key, status, related_user_id FROM email_logs WHERE recipient_email IN (" . $db->quote($email) . ",'academy@example.test') ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
         $assert(count($logs) >= 4, 'Every delivered message must leave an email_logs row; saw ' . count($logs) . '.');
         $assert(!in_array('failed', array_column($logs, 'status'), true), 'email_logs recorded a failed delivery.');
         // Even the HR and developer copies of a student's event belong to that student in the

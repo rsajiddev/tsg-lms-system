@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Core\RateLimiter;
+use App\Core\Security;
 use App\Core\View;
+use App\Services\MailService;
 use PDOException;
 
 final class PublicPageController
@@ -17,7 +20,106 @@ final class PublicPageController
 
     public function contact(): void
     {
-        View::render('pages/contact', ['title' => 'Contact Tech SG Academy']);
+        // The submit handler redirects back here, so the form state travels in the session and is
+        // read once - the same flash pattern the catalogue uses for a bounced enrolment.
+        $values = is_array($_SESSION['_contact_old'] ?? null) ? $_SESSION['_contact_old'] : [];
+        unset($_SESSION['_contact_old']);
+        $sent = isset($_SESSION['_contact_sent']);
+        unset($_SESSION['_contact_sent']);
+        $error = is_string($_SESSION['_contact_error'] ?? null) ? $_SESSION['_contact_error'] : null;
+        unset($_SESSION['_contact_error']);
+
+        View::render('pages/contact', [
+            'title' => 'Contact Tech SG Academy',
+            'values' => $values,
+            'sent' => $sent,
+            'error' => $error,
+            'baseUrl' => rtrim((require BASE_PATH . '/config/app.php')['url'], '/'),
+        ]);
+    }
+
+    /**
+     * Receives a public contact form submission. The message is never stored in its own table:
+     * it is emailed to the company inbox and acknowledged back to the sender, and MailService
+     * records both attempts in email_logs, so the admin email log already shows the enquiry.
+     */
+    public function submitContact(): void
+    {
+        $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+        $values = [
+            'name' => trim((string) ($_POST['name'] ?? '')),
+            'email' => trim((string) ($_POST['email'] ?? '')),
+            'phone' => trim((string) ($_POST['phone'] ?? '')),
+            'subject' => trim((string) ($_POST['subject'] ?? '')),
+            'message' => trim((string) ($_POST['message'] ?? '')),
+        ];
+        $back = static function (?string $error, array $keep) use ($baseUrl): never {
+            if ($error !== null) {
+                $_SESSION['_contact_error'] = $error;
+                $_SESSION['_contact_old'] = $keep;
+            } else {
+                $_SESSION['_contact_sent'] = true;
+            }
+            header('Location: ' . $baseUrl . '/contact');
+            exit;
+        };
+
+        if (!Security::verifyCsrf(is_string($_POST['_csrf'] ?? null) ? $_POST['_csrf'] : null)) {
+            $back('This form expired. Please refresh the page and try again.', $values);
+        }
+        $error = self::validateContact($values);
+        if ($error !== null) {
+            $back($error, $values);
+        }
+
+        try {
+            $connection = Database::connection();
+            $limiter = new RateLimiter($connection);
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+            $limiter->assertAllowed('contact', [$ip], 5, 3600);
+            $limiter->record('contact', [$ip]);
+
+            $delivered = (new MailService($connection))->sendContactReceived([
+                'name' => $values['name'],
+                'email' => $values['email'],
+                'phone' => $values['phone'],
+                'subject' => $values['subject'],
+                'body' => $values['message'],
+                'submitted_at' => gmdate('Y-m-d H:i:s'),
+            ]);
+            if (!$delivered) {
+                error_log('[CONTACT] A contact enquiry was accepted but one email failed to deliver.');
+            }
+            $back(null, []);
+        } catch (\Throwable $exception) {
+            // A throttle or transport problem must not leak its detail to the visitor; the reason
+            // belongs in the error log, and the sender only needs to know to try again shortly.
+            error_log('[CONTACT] Unable to process a contact enquiry: ' . $exception->getMessage());
+            $back('Your message could not be sent right now. Please try again in a little while.', $values);
+        }
+    }
+
+    private static function validateContact(array $values): ?string
+    {
+        $length = mb_strlen($values['name']);
+        if ($length < 2 || $length > 150) {
+            return 'Please enter your name (2–150 characters).';
+        }
+        if (mb_strlen($values['email']) > 190 || filter_var($values['email'], FILTER_VALIDATE_EMAIL) === false) {
+            return 'Please enter a valid email address so we can reply to you.';
+        }
+        if (mb_strlen($values['phone']) > 40) {
+            return 'Your phone number must be 40 characters or fewer.';
+        }
+        $length = mb_strlen($values['subject']);
+        if ($length < 2 || $length > 150) {
+            return 'Please add a short subject (2–150 characters).';
+        }
+        $length = mb_strlen($values['message']);
+        if ($length < 10 || $length > 2000) {
+            return 'Your message must be between 10 and 2000 characters.';
+        }
+        return null;
     }
 
     public function terms(): void

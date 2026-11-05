@@ -186,7 +186,6 @@ $studentEmail = 'render-smoke-student@example.test';
 /* --------------------------------------------------------------- environment surface */
 echo "\n-- .env handover surface\n";
 $envFile = BASE_PATH . '/.env';
-$exampleFile = BASE_PATH . '/.env.example';
 $keysIn = static function (string $path): array {
     $keys = [];
     foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
@@ -197,24 +196,24 @@ $keysIn = static function (string $path): array {
     }
     return $keys;
 };
-$exampleKeys = $keysIn($exampleFile);
 $liveKeys = $keysIn($envFile);
-$missing = array_diff($exampleKeys, $liveKeys);
-$assert($missing === [], '.env carries every key .env.example advertises (' . count($exampleKeys) . ' keys).',
-    '.env.example advertises keys the live .env does not carry: ' . implode(', ', $missing));
-foreach (['MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM_ADDRESS', 'DEVELOPER_NOTIFICATION_MAIL_ADDRESS'] as $required) {
-    $assert(in_array($required, $exampleKeys, true), '.env.example documents ' . $required . ' for the handover.',
-        '.env.example is missing ' . $required . ', so the company would not know to set it.');
-}
-foreach ($exampleKeys as $key) {
+foreach ($liveKeys as $key) {
     $assert(preg_match('/^[A-Z][A-Z0-9_]*$/', $key) === 1, 'Key ' . $key . ' is a valid variable name.',
-        'Key "' . $key . '" in .env.example is not a valid variable name.');
+        'Key "' . $key . '" in .env is not a valid variable name.');
 }
-$assert(getenv('DEVELOPER_NOTIFICATION_MAIL_ADDRESS') !== false, 'DEVELOPER_NOTIFICATION_MAIL_ADDRESS is loaded from .env.',
-    'DEVELOPER_NOTIFICATION_MAIL_ADDRESS is not loaded, so developer mail has no destination.');
-$assert(\App\Services\MailService::developerAddress() === (string) getenv('DEVELOPER_NOTIFICATION_MAIL_ADDRESS'),
-    'Developer mail resolves to DEVELOPER_NOTIFICATION_MAIL_ADDRESS.',
-    'Developer mail does not follow DEVELOPER_NOTIFICATION_MAIL_ADDRESS, so the handover would still reach the old inbox.');
+// The .env is the only configuration template the project ships, so the keys a new owner
+// must fill in are checked directly against it instead of against a separate example file.
+foreach (['MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM_ADDRESS'] as $required) {
+    $assert(in_array($required, $liveKeys, true), '.env carries ' . $required . ' for the handover.',
+        '.env is missing ' . $required . ', so the company could not send mail.');
+}
+// One sending mailbox routes everything: the internal alert readers all resolve to MAIL_FROM_ADDRESS,
+// which is what lets a company swap in its no-reply address without touching any other key.
+foreach (['hrAddress', 'developerAddress', 'certificateAddress'] as $reader) {
+    $assert(\App\Services\MailService::$reader() === (string) getenv('MAIL_FROM_ADDRESS'),
+        'MailService::' . $reader . '() follows MAIL_FROM_ADDRESS.',
+        'MailService::' . $reader . '() does not follow MAIL_FROM_ADDRESS, so the handover would still reach an old inbox.');
+}
 
 /* ------------------------------------------------------------------------ scratch data */
 echo "\n-- seeded workspaces\n";
@@ -515,6 +514,18 @@ $guestCatalogue = $render(static fn() => (new PublicPageController())->courses()
 $assert(str_contains($guestCatalogue, 'Explore course') && !str_contains($guestCatalogue, 'Submit payment for further onboarding'),
     'A visitor\'s card still leads with the course rather than a checkout they cannot finish.',
     'The guest catalogue is showing a signed-in student\'s payment CTA.');
+
+/* ------------------------------------------------------------------------- contact page */
+// The contact page is the one public form a visitor can use without an account, so it has to render
+// for a guest, carry the CSRF token the submit handler checks, and post to the /contact route.
+$checkPage('Public contact page', '/contact', static fn() => (new PublicPageController())->contact(), [
+    'get in touch',
+    'class="contact-form"',
+    'action="',
+    'name="_csrf"',
+    'name="message"',
+    'Send to us',
+]);
 
 /* ------------------------------------------------------------------------ badge wiring */
 echo "\n-- sidebar badge wiring\n";
