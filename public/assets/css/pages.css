@@ -418,6 +418,7 @@
 
 .hero-actions .button:hover {
   background: #f0f4ff;
+  color: #002147;
   box-shadow: 0 14px 36px #07152f4a;
 }
 
@@ -3054,75 +3055,6 @@ html.js [data-reveal].is-visible.dash-card:hover {
   line-height: 1.7
 }
 
-/* ===== Motivation cards ===== */
-.motive-section {
-  padding: 56px 0 8px
-}
-
-.motive-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-top: 24px
-}
-
-.motive-card {
-  position: relative;
-  overflow: hidden;
-  min-height: 195px;
-  padding: 24px;
-  border: 1px solid #dbeafe;
-  border-radius: 20px;
-  background: linear-gradient(150deg, #eff6ff, #fff 70%);
-  transition: transform .25s ease, box-shadow .25s ease
-}
-
-.motive-card:nth-child(2) {
-  border-color: #e3d9fe;
-  background: linear-gradient(150deg, #f5f3ff, #fff 70%)
-}
-
-.motive-card:nth-child(3) {
-  border-color: #c7f0dd;
-  background: linear-gradient(150deg, #ecfdf5, #fff 70%)
-}
-
-.motive-card:nth-child(4) {
-  border-color: #fed7aa;
-  background: linear-gradient(150deg, #fff7ed, #fff 70%)
-}
-
-.motive-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 42px #00214716
-}
-
-.motive-emoji {
-  font-size: 24px
-}
-
-.motive-spark {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  color: #c3d4ef;
-  font-size: 18px
-}
-
-.motive-card h3 {
-  margin: 14px 0 8px;
-  color: var(--navy);
-  font-size: 16.5px;
-  letter-spacing: -.01em
-}
-
-.motive-card p {
-  margin: 0;
-  color: #5b6b80;
-  font-size: 13.5px;
-  line-height: 1.65
-}
-
 /* ===== Testimonials ===== */
 .testi-section {
   padding: 56px 0 8px
@@ -3507,6 +3439,37 @@ html.js [data-reveal].is-visible.dash-card:hover {
   line-height: 1.8
 }
 
+/* ===== Daily Motivation — four step cards ===== */
+.motive-section {
+  position: relative;
+  padding: 52px 0 42px;
+  background: #f8fafc;
+  overflow: hidden
+}
+
+.motive-header { display: flex; align-items: end; justify-content: space-between; margin-bottom: 28px; }
+.motive-label { display: inline-flex; align-items: center; gap: 12px; margin: 0 0 10px; color: var(--blue); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+.motive-label span { display: inline-block; width: 28px; height: 2px; background: var(--blue); border-radius: 1px; }
+.motive-header h2 { margin: 0; color: var(--navy); font-size: clamp(26px, 3.4vw, 38px); font-weight: 900; letter-spacing: -.03em; }
+.motive-dot { color: var(--blue); }
+.motive-process { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 0 0 58px; }
+.motive-line { position: absolute; z-index: 0; bottom: 0; left: 0; width: 100%; height: 112px; overflow: visible; pointer-events: none; }
+.motive-wave-shadow, .motive-wave-main { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.motive-wave-shadow { stroke: #b8c9df; stroke-width: 15; opacity: .45; }
+.motive-wave-main { stroke: var(--blue); stroke-width: 11; }
+.motive-card { position: relative; z-index: 1; display: flex; flex-direction: column; min-width: 0; min-height: 220px; padding: 22px 20px 38px; border: 1px solid #dbe5f1; border-radius: 12px; background: #fff; box-shadow: 0 8px 22px #0021470a; transition: transform .25s ease, box-shadow .25s ease, background .25s ease, color .25s ease; }
+.motive-card:last-of-type { border-color: var(--navy); background: var(--navy); color: #fff; box-shadow: 0 10px 26px #00214724; }
+.motive-card:hover { transform: translateY(-4px); box-shadow: 0 16px 32px #0021471c; }
+.motive-num { position: absolute; right: 12px; bottom: 10px; color: #e9eff7; font-size: 76px; font-weight: 900; line-height: 1; letter-spacing: -.07em; opacity: .85; pointer-events: none; user-select: none; }
+.motive-card:last-of-type .motive-num { color: #fff; opacity: .12; }
+.motive-card h3 { position: relative; z-index: 1; margin: 0 0 8px; color: var(--navy); font-size: 16px; font-weight: 800; letter-spacing: -.015em; line-height: 1.25; }
+.motive-card p { position: relative; z-index: 1; margin: 0; color: #64748b; font-size: 13px; line-height: 1.65; max-width: 100%; }
+.motive-card:last-of-type h3 { color: #fff; }
+.motive-card:last-of-type p { color: #d4dfed; }
+.motive-card-meta { position: relative; z-index: 1; margin-top: auto; padding-top: 18px; color: var(--blue); font-size: 9px; font-weight: 850; letter-spacing: .12em; }
+.motive-card:last-of-type .motive-card-meta { color: #c5d7ef; }
+.motive-card-meta span { padding-left: 4px; }
+
 /* ===== CTA banner ===== */
 .cta-banner {
   position: relative;
@@ -3761,9 +3724,16 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
   .stats-band,
   .why-grid,
-  .motive-grid {
+  .motive-process {
     grid-template-columns: repeat(2, 1fr)
   }
+
+  .motive-line {
+    display: none
+  }
+
+  .motive-process { row-gap: 14px; padding-bottom: 0; }
+  .motive-card { min-height: 200px; }
 
   .review-lower {
     grid-template-columns: 1fr;
@@ -3797,9 +3767,12 @@ html.js [data-reveal].is-visible.dash-card:hover {
 
   .stats-band,
   .why-grid,
-  .motive-grid {
+  .motive-process {
     grid-template-columns: 1fr
   }
+
+  .motive-process { gap: 12px; margin-top: 0; }
+  .motive-card { min-height: 180px; padding: 20px 18px 34px; }
 
   .testi-card {
     flex-basis: min(320px, 82vw)
@@ -11658,15 +11631,11 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .course-card-content .course-card-description {
-  display: -webkit-box;
-  min-height: 3.2em;
   margin: 0 0 17px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.65;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2
+  min-height: 3.2em
 }
 
 .course-card-meta {
@@ -20300,4 +20269,163 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   .admin-report-row>div strong {
     text-align: left
   }
+}
+
+/* Course catalogue: editorial why section with quiet abstract shapes */
+.course-benefits {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: clamp(56px, 8vw, 104px) calc(50% - 50dvw) 0;
+  padding: clamp(52px, 7vw, 88px) max(20px, calc((100dvw - 1120px)/2));
+  background: #f4f6fa
+}
+
+.course-benefits::before,
+.course-benefits::after {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  pointer-events: none
+}
+
+.course-benefits::before {
+  top: -190px;
+  right: -100px;
+  width: clamp(360px, 48vw, 700px);
+  height: clamp(360px, 48vw, 700px);
+  border: 1px solid #dce5f1;
+  border-radius: 42% 58% 64% 36% / 44% 38% 62% 56%;
+  background: radial-gradient(ellipse at 35% 40%, #e8eef7 0%, #e8eef700 67%);
+  transform: rotate(-17deg)
+}
+
+.course-benefits::after {
+  right: 8%;
+  bottom: -220px;
+  width: 420px;
+  height: 420px;
+  border: 1px solid #e0e7f1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px #e8edf555, 0 0 0 70px #e8edf533
+}
+
+.course-benefits-intro {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(170px, .7fr) minmax(0, 2fr);
+  gap: clamp(36px, 8vw, 120px);
+  max-width: 1120px;
+  margin: 0 auto clamp(48px, 7vw, 88px)
+}
+
+.course-benefits-aside .eyebrow { margin: 0 0 24px; }
+.course-benefits-aside h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 750;
+  line-height: .96;
+  letter-spacing: -.06em
+}
+
+.course-benefits-aside ul {
+  display: grid;
+  gap: 10px;
+  margin: 30px 0 0;
+  padding: 0;
+  color: #52647d;
+  font-size: 13px;
+  list-style: none
+}
+
+.course-benefits-aside li { display: flex; align-items: center; gap: 10px; }
+.course-benefits-aside li::before {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 2px solid var(--blue);
+  border-radius: 50%;
+  content: ""
+}
+
+.course-benefits-copy { max-width: 850px; padding-top: 8px; }
+.course-benefits-copy p { max-width: 740px; margin: 20px 0 0; color: #60718a; font-size: clamp(16px, 1.6vw, 21px); line-height: 1.7; }
+.course-benefits-copy .course-benefits-lead { margin-top: 0; color: var(--navy); font-size: clamp(24px, 3vw, 38px); font-weight: 650; letter-spacing: -.035em; line-height: 1.25; }
+
+.course-benefit-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 1120px;
+  margin: 0 auto
+}
+
+.course-benefits .course-benefit-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 230px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 38px);
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 8px 30px #102a4a08;
+  transition: transform .25s ease, box-shadow .25s ease
+}
+
+.course-benefit-card:hover { transform: translateY(-4px); box-shadow: 0 16px 36px #102a4a12; }
+.course-benefit-watermark { position: absolute; top: -4px; right: 12px; color: #f1f4f8; font-size: clamp(62px, 8vw, 112px); font-weight: 900; line-height: 1; letter-spacing: -.08em; white-space: nowrap; }
+.course-benefit-card strong { position: relative; z-index: 1; color: var(--navy); font-size: clamp(36px, 5vw, 58px); font-weight: 700; line-height: 1; letter-spacing: -.055em; }
+.course-benefit-card strong span { color: var(--blue); }
+.course-benefit-card strong.course-benefit-word { font-size: clamp(30px, 4vw, 48px); }
+.course-benefit-caption { position: relative; z-index: 1; max-width: 330px; margin-top: 28px; }
+.course-benefit-caption h3 { margin: 0 0 7px; color: var(--navy); font-size: 17px; font-weight: 800; line-height: 1.3; }
+.course-benefit-caption p { margin: 0; color: #5e6f86; font-size: 14px; line-height: 1.6; }
+
+.course-learning-path {
+  max-width: 1120px;
+  margin: clamp(58px, 8vw, 100px) auto 20px;
+  padding-inline: 0
+}
+
+.course-format-heading { max-width: 720px; margin-bottom: 28px; }
+.course-format-heading .eyebrow { margin: 0 0 10px; }
+.course-format-heading h2 { margin: 0; color: var(--navy); font-size: clamp(28px, 4vw, 42px); line-height: 1.12; letter-spacing: -.045em; }
+.course-format-heading>p:last-child { margin: 12px 0 0; color: var(--muted); line-height: 1.65; }
+.course-path-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.course-path-card { display: flex; gap: 20px; min-height: 160px; align-items: flex-start; padding: 26px; border: 1px solid #e1e8f2; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px #102a4a08; }
+.course-path-card-accent { border-color: #cbd9eb; background: linear-gradient(140deg, #eff4fb, #fff 75%); }
+.course-path-number { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: #eaf1fa; color: var(--blue); font-size: 13px; font-weight: 850; letter-spacing: .06em; }
+.course-path-card h3 { margin: 1px 0 9px; color: var(--navy); font-size: 18px; }
+.course-path-card p { max-width: 440px; margin: 0; color: #60718a; font-size: 14px; line-height: 1.7; }
+
+@media(max-width:760px) {
+  .course-benefits-intro { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .course-benefits-aside h2 br { display: none; }
+  .course-benefits-aside ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+  .course-benefit-grid { grid-template-columns: 1fr; gap: 10px; }
+  .course-benefits .course-benefit-card { min-height: 180px; }
+  .course-benefit-watermark { font-size: 82px; }
+  .course-path-grid { grid-template-columns: 1fr; }
+}
+
+@media(max-width:480px) {
+  .course-benefits { padding-inline: 20px; }
+  .course-benefits-intro { gap: 22px; margin-bottom: 34px; }
+  .course-benefits-aside .eyebrow { margin-bottom: 18px; }
+  .course-benefits-aside h2 { font-size: 42px; }
+  .course-benefits-aside ul { grid-template-columns: 1fr 1fr; font-size: 12px; }
+  .course-benefits-copy .course-benefits-lead { font-size: 25px; }
+  .course-benefits-copy p { font-size: 15px; }
+  .course-benefits .course-benefit-card { min-height: 165px; padding: 24px; }
+  .course-benefit-card p { margin-top: 28px; font-size: 14px; }
+  .course-path-card { min-height: 0; gap: 15px; padding: 22px 18px; }
+  .course-benefit-caption { margin-top: 22px; }
+  .course-benefit-caption p { font-size: 13px; }
 }

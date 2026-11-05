@@ -1648,7 +1648,7 @@ FROM
                      'Full Stack Web Development' AS title,
                      'full-stack-web-development' AS slug,
                      'Web Development' AS category,
-                     'Learn to build real projects using HTML, CSS, JavaScript, PHP, and MySQL.' AS short_description,
+                     'Master end-to-end web development by building production-ready applications. You will design responsive front-ends with HTML, CSS and JavaScript, then power them with server-side PHP and MySQL — from database schema to deployment.' AS short_description,
                      '3 Months' AS duration_label,
                      'Beginner' AS level_label,
                      5000.00 AS recorded_price
@@ -1658,7 +1658,7 @@ FROM
                      'Digital Marketing Essentials',
                      'digital-marketing-essentials',
                      'Digital Marketing',
-                     'Practical training in SEO, social media, and advertising campaigns.',
+                     'A hands-on programme covering search engine optimisation, social media strategy, paid advertising and analytics. Learn to plan, launch and measure campaigns that drive real traffic and conversions for any business.',
                      '2 Months',
                      'Beginner',
                      3000.00
@@ -1668,7 +1668,7 @@ FROM
                      'Graphic Design Basics',
                      'graphic-design-basics',
                      'Graphic Design',
-                     'Learn to create professional designs using Canva and Photoshop.',
+                     'Build a strong foundation in visual design, typography and layout. Work professionally in Canva and Adobe Photoshop to create logos, social media graphics, marketing collateral and brand identities that stand out.',
                      '6 Weeks',
                      'Beginner',
                      2500.00

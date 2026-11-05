@@ -65,12 +65,63 @@ $heroImages = [
         </div>
     </section>
     <section class="course-benefits" data-reveal aria-labelledby="course-benefits-title">
-        <div class="course-benefits-heading"><p class="eyebrow">WHY TECH SG ACADEMY</p><h2 id="course-benefits-title">A better way to build practical skills.</h2><p>Learn with structure, support, and work you can show.</p></div>
-        <div class="course-benefit-grid">
-            <article class="course-benefit-card"><span class="course-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h7"/></svg></span><h3>Learn from practitioners</h3><p>Lessons draw on real workflows used to plan and build software.</p></article>
-            <article class="course-benefit-card"><span class="course-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 2.6 5.3L20 9l-4 3.9.9 5.6-4.9-2.6-4.9 2.6.9-5.6L4 9l5.4-.7L12 3Z"/><path d="M5 21h14"/></svg></span><h3>Build while you learn</h3><p>Projects and assignments help turn new concepts into hands-on practice.</p></article>
-            <article class="course-benefit-card"><span class="course-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><h3>Choose your pace</h3><p>Study with recorded lessons or add scheduled live sessions.</p></article>
-            <article class="course-benefit-card"><span class="course-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 19 6v5c0 4.6-3 8-7 10-4-2-7-5.4-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><h3>Track your progress</h3><p>Keep lessons, quizzes, assignments, and feedback together in your account.</p></article>
+        <div class="course-benefits-intro">
+            <div class="course-benefits-aside">
+                <p class="eyebrow">WHY TECH SG ACADEMY</p>
+                <h2 id="course-benefits-title">Why<br>learn<br>with us?</h2>
+                <ul aria-label="Our learning principles">
+                    <li>Practical by design</li>
+                    <li>Guided by practitioners</li>
+                    <li>Built around progress</li>
+                    <li>Focused on real skills</li>
+                </ul>
+            </div>
+            <div class="course-benefits-copy">
+                <p class="course-benefits-lead">Build skills you can use, with learning shaped by the work software teams do every day.</p>
+                <p>Explore focused courses, practise through projects and assignments, and keep your learning in one place. Choose recorded lessons for flexibility or add scheduled live sessions when you want a guided classroom experience.</p>
+            </div>
+        </div>
+        <div class="course-benefit-grid" aria-label="Academy highlights">
+            <article class="course-benefit-card">
+                <span class="course-benefit-watermark" aria-hidden="true"><?= Security::escape((string) count($courses)) ?></span>
+                <strong><?= Security::escape((string) count($courses)) ?></strong>
+                <div class="course-benefit-caption"><h3>Courses to explore</h3><p>Choose a focused course designed to help you build useful, career-ready skills step by step.</p></div>
+            </article>
+            <article class="course-benefit-card">
+                <span class="course-benefit-watermark" aria-hidden="true">02</span>
+                <strong>2</strong>
+                <div class="course-benefit-caption"><h3>Ways to learn</h3><p>Pick recorded lessons for flexibility, or join scheduled live sessions and revisit them later.</p></div>
+            </article>
+            <article class="course-benefit-card">
+                <span class="course-benefit-watermark" aria-hidden="true">BUILD</span>
+                <strong class="course-benefit-word">Build</strong>
+                <div class="course-benefit-caption"><h3>Learn by doing</h3><p>Apply each concept through practical projects, assignments, and quizzes as you progress.</p></div>
+            </article>
+        </div>
+    </section>
+    <section class="course-learning-path" aria-labelledby="course-path-title">
+        <div class="course-format-heading">
+            <p class="eyebrow">LEARN · PRACTISE · PROGRESS</p>
+            <h2 id="course-path-title">A clear path from your first lesson to real work.</h2>
+            <p>Each course brings the learning essentials together, so you can focus on building skills and seeing your progress.</p>
+        </div>
+        <div class="course-path-grid">
+            <article class="course-path-card">
+                <span class="course-path-number" aria-hidden="true">01</span>
+                <div><h3>Follow structured lessons</h3><p>Move through organized lectures and course materials that build your understanding one concept at a time.</p></div>
+            </article>
+            <article class="course-path-card">
+                <span class="course-path-number" aria-hidden="true">02</span>
+                <div><h3>Put concepts into practice</h3><p>Use assignments, quizzes, and practical projects to test what you have learned and strengthen your skills.</p></div>
+            </article>
+            <article class="course-path-card">
+                <span class="course-path-number" aria-hidden="true">03</span>
+                <div><h3>Track your progress</h3><p>Keep lessons, results, and feedback together in your student dashboard as you work towards completion.</p></div>
+            </article>
+            <article class="course-path-card course-path-card-accent">
+                <span class="course-path-number" aria-hidden="true">04</span>
+                <div><h3>Earn a verified certificate</h3><p>Complete the course requirements and receive a certificate with a unique code employers can verify.</p></div>
+            </article>
         </div>
     </section>
 <?php endif; ?>

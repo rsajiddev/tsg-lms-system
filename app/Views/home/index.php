@@ -18,10 +18,10 @@ $faqs = [
 ];
 
 $motivation = [
-    ['🎯', 'Consistency beats intensity', 'Thirty focused minutes a day beats a five-hour cram. Small daily wins compound into real, lasting skills.'],
-    ['🛠️', 'Learn by building', 'Every lesson here ends in a real project. While you learn, your portfolio grows — proof of what you can do.'],
-    ['🌱', 'Progress over perfection', 'You don’t have to be great to start. You start to become great — one lesson, one project at a time.'],
-    ['🚀', 'Your future self is watching', 'The skills you practise today become the opportunities, income and confidence you enjoy tomorrow.'],
+    ['flag', 'Consistency beats intensity', 'Thirty focused minutes a day beats a five-hour cram. Small daily wins compound into real, lasting skills.'],
+    ['chart', 'Learn by building', 'Every lesson here ends in a real project. While you learn, your portfolio grows — proof of what you can do.'],
+    ['archive', 'Progress over perfection', 'You don\'t have to be great to start. You start to become great — one lesson, one project at a time.'],
+    ['spark', 'Keep showing up', 'A little focused practice each day builds confidence, momentum and skills that last.'],
 ];
 
 $reasons = [
@@ -129,17 +129,25 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     </div>
 </section>
 <section class="motive-section" data-reveal>
-    <div class="section-heading">
+    <div class="motive-header">
         <div>
-            <p class="eyebrow">DAILY MOTIVATION</p>
-            <h2>A little push for every study session</h2>
+            <p class="motive-label"><span aria-hidden="true"></span>DAILY MOTIVATION<span aria-hidden="true"></span></p>
+            <h2>Small steps. Lasting skills<span class="motive-dot">.</span></h2>
         </div>
     </div>
-    <div class="motive-grid">
-        <?php foreach ($motivation as $motiveIndex => $motive): ?><article class="motive-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($motiveIndex * 0.08, 2)) ?>s"><span class="motive-spark" aria-hidden="true">✦</span><span class="motive-emoji" aria-hidden="true"><?= $motive[0] ?></span>
-                <h3><?= Security::escape($motive[1]) ?></h3>
-                <p><?= Security::escape($motive[2]) ?></p>
-            </article><?php endforeach; ?>
+    <div class="motive-process">
+        <?php foreach ($motivation as $motivationIndex => $motivationItem): ?>
+            <article class="motive-card" data-reveal style="--reveal-delay: <?= Security::escape(number_format($motivationIndex * 0.07, 2)) ?>s">
+                <span class="motive-num" aria-hidden="true"><?= Security::escape((string) ($motivationIndex + 1)) ?></span>
+                <h3><?= Security::escape($motivationItem[1]) ?></h3>
+                <p><?= Security::escape($motivationItem[2]) ?></p>
+                <span class="motive-card-meta" aria-hidden="true">STEP <?= Security::escape(str_pad((string) ($motivationIndex + 1), 2, '0', STR_PAD_LEFT)) ?> <span>•</span></span>
+            </article>
+        <?php endforeach; ?>
+        <svg class="motive-line" viewBox="0 0 1200 170" preserveAspectRatio="none" aria-hidden="true">
+            <path class="motive-wave-shadow" d="M-20 115 C145 115 155 25 325 25 S505 160 675 160 S910 45 1040 45 S1150 120 1220 95"/>
+            <path class="motive-wave-main" d="M-20 108 C145 108 155 18 325 18 S505 153 675 153 S910 38 1040 38 S1150 113 1220 88"/>
+        </svg>
     </div>
 </section>
 <section class="dashboard-section" data-reveal>

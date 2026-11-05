@@ -34,16 +34,16 @@ if (($course['recorded_price'] ?? null) !== null) $prices[] = ['label' => 'Recor
 if (($course['live_price'] ?? null) !== null) $prices[] = ['label' => 'Live + Recorded', 'price' => (float) $course['live_price']];
 $lowestPrice = $prices === [] ? null : min(array_column($prices, 'price'));
 $enrolSteps = [
-    ['label' => 'Create your account', 'copy' => 'One page, and the course you picked travels with you through every step.'],
-    ['label' => 'Confirm your email', 'copy' => 'A six-digit code proves the address is yours before anything is charged.'],
-    ['label' => 'Send your payment proof', 'copy' => 'Transfer to the Academy account and upload the receipt or screenshot.'],
-    ['label' => 'An admin opens access', 'copy' => 'Your lessons, quizzes and assignments unlock, and you get an email and a notification.'],
+    ['label' => 'Create your account', 'copy' => 'Sign up in under a minute — your selected course is carried through every step automatically.'],
+    ['label' => 'Verify your email', 'copy' => 'A one-time code confirms your address and secures your enrolment before payment.'],
+    ['label' => 'Submit payment proof', 'copy' => 'Transfer to the Academy account and upload your receipt or transaction screenshot.'],
+    ['label' => 'Start learning instantly', 'copy' => 'An admin verifies your payment and unlocks full access — lessons, quizzes and projects.'],
 ];
 $includes = [
-    ['title' => 'Structured lessons', 'copy' => 'Published lessons open in order, with video, notes and practical activities.'],
-    ['title' => 'Quizzes and assignments', 'copy' => 'Each course carries graded work that feeds your completion percentage.'],
-    ['title' => 'Progress tracking', 'copy' => 'Your dashboard shows watch time, submitted work and what is still pending.'],
-    ['title' => 'Verified certificate', 'copy' => 'Meet the grade and attendance bar and request a certificate with your Academy ID.'],
+    ['title' => 'Expert-led video lessons', 'copy' => 'HD video lectures, downloadable notes and guided exercises published in a structured sequence.'],
+    ['title' => 'Graded assignments & quizzes', 'copy' => 'Hands-on projects and knowledge checks that track your understanding and feed your completion score.'],
+    ['title' => 'Personalised progress dashboard', 'copy' => 'Live analytics showing watch time, submitted work, scores and what remains to finish.'],
+    ['title' => 'Verified digital certificate', 'copy' => 'Upon meeting grade and attendance requirements, request a shareable certificate with a unique verification code.'],
 ];
 ?>
 <section class="course-detail-page" aria-labelledby="course-detail-title">
@@ -77,17 +77,18 @@ $includes = [
             <article class="course-detail-panel">
                 <p class="eyebrow">COURSE OVERVIEW</p>
                 <h2>About this course</h2>
-                <p class="course-detail-body"><?= Security::escape($description !== '' ? $description : 'Explore practical learning designed around useful, real-world skills.') ?></p>
+                <p class="course-detail-body"><?= Security::escape($description !== '' ? $description : 'A industry-focused programme designed to take you from fundamentals to real-world application through hands-on projects and expert-led instruction.') ?></p>
                 <div class="course-detail-outcomes">
-                    <div><span aria-hidden="true">✓</span><p>Learn through structured lessons and practical activities.</p></div>
-                    <div><span aria-hidden="true">✓</span><p>Track your progress in your student dashboard.</p></div>
-                    <div><span aria-hidden="true">✓</span><p>Get course access after payment verification.</p></div>
+                    <div><span aria-hidden="true">✓</span><p>Structured curriculum with practical assignments after every module.</p></div>
+                    <div><span aria-hidden="true">✓</span><p>Real-time progress tracking and performance insights on your dashboard.</p></div>
+                    <div><span aria-hidden="true">✓</span><p>Instant access upon payment confirmation — no waiting, no paperwork.</p></div>
+                    <div><span aria-hidden="true">✓</span><p>Verified digital certificate upon successful course completion.</p></div>
                 </div>
             </article>
 
             <article class="course-detail-panel">
                 <p class="eyebrow">WHAT THE COURSE INCLUDES</p>
-                <h2>Everything you get with access</h2>
+                <h2>Everything you need to learn, build and get certified</h2>
                 <div class="course-detail-includes">
                     <?php foreach ($includes as $index => $include): ?>
                         <div>
@@ -100,7 +101,7 @@ $includes = [
 
             <article class="course-detail-panel">
                 <p class="eyebrow">HOW ENROLLMENT WORKS</p>
-                <h2>Four steps from this page to your first lesson</h2>
+                <h2>From this page to your first lesson in four steps</h2>
                 <ol class="course-detail-flow">
                     <?php foreach ($enrolSteps as $index => $enrolStep): ?>
                         <li>
