@@ -5,6 +5,9 @@ use App\Core\Security;
 $escape = [Security::class, 'escape'];
 $course = $course ?? [];
 $lessons = $lessons ?? [];
+// Whether this course runs live classes and this enrolment may not open them - decided by the
+// controller, which is also the only place that reads the raw plan code.
+$liveNotice = isset($liveNotice) && (bool) $liveNotice;
 $modules = [];
 foreach ($lessons as $lesson) $modules[$lesson['module_id']]['title'] = $lesson['module_title'];
 foreach ($lessons as $lesson) $modules[$lesson['module_id']]['lessons'][] = $lesson;
@@ -88,14 +91,14 @@ $gradeRows = [
         </div>
       </div>
     </section><?php else: ?>
-    <div class="learning-modules"><?php foreach ($modules as $module): ?><section class="dashboard-panel learning-module">
+    <div class="learning-modules"><?php if ($liveNotice): ?><p class="learning-plan-note">This course runs live classes. Your enrolment is on the Recorded Only plan, which holds every recording, assignment and quiz but not the meeting addresses - talk to the Academy if you want to move to Live + Recorded.</p><?php endif; ?><?php foreach ($modules as $module): ?><section class="dashboard-panel learning-module">
           <div class="dashboard-panel-heading">
             <div>
               <p class="eyebrow">COURSE MODULE</p>
               <h2><?= $escape($module['title']) ?></h2>
             </div><span><?= count($module['lessons']) ?> <?= count($module['lessons']) === 1 ? 'lesson' : 'lessons' ?></span>
           </div>
-          <div class="learning-lesson-list"><?php foreach ($module['lessons'] as $lesson): ?><a class="learning-lesson-row" href="<?= $escape($baseUrl) ?>/learning/lesson?lesson_id=<?= (int) $lesson['lesson_id'] ?>"><span class="learning-lesson-status <?= (int) $lesson['completed'] === 1 ? 'is-complete' : '' ?>"><?= (int) $lesson['completed'] === 1 ? '✓' : '▶' ?></span><span><strong><?= $escape($lesson['lesson_title']) ?></strong><small><?= (int) $lesson['completed'] === 1 ? 'Completed' : 'Open lesson' ?></small></span><span class="learning-lesson-arrow" aria-hidden="true">→</span></a><?php endforeach; ?></div>
+          <div class="learning-lesson-list"><?php foreach ($module['lessons'] as $lesson): ?><a class="learning-lesson-row" href="<?= $escape($baseUrl) ?>/learning/lesson?lesson_id=<?= (int) $lesson['lesson_id'] ?>"><span class="learning-lesson-status <?= (int) $lesson['completed'] === 1 ? 'is-complete' : '' ?>"><?= (int) $lesson['completed'] === 1 ? '✓' : '▶' ?></span><span><strong><?= $escape($lesson['lesson_title']) ?></strong><small><?= (int) $lesson['completed'] === 1 ? 'Completed' : 'Open lesson' ?><?php if (!empty($lesson['has_live'])): ?> · live class<?php endif; ?></small></span><span class="learning-lesson-arrow" aria-hidden="true">→</span></a><?php endforeach; ?></div>
         </section><?php endforeach; ?></div>
   <?php endif; ?>
 </section>

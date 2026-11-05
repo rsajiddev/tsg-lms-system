@@ -23,6 +23,7 @@ foreach (
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
+        '/app/Services/AccessPlan.php',
         '/app/Services/PdfCanvas.php',
         '/app/Services/DocumentPdf.php',
         '/app/Services/ReportSharing.php',

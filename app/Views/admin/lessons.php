@@ -17,6 +17,7 @@ $lessons = is_array($lessons ?? null) ? $lessons : [];
 $courses = is_array($courses ?? null) ? $courses : [];
 $metrics = is_array($metrics ?? null) ? $metrics : [];
 $videosAvailable = isset($videosAvailable) && (bool) $videosAvailable;
+$liveClassesAvailable = isset($liveClassesAvailable) && (bool) $liveClassesAvailable;
 $watchAvailable = isset($watchAvailable) && (bool) $watchAvailable;
 $watchPercent = max(0, (int) ($watchPercent ?? 90));
 $watchMin = max(1, (int) ($watchMinPercent ?? 10));
@@ -37,6 +38,24 @@ $addedLabel = static function (?string $value): string {
     }
     $timestamp = strtotime($value);
     return $timestamp === false ? '—' : date('M j, Y', $timestamp);
+};
+
+// meeting_at holds a naive UTC instant, so the value is read back on the UTC clock and printed on
+// the UTC clock. Parsing it without the suffix would run it through the server's own timezone and
+// two admins in two countries would see two different class times for one lesson.
+$classLabel = static function (?string $value): string {
+    if ($value === null || $value === '') {
+        return '';
+    }
+    $timestamp = strtotime($value . ' UTC');
+    return $timestamp === false ? '' : gmdate('M j, Y, g:i A', $timestamp) . ' UTC';
+};
+$meetingFieldValue = static function (?string $value): string {
+    if ($value === null || $value === '') {
+        return '';
+    }
+    $timestamp = strtotime($value . ' UTC');
+    return $timestamp === false ? '' : gmdate('Y-m-d\TH:i', $timestamp);
 };
 $durationLabel = static fn(mixed $seconds): string => \App\Services\LessonMedia::formatDuration($seconds === null ? null : (int) $seconds);
 $providerLabels = ['file' => 'Uploaded file', 'youtube' => 'YouTube', 'vimeo' => 'Vimeo', 'embed' => 'Embedded player', 'none' => 'No video'];
@@ -185,6 +204,26 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                 </div>
             <?php endif; ?>
 
+            <?php if ($liveClassesAvailable): ?>
+                <div class="admin-form-row">
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-meeting-url">Live class link</label>
+                        <input class="admin-input" id="lesson-meeting-url" name="meeting_url" maxlength="600" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij">
+                        <span class="admin-hint">Optional. https addresses only. Students open it in a new tab, and only those enrolled on the Live + Recorded plan are ever shown it.</span>
+                    </div>
+
+                    <div class="admin-field">
+                        <label class="admin-label" for="lesson-meeting-at">Class date &amp; time (UTC)</label>
+                        <input class="admin-input" id="lesson-meeting-at" name="meeting_at" type="datetime-local">
+                        <span class="admin-hint">Optional, and needs a link above it. Stored exactly as typed, in the same UTC clock every record here uses, and shown to students labelled UTC.</span>
+                    </div>
+                </div>
+
+                <div class="admin-field">
+                    <span class="admin-hint">The account mark is drawn over the lesson player. It cannot follow a student into a Zoom or Google Meet window, and what the meeting service records in that room is outside this site.</span>
+                </div>
+            <?php endif; ?>
+
             <div class="form-actions">
                 <button class="button" type="submit">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -309,6 +348,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                             $videoUrl = is_string($lesson['video_url'] ?? null) && $lesson['video_url'] !== '' ? $lesson['video_url'] : null;
                             $provider = (string) ($lesson['video_provider'] ?? 'none');
                             $duration = $lesson['video_duration_seconds'] === null ? null : (int) $lesson['video_duration_seconds'];
+                            $meetingUrl = is_string($lesson['meeting_url'] ?? null) && $lesson['meeting_url'] !== '' ? $lesson['meeting_url'] : null;
                             $enrolled = max(0, (int) $lesson['enrolled_count']);
                             $completed = max(0, (int) $lesson['completed_count']);
                             $rate = $enrolled > 0 ? (int) round($completed / $enrolled * 100) : 0;
@@ -332,6 +372,12 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                                             <?php else: ?>
                                                 <small class="lesson-lib-video-warning">Length not set — completion stays manual</small>
                                             <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ($liveClassesAvailable && $meetingUrl !== null): ?>
+                                        <div class="lesson-lib-video">
+                                            <strong>Live class</strong>
+                                            <small><?= $escape($classLabel($lesson['meeting_at'] ?? null) !== '' ? $classLabel($lesson['meeting_at'] ?? null) : 'time not set') ?> · Live + Recorded only</small>
                                         </div>
                                     <?php endif; ?>
                                 </td>
@@ -389,7 +435,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             <div class="lesson-library-list">
                 <?php foreach ($lessons as $lesson): ?>
                     <details class="lesson-editor" id="lesson-<?= (int) $lesson['id'] ?>">
-                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($videosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape($durationLabel((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?></small></span><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></summary>
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($videosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape($durationLabel((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?> · live class <?= $escape($classLabel($lesson['meeting_at'] ?? null) !== '' ? $classLabel($lesson['meeting_at'] ?? null) : 'time not set') ?><?php endif; ?></small></span><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?><span class="table-badge live">Live</span><?php endif; ?><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></summary>
                         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
                             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                             <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
@@ -401,6 +447,10 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                             <?php if ($videosAvailable): ?>
                                 <label class="admin-label">Lesson video link<input class="admin-input" name="video_url" maxlength="600" value="<?= $escape($lesson['video_url'] ?? '') ?>" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4"></label>
                                 <label class="admin-label">Video length<input class="admin-input" name="video_duration" maxlength="8" value="<?= $escape($lesson['video_duration_seconds'] !== null && $lesson['video_duration_seconds'] !== '' ? $durationLabel((int) $lesson['video_duration_seconds']) : '') ?>" placeholder="18:30"><span class="admin-hint">Seconds, mm:ss or h:mm:ss. Leave empty when the length is unknown — the lesson then stays manually completable.</span></label>
+                            <?php endif; ?>
+                            <?php if ($liveClassesAvailable): ?>
+                                <label class="admin-label">Live class link<input class="admin-input" name="meeting_url" maxlength="600" value="<?= $escape($lesson['meeting_url'] ?? '') ?>" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij"><span class="admin-hint">https only. Shown to Live + Recorded students on the lesson page; nobody else receives the address.</span></label>
+                                <label class="admin-label">Class date &amp; time (UTC)<input class="admin-input" name="meeting_at" type="datetime-local" value="<?= $escape($meetingFieldValue($lesson['meeting_at'] ?? null)) ?>"><span class="admin-hint">Optional, and needs a link. Kept exactly as typed, in UTC.</span></label>
                             <?php endif; ?>
                             <label class="admin-label">Publishing status<select class="admin-select" name="status">
                                     <option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
@@ -435,6 +485,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
         'Modules are matched by title. Reusing an existing module title adds the lesson to that section; a new title creates the next sequential module in the course.',
         'Register a video length. Direct .mp4 / .webm files track the playhead exactly, while YouTube and Vimeo links are re-written to an embed player — the length is required either way.',
         'Videos without a length stay manual. Students complete those lessons by hand, and the “Videos missing a length” counter above lists everything that still needs fixing.',
+        'Live classes are per lesson. Paste the Zoom or Google Meet address (https only) and an optional UTC start time; the link reaches students whose enrolment is on the Live + Recorded plan and nobody else.',
         'The watch-time rule applies course-wide. It sets the share of a video a student must watch before the lesson auto-completes, and takes effect from the next heartbeat a student sends.',
         'Filters drive the whole page. Search, course, status and video filters update the counters, the lesson table and the inline editors below it in one pass.',
         'Track completion reach. The completion column compares finished students against enrollments, so weak spots in a module are easy to spot.',

@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Security;
+use App\Services\AccessPlan;
 
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
@@ -74,7 +75,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
                         <?php foreach ($payments as $payment): ?>
                             <tr>
                                 <td data-label="Course"><strong><?= $escape($payment['course_title']) ?></strong><?php if (!empty($payment['review_note'])): ?><small><?= $escape($payment['review_note']) ?></small><?php endif; ?></td>
-                                <td data-label="Amount"><?= $money($payment['amount'], $payment['currency']) ?></td>
+                                <td data-label="Amount"><?= $money($payment['amount'], $payment['currency']) ?><?php if (!empty($payment['plan_code'])): ?><small><?= $escape(AccessPlan::label($payment['plan_code'])) ?></small><?php endif; ?></td>
                                 <td data-label="Reference"><small><?= $escape($payment['transaction_reference'] ?: '—') ?></small></td>
                                 <td data-label="Status"><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span><?php if ($payment['status'] !== 'pending'): ?><small>Reviewed <?= $escape($dateLabel($payment['reviewed_at'] ?? null)) ?></small><?php endif; ?></td>
                                 <td data-label="Submitted"><small><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></small></td>
@@ -100,6 +101,7 @@ $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $
         'Approved unlocks the course. Access, your downloadable receipt and a notification all arrive together.',
         'Declined says why. The review note explains what to correct, and you can send the payment again after fixing it.',
         'Every row keeps its history. Status, amount, date and the receipt download stay on this page for your records.',
+        'The learning option is printed under the amount. Live + Recorded is what unlocks a lesson’s live class link; a payment made before options were stored shows no line.',
     ];
     require BASE_PATH . '/app/Views/components/usage-guide.php';
     ?>

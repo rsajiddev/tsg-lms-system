@@ -4618,6 +4618,17 @@ html.js [data-reveal].is-visible.dash-card:hover {
   gap: 16px
 }
 
+/* The one quiet line a Recorded Only student sees about live classes: it sits above the outline, is
+   printed only when the course actually runs classes, and names no lesson. */
+.learning-plan-note {
+  border-left: 3px solid #c7d2fe;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 12px
+}
+
 .learning-module {
   min-width: 0
 }
@@ -4884,6 +4895,42 @@ html.js [data-reveal].is-visible.dash-card:hover {
   line-height: 1.6
 }
 
+/* The live class card, printed above the recording: the class happens first, and nobody should have
+   to scroll past a player to find the door. Both classes are named so this beats the plain
+   .dashboard-panel padding that arrives earlier in the file. */
+.dashboard-panel.lesson-live-class {
+  align-items: center;
+  background: linear-gradient(135deg,#f8fafc,#eef2ff);
+  border-color: #c7d2fe;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin: 0 0 18px;
+  padding: 18px 20px
+}
+
+.lesson-live-class .eyebrow {
+  color: #4338ca;
+  margin: 0 0 4px
+}
+
+.lesson-live-class h2 {
+  font-size: 17px;
+  margin: 0 0 6px
+}
+
+.lesson-live-class p {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0
+}
+
+.lesson-live-class .button {
+  flex: 0 0 auto;
+  white-space: nowrap
+}
+
 @media(max-width:600px) {
   .learning-heading {
     align-items: flex-start;
@@ -4899,6 +4946,11 @@ html.js [data-reveal].is-visible.dash-card:hover {
   .lesson-video,
   .lesson-video-frame {
     aspect-ratio: 16 / 10
+  }
+
+  .dashboard-panel.lesson-live-class {
+    align-items: flex-start;
+    flex-direction: column
   }
 
   .lesson-watermark-mark {
@@ -5655,6 +5707,20 @@ html.js [data-reveal].is-visible.dash-card:hover {
   overflow-wrap: anywhere;
   color: #94a3b8;
   font-size: 12px
+}
+
+/* A word, not a link: this marks the lesson as holding a live class for the students whose plan
+   may open one. It sits in a paragraph of plain text, hence the inline-block and the own metrics. */
+.my-lesson-live {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 
 .my-lesson-status {
@@ -10050,6 +10116,21 @@ body.dashboard-shell {
 
 .table-badge.draft::before {
   background: #f59e0b;
+}
+
+/* A lesson that holds a live class, next to the publish state it also carries. Indigo rather than
+   green or amber, so it never reads as a status the admin has to act on. */
+.table-badge.live {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.table-badge.live::before {
+  background: #6366f1;
+}
+
+.lesson-editor > summary .table-badge.live {
+  margin-right: 6px;
 }
 
 .table-badge.hidden {

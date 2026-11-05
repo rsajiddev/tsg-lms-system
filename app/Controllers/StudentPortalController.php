@@ -8,6 +8,7 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\View;
 use App\Services\CourseGrading;
+use App\Services\AccessPlan;
 use App\Services\DocumentPdf;
 use App\Services\LessonMedia;
 use App\Services\ReportSharing;
@@ -144,10 +145,16 @@ final class StudentPortalController
         $watchColumns = $watchAvailable
             ? 'COALESCE(lp.watched_seconds, 0) AS watched_seconds,lp.updated_at AS last_watched'
             : '0 AS watched_seconds,NULL AS last_watched';
+        // Whether a lesson holds a live class, and the plan this row's enrolment sits on. The list
+        // never carries the address itself - only the flag - and the view prints the marker for the
+        // plan that may open one. Without the columns imported, both read as absent.
+        $liveColumns = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'student_course_access.plan_code')
+            ? "(l.meeting_url IS NOT NULL AND l.meeting_url <> '') AS has_live,sca.plan_code"
+            : '0 AS has_live,NULL AS plan_code';
         $stmt = $db->prepare("SELECT l.id,l.title,l.status," . ($watchAvailable ? 'l.video_duration_seconds' : 'NULL AS video_duration_seconds') . ",
                     cm.id AS module_id,cm.title AS module_title,
                     c.id AS course_id,c.title AS course_title,sca.expires_at AS access_expires_at,
-                    lp.completed_at,$watchColumns
+                    lp.completed_at,$watchColumns,$liveColumns
              $joins$where
              ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
              LIMIT $perPage OFFSET $offset");
@@ -180,9 +187,14 @@ final class StudentPortalController
         $user = AuthMiddleware::requireRole('student');
         $db = Database::connection();
 
+        // The plan a payment was made on, when this database has been re-imported far enough to
+        // hold it. A legacy row reports no plan rather than a guessed one, and the view leaves the
+        // label out instead of printing "Recorded Only" over a purchase nobody recorded.
+        $planColumn = AccessPlan::columnStored($db, 'payments.plan_code') ? 'p.plan_code' : 'NULL AS plan_code';
         $payments = $db->prepare(
             'SELECT p.id, p.amount, p.currency, p.status, p.transaction_reference, p.review_note,
-                    p.payment_proof_path, p.receipt_number, p.receipt_issued_at, p.created_at, p.reviewed_at, c.title AS course_title
+                    p.payment_proof_path, p.receipt_number, p.receipt_issued_at, p.created_at, p.reviewed_at, c.title AS course_title,
+                    ' . $planColumn . '
              FROM payments p
              JOIN courses c ON c.id = p.course_id
              WHERE p.student_id = ?

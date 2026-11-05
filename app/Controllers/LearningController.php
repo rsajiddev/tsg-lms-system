@@ -12,6 +12,7 @@ use App\Core\View;
 use App\Services\LessonMedia;
 use App\Services\LessonProtection;
 use App\Services\CourseGrading;
+use App\Services\AccessPlan;
 use PDO;
 use RuntimeException;
 
@@ -22,7 +23,8 @@ final class LearningController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title,c.category,c.duration_label,c.level_label,c.short_description,a.expires_at,a.status AS access_status FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $planSelect = AccessPlan::columnStored($db, 'student_course_access.plan_code') ? ',a.plan_code' : ',NULL AS plan_code';
+        $course = $db->prepare("SELECT c.id,c.title,c.category,c.duration_label,c.level_label,c.short_description,a.expires_at,a.status AS access_status$planSelect FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int) $student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -30,11 +32,26 @@ final class LearningController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $lessons = $db->prepare("SELECT cm.id AS module_id,cm.title AS module_title,cm.sort_order AS module_order,l.id AS lesson_id,l.title AS lesson_title,l.sort_order AS lesson_order,CASE WHEN lp.completed_at IS NULL THEN 0 ELSE 1 END AS completed FROM course_modules cm JOIN lessons l ON l.module_id=cm.id AND l.status='published' LEFT JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.student_id=? WHERE cm.course_id=? ORDER BY cm.sort_order,cm.id,l.sort_order,l.id");
+        // Which lessons carry a class is listed only for the plan that may open one, so the outline
+        // cannot hint at a live session a student has no claim on.
+        $liveColumn = AccessPlan::columnStored($db, 'lessons.meeting_url');
+        $liveAllowed = $liveColumn && AccessPlan::allowsLive($courseRow['plan_code'] ?? null);
+        $liveFlag = $liveAllowed ? "(l.meeting_url IS NOT NULL AND l.meeting_url <> '')" : '0';
+        // Whether this course holds any class at all. The Recorded Only note the course page prints
+        // is switched on only when it does, so it never talks about a plan on a course that has no
+        // live sessions, and it never names which lesson holds one - that stays inside the lesson
+        // page of a student whose enrolment paid for it.
+        $courseHasClasses = false;
+        if ($liveColumn) {
+            $probe = $db->prepare("SELECT 1 FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=? AND l.status='published' AND l.meeting_url IS NOT NULL AND l.meeting_url <> '' LIMIT 1");
+            $probe->execute([$courseId]);
+            $courseHasClasses = (bool) $probe->fetchColumn();
+        }
+        $lessons = $db->prepare("SELECT cm.id AS module_id,cm.title AS module_title,cm.sort_order AS module_order,l.id AS lesson_id,l.title AS lesson_title,l.sort_order AS lesson_order,$liveFlag AS has_live,CASE WHEN lp.completed_at IS NULL THEN 0 ELSE 1 END AS completed FROM course_modules cm JOIN lessons l ON l.module_id=cm.id AND l.status='published' LEFT JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.student_id=? WHERE cm.course_id=? ORDER BY cm.sort_order,cm.id,l.sort_order,l.id");
         $lessons->execute([(int) $student['id'], $courseId]);
         $grading = new CourseGrading($db);
         $grade = $grading->refresh((int) $student['id'], $courseId);
-        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll(), 'grade' => $grade, 'weights' => $grading->weights(), 'eligibility' => $grading->eligibility((int) $student['id'], $courseId)]);
+        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll(), 'liveAllowed' => $liveAllowed, 'liveNotice' => $courseHasClasses && !$liveAllowed, 'grade' => $grade, 'weights' => $grading->weights(), 'eligibility' => $grading->eligibility((int) $student['id'], $courseId)]);
     }
 
     public function lesson(): void
@@ -54,11 +71,19 @@ final class LearningController
         // would be worth nothing as evidence. The page still draws it even when the view log has not
         // been imported, because the mark costs nothing beyond this one call.
         $protection = new LessonProtection($db);
+        // The live class gate is decided before the template runs. A Recorded Only student does not
+        // get the address hidden by CSS - it is never in the response at all, so there is nothing on
+        // the page to inspect. The plan arrives from the same query that fetched the lesson.
+        $liveClass = AccessPlan::allowsLive($lesson['plan_code'] ?? null)
+            && is_string($lesson['meeting_url'] ?? null) && $lesson['meeting_url'] !== ''
+                ? ['url' => (string) $lesson['meeting_url'], 'at' => is_string($lesson['meeting_at'] ?? null) ? $lesson['meeting_at'] : null]
+                : null;
         View::render('learning/lesson', [
             'title' => $lesson['lesson_title'],
             'user' => $student,
             'lesson' => $lesson,
             'media' => $state,
+            'liveClass' => $liveClass,
             'watermark' => $protection->watermark((int) $student['id'], (string) $student['name']),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
@@ -200,7 +225,15 @@ final class LearningController
 
     private function accessibleLesson(PDO $db, int $studentId, int $lessonId): ?array
     {
-        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
+        // The class link and the enrolment plan travel in this one query, because the page must never
+        // fetch an address and then decide whether to hide it. Both pieces are composed conditionally:
+        // a database that has not been re-imported has neither column, and the lesson still opens - it
+        // simply reports no plan, which the gate reads as Recorded Only and keeps the link closed.
+        $liveColumns = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at')
+            ? 'l.meeting_url,l.meeting_at'
+            : 'NULL AS meeting_url,NULL AS meeting_at';
+        $planColumn = AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'a.plan_code' : 'NULL AS plan_code';
+        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,$liveColumns,$planColumn,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
         $stmt->execute([$studentId, $studentId, $lessonId]);
         return $stmt->fetch() ?: null;
     }

@@ -1,12 +1,14 @@
 <?php
 
 use App\Core\Security;
+use App\Services\AccessPlan;
 
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $v): string => Security::escape((string) $v);
 $courses = isset($courses) && is_array($courses) ? $courses : [];
 $students = isset($students) && is_array($students) ? $students : [];
 $courseImagesAvailable = isset($courseImagesAvailable) && (bool) $courseImagesAvailable;
+$plansAvailable = isset($plansAvailable) && (bool) $plansAvailable;
 $message = $message ?? null;
 
 $totalCourses = count($courses);
@@ -28,6 +30,8 @@ $totalStudents = count($students);
     <?php \App\Core\View::toast('success', $message ?? null); ?>
 
     <?php if (!$courseImagesAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Course image upload needs a database update.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Course management remains available; image uploads will unlock after the update.</span></div><?php endif; ?>
+
+    <?php if (!$plansAvailable): ?><div class="admin-alert course-image-migration-notice" role="status"><strong>Delivery plans and live class links need a database update.</strong><span>Back up your database, then import the updated <code>database/migrations/001_initial_schema.sql</code>. Granting and revoking access keeps working exactly as now; the plan selector and the lesson class fields appear after the update.</span></div><?php endif; ?>
 
     <!-- Summary KPI Metrics -->
     <section class="dashboard-summary-card admin-course-summary" aria-label="Course and enrollment overview">
@@ -385,9 +389,26 @@ $totalStudents = count($students);
                         <select class="admin-select" id="access-action" name="access_action">
                             <option value="grant">Grant course access</option>
                             <option value="revoke">Revoke access</option>
+                            <?php if ($plansAvailable): ?><option value="plan">Set plan only (leave access as it is)</option><?php endif; ?>
                         </select>
                     </div>
                 </div>
+
+                <?php if ($plansAvailable): ?>
+                <div class="admin-field-row">
+                    <div class="admin-field-row-text">
+                        <span class="admin-label">Delivery plan <span class="req">*</span></span>
+                        <span class="admin-hint">Recorded Only students see the lesson recording and nothing else. Live + Recorded is the only plan that receives a lesson’s live class address. A grant stores this plan; “Set plan only” changes it without touching access or the expiry date.</span>
+                    </div>
+                    <div class="admin-field-row-control">
+                        <select class="admin-select" id="access-plan" name="plan_code">
+                            <?php foreach (AccessPlan::options() as $planCode => $planLabel): ?>
+                                <option value="<?= $escape($planCode) ?>"><?= $escape($planLabel) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
 
             <div class="access-banner">
@@ -396,7 +417,7 @@ $totalStudents = count($students);
                     <line x1="12" y1="16" x2="12" y2="12"></line>
                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
                 </svg>
-                <span>Granting access immediately authorizes the student to view curriculum lessons and take course quizzes. Revoking access halts lesson permissions without wiping past test submissions.</span>
+                <span>Granting access immediately authorizes the student to view curriculum lessons and take course quizzes. Revoking access halts lesson permissions without wiping past test submissions. The delivery plan decides the next thing: a live class address pasted in the Lesson library reaches Live + Recorded students only, and is never sent to a Recorded Only account.</span>
             </div>
 
             <div class="form-actions">

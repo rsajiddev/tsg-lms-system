@@ -102,6 +102,9 @@ if (!is_dir(BASE_PATH . '/storage/tmp')) {
 $scratch = BASE_PATH . '/storage/tmp/enrol-smoke-' . bin2hex(random_bytes(6));
 $serverLog = $scratch . '.server.log';
 $cookieJar = $scratch . '.cookies';
+// The checkout demands a receipt upload, so the journey that ends in a payment needs a file to send.
+$proofPath = $scratch . '.proof.pdf';
+file_put_contents($proofPath, "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n");
 $server = proc_open(
     [PHP_BINARY, '-S', '127.0.0.1:' . $serverPort, '-t', 'public', 'public/index.php'],
     [1 => ['file', $serverLog, 'a'], 2 => ['file', $serverLog, 'a']],
@@ -127,8 +130,9 @@ if (!$ready) {
     exit(1);
 }
 
-/** One request, sent the way a browser sends it. No redirect is followed automatically. */
-$open = static function (string $method, string $path, array $fields = []) use ($appUrl, $cookieJar, &$failures): array {
+/** One request, sent the way a browser sends it. No redirect is followed automatically. `$upload`
+ *  names a file field to send as multipart, which the payment form requires. */
+$open = static function (string $method, string $path, array $fields = [], string $upload = '') use ($appUrl, $cookieJar, &$failures, $proofPath): array {
     $handle = curl_init($appUrl . $path);
     curl_setopt_array($handle, [
         CURLOPT_RETURNTRANSFER => true,
@@ -141,7 +145,10 @@ $open = static function (string $method, string $path, array $fields = []) use (
         CURLOPT_TIMEOUT => 40,
     ]);
     if ($method === 'POST') {
-        curl_setopt($handle, CURLOPT_POSTFIELDS, http_build_query($fields));
+        if ($upload !== '') {
+            $fields[$upload] = new CURLFile($proofPath, 'application/pdf', 'proof.pdf');
+        }
+        curl_setopt($handle, CURLOPT_POSTFIELDS, $upload === '' ? http_build_query($fields) : $fields);
     }
     $response = curl_exec($handle);
     if ($response === false) {
@@ -176,7 +183,14 @@ $slugFree = 'enrol-smoke-unpriced';
 $slugOther = 'enrol-smoke-other';
 $slugs = "'" . $slugLive . "','" . $slugDraft . "','" . $slugFree . "','" . $slugOther . "'";
 $studentId = 0;
+// The notices this journey raises, read back out of the database on the way cleanup, so a rerun
+// counts its own fixtures and nothing else.
+$noticeIds = [];
 
+// A run that died part way leaves a payment behind, and a payment pins both the account and the
+// course to it - so the rows that would block the fixtures are cleared before the fixtures are written.
+$db->exec('DELETE FROM payments WHERE student_id IN (SELECT id FROM users WHERE email = ' . $db->quote($enrolEmail) . ')');
+$db->exec("DELETE FROM payments WHERE course_id IN (SELECT id FROM courses WHERE slug IN (" . $slugs . '))');
 $db->exec("DELETE FROM courses WHERE slug IN (" . $slugs . ")");
 $db->exec('DELETE FROM users WHERE email = ' . $db->quote($enrolEmail));
 
@@ -377,6 +391,76 @@ try {
         'The existing payment form is reused as it is, upload field and reference field included.',
         'The payment form fields are missing from the page the journey ends on.');
 
+    echo "\n-- and the option chosen on that step is written down, not just posted\n";
+    // The card has always posted option_code. Until live class links existed the choice only reached
+    // the audit blob, where no page could read it back, so the last step of the journey is now the
+    // one thing that has to survive it: a payment that says which plan was bought.
+    $assert(str_contains($payment['body'], 'name="option_code"')
+        && str_contains($payment['body'], 'value="recorded_only"') && str_contains($payment['body'], 'value="live_recorded"'),
+        'The payment step asks for the learning option and offers both plans the catalogue sells.',
+        'The payment form posts no option_code, or offers only half the plans.');
+    // A scratch database that was bootstrapped before the column arrived would report a missing plan
+    // for a reason that has nothing to do with this journey, so the schema is topped up the same
+    // guarded way the app's own migration does it.
+    $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
+    if ($planColumn === 0) {
+        shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' < '
+            . escapeshellarg(BASE_PATH . '/database/migrations/001_initial_schema.sql'));
+        $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
+        echo 're-imported the schema into ' . $dbName . " to add payments.plan_code\n";
+    }
+    $assert($planColumn === 1, 'The scratch database holds the column the journey writes the plan into.',
+        'payments.plan_code is still missing after a re-import of database/migrations/001_initial_schema.sql.');
+    // The proof folder is private, and a folder another account created is not writable from here.
+    // Where it cannot be written, the refusal is what is measured - a journey that half-wrote a
+    // payment would be the real bug.
+    $proofFolder = BASE_PATH . '/storage/uploads/private/payment-proofs';
+    $canUpload = is_dir($proofFolder) ? is_writable($proofFolder) : @mkdir($proofFolder, 0700, true);
+    $reference = 'ENROL-' . substr($slugLive, -6) . '-' . bin2hex(random_bytes(4));
+    $bought = $open('POST', '/payments', [
+        '_csrf' => $csrfOf($payment['body']),
+        'course_id' => (string) $courseId,
+        'option_code' => 'live_recorded',
+        'transaction_reference' => $reference,
+    ], 'payment_proof');
+    $assert($bought['status'] === 302, 'The finished checkout answers with a redirect back to the step, as every other form does.',
+        'The payment POST answered ' . $bought['status'] . ' instead of redirecting.');
+    $row = $db->prepare('SELECT id,plan_code,status,amount,currency FROM payments WHERE student_id = ? AND course_id = ?');
+    $row->execute([$studentId, $courseId]);
+    $written = $row->fetch(PDO::FETCH_ASSOC) ?: [];
+    $journeyPaymentId = (int) ($written['id'] ?? 0);
+    if ($canUpload) {
+        $assert($journeyPaymentId > 0 && (string) ($written['status'] ?? '') === 'pending',
+            'The last step of the enrolment journey leaves a payment waiting in the review queue.',
+            'The checkout wrote no pending payment (row ' . json_encode($written) . ').');
+        $assert((string) ($written['plan_code'] ?? '') === 'live_recorded',
+            'The plan the student picked on that step is stored against the payment.',
+            'payments.plan_code reads ' . var_export($written['plan_code'] ?? null, true) . ' after choosing Live + Recorded.');
+        $assert((float) ($written['amount'] ?? 0) === 39000.0,
+            'The amount charged is the price of the plan that was picked, not the cheaper one.',
+            'The payment was written for ' . var_export($written['amount'] ?? null, true) . '.');
+        $listed = $open('GET', '/student/payments');
+        $assert($listed['status'] === 200 && str_contains($listed['body'], 'Live + Recorded') && str_contains($listed['body'], $reference),
+            'The student can read the plan back on their own purchase list.',
+            'The purchase list does not show the plan or the reference that was just submitted (status ' . $listed['status'] . ').');
+    } else {
+        $assert($journeyPaymentId === 0 && str_contains($open('GET', '/payments/new?course_id=' . $courseId)['body'], 'not writable'),
+            'A proof folder this account cannot write stops the purchase, names the folder, and leaves no half-written payment.',
+            'The blocked checkout left ' . json_encode($written) . ' behind.');
+        echo "  NOTE " . $proofFolder . " belongs to another account, so this journey could not finish its upload from the command line. Step 1 of README \"Testing live class links\" shows it in a browser.\n";
+    }
+    $expectedPayments = (int) $db->query('SELECT COUNT(*) FROM payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
+    $forged = $open('POST', '/payments', [
+        '_csrf' => $csrfOf($open('GET', '/payments/new?course_id=' . $courseId)['body']),
+        'course_id' => (string) $courseId,
+        'option_code' => 'gold_plan',
+        'transaction_reference' => 'GOLD-' . bin2hex(random_bytes(4)),
+    ], 'payment_proof');
+    $afterForgery = (int) $db->query('SELECT COUNT(*) FROM payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
+    $assert($forged['status'] === 302 && $afterForgery === $expectedPayments,
+        'An option nobody sells is refused, and the journey does not invent a plan for it.',
+        'A forged learning option left ' . $afterForgery . ' payment row(s) where ' . $expectedPayments . ' were before.');
+
     echo "\n-- a course withdrawn between steps stops the journey\n";
     $db->exec('UPDATE courses SET visibility = \'draft\' WHERE id = ' . $courseId);
     $freshVisitor();
@@ -471,7 +555,23 @@ try {
         $restore->execute([$key, $fallback[$key]]);
     }
     if ($studentId > 0) {
+        // The journey's own checkout writes a payment, and a payment holds both the account and the
+        // course it was bought for - so it has to go before either of them can.
+        $heldProof = $db->prepare('SELECT payment_proof_path FROM payments WHERE student_id = ?');
+        $heldProof->execute([$studentId]);
+        foreach ($heldProof->fetchAll(PDO::FETCH_COLUMN) ?: [] as $storedProof) {
+            if ($storedProof !== null) @unlink(BASE_PATH . '/storage/uploads/private/' . (string) $storedProof);
+        }
+        // Read before the recipients go, because the notice itself is only reachable through them.
+        $heldNotices = $db->prepare('SELECT notification_id FROM notification_recipients WHERE student_id = ?');
+        $heldNotices->execute([$studentId]);
+        $noticeIds = array_map('intval', $heldNotices->fetchAll(PDO::FETCH_COLUMN) ?: []);
         foreach ([
+            'DELETE FROM payments WHERE student_id = ?',
+            // Submitting a payment leaves an audit row and two inbox notices behind, all of them
+            // pointing back at the account the cleanup is about to remove.
+            'DELETE FROM audit_logs WHERE actor_user_id = ?',
+            'DELETE FROM notification_recipients WHERE student_id = ?',
             'DELETE FROM email_otps WHERE user_id = ?',
             'DELETE FROM email_logs WHERE related_user_id = ?',
             'DELETE FROM login_events WHERE user_id = ?',
@@ -486,6 +586,11 @@ try {
             }
         }
     }
+    if ($noticeIds !== []) {
+        // A notice with no reader left is nothing but a row, and the board a later run counts should
+        // not be carrying the ones this journey raised.
+        $db->exec('DELETE FROM notifications WHERE id IN (' . implode(',', $noticeIds) . ')');
+    }
     $db->exec('DELETE FROM courses WHERE slug IN (' . $slugs . ')');
     $cleanup = $db->prepare('DELETE FROM auth_rate_limits WHERE subject_hash = ?');
     foreach ([hash('sha256', 'email:' . $enrolEmail), hash('sha256', 'ip:127.0.0.1')] as $hash) $cleanup->execute([$hash]);
@@ -496,6 +601,7 @@ try {
     }
     @unlink($cookieJar);
     @unlink($serverLog);
+    @unlink($proofPath);
     if (($options['drop'] ?? '') === '1') {
         shell_exec($mysql . ' ' . $credentials . ' -e ' . escapeshellarg('DROP DATABASE `' . $dbName . '`'));
         echo "dropped " . $dbName . "\n";

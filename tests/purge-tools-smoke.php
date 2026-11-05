@@ -42,6 +42,7 @@ foreach (
         '/app/Services/NotificationService.php',
         '/app/Services/ChatService.php',
         '/app/Services/CourseDuration.php',
+        '/app/Services/AccessPlan.php',
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
         '/app/Services/AttendanceService.php',

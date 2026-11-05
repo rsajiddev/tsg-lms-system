@@ -10,6 +10,7 @@ use App\Core\PrivateStorage;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\MailService;
+use App\Services\AccessPlan;
 use App\Services\NotificationService;
 use App\Services\DocumentPdf;
 use PDO;
@@ -111,8 +112,20 @@ final class PaymentController
         $submittedAt = gmdate('Y-m-d H:i:s');
         $db->beginTransaction();
         try {
-            $insert = $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
-            $insert->execute([(int) $student['id'], $courseId, $course['price'], $course['currency'] ?: $course['course_currency'], $reference, $proof['relative_path']]);
+            // The chosen option is a fact about the purchase, so it is written on the payment row
+            // instead of living only in the audit blob. A database that has not been re-imported
+            // yet still records the purchase; only the plan column is left out of the statement.
+            $recordsPlan = AccessPlan::columnStored($db, 'payments.plan_code');
+            $insert = $db->prepare($recordsPlan
+                ? "INSERT INTO payments(student_id,course_id,plan_code,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,?,'pending')"
+                : "INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
+            $fields = [(int) $student['id'], $courseId];
+            if ($recordsPlan) $fields[] = AccessPlan::normalise($option);
+            $fields[] = $course['price'];
+            $fields[] = $course['currency'] ?: $course['course_currency'];
+            $fields[] = $reference;
+            $fields[] = $proof['relative_path'];
+            $insert->execute($fields);
             $paymentId = (int) $db->lastInsertId();
             $audit = $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'payment.submitted','payment',?,JSON_OBJECT('course_id',?,'option_code',?))");
             $audit->execute([(int) $student['id'], $paymentId, $courseId, $option]);
@@ -190,7 +203,7 @@ final class PaymentController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.transaction_reference,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
+            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.transaction_reference,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label" . (AccessPlan::columnStored($db, 'payments.plan_code') ? ",p.plan_code" : '') . " FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
             $lookup->execute([$paymentId]);
             $payment = $lookup->fetch();
             if (!$payment || $payment['status'] !== 'pending') throw new RuntimeException('This payment is no longer awaiting review.');
@@ -203,8 +216,20 @@ final class PaymentController
                 $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
                 $grantedAtSql = $grantedAt->format('Y-m-d H:i:s');
                 $expiresAt = \App\Services\CourseDuration::expiry((string) ($payment['duration_label'] ?? ''), $grantedAt);
-                $grant = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at) VALUES(?,?,'active',?,?,?,NULL,NULL) ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL");
-                $grant->execute([(int) $payment['student_id'], (int) $payment['course_id'], (int) $admin['id'], $grantedAtSql, $expiresAt]);
+                // The plan travels from the payment onto the enrolment, so approving an upgrade moves
+                // a Recorded Only student to Live + Recorded without an extra click. When either
+                // column has not been imported the statement simply omits it, which leaves an
+                // existing enrolment's plan exactly as it was rather than clearing it.
+                $carriesPlan = AccessPlan::columnStored($db, 'payments.plan_code')
+                    && AccessPlan::columnStored($db, 'student_course_access.plan_code');
+                $grant = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
+                    . ($carriesPlan ? ',plan_code' : '')
+                    . ") VALUES(?,?,'active',?,?,?,NULL,NULL" . ($carriesPlan ? ',?' : '')
+                    . ") ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL"
+                    . ($carriesPlan ? ",plan_code=VALUES(plan_code)" : ''));
+                $grantParams = [(int) $payment['student_id'], (int) $payment['course_id'], (int) $admin['id'], $grantedAtSql, $expiresAt];
+                if ($carriesPlan) $grantParams[] = AccessPlan::normalise($payment['plan_code'] ?? null);
+                $grant->execute($grantParams);
             }
             $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'payment\',?,JSON_OBJECT(\'course_id\',?,\'student_id\',?))');
             $audit->execute([(int) $admin['id'], 'payment.' . $decision, $paymentId, (int) $payment['course_id'], (int) $payment['student_id']]);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Security;
+use App\Services\AccessPlan;
 use App\Services\LessonMedia;
 
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
@@ -120,6 +121,9 @@ $lastWatchedLabel = static function (?string $value): string {
                     $completed = $lesson['completed_at'] !== null && $lesson['completed_at'] !== '';
                     $ratio = $duration !== null && $duration > 0 ? min(100, (int) round($watched / $duration * 100)) : null;
                     $state = $completed ? 'completed' : ($ratio !== null && $ratio > 0 ? 'progress' : 'todo');
+                    // The query carries a flag, never an address. This is the only place that decides
+                    // whether the flag may be printed, and it prints a word - not a link to follow.
+                    $hasLiveClass = !empty($lesson['has_live']) && AccessPlan::allowsLive($lesson['plan_code'] ?? null);
                 ?>
                     <article class="my-lesson-row my-lesson-<?= $state ?>">
                         <div class="my-lesson-main">
@@ -132,6 +136,7 @@ $lastWatchedLabel = static function (?string $value): string {
                                 <?php else: ?>
                                     <span>Reading lesson · no video length registered</span>
                                 <?php endif; ?>
+                                <?php if ($hasLiveClass): ?><span class="my-lesson-live">Live class</span><?php endif; ?>
                                 <?php if (!empty($lesson['last_watched'])): ?><span>· last watched <?= $escape($lastWatchedLabel((string) $lesson['last_watched'])) ?></span><?php endif; ?>
                             </p>
                         </div>

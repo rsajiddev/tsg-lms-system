@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS lessons (
        video_url VARCHAR(600) NULL,
        video_provider ENUM('none', 'file', 'youtube', 'vimeo', 'embed') NOT NULL DEFAULT 'none',
        video_duration_seconds INT UNSIGNED NULL,
+       meeting_url VARCHAR(600) NULL,
+       meeting_at DATETIME NULL,
        sort_order INT UNSIGNED NOT NULL DEFAULT 0,
        status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -179,11 +181,64 @@ WHERE
        video_provider = 'none'
        OR video_provider IS NULL;
 
+-- Live classes ride the same lesson row as the recording. The link is a plain external URL -
+-- the Academy creates the meeting in Zoom or Google Meet and pastes it here - and meeting_at is
+-- stored as the UTC instant the admin typed, because every timestamp in this schema is UTC and a
+-- browser-side timezone guess would make two students read two different class times.
+SET
+       @add_lesson_meeting_url = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'meeting_url'
+       );
+
+PREPARE add_lesson_meeting_url_stmt
+FROM
+       @add_lesson_meeting_url;
+
+EXECUTE add_lesson_meeting_url_stmt;
+
+DEALLOCATE PREPARE add_lesson_meeting_url_stmt;
+
+SET
+       @add_lesson_meeting_at = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN meeting_at DATETIME NULL AFTER meeting_url',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'meeting_at'
+       );
+
+PREPARE add_lesson_meeting_at_stmt
+FROM
+       @add_lesson_meeting_at;
+
+EXECUTE add_lesson_meeting_at_stmt;
+
+DEALLOCATE PREPARE add_lesson_meeting_at_stmt;
+
 CREATE TABLE IF NOT EXISTS student_course_access (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
        status ENUM('active', 'revoked') NOT NULL DEFAULT 'active',
+       plan_code ENUM('recorded_only', 'live_recorded') NOT NULL DEFAULT 'recorded_only',
        granted_by BIGINT UNSIGNED NOT NULL,
        granted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
        expires_at DATETIME NULL,
@@ -194,7 +249,8 @@ CREATE TABLE IF NOT EXISTS student_course_access (
        CONSTRAINT fk_access_course FOREIGN KEY(course_id) REFERENCES courses(id),
        CONSTRAINT fk_access_granted_by FOREIGN KEY(granted_by) REFERENCES users(id),
        CONSTRAINT fk_access_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id),
-       INDEX idx_access_status(student_id, status)
+       INDEX idx_access_status(student_id, status),
+       INDEX idx_access_plan(student_id, plan_code)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Keep existing installations compatible: course access expires relative to its grant/approval timestamp.
@@ -285,10 +341,62 @@ EXECUTE add_access_expiry_index_stmt;
 
 DEALLOCATE PREPARE add_access_expiry_index_stmt;
 
+-- The delivery plan the student bought used to live only in the payment audit blob, which no
+-- page could read. recorded_only is the default on purpose: a plan this file cannot work out
+-- must not hand out a live class link.
+SET
+       @add_access_plan_code = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE student_course_access ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NOT NULL DEFAULT ''recorded_only'' AFTER status',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'student_course_access'
+                     AND COLUMN_NAME = 'plan_code'
+       );
+
+PREPARE add_access_plan_code_stmt
+FROM
+       @add_access_plan_code;
+
+EXECUTE add_access_plan_code_stmt;
+
+DEALLOCATE PREPARE add_access_plan_code_stmt;
+
+SET
+       @add_access_plan_index = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE student_course_access ADD INDEX idx_access_plan(student_id,plan_code)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'student_course_access'
+                     AND INDEX_NAME = 'idx_access_plan'
+       );
+
+PREPARE add_access_plan_index_stmt
+FROM
+       @add_access_plan_index;
+
+EXECUTE add_access_plan_index_stmt;
+
+DEALLOCATE PREPARE add_access_plan_index_stmt;
+
 CREATE TABLE IF NOT EXISTS payments (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
+       plan_code ENUM('recorded_only', 'live_recorded') NULL,
        amount DECIMAL(10, 2) NOT NULL,
        currency CHAR(3) NOT NULL DEFAULT 'PKR',
        transaction_reference VARCHAR(190) NOT NULL,
@@ -416,6 +524,32 @@ SET
 WHERE
        status = 'approved'
        AND receipt_number IS NULL;
+
+-- Keep existing installations compatible: the checkout option a student picked is a fact about the
+-- purchase, so it belongs on the payment row instead of only inside the audit blob.
+SET
+       @add_payment_plan_code = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE payments ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NULL AFTER course_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'payments'
+                     AND COLUMN_NAME = 'plan_code'
+       );
+
+PREPARE add_payment_plan_code_stmt
+FROM
+       @add_payment_plan_code;
+
+EXECUTE add_payment_plan_code_stmt;
+
+DEALLOCATE PREPARE add_payment_plan_code_stmt;
 
 CREATE TABLE IF NOT EXISTS quizzes (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1319,6 +1453,60 @@ CREATE TABLE IF NOT EXISTS audit_logs (
        INDEX idx_audit_action(action, created_at),
        INDEX idx_audit_entity(entity_type, entity_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Recover the plan for purchases made before payments.plan_code existed. The submission audit row
+-- is the only place the checkout option was ever written down, so it is read back rather than
+-- guessed, and a payment the audit cannot explain stays NULL instead of inventing a live-class
+-- purchase. It runs here because this file creates the audit table after the payment section.
+UPDATE
+       payments p
+JOIN
+       audit_logs a ON a.entity_type = 'payment'
+       AND a.entity_id = p.id
+       AND a.action = 'payment.submitted'
+SET
+       p.plan_code = CASE
+              WHEN JSON_UNQUOTE(JSON_EXTRACT(a.metadata, '$.option_code')) = 'live_recorded' THEN 'live_recorded'
+              WHEN JSON_UNQUOTE(JSON_EXTRACT(a.metadata, '$.option_code')) = 'recorded_only' THEN 'recorded_only'
+              ELSE p.plan_code
+       END
+WHERE
+       p.plan_code IS NULL
+       AND a.metadata IS NOT NULL;
+
+-- An enrolment inherits the plan of the newest approved payment for that student and course, which
+-- is the same rule PaymentController applies when it grants or renews access, so a student who
+-- upgraded from Recorded Only to Live + Recorded keeps the upgrade through a re-import.
+UPDATE
+       student_course_access sca
+JOIN
+       (
+              SELECT
+                     chosen.student_id,
+                     chosen.course_id,
+                     chosen.plan_code
+              FROM
+                     payments chosen
+              JOIN
+                     (
+                            SELECT
+                                   student_id,
+                                   course_id,
+                                   MAX(id) AS latest_payment_id
+                            FROM
+                                   payments
+                            WHERE
+                                   status = 'approved'
+                            GROUP BY
+                                   student_id,
+                                   course_id
+                     ) newest ON newest.latest_payment_id = chosen.id
+       ) inherited ON inherited.student_id = sca.student_id
+       AND inherited.course_id = sca.course_id
+SET
+       sca.plan_code = COALESCE(inherited.plan_code, 'recorded_only')
+WHERE
+       sca.plan_code <> COALESCE(inherited.plan_code, 'recorded_only');
 
 -- Minimal sign-in audit: never store entered email, password, OTP, or credential material.
 CREATE TABLE IF NOT EXISTS login_events (

@@ -14,6 +14,16 @@ $playerEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/watch';
 $viewEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/view';
 $watermark = isset($watermark) && is_array($watermark) ? $watermark : [];
 $watermark += ['enabled' => false, 'name' => '', 'reference' => '—', 'time' => '', 'trace' => '000000', 'label' => ''];
+// null unless this enrolment is on the Live + Recorded plan and the lesson holds a class address.
+// The controller decided that; the template only prints what it was handed.
+$liveClass = isset($liveClass) && is_array($liveClass) ? $liveClass : null;
+// meeting_at is a naive UTC instant, so it is read on the UTC clock and printed on the UTC clock.
+// Two students in two countries therefore read the same start time, and it is labelled as what it is.
+$classLabel = static function (?string $value): string {
+    if ($value === null || $value === '') return '';
+    $stamp = strtotime($value . ' UTC');
+    return $stamp === false ? '' : gmdate('D, M j, Y, g:i A', $stamp) . ' UTC';
+};
 // Drawn only while it is switched on. An overlay is absolutely positioned, so leaving it in the
 // page and hiding it would need a [hidden] override of its own for no benefit.
 $watermarkOverlay = static function () use ($escape, $watermark): string {
@@ -43,6 +53,23 @@ $watermarkOverlay = static function () use ($escape, $watermark): string {
   <?php \App\Core\View::toast('error', $error ?? null); ?>
   <?php /* The completion button comes back here on a redirect, so the confirmation rides the query. */ ?>
   <?php if (isset($_GET['completed'])): ?><?php \App\Core\View::toast('success', 'Lesson marked as complete.'); ?><?php endif; ?>
+  <?php if ($liveClass !== null): ?>
+    <?php $classWhen = $classLabel($liveClass['at'] ?? null); ?>
+    <article class="dashboard-panel lesson-live-class">
+      <div class="lesson-live-class-copy">
+        <p class="eyebrow">LIVE CLASS</p>
+        <h2>Live session for this lesson</h2>
+        <?php if ($classWhen === ''): ?>
+          <p>The Academy has not set a start time for this class, so check your course announcements for when it begins. The recording below stays available either way.</p>
+        <?php elseif (strtotime((string) $liveClass['at'] . ' UTC') <= time()): ?>
+          <p>This class was scheduled for <?= $escape($classWhen) ?>, so its time has passed. The recording below covers what was taught in it.</p>
+        <?php else: ?>
+          <p>This lesson runs live at <?= $escape($classWhen) ?>. The button opens the meeting in a new tab, and the recording below is waiting for you whatever time you join.</p>
+        <?php endif; ?>
+      </div>
+      <a class="button" href="<?= $escape($liveClass['url']) ?>" target="_blank" rel="noopener noreferrer">Open live class</a>
+    </article>
+  <?php endif; ?>
   <?php if ($media['has_video']): ?>
     <article class="dashboard-panel lesson-player<?= $media['trackable'] ? ' lesson-player-file' : ' lesson-player-embed' ?>" data-lesson-player
              data-endpoint="<?= $playerEndpoint ?>"

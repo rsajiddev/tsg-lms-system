@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Core\Database;
 use PDO;
+use RuntimeException;
 
 /**
  * Recorded lesson video and the watch-time rule.
@@ -129,6 +130,58 @@ final class LessonMedia
         return $hours > 0
             ? sprintf('%d:%02d:%02d', $hours, $minutes, $remainder)
             : sprintf('%d:%02d', $minutes, $remainder);
+    }
+
+    /**
+     * Live class link, or null when the lesson holds no class.
+     *
+     * Stricter than the recording link on purpose. This value is rendered as a clickable address on
+     * a signed-in page, so https is required outright - a javascript: or data: value stored here
+     * would run against every student who opens the lesson. Credentials in the address are refused
+     * too, because https://zoom.us@evil.test reads as a Zoom domain to a student and lands on
+     * evil.test. Which provider the link points at is not checked: the Academy uses Zoom and Google
+     * Meet today, and a host allowlist would break the next one for no safety.
+     */
+    public static function normaliseMeetingUrl(?string $url): ?string
+    {
+        $value = trim((string) $url);
+        if ($value === '') return null;
+        if (mb_strlen($value) > 600) {
+            throw new RuntimeException('The live class link must stay under 600 characters.');
+        }
+        if (preg_match('#^https://#i', $value) !== 1) {
+            throw new RuntimeException('Live class links must start with https:// so the meeting opens in a new tab.');
+        }
+        $parts = parse_url($value);
+        if ($parts === false || empty($parts['host'])) {
+            throw new RuntimeException('That live class link is not a complete address.');
+        }
+        if (isset($parts['user']) || isset($parts['pass']) || str_contains((string) ($parts['authority'] ?? ''), '@')) {
+            throw new RuntimeException('A live class link may not carry credentials or an @ in its address.');
+        }
+        return $value;
+    }
+
+    /**
+     * Class instant as a UTC database timestamp, or null when no time was given.
+     *
+     * The admin field posts a wall clock with no offset and is labelled UTC, so the typed value is
+     * stored as typed. Converting it against the server's own timezone would make two students in
+     * two countries read two different start times off one class.
+     */
+    public static function parseMeetingTime(?string $value): ?string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') return null;
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/', $raw, $matches) !== 1) {
+            throw new RuntimeException('Enter the class date and time in the form the field shows (year-month-day, hour:minute).');
+        }
+        [, $year, $month, $day, $hour, $minute] = $matches;
+        if ((int) $year < 2000 || (int) $year > 2999 || !checkdate((int) $month, (int) $day, (int) $year)
+            || (int) $hour > 23 || (int) $minute > 59) {
+            throw new RuntimeException('That class date or time does not exist. Check the year, month, day and hour.');
+        }
+        return sprintf('%s-%s-%s %s:%s:00', $year, $month, $day, $hour, $minute);
     }
 
     /** Normalises a pasted link into the URL the player actually loads. */

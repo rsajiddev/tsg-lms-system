@@ -40,6 +40,7 @@ foreach (
         '/app/Services/ChatService.php',
         '/app/Services/AuthService.php',
         '/app/Services/CourseDuration.php',
+        '/app/Services/AccessPlan.php',
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
         '/app/Services/AttendanceService.php',
@@ -74,6 +75,7 @@ use App\Controllers\StudentManagementController;
 use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
+use App\Services\AccessPlan;
 use App\Services\AccountIdentity;
 use App\Services\AdminAttention;
 use App\Services\ChatService;
@@ -158,6 +160,26 @@ if ($missingTables !== []) {
 $left = array_values(array_filter($protectionTables, static fn(string $table): bool => !$hasTable($table)));
 $assert($left === [], 'The scratch database holds the tables the protection surfaces read.',
     'Even after a re-import, ' . $dbName . ' has no ' . implode(', ', $left) . '; the schema file is not the single guarded script it claims to be.');
+// The same argument for the four live class columns: a scratch database that predates them would show
+// the fields hidden rather than the schema being behind, and those two states look identical on screen.
+$hasColumn = static function (string $table, string $column) use ($mysql, $credentials, $dbName): bool {
+    return trim((string) shell_exec($mysql . ' ' . $credentials . ' -N -B -e ' . escapeshellarg(
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='" . $dbName
+        . "' AND table_name='" . $table . "' AND column_name='" . $column . "'"
+    ))) === '1';
+};
+$liveColumns = [['lessons', 'meeting_url'], ['lessons', 'meeting_at'], ['payments', 'plan_code'], ['student_course_access', 'plan_code']];
+$names = static fn(array $pairs): string => implode(', ', array_map(static fn(array $pair): string => $pair[0] . '.' . $pair[1], $pairs));
+$missingColumns = array_values(array_filter($liveColumns, static fn(array $pair): bool => !$hasColumn($pair[0], $pair[1])));
+if ($missingColumns !== []) {
+    shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' < '
+        . escapeshellarg(BASE_PATH . '/database/migrations/001_initial_schema.sql'));
+    AccessPlan::forgetColumnState();
+    echo 're-imported the schema into ' . $dbName . ' to add ' . $names($missingColumns) . "\n";
+}
+$stillMissing = array_values(array_filter($liveColumns, static fn(array $pair): bool => !$hasColumn($pair[0], $pair[1])));
+$assert($stillMissing === [], 'The scratch database holds the columns the live class surfaces read.',
+    'Even after a re-import, ' . $dbName . ' has no ' . $names($stillMissing) . '.');
 $adminEmail = 'render-smoke-admin@example.test';
 $studentEmail = 'render-smoke-student@example.test';
 
@@ -812,6 +834,101 @@ $assert(str_contains($noSessionHtml, 'No open session'), 'A student with nothing
 $db->exec('DELETE FROM lesson_view_events WHERE student_id = ' . (int) $studentId);
 $db->prepare('UPDATE users SET account_reference = NULL WHERE id = ?')->execute([$studentId]);
 unset($_SERVER['HTTP_USER_AGENT']);
+
+/* --------------------------------------------------------------- the live class surfaces */
+// A live class link is set on two admin desks and spent on one student page. The desks are HTML built
+// from the row in front of them, so they are rendered here. The student page is not: it decides
+// whether to print an address at all, and that decision is measured on raw HTTP bytes in
+// tests/live-class-flow-smoke.php, because a CLI render cannot feed the query parameters a lesson page
+// reads. What is checked here instead is that the template prints only the value it is handed.
+echo "\n-- the live class surfaces\n";
+$meetingAddress = 'https://meet.google.com/abc-defg-hij';
+$classStart = gmdate('Y-m-d H:i:s', (time() + 30 * 86400));
+// The two surfaces label the same instant their own way: the library list keeps its line short, the
+// student page spells the date out. Both drop the stored value onto the UTC clock, so neither one
+// moves the class by the admin's or the student's own timezone.
+$classLabel = gmdate('M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
+$classSpelling = gmdate('D, M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
+$db->prepare('UPDATE lessons SET meeting_url = ?, meeting_at = ? WHERE id = ?')->execute([$meetingAddress, $classStart, $lessonId]);
+
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$lessonsHtml = $render(static fn() => (new CourseAdminController())->lessons());
+foreach ([
+    'name="meeting_url"',
+    'name="meeting_at"',
+    'Live class link',
+    'Class date &amp; time (UTC)',
+    'https://zoom.us/j/... or https://meet.google.com/abc-defg-hij',
+    'cannot follow a student into a Zoom',
+] as $needle) {
+    $assert(str_contains($lessonsHtml, $needle), 'The Lesson library offers "' . $needle . '".',
+        'The Lesson library prints no "' . $needle . '" - the fields or their caveat never reached the page.');
+}
+// The same two fields belong in the inline editor as well, or an admin could set a link once and
+// never change it. Two of each control, and the stored address prefilled in the editor.
+$assert(substr_count($lessonsHtml, 'name="meeting_url"') === 2 && substr_count($lessonsHtml, 'name="meeting_at"') === 2,
+    'Add card and inline editor each carry one link field and one class time field.',
+    'The library renders ' . substr_count($lessonsHtml, 'name="meeting_url"') . ' link fields; both the add card and the editor need one.');
+$assert(str_contains($lessonsHtml, 'value="' . $meetingAddress . '"'), 'The editor opens with the address the lesson already holds.',
+    'The inline editor does not prefill ' . $meetingAddress . '.');
+$assert(str_contains($lessonsHtml, ' · live class ' . $classLabel), 'A lesson with a link names its class time in the library list.',
+    'The library summary line carries no live class time for the lesson that has one.');
+$assert(str_contains($lessonsHtml, '<span class="table-badge live">Live</span>'), 'A lesson with a link is badged Live where it is listed.',
+    'No Live chip is printed next to the lesson that has a class address.');
+
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/courses';
+$coursesHtml = $render(static fn() => (new CourseAdminController())->index());
+foreach ([
+    'name="plan_code"',
+    'id="access-plan"',
+    'Delivery plan',
+    'Set plan only (leave access as it is)',
+    'Recorded Only',
+    'Live + Recorded',
+] as $needle) {
+    $assert(str_contains($coursesHtml, $needle), 'The course desk offers "' . $needle . '".',
+        'The enrolment card on the course desk has no "' . $needle . '".');
+}
+// Both plans are named on the page that chooses them, in the words a student was sold - a code a
+// student never saw would make the admin guess which half of the catalogue they are handing over.
+$assert(substr_count($coursesHtml, 'value="recorded_only"') >= 1 && substr_count($coursesHtml, 'value="live_recorded"') >= 1,
+    'The plan selector posts the two codes the checkout uses.',
+    'The plan selector does not post recorded_only / live_recorded.');
+
+$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/learning/lesson?lesson_id=' . $lessonId;
+$lessonRow = ['lesson_id' => $lessonId, 'lesson_title' => 'Smoke lesson', 'module_title' => 'Smoke module',
+    'course_id' => $courseId, 'course_title' => 'Render Smoke Course', 'body' => 'Lesson body.', 'completed' => 0];
+$liveHtml = $render(static fn() => \App\Core\View::render('learning/lesson', [
+    'title' => 'Smoke lesson',
+    'user' => ['id' => $studentId, 'name' => 'Render Smoke Student', 'email' => $studentEmail, 'role' => 'student'],
+    'lesson' => $lessonRow,
+    'liveClass' => ['url' => $meetingAddress, 'at' => $classStart],
+]));
+$assert(str_contains($liveHtml, 'href="' . $meetingAddress . '"') && str_contains($liveHtml, 'Open live class'),
+    'A lesson page handed the class prints the address and a button to open it.',
+    'The live class card did not render the address it was given.');
+$assert(str_contains($liveHtml, 'rel="noopener noreferrer"') && str_contains($liveHtml, 'target="_blank"'),
+    'The meeting opens in its own tab, cut off from the lesson page that sent the student there.',
+    'The live class button opens without noopener, so the meeting window can reach back to the LMS.');
+$assert(str_contains($liveHtml, $classSpelling), 'The start time is printed labelled UTC, the same clock the record is kept in.',
+    'The class time reached the page unlabelled or not at all.');
+// The gate is the controller's, and the template obeys it: a row that carries an address is handed
+// over with the plan closed, and the bytes contain none of it. Hiding the card with CSS would leave
+// the address in the page for anybody who looked, which is the one outcome this feature cannot undo.
+$closedHtml = $render(static fn() => \App\Core\View::render('learning/lesson', [
+    'title' => 'Smoke lesson',
+    'user' => ['id' => $studentId, 'name' => 'Render Smoke Student', 'email' => $studentEmail, 'role' => 'student'],
+    'lesson' => $lessonRow + ['meeting_url' => $meetingAddress, 'meeting_at' => $classStart, 'plan_code' => AccessPlan::RECORDED],
+    'liveClass' => null,
+]));
+foreach ([$meetingAddress, 'meet.google.com', 'Open live class', 'lesson-live-class', 'LIVE CLASS'] as $leak) {
+    $assert(!str_contains($closedHtml, $leak), 'A Recorded Only lesson page holds no "' . $leak . '".',
+        'The closed gate still let "' . $leak . '" into the rendered page.');
+}
+$assert(str_contains($closedHtml, 'Lesson body.'), 'The recording and the lesson text are untouched for that student.',
+    'Closing the live class took the lesson page down with it.');
+$db->prepare('UPDATE lessons SET meeting_url = NULL, meeting_at = NULL WHERE id = ?')->execute([$lessonId]);
 
 /* ------------------------------------------------------- work waiting on the Academy */
 // A student can leave six kinds of work sitting on the Academy. Each has to be countable straight

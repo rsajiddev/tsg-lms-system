@@ -10,6 +10,7 @@ use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\CourseDuration;
+use App\Services\AccessPlan;
 use App\Services\LessonMedia;
 use App\Services\NotificationService;
 use PDO;
@@ -29,7 +30,7 @@ final class CourseAdminController
         $imageColumn = $courseImagesAvailable ? 'c.image_path' : 'NULL AS image_path';
         $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM courses c LEFT JOIN course_modules cm ON cm.course_id=c.id LEFT JOIN lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
-        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'plansAvailable' => AccessPlan::columnStored($db, 'student_course_access.plan_code'), 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -46,6 +47,7 @@ final class CourseAdminController
         $db = Database::connection();
         $media = new LessonMedia($db);
         $videosAvailable = $this->lessonVideoColumnsAvailable($db);
+        $liveClassesAvailable = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at');
         $watchAvailable = $media->available();
         $search = substr(trim((string) ($_GET['q'] ?? '')), 0, 120);
         $courseId = max(0, (int) ($_GET['course_id'] ?? 0));
@@ -87,6 +89,11 @@ final class CourseAdminController
         $videoColumns = $videosAvailable
             ? 'l.video_url,l.video_provider,l.video_duration_seconds'
             : 'NULL AS video_url,\'none\' AS video_provider,NULL AS video_duration_seconds';
+        // Same trick as the video columns: an older import still gets the lesson list, it simply
+        // reports no live class instead of failing on a column that has not arrived yet.
+        $meetingColumns = $liveClassesAvailable
+            ? 'l.meeting_url,l.meeting_at'
+            : 'NULL AS meeting_url,NULL AS meeting_at';
         $from = 'FROM lessons l JOIN course_modules cm ON cm.id = l.module_id JOIN courses c ON c.id = cm.course_id';
         $count = $db->prepare("SELECT COUNT(*) $from$where");
         $count->execute($params);
@@ -108,7 +115,7 @@ final class CourseAdminController
         $watchColumn = $watchAvailable
             ? '(SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
             : '0 AS watching_count';
-        $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,cm.id AS module_id,cm.title AS module_title,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,$meetingColumns,cm.id AS module_id,cm.title AS module_title,
                     c.id AS course_id,c.title AS course_title,c.visibility AS course_visibility,
                     (SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
                     (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
@@ -127,6 +134,7 @@ final class CourseAdminController
             'courses' => $courses,
             'metrics' => $metrics,
             'videosAvailable' => $videosAvailable,
+            'liveClassesAvailable' => $liveClassesAvailable,
             'watchAvailable' => $watchAvailable,
             'watchPercent' => $media->watchPercent(),
             'watchMinPercent' => LessonMedia::MIN_PERCENT,
@@ -310,6 +318,8 @@ final class CourseAdminController
         $status = (string)($_POST['status'] ?? 'draft');
         $videoInput = trim((string)($_POST['video_url'] ?? ''));
         $durationInput = trim((string)($_POST['video_duration'] ?? ''));
+        $meetingInput = trim((string)($_POST['meeting_url'] ?? ''));
+        $meetingTimeInput = trim((string)($_POST['meeting_at'] ?? ''));
         if ($courseId < 1 || mb_strlen($moduleTitle) < 2 || mb_strlen($lessonTitle) < 2 || mb_strlen($lessonTitle) > 200 || !in_array($status, ['draft', 'published'], true) || mb_strlen($body) > 500000) throw new RuntimeException('Enter a valid module and lesson title, content, and publishing status.');
         $videoColumns = $this->lessonVideoColumnsAvailable($db);
         $videoUrl = LessonMedia::normaliseUrl($videoInput);
@@ -323,6 +333,17 @@ final class CourseAdminController
             $videoDuration = null;
         }
         $videoProvider = $videoUrl === null ? 'none' : LessonMedia::detectProvider($videoUrl);
+        // The live class link is validated even on a database that has not been re-imported, so an
+        // admin who pastes a javascript: address is refused now instead of after the next import.
+        $meetingUrl = LessonMedia::normaliseMeetingUrl($meetingInput);
+        $meetingAt = LessonMedia::parseMeetingTime($meetingTimeInput);
+        $meetingColumns = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at');
+        if ($meetingUrl === null && $meetingAt !== null) {
+            throw new RuntimeException('A class time needs a meeting link. Paste the Zoom or Google Meet address as well.');
+        }
+        if (($meetingUrl !== null || $meetingAt !== null) && !$meetingColumns) {
+            throw new RuntimeException('Live class links require the updated database/migrations/001_initial_schema.sql. Import it, then try again.');
+        }
         $db->beginTransaction();
         try {
             $check = $db->prepare('SELECT id, title FROM courses WHERE id=?');
@@ -343,6 +364,13 @@ final class CourseAdminController
                     $params[] = $videoUrl;
                     $params[] = $videoProvider;
                     $params[] = $videoDuration;
+                }
+                if ($meetingColumns) {
+                    // Clearing the link clears the class time with it, which is why the validation
+                    // above refuses a time without a link: an orphan appointment would keep showing.
+                    $assignments .= ',meeting_url=?,meeting_at=?';
+                    $params[] = $meetingUrl;
+                    $params[] = $meetingUrl === null ? null : $meetingAt;
                 }
                 $params[] = $lessonId;
                 $params[] = $moduleId;
@@ -368,6 +396,12 @@ final class CourseAdminController
                     $params[] = $videoProvider;
                     $params[] = $videoDuration;
                 }
+                if ($meetingColumns) {
+                    $columns .= ',meeting_url,meeting_at';
+                    $placeholders .= ',?,?';
+                    $params[] = $meetingUrl;
+                    $params[] = $meetingUrl === null ? null : $meetingAt;
+                }
                 $columns .= ',sort_order';
                 $placeholders .= ',(SELECT COALESCE(MAX(sort_order),0)+1 FROM lessons existing WHERE existing.module_id=?)';
                 $params[] = $moduleId;
@@ -376,7 +410,7 @@ final class CourseAdminController
                 $lessonId = (int)$db->lastInsertId();
                 $action = 'lesson.created';
             }
-            $this->audit($db, (int)$admin['id'], $action, 'lesson', $lessonId, ['status' => $status]);
+            $this->audit($db, (int)$admin['id'], $action, 'lesson', $lessonId, ['status' => $status, 'live_class' => $meetingUrl !== null ? 1 : 0]);
             $db->commit();
         } catch (\Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -443,7 +477,12 @@ final class CourseAdminController
         $studentId = (int)($_POST['student_id'] ?? 0);
         $courseId = (int)($_POST['course_id'] ?? 0);
         $action = (string)($_POST['access_action'] ?? 'grant');
-        if ($studentId < 1 || $courseId < 1 || !in_array($action, ['grant', 'revoke'], true)) throw new RuntimeException('Choose a student, course, and valid access action.');
+        if ($studentId < 1 || $courseId < 1 || !in_array($action, ['grant', 'revoke', 'plan'], true)) throw new RuntimeException('Choose a student, course, and valid access action.');
+        // The plan is what decides whether this student may see a lesson's live class link. A grant
+        // carries it, and "Set plan only" changes it without touching the access state or the
+        // expiry window - which is how an admin upgrades a student who paid extra, or puts one back.
+        $planCode = AccessPlan::normalise($_POST['plan_code'] ?? null);
+        $tracksPlan = AccessPlan::columnStored($db, 'student_course_access.plan_code');
         $db->beginTransaction();
         try {
             if ($action === 'grant') {
@@ -454,21 +493,40 @@ final class CourseAdminController
                 $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
                 $grantedAtSql = $grantedAt->format('Y-m-d H:i:s');
                 $expiresAt = CourseDuration::expiry((string)$duration, $grantedAt);
-                $stmt = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at) SELECT ?,?,'active',?,?,?,NULL,NULL FROM users u JOIN courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL");
-                $stmt->execute([$studentId, $courseId, (int)$admin['id'], $grantedAtSql, $expiresAt, $courseId, $studentId]);
+                $stmt = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
+                    . ($tracksPlan ? ',plan_code' : '')
+                    . ") SELECT ?,?,'active',?,?,?,NULL,NULL" . ($tracksPlan ? ',?' : '')
+                    . " FROM users u JOIN courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL"
+                    . ($tracksPlan ? ',plan_code=VALUES(plan_code)' : ''));
+                $grantParams = [$studentId, $courseId, (int)$admin['id'], $grantedAtSql, $expiresAt];
+                if ($tracksPlan) $grantParams[] = $planCode;
+                array_push($grantParams, $courseId, $studentId);
+                $stmt->execute($grantParams);
                 if ($stmt->rowCount() === 0) throw new RuntimeException('Active verified student or course not found.');
+            } elseif ($action === 'plan') {
+                if (!$tracksPlan) throw new RuntimeException('Delivery plans require the updated database/migrations/001_initial_schema.sql. Import it, then try again.');
+                $enrolled = $db->prepare('SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? LIMIT 1');
+                $enrolled->execute([$studentId, $courseId]);
+                if (!$enrolled->fetchColumn()) throw new RuntimeException('That student has no enrolment in this course. Grant access first, then set its plan.');
+                $db->prepare('UPDATE student_course_access SET plan_code=? WHERE student_id=? AND course_id=?')->execute([$planCode, $studentId, $courseId]);
             } else {
                 $stmt = $db->prepare("UPDATE student_course_access SET status='revoked',revoked_by=?,revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND status='active'");
                 $stmt->execute([(int)$admin['id'], $studentId, $courseId]);
                 if ($stmt->rowCount() === 0) throw new RuntimeException('No active access grant exists for that student/course.');
             }
-            $this->audit($db, (int)$admin['id'], 'course_access.' . $action, 'course', $courseId, ['student_id' => $studentId]);
+            $metadata = ['student_id' => $studentId];
+            if ($tracksPlan && $action !== 'revoke') $metadata['plan_code'] = $planCode;
+            $this->audit($db, (int)$admin['id'], 'course_access.' . $action, 'course', $courseId, $metadata);
             $db->commit();
         } catch (\Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             throw $e;
         }
-        $_SESSION['_flash'] = 'Course access updated.';
+        $_SESSION['_flash'] = $action === 'plan'
+            ? 'Delivery plan set to ' . AccessPlan::label($planCode) . '.'
+            : ($action === 'grant' && $tracksPlan
+                ? 'Course access granted on the ' . AccessPlan::label($planCode) . ' plan.'
+                : 'Course access updated.');
         $this->redirect('/admin/courses');
     }
 
