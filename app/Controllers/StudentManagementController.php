@@ -10,7 +10,9 @@ use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\AttendanceService;
+use App\Services\LessonProtection;
 use App\Services\NotificationService;
+use App\Services\SessionRegistry;
 use RuntimeException;
 use PDO;
 
@@ -83,11 +85,19 @@ final class StudentManagementController
         $studentId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
         $selectedStudent = null;
         $activity = [];
+        $sessions = [];
+        $registry = new SessionRegistry($db);
         $selectedLoginCounts = ['successful' => 0, 'failed' => 0];
         if ($studentId !== null) {
             $selectedQuery = $db->prepare("SELECT id,full_name,email,status,account_reference,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
             $selectedQuery->execute([$studentId]);
             $selectedStudent = $selectedQuery->fetch() ?: null;
+            // Read whether or not the login history exists: an open session is a live fact, not a
+            // historical one, and it is the thing an admin needs when a student says the lesson will
+            // not play on their laptop.
+            if ($selectedStudent) {
+                $sessions = $registry->activeFor($studentId);
+            }
             if ($selectedStudent && $loginHistoryAvailable) {
                 $countsQuery = $db->prepare("SELECT SUM(event_type='success') AS successful, SUM(event_type IN ('failed','blocked')) AS failed FROM login_events WHERE user_id=?");
                 $countsQuery->execute([$studentId]);
@@ -111,6 +121,9 @@ final class StudentManagementController
             'selectedStudent' => $selectedStudent,
             'selectedLoginCounts' => $selectedLoginCounts,
             'activity' => $activity,
+            'sessions' => $sessions,
+            'sessionCap' => $registry->maxActive(),
+            'sessionsAvailable' => $registry->available(),
             'loginHistoryAvailable' => $loginHistoryAvailable,
             'graceMinutes' => (new AttendanceService($db))->graceMinutes(),
             'graceMinMinutes' => AttendanceService::MIN_GRACE_MINUTES,
@@ -179,6 +192,11 @@ final class StudentManagementController
                 $audit->execute([(int) $admin['id'], $status === 'suspended' ? 'student.blocked' : 'student.unblocked', 'user', $studentId, json_encode(['previous_status' => $student['status'], 'status' => $status], JSON_THROW_ON_ERROR)]);
             }
             $db->commit();
+            // A block has to reach accounts that are already sitting in a dashboard, not only stop
+            // the next sign-in: requireRole() finds the closed session rows on their next request.
+            if ($status === 'suspended') {
+                (new SessionRegistry($db))->revokeAll($studentId, 'admin_revoked');
+            }
         } catch (\Throwable $exception) {
             if ($db->inTransaction()) $db->rollBack();
             throw $exception;
@@ -186,6 +204,37 @@ final class StudentManagementController
         $_SESSION['_flash'] = $status === 'suspended'
             ? 'Student blocked. Their next request will end any active session, and sign-in is disabled.'
             : 'Student unblocked. They can sign in again.';
+        $this->redirect('/admin/students?student_id=' . $studentId);
+    }
+
+    /**
+     * Signs one account out of every device it is currently open on.
+     *
+     * Deliberately not the same thing as a block: a laptop left on a shared desk should stop holding
+     * the account's one session without stopping the student, who may be somewhere else entirely.
+     * The account stays active, and its next sign-in opens a clean registered session.
+     */
+    public function revokeSessions(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) throw new RuntimeException('Your session expired. Refresh and try again.');
+        $studentId = filter_var($_POST['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
+        if ($studentId < 1) throw new RuntimeException('Choose a valid student.');
+        $db = Database::connection();
+        $check = $db->prepare("SELECT id FROM users WHERE id=? AND role='student'");
+        $check->execute([$studentId]);
+        if (!$check->fetch()) throw new RuntimeException('That account is not a student.');
+        $registry = new SessionRegistry($db);
+        if (!$registry->available()) {
+            $_SESSION['_flash_error'] = 'The session register is not available in this database yet. Import the updated schema first.';
+            $this->redirect('/admin/students?student_id=' . $studentId);
+        }
+        $closed = (int) ($registry->revokeAll($studentId, 'admin_revoked')['closed'] ?? 0);
+        $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
+            ->execute([(int) $admin['id'], 'session.revoked_all', 'user', $studentId, json_encode(['closed_sessions' => $closed], JSON_THROW_ON_ERROR)]);
+        $_SESSION['_flash'] = $closed > 0
+            ? 'Signed the account out of ' . $closed . ' device(s). Its next sign-in opens a clean session.'
+            : 'That account had no open session to close.';
         $this->redirect('/admin/students?student_id=' . $studentId);
     }
 
@@ -281,6 +330,20 @@ final class StudentManagementController
             foreach ($statements as $table => $sql) {
                 $deleted[$table] = (int) $db->exec($sql);
             }
+            // The protection tables are tried separately. A database that has not been re-imported
+            // with them is missing nothing a student purge depends on, and a half-imported schema
+            // must not stop the directory from clearing.
+            foreach ([
+                'lesson_view_events' => 'DELETE FROM lesson_view_events WHERE student_id IN ' . $students,
+                'user_sessions' => 'DELETE FROM user_sessions WHERE user_id IN ' . $students,
+            ] as $table => $sql) {
+                try {
+                    $deleted[$table] = (int) $db->exec($sql);
+                } catch (\PDOException $exception) {
+                    if ((string) $exception->getCode() !== '42S02') throw $exception;
+                    $deleted[$table] = 0;
+                }
+            }
             // The delivery log keeps its rows and only loses the link to the removed account,
             // because the operator still has to see which message went to whom.
             $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
@@ -302,7 +365,7 @@ final class StudentManagementController
             }
         }
         $_SESSION['_flash'] = sprintf(
-            'Deleted %d student account(s) with their enrollments, payments, submissions, grades and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
+            'Deleted %d student account(s) with their enrollments, payments, submissions, grades, sessions and certificates.%s New sign-ups keep running the ID sequence, so no reference is ever reused.',
             $deleted['accounts'],
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );

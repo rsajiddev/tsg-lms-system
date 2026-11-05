@@ -29,6 +29,8 @@ foreach (
         '/app/Services/AuthService.php',
         '/app/Services/AttendanceService.php',
         '/app/Services/LessonMedia.php',
+        '/app/Services/LessonProtection.php',
+        '/app/Services/SessionRegistry.php',
         '/app/Services/CourseGrading.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
@@ -140,6 +142,7 @@ $router->get('/learning', [\App\Controllers\LearningController::class, 'course']
 $router->get('/learning/lesson', [\App\Controllers\LearningController::class, 'lesson']);
 $router->post('/learning/complete', [\App\Controllers\LearningController::class, 'complete']);
 $router->post('/learning/lesson/watch', [\App\Controllers\LearningController::class, 'watch']);
+$router->post('/learning/lesson/view', [\App\Controllers\LearningController::class, 'view']);
 $router->get('/learning/challenges', [\App\Controllers\CodingChallengeController::class, 'studentIndex']);
 $router->get('/learning/challenge', [\App\Controllers\CodingChallengeController::class, 'editor']);
 $router->post('/learning/challenge/submit', [\App\Controllers\CodingChallengeController::class, 'submitAttempt']);
@@ -172,6 +175,7 @@ $router->post('/admin/certificates/reject', [\App\Controllers\CertificateControl
 $router->get('/admin/assignments', [\App\Controllers\AssignmentController::class, 'adminIndex']);
 $router->get('/admin/students', [\App\Controllers\StudentManagementController::class, 'index']);
 $router->post('/admin/students/status', [\App\Controllers\StudentManagementController::class, 'setStatus']);
+$router->post('/admin/students/revoke-sessions', [\App\Controllers\StudentManagementController::class, 'revokeSessions']);
 $router->post('/admin/students/clear-activity', [\App\Controllers\StudentManagementController::class, 'clearActivity']);
 $router->post('/admin/students/purge', [\App\Controllers\StudentManagementController::class, 'purgeAll']);
 $router->post('/admin/students/attendance', [\App\Controllers\StudentManagementController::class, 'saveAttendance']);
@@ -192,6 +196,7 @@ $router->post('/chats/clear', [\App\Controllers\ChatController::class, 'clear'])
 $router->post('/admin/chats/delete', [\App\Controllers\ChatController::class, 'deleteThread']);
 $router->get('/admin/activity', [\App\Controllers\NotificationController::class, 'activity']);
 $router->post('/admin/activity/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
+$router->post('/admin/activity/view-log/clear', [\App\Controllers\NotificationController::class, 'clearViewLog']);
 $router->post('/admin/activity/clear', [\App\Controllers\NotificationController::class, 'clearActivity']);
 $router->get('/notifications', [\App\Controllers\NotificationController::class, 'studentIndex']);
 $router->post('/notifications/read-all', [\App\Controllers\NotificationController::class, 'markAllRead']);
@@ -221,6 +226,7 @@ $router->post('/admin/lessons/purge', [\App\Controllers\CourseAdminController::c
 $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::class, 'access']);
 $router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);
 $router->post('/admin/settings', [\App\Controllers\AdminManagementController::class, 'saveSettings']);
+$router->post('/admin/settings/video-protection', [\App\Controllers\AdminManagementController::class, 'saveVideoProtection']);
 $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::class, 'reviews']);
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);

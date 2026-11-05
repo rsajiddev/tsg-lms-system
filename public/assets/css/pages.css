@@ -4757,6 +4757,61 @@ html.js [data-reveal].is-visible.dash-card:hover {
   border: 0
 }
 
+/* Content protection. The shell is what goes fullscreen, not the media element: a <video> cannot
+   hold a child overlay, so marking the element alone would leave the watermark behind on the page
+   the moment a student pressed the fullscreen button. */
+.lesson-video-shell {
+  position: relative;
+  border-radius: 14px
+}
+
+.lesson-watermark {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none
+}
+
+.lesson-watermark-mark {
+  position: absolute;
+  display: grid;
+  gap: 2px;
+  max-width: 62%;
+  font-size: 11px;
+  line-height: 1.35;
+  text-shadow: 0 1px 2px rgba(2, 6, 23, .85)
+}
+
+.lesson-watermark-mark b {
+  font-weight: 800;
+  letter-spacing: .02em
+}
+
+.lesson-watermark-mark i {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em
+}
+
+/* Kept above the control strip, which the browser draws over the bottom of the media element. */
+.lesson-watermark-strong {
+  right: 12px;
+  bottom: 42px;
+  padding: 5px 8px;
+  color: #fff;
+  text-align: right;
+  background: rgba(2, 6, 23, .42);
+  border-radius: 8px
+}
+
+.lesson-watermark-faint {
+  top: 14px;
+  left: 14px;
+  color: rgba(255, 255, 255, .4)
+}
+
 .lesson-watch {
   display: grid;
   gap: 10px;
@@ -4819,6 +4874,16 @@ html.js [data-reveal].is-visible.dash-card:hover {
   line-height: 1.6
 }
 
+/* What the player says out loud when it refuses something. Deliberately no display declaration,
+   so the element's own hidden attribute keeps it collapsed without an override. */
+.lesson-protection-note {
+  margin: 0;
+  color: #b45309;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6
+}
+
 @media(max-width:600px) {
   .learning-heading {
     align-items: flex-start;
@@ -4834,6 +4899,15 @@ html.js [data-reveal].is-visible.dash-card:hover {
   .lesson-video,
   .lesson-video-frame {
     aspect-ratio: 16 / 10
+  }
+
+  .lesson-watermark-mark {
+    max-width: 72%;
+    font-size: 10px
+  }
+
+  .lesson-watermark-strong {
+    bottom: 48px
   }
 }
 

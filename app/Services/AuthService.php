@@ -185,7 +185,11 @@ final class AuthService
         if (strlen($password) < 12 || strlen($password) > 4096) {
             throw new RuntimeException('Use a password between 12 and 4096 characters.');
         }
-        $this->verifyOtp($email, $code, 'reset_password', false, password_hash($password, PASSWORD_DEFAULT));
+        $userId = $this->verifyOtp($email, $code, 'reset_password', false, password_hash($password, PASSWORD_DEFAULT));
+        // A reset proves the mailbox, not a device. Nothing that was signed in before the password
+        // changed is trusted afterwards, so every session for the account is closed and left to be
+        // re-opened by a real sign-in.
+        (new SessionRegistry($this->db))->revokeAll($userId, 'password_change');
     }
 
     /* ------------------------------------------------------------- account settings */
@@ -226,6 +230,13 @@ final class AuthService
         $this->db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int) $user['id']]);
         $this->limiter->clear('password_change_failed', ['user:' . (int) $user['id']]);
         $this->recordProfileAudit((int) $user['id'], 'profile.password_changed');
+        // Every other device holding this account is signed out. The one that has just proved it
+        // knows the previous password is kept, and re-registered so the registry has a live row
+        // for it even when the session predates the feature - throwing a student off the device
+        // they are standing on would only teach them to distrust the change.
+        $registry = new SessionRegistry($this->db);
+        $registry->revokeAll((int) $user['id'], 'password_change', true);
+        $registry->register((int) $user['id']);
     }
 
     /** Address the user is currently being asked to confirm, if a change is still pending. */

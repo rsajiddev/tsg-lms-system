@@ -45,6 +45,11 @@ foreach (
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
         '/app/Services/AttendanceService.php',
+        // AuthMiddleware consults the session registry on every authorised request, so a harness that
+        // calls a controller has to load it - and the registry files its sign-in reports through the
+        // protection service.
+        '/app/Services/LessonProtection.php',
+        '/app/Services/SessionRegistry.php',
         '/app/Controllers/AssignmentController.php',
         '/app/Controllers/ChatController.php',
         '/app/Controllers/NotificationController.php',
@@ -194,6 +199,9 @@ $tables = [
     'quiz_answers', 'quiz_attempt_options', 'quiz_attempt_questions', 'quiz_options',
     'quiz_retake_approvals', 'quiz_attempts', 'quiz_questions', 'quizzes',
     'assignment_submissions', 'assignments', 'lesson_progress', 'lessons', 'course_modules',
+    // Both protection tables hang off a student, and one of them off a lesson, so they are emptied
+    // before either parent - the same order the purges themselves keep.
+    'lesson_view_events', 'user_sessions',
     'payments', 'attendance_records', 'email_otps', 'coding_challenge_attempts', 'login_events',
     'student_course_access', 'course_pricing_options', 'courses',
     'notification_recipients', 'notification_replies', 'notifications', 'audit_logs', 'email_logs',
@@ -250,6 +258,16 @@ try {
         $progress->execute([$studentId, $lessonId]);
     }
 
+    // The two tables the video protection feature adds. One viewing report is deliberately filed with
+    // no lesson behind it, because an account-level report is not about a recording and a lesson purge
+    // has no claim on it.
+    $viewEvent = $db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,?,?,?,?)');
+    $viewEvent->execute([$studentId, $lessonIds[0], 'download_blocked', '127.0.0.1', 'Save video as']);
+    $viewEvent->execute([$studentId, $lessonIds[1], 'context_menu', '127.0.0.1', 'Right click on the player']);
+    $viewEvent->execute([$studentId, null, 'session_cap', '127.0.0.1', '1 older session(s) signed out by this sign-in.']);
+    $db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
+        ->execute([$studentId, hash('sha256', 'purge-smoke-session'), '127.0.0.1', gmdate('Y-m-d H:i:s')]);
+
     $quizIds = [];
     foreach ([1 => 'Smoke quiz A', 2 => 'Smoke quiz B'] as $week => $title) {
         $db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,?,?,'practice','released',?)")->execute([$courseId, $week, $title, $adminId]);
@@ -300,6 +318,7 @@ try {
     /* ------------------------------------------------------------------- assertions */
     $count = static fn(string $table): int => (int) $db->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn();
     $assert($count('lessons') === 3 && $count('quizzes') === 2 && $count('assignments') === 2 && $count('quiz_attempts') === 2, 'Seeding did not produce the expected fixture.');
+    $assert($count('lesson_view_events') === 3 && $count('user_sessions') === 1, 'The protection fixtures did not load.');
     $badgeCheck = static fn(): int => (new NotificationService($db))->unreadByArea($studentId)['lessons'];
     $assert($badgeCheck() === 1, 'The lessons badge should count the seeded notification.');
 
@@ -332,6 +351,11 @@ try {
     $output = $invoke('lessons');
     $assert(str_contains($output, 'FLASH|Deleted 3 lesson(s) and 3 progress record(s)'), 'Lesson purge reported: ' . trim($output));
     $assert($count('lessons') === 0 && $count('lesson_progress') === 0, 'Lesson rows survived the purge.');
+    // A removed lesson takes the reports filed against it. The account-level row has no lesson behind
+    // it, so it is not the lesson purge's to take - and the audit row has to say how many went.
+    $assert($count('lesson_view_events') === 1, 'The lesson purge left a viewing report of its own lessons behind, or took one that was not about a lesson: ' . $count('lesson_view_events') . ' row(s) left.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='lesson.bulk_deleted' AND JSON_EXTRACT(metadata,'$.view_events_deleted')=2")->fetchColumn() === 1,
+        'The lesson purge audit row does not count the two viewing reports it removed.');
     $assert($badgeCheck() === 0, 'The lessons badge still counts a notification for a purged lesson.');
     $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='lesson.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the lesson purge.');
 
@@ -375,6 +399,11 @@ try {
     $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')->execute([$paymentNotificationId, $studentId]);
     $db->prepare("INSERT INTO notifications(created_by,title,body,audience,category,published_at)
         VALUES(?,?,?,'all_students','announcement',UTC_TIMESTAMP())")->execute([$adminId, 'Kept announcement', 'Body']);
+    // The account is signed in while it is removed, and one viewing report is still on file from the
+    // lesson round above - both belong to the account and leave with it.
+    $db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
+        ->execute([$studentId, hash('sha256', 'purge-smoke-session-two'), '127.0.0.1', gmdate('Y-m-d H:i:s')]);
+    $db->prepare("INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,NULL,'seek_ahead','127.0.0.1','A head start at the last heartbeat')")->execute([$studentId]);
 
     $assert($count('payments') === 1 && $count('certificates') === 1 && $count('email_logs') === 1 && $count('attendance_records') === 1,
         'The student fixture round did not load.');
@@ -385,12 +414,16 @@ try {
 
     $output = $invoke('students');
     $assert(str_contains($output, 'FLASH|Deleted 1 student account(s)'), 'Student purge reported: ' . trim($output));
+    $assert(str_contains($output, 'sessions and certificates'), 'The student purge does not say it took the account\'s sessions with it: ' . trim($output));
     $assert(str_contains($output, '1 uploaded file(s) were removed'), 'Student purge did not report the removed submission file: ' . trim($output));
     $assert(!is_file($proofPath), 'The stored submission file survived the student purge.');
     $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
         'The student purge must leave the admin account and remove every student.');
     foreach (['assignment_submissions', 'attendance_records', 'certificates', 'course_grades', 'email_otps', 'login_events',
-        'notification_recipients', 'payments', 'quiz_retake_approvals', 'student_course_access'] as $table) {
+        'notification_recipients', 'payments', 'quiz_retake_approvals', 'student_course_access',
+        // A live session row is the one record that would otherwise outlive the account it identifies
+        // and keep a hash of nobody's sign-in on file.
+        'user_sessions', 'lesson_view_events'] as $table) {
         $assert($count($table) === 0, $table . ' still holds rows after the student purge.');
     }
     // Course content belongs to the academy, not to the removed accounts, and stays.

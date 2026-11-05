@@ -5,6 +5,8 @@ use App\Core\Security;
 $mode = isset($mode) && is_string($mode) ? $mode : 'error';
 $message = isset($message) && is_string($message) ? $message : null;
 $values = isset($values) && is_array($values) ? $values : [];
+// A message that reports something going wrong must not arrive dressed as a confirmation.
+$messageTone = isset($messageTone) && $messageTone === 'error' ? 'error' : 'success';
 $resendSeconds = isset($resendSeconds) && is_int($resendSeconds) ? max(0, $resendSeconds) : 0;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $value = static fn(string $name): string => Security::escape((string) ($values[$name] ?? ''));
@@ -30,7 +32,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
         <h1><?= Security::escape($copy['heading']) ?></h1>
         <p class="auth-sub"><?= Security::escape($copy['sub']) ?></p>
       </header>
-      <?php \App\Core\View::toast('success', $message ?? null); ?>
+      <?php \App\Core\View::toast($messageTone, $message ?? null); ?>
       <?php if ($mode === 'error'): ?><p>Return to the form and try again.</p>
       <?php elseif ($mode === 'register'): ?>
         <form method="post" action="<?= Security::escape($baseUrl) ?>/register">

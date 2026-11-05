@@ -6,9 +6,11 @@ namespace App\Controllers;
 
 use App\Core\AuthMiddleware;
 use App\Core\Database;
+use App\Core\RateLimiter;
 use App\Core\Security;
 use App\Core\View;
 use App\Services\LessonMedia;
+use App\Services\LessonProtection;
 use App\Services\CourseGrading;
 use PDO;
 use RuntimeException;
@@ -48,11 +50,16 @@ final class LearningController
         }
         // Watch state comes from the service, so the player and the completion rule read the same row.
         $state = (new LessonMedia($db))->state((int) $student['id'], $lessonId);
+        // The watermark is computed server-side: a name and an Academy ID that the browser made up
+        // would be worth nothing as evidence. The page still draws it even when the view log has not
+        // been imported, because the mark costs nothing beyond this one call.
+        $protection = new LessonProtection($db);
         View::render('learning/lesson', [
             'title' => $lesson['lesson_title'],
             'user' => $student,
             'lesson' => $lesson,
             'media' => $state,
+            'watermark' => $protection->watermark((int) $student['id'], (string) $student['name']),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
@@ -86,7 +93,7 @@ final class LearningController
         }
         $media = new LessonMedia($db);
         $state = $media->record((int) $student['id'], $lessonId, (int) $position);
-        echo json_encode([
+        $payload = [
             'ok' => true,
             'watched' => (int) $state['watched'],
             'watched_label' => $state['watched_label'],
@@ -99,7 +106,66 @@ final class LearningController
             'completed' => (bool) $state['completed'],
             'just_completed' => (bool) ($state['just_completed'] ?? false),
             'rule_applies' => (bool) $state['rule_applies'],
-        ], JSON_UNESCAPED_SLASHES);
+        ];
+        // The overlay's rotating trace code rides the heartbeat it is already making, so the mark on
+        // screen cannot go stale during a long recording and no extra request is spent on it.
+        $protection = new LessonProtection($db);
+        if ($protection->watermarkEnabled()) {
+            $payload['watermark'] = $protection->refresh((int) $student['id']);
+        }
+        echo json_encode($payload, JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Player protection reports: a blocked fullscreen, a right-click, an unusually large jump.
+     *
+     * Answers JSON like watch(), and never touches watch time or completion. The event list is
+     * fixed on the server, so a request can only name something the Academy already decided is
+     * worth reading about; the two account-level events are filed by the session registry itself
+     * and are refused here.
+     */
+    public function view(): void
+    {
+        $student = AuthMiddleware::requireRole('student');
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $refuse = static function (string $error): void {
+            echo json_encode(['ok' => false, 'error' => $error], JSON_UNESCAPED_SLASHES);
+        };
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            $refuse('session');
+            return;
+        }
+        $event = (string) ($_POST['event'] ?? '');
+        $lessonId = filter_var($_POST['lesson_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+        if (!in_array($event, LessonProtection::CLIENT_EVENTS, true) || $lessonId < 1) {
+            $refuse('event');
+            return;
+        }
+        $db = Database::connection();
+        if (!$this->accessibleLesson($db, (int) $student['id'], $lessonId)) {
+            http_response_code(404);
+            $refuse('unavailable');
+            return;
+        }
+        $protection = new LessonProtection($db);
+        if (!$protection->available()) {
+            // The player has no way to know the log is missing, and nothing here is worth failing a
+            // lesson page over: answer as if it were recorded and move on.
+            $refuse('unavailable');
+            return;
+        }
+        $subjects = ['user:' . (int) $student['id']];
+        try {
+            (new RateLimiter($db))->assertAllowed('lesson_view_event', $subjects, 40, 300);
+        } catch (RuntimeException $exception) {
+            $refuse('slow');
+            return;
+        }
+        (new RateLimiter($db))->record('lesson_view_event', $subjects);
+        $detail = mb_substr(trim((string) ($_POST['detail'] ?? '')), 0, 120);
+        $protection->log((int) $student['id'], $lessonId, $event, $detail === '' ? null : $detail);
+        echo json_encode(['ok' => true], JSON_UNESCAPED_SLASHES);
     }
 
     public function complete(): void

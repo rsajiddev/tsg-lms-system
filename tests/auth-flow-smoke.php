@@ -25,6 +25,10 @@ namespace {
     require BASE_PATH . '/app/Services/AdminAttention.php';
     require BASE_PATH . '/app/Services/MailService.php';
     require BASE_PATH . '/app/Services/AttendanceService.php';
+    // AuthService closes other devices on a password change, so a harness that calls it has to load
+    // the registry - and the registry files its sign-in reports through the protection service.
+    require BASE_PATH . '/app/Services/LessonProtection.php';
+    require BASE_PATH . '/app/Services/SessionRegistry.php';
     require BASE_PATH . '/app/Services/AuthService.php';
     \App\Core\Env::load(BASE_PATH . '/.env');
 
@@ -287,6 +291,17 @@ namespace {
         $auth->login($email, 'New Correct Horse 8!');
         $expectFailure(static fn() => $auth->login($email, 'Correct Horse Battery 9!'), 'Email or password is incorrect');
 
+        // This suite runs against whatever database the developer has in front of them, so the session
+        // table may or may not have been re-imported. Both answers have to be correct: where the table
+        // exists, a reset leaves no live session behind; where it does not, the flow must still have
+        // run, because a half-imported database is not allowed to lock anybody out of their account.
+        $registry = new \App\Services\SessionRegistry($db);
+        $assert(!$registry->available() || $registry->activeFor($userId) === [],
+            $registry->available()
+                ? 'A password reset leaves the account with no live session on file.'
+                : 'user_sessions is not imported here, and the whole auth flow still ran on the fail-open path.',
+            'A password reset left a live session for the account: ' . json_encode($registry->activeFor($userId)) . '.');
+
         $mailCount = count($delivered());
         // A duplicate and an undeliverable code used to be the same `false`, which is why the form
         // told a returning student to go and configure SMTP. They are two flags now.
@@ -333,7 +348,7 @@ namespace {
             'The countdown handed to the browser runs on the resend wait, so it can never outlive the interval the server enforces.',
             'resendSecondsRemaining() returned ' . $resetWait . ' against a configured cooldown of ' . $configuredCooldown . '.');
 
-        echo "Auth smoke checks passed: registration, loopback SMTP delivery, OTP activation, replay rejection, login, password reset, duplicate rejection, email log, rate limiting and the separate resend interval.\n";
+        echo "Auth smoke checks passed: registration, loopback SMTP delivery, OTP activation, replay rejection, login, password reset, duplicate rejection, email log, rate limiting, the separate resend interval and the session registry alongside it.\n";
         $status = 0;
     } catch (Throwable $exception) {
         fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
@@ -351,6 +366,10 @@ namespace {
                 'login_events' => 'user_id',
                 'email_otps' => 'user_id',
                 'email_logs' => 'related_user_id',
+                // Both tables the video protection feature adds are keyed on the account, so a run
+                // against the development database leaves nothing behind in either.
+                'user_sessions' => 'user_id',
+                'lesson_view_events' => 'student_id',
             ];
             foreach ($childColumns as $child => $column) {
                 try {

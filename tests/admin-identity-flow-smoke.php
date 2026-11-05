@@ -33,6 +33,11 @@ namespace {
             '/app/Services/AdminAttention.php',
             '/app/Services/MailService.php',
             '/app/Services/NotificationService.php',
+            // AuthService and AccountController close the account's other devices on a password change,
+            // so a harness that calls them has to load the registry - and the registry files its
+            // sign-in reports through the protection service.
+            '/app/Services/LessonProtection.php',
+            '/app/Services/SessionRegistry.php',
             '/app/Services/AuthService.php',
             '/app/Controllers/AccountController.php',
         ] as $file

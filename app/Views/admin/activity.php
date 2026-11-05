@@ -6,6 +6,9 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $automated = is_array($automated ?? null) ? $automated : [];
 $emailLog = is_array($emailLog ?? null) ? $emailLog : [];
+$viewLog = is_array($viewLog ?? null) ? $viewLog : [];
+$viewLogTotal = (int) ($viewLogTotal ?? 0);
+$viewRetentionDays = max(1, (int) ($viewRetentionDays ?? 30));
 $unreadTotal = (int) ($unreadTotal ?? 0);
 $automatedTotal = (int) ($automatedTotal ?? 0);
 $emailTotal = (int) ($emailTotal ?? 0);
@@ -66,9 +69,39 @@ $error = $error ?? null; ?>
                 </tbody></table></div><?php endif; ?>
     </section>
     <?php
-    // Both tables above are reports the platform fills itself, so a test round writes straight into
-    // them. This is the one card that empties them together without touching an announcement an
-    // admin published by hand.
+    // The player writes this one. Nothing here is a judgement: a report never changes a student's watch
+    // time or grade, it only tells the Academy that something around a recording was tried.
+    ?>
+    <section class="admin-card">
+        <div class="admin-card-header">
+            <div class="admin-card-titles">
+                <h2>Lesson view log</h2>
+                <p>The latest <?= count($viewLog) ?><?= $viewLogTotal > count($viewLog) ? ' of ' . $viewLogTotal : '' ?> unusual things tried around a lesson recording - kept for <?= $viewRetentionDays ?> day(s). It changes no student's watch time or grade.</p>
+            </div>
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/activity/view-log/clear" class="student-status-form" onsubmit="return confirm('Clear every recorded viewing report? The log starts again with the next blocked action.')">
+                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                <button class="student-action-button is-clear" type="submit"<?= $viewLog === [] ? ' disabled' : '' ?>>Clear viewing log</button>
+            </form>
+        </div>
+        <?php if ($viewLog === []): ?><div class="admin-empty-state">
+                <h3>No viewing reports recorded yet</h3>
+                <p>A blocked download, a refused fullscreen, a right-click on the player or a large jump forward appears here once students are watching, and the lesson_view_events table is imported.</p>
+            </div><?php else: ?><div class="admin-table-wrapper"><table class="admin-table admin-table-stacked"><thead><tr><th>Student</th><th>What happened</th><th>Lesson</th><th>Course</th><th>Address</th><th>Reported</th></tr></thead><tbody>
+                    <?php foreach ($viewLog as $row): ?><tr>
+                            <td data-label="Student"><strong><?= $escape($row['student_name']) ?></strong><br><code><?= $escape($row['student_reference']) ?></code></td>
+                            <td data-label="What happened" title="<?= $escape($row['detail'] ?? '') ?>"><span class="dashboard-status"><?= $escape(\App\Services\LessonProtection::label((string) $row['event_type'])) ?></span></td>
+                            <td data-label="Lesson"><?= $row['lesson_title'] !== null ? $escape($row['lesson_title']) : 'Account session' ?></td>
+                            <td data-label="Course"><?= $escape($row['course_title'] ?? '—') ?></td>
+                            <td data-label="Address"><code><?= $escape($row['ip_address'] ?? '—') ?></code></td>
+                            <td data-label="Reported"><?= $escape(date('M j, Y H:i', strtotime((string) $row['created_at']))) ?> UTC</td>
+                        </tr><?php endforeach; ?>
+                </tbody></table></div><?php endif; ?>
+    </section>
+    <?php
+    // The first two tables are reports the platform fills itself, so a test round writes straight into
+    // them. This is the one card that empties them together without touching an announcement an admin
+    // published by hand. The lesson view log keeps its own control above: it is evidence about students,
+    // and clearing it should never be a side effect of tidying up something else.
     $purgeAction = '/admin/activity/clear';
     $purgePhrase = 'CLEAR RECENT ACTIVITY';
     $purgeTitle = 'Clear recent activity';
@@ -86,6 +119,8 @@ $error = $error ?? null; ?>
         'Open any update to check it. The link shows the notice with the list of students it reached, which is the quickest way to confirm the wording after a change.',
         'The unread column is student-side. It counts the same records the sidebar numbers do, so a row stuck above zero means someone has not looked yet.',
         'The delivery log proves the send, not the read. It shows the latest automated emails and whether the mail server accepted them; message bodies are never stored.',
+        'The lesson view log is the player reporting resistance, not a student being accused. A blocked download, a refused fullscreen, a right-click on the recording or a jump forward of more than a few heartbeats appears here with the Account ID it happened under, and rows older than the retention window on the Security settings page are dropped the next time this desk is opened.',
+        'Clearing the viewing log is not a punishment. It empties the report only: watch time, completion, grades and certificates are untouched by anything on this page.',
         'Clear delivery log empties one table. Use it between test rounds to start the mail history again while every notification stays where it is.',
         'Clear recent activity empties both. Automated updates, their recipient rows, the replies filed under them and the whole log go, and the unread numbers in student sidebars drop with them.',
         'Announcements are never touched here. Anything you wrote on the Announcements page stays on the board, and its own clearing card lives there.',

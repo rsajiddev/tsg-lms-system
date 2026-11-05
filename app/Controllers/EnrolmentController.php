@@ -9,6 +9,7 @@ use App\Core\Security;
 use App\Core\View;
 use App\Services\AuthService;
 use App\Services\MailService;
+use App\Services\SessionRegistry;
 use PDOException;
 use RuntimeException;
 
@@ -303,6 +304,10 @@ final class EnrolmentController
         session_regenerate_id(true);
         unset($_SESSION['_csrf']);
         $_SESSION['user'] = $account;
+        // Sign-in happens on this path too, so the session registry has to be told here as well:
+        // a student who enrols straight from a course page and is displaced on their next click
+        // would otherwise be bounced with nothing recorded about how they got in.
+        (new SessionRegistry())->register((int) $account['id']);
     }
 
     private function catalogue(string $message): void

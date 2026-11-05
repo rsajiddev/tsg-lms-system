@@ -8,6 +8,8 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\LessonProtection;
+use App\Services\SessionRegistry;
 
 /**
  * Security, payment and moderation settings.
@@ -56,6 +58,35 @@ final class AdminManagementController
     ];
 
     /**
+     * The sessions-and-video-protection card, saved by its own endpoint.
+     *
+     * `video_watermark_enabled` is the one non-numeric field, so it carries its own choices rather
+     * than a range. The limits are stated in minutes and counts, never as a promise: the overlay is
+     * drawn in the page and cannot brand a recording that is played somewhere else.
+     */
+    private const VIDEO_PROTECTION_SETTINGS = [
+        SessionRegistry::MAX_ACTIVE_KEY => [
+            'label' => 'Active sessions per account',
+            'min' => SessionRegistry::MIN_MAX_ACTIVE,
+            'max' => SessionRegistry::MAX_MAX_ACTIVE,
+            'unit' => 'sessions',
+            'hint' => 'The company rule is one. Raise it when students genuinely study on two devices; a new sign-in always displaces the oldest session, and the displaced one is signed out on its next click.',
+        ],
+        LessonProtection::WATERMARK_KEY => [
+            'label' => 'Account watermark over the player',
+            'choices' => ['1' => 'On - print the student name, Academy ID, time and trace code', '0' => 'Off'],
+            'hint' => 'Drawn over the recording in this page. It is not burned into the video file, and it cannot appear on a screen recording made by another application.',
+        ],
+        LessonProtection::RETENTION_KEY => [
+            'label' => 'Keep unusual viewing reports for',
+            'min' => LessonProtection::MIN_RETENTION_DAYS,
+            'max' => LessonProtection::MAX_RETENTION_DAYS,
+            'unit' => 'days',
+            'hint' => 'Blocked downloads, right-clicks, blocked fullscreen and large forward jumps, collected on the Recent activity page.',
+        ],
+    ];
+
+    /**
      * Other screens (payments, certificates, students, lesson library) share the app_settings
      * table with this page, so only the keys declared in SETTINGS are read or written here.
      */
@@ -72,12 +103,25 @@ final class AdminManagementController
             foreach (array_keys(self::SETTINGS) as $key) {
                 if (isset($stored[$key])) $values[$key] = (int) $stored[$key];
             }
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'message' => $_SESSION['_flash'] ?? null]);
+            // The protection card answers with defaults rather than an empty box when its seeds have
+            // not been imported, because a half-imported database must still be configurable.
+            $protectionValues = [
+                SessionRegistry::MAX_ACTIVE_KEY => isset($stored[SessionRegistry::MAX_ACTIVE_KEY])
+                    ? (int) $stored[SessionRegistry::MAX_ACTIVE_KEY]
+                    : SessionRegistry::DEFAULT_MAX_ACTIVE,
+                LessonProtection::WATERMARK_KEY => isset($stored[LessonProtection::WATERMARK_KEY])
+                    ? ($stored[LessonProtection::WATERMARK_KEY] === '0' ? '0' : '1')
+                    : '1',
+                LessonProtection::RETENTION_KEY => isset($stored[LessonProtection::RETENTION_KEY])
+                    ? (int) $stored[LessonProtection::RETENTION_KEY]
+                    : LessonProtection::DEFAULT_RETENTION_DAYS,
+            ];
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => self::SETTINGS, 'groups' => self::SETTING_GROUPS, 'values' => $values, 'videoProtection' => self::VIDEO_PROTECTION_SETTINGS, 'protectionValues' => $protectionValues, 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
         } catch (\PDOException $exception) {
             if ((string)$exception->getCode() !== '42S02') throw $exception;
-            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'message' => null, 'migrationRequired' => true]);
+            View::render('admin/settings', ['title' => 'Admin settings', 'user' => $admin, 'settings' => [], 'groups' => [], 'values' => [], 'message' => null, 'error' => $_SESSION['_flash_error'] ?? null, 'migrationRequired' => true]);
         }
-        unset($_SESSION['_flash']);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function saveSettings(): void
@@ -103,6 +147,64 @@ final class AdminManagementController
             if ($db->inTransaction()) $db->rollBack();
             throw $e;
         }
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
+        exit;
+    }
+
+    /**
+     * Saves only the three video-protection keys.
+     *
+     * The page's other endpoint, /admin/settings, deliberately does not know about these: a form
+     * that posts the authentication limits must not be able to switch the watermark off by omitting
+     * a field, which is what a single shared save handler would do.
+     */
+    public function saveVideoProtection(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            return;
+        }
+        $db = Database::connection();
+        $clean = [];
+        foreach (self::VIDEO_PROTECTION_SETTINGS as $key => $spec) {
+            $raw = $_POST[$key] ?? '';
+            if (!is_string($raw)) $raw = '';
+            $raw = trim($raw);
+            if (isset($spec['choices'])) {
+                if (!array_key_exists($raw, $spec['choices'])) {
+                    $_SESSION['_flash_error'] = $spec['label'] . ' needs a clear answer. Choose one of the options and save again.';
+                    $this->backToSettings();
+                }
+                $clean[$key] = $raw;
+                continue;
+            }
+            if (!ctype_digit($raw) || (int) $raw < $spec['min'] || (int) $raw > $spec['max']) {
+                $_SESSION['_flash_error'] = $spec['label'] . ' must be between ' . $spec['min'] . ' and ' . $spec['max'] . ' ' . $spec['unit'] . '.';
+                $this->backToSettings();
+            }
+            $clean[$key] = $raw;
+        }
+        $db->beginTransaction();
+        try {
+            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            foreach ($clean as $key => $value) {
+                $upsert->execute([$key, $value, (int) $admin['id']]);
+            }
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'settings.video_protection_updated','app_settings',JSON_OBJECT('keys',?))")
+                ->execute([(int) $admin['id'], implode(',', array_keys($clean))]);
+            $db->commit();
+            $_SESSION['_flash'] = 'Session and video protection settings saved.';
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            $_SESSION['_flash_error'] = 'The protection settings could not be saved. Try again.';
+            error_log('[VIDEO PROTECTION] Settings save failed: ' . $exception->getMessage());
+        }
+        $this->backToSettings();
+    }
+
+    private function backToSettings(): never
+    {
         header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
         exit;
     }

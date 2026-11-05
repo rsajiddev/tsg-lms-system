@@ -25,6 +25,7 @@ use App\Services\AccountIdentity;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $students = is_array($students ?? null) ? $students : [];
 $activity = is_array($activity ?? null) ? $activity : [];
+$sessions = is_array($sessions ?? null) ? $sessions : [];
 $search = is_string($search ?? null) ? $search : '';
 $statusFilter = is_string($statusFilter ?? null) ? $statusFilter : 'all';
 $page = max(1, (int) ($page ?? 1));
@@ -196,6 +197,26 @@ $accountId = static function (array $account): string {
                 <span><strong>Successful sign-ins</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['successful'] ?? 0)) ?></span>
                 <span><strong>Failed / blocked attempts</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['failed'] ?? 0)) ?></span>
             </div>
+            <div class="student-activity-toolbar">
+                <h3>Open sessions <small>Devices holding this account right now · cap <?= (int) ($sessionCap ?? 1) ?></small></h3>
+                <?php if (!empty($sessionsAvailable) && $sessions !== []): ?>
+                    <form method="post" action="<?= Security::escape($baseUrl) ?>/admin/students/revoke-sessions" class="student-status-form" onsubmit="return confirm('Sign this account out of every device? The student stays active and can sign in again.')">
+                        <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+                        <input type="hidden" name="student_id" value="<?= (int) $selectedStudent['id'] ?>">
+                        <button class="student-action-button is-clear" type="submit">Close all sessions</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            <?php if (empty($sessionsAvailable)): ?>
+                <div class="dashboard-empty"><div><h2>Session tracking is not set up yet</h2><p>Import the updated 001_initial_schema.sql file into your existing database to see which devices this account is open on and to enforce one session per student.</p></div></div>
+            <?php elseif ($sessions === []): ?>
+                <div class="dashboard-empty"><div><h2>No open session</h2><p>Nothing is signed in as this account. The next sign-in appears here and takes the place of the oldest session if the cap is already full.</p></div></div>
+            <?php else: ?>
+                <div class="admin-table-wrapper"><table class="admin-table student-activity-table">
+                    <thead><tr><th>Device</th><th>IP address</th><th>Signed in</th><th>Last seen (UTC)</th></tr></thead>
+                    <tbody><?php foreach ($sessions as $session): ?><tr><td data-label="Device"><?= Security::escape(\App\Services\SessionRegistry::describeAgent($session['user_agent_hash'] ?? null) ?? 'Unknown device') ?></td><td data-label="IP address"><?= Security::escape($session['ip_address'] ?: 'Unavailable') ?></td><td data-label="Signed in"><?= Security::escape($session['created_at']) ?></td><td data-label="Last seen (UTC)"><?= Security::escape($session['last_seen_at']) ?></td></tr><?php endforeach; ?></tbody>
+                </table></div>
+            <?php endif; ?>
             <div class="student-activity-toolbar">
                 <h3>Recent sign-in activity <small>Latest 50 records · server time in UTC</small></h3>
                 <?php if (!empty($loginHistoryAvailable) && $activity !== []): ?>

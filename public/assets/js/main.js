@@ -822,6 +822,56 @@
         const completedLabel = document.querySelector('[data-completed-label]');
         const interval = Math.max(5, Number.parseInt(player.dataset.heartbeat || '10', 10)) * 1000;
         const duration = Math.max(0, Number.parseInt(player.dataset.duration || '0', 10));
+        const heartbeatSeconds = Math.max(5, Number.parseInt(player.dataset.heartbeat || '10', 10));
+
+        /* Content protection. Everything below resists and records, and none of it decides watch      */
+        /* time: a blocked action is a line on the admin's desk, never a deduction from the student's   */
+        /* progress, so a browser that fires an event at the wrong moment cannot cost anybody a grade.  */
+
+        const viewEndpoint = player.dataset.viewEndpoint || '';
+        const shell = player.querySelector('[data-video-shell]');
+        const overlay = player.querySelector('[data-watermark-overlay]');
+        const protectionNote = player.querySelector('[data-protection-note]');
+        let noteTimer = 0;
+
+        const announce = (message) => {
+            if (!protectionNote) return;
+            protectionNote.textContent = message;
+            protectionNote.hidden = false;
+            if (noteTimer) window.clearTimeout(noteTimer);
+            noteTimer = window.setTimeout(() => { protectionNote.hidden = true; }, 6000);
+        };
+
+        const notify = (event, detail) => {
+            if (!viewEndpoint) return;
+            const body = new FormData();
+            body.append('_csrf', player.dataset.csrf || '');
+            body.append('lesson_id', lessonId);
+            body.append('event', event);
+            body.append('detail', String(detail || '').slice(0, 120));
+            // Fire and forget. A protection report that cannot be sent must not hold up or break playback.
+            window.fetch(viewEndpoint, { method: 'POST', credentials: 'same-origin', body, keepalive: true }).catch(() => {});
+        };
+
+        const paintMark = (selector, value) => {
+            if (!overlay || !value) return;
+            overlay.querySelectorAll(selector).forEach((node) => { node.textContent = value; });
+        };
+
+        const activeFullscreen = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+        const leaveFullscreen = () => {
+            if (!activeFullscreen()) return Promise.resolve();
+            try {
+                if (typeof document.exitFullscreen === 'function') {
+                    return document.exitFullscreen() || Promise.resolve();
+                }
+                if (typeof document.webkitExitFullscreen === 'function') document.webkitExitFullscreen();
+            } catch (error) {
+                // The browser was already on its way out; there is nothing here for the page to undo.
+            }
+            return Promise.resolve();
+        };
 
         let position = Math.max(0, Number.parseInt(player.dataset.position || '0', 10));
         let activeSeconds = 0;
@@ -849,6 +899,15 @@
                     : data.watched_label;
             }
             if (data.completed && !finished) markCompleted();
+            // The rotating part of the account mark rides this response rather than a request of its
+            // own, so a long recording cannot leave a stale trace code printed over the picture.
+            if (data.watermark) {
+                if (data.watermark.trace) {
+                    player.dataset.trace = data.watermark.trace;
+                    paintMark('[data-wm-trace]', data.watermark.trace);
+                }
+                paintMark('[data-wm-time]', data.watermark.time);
+            }
             if (!data.completed && unlockHint && data.required) {
                 const remaining = Math.max(0, Number(data.required) - Number(data.watched));
                 unlockHint.textContent = remaining > 0
@@ -890,6 +949,88 @@
             if (duration && position + activeSeconds > duration + 60) activeSeconds = Math.max(0, duration - position);
             report(false);
         };
+
+        /* Fullscreen is the one interaction that can put a recording on a screen with nothing around */
+        /* it, so the shell carrying the account mark - never the media element by itself - is what is */
+        /* allowed to grow.                                                                           */
+        const onFullscreenChange = () => {
+            const open = activeFullscreen();
+            if (!open || open === shell) return;
+            if (open !== video && open !== frame) return;
+            if (open === video && shell && typeof shell.requestFullscreen === 'function') {
+                // The control bar asked for the video alone. Hand the request to the shell instead.
+                leaveFullscreen().then(() => {
+                    try {
+                        const attempt = shell.requestFullscreen();
+                        if (attempt && typeof attempt.catch === 'function') {
+                            attempt.catch(() => announce('This recording could not be enlarged with the account mark kept beside it.'));
+                        }
+                    } catch (error) {
+                        announce('Fullscreen could not be started for this recording.');
+                    }
+                });
+                return;
+            }
+            // An embed filling the screen would show the provider's player and none of this page's mark.
+            leaveFullscreen();
+            announce('Fullscreen is switched off for this provider’s player, so the account mark cannot be left behind.');
+            notify('fullscreen_blocked', 'Fullscreen attempted on the embedded player.');
+        };
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+        if (shell) {
+            shell.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                announce('Right-click is disabled on the player. The recording stays with the lesson.');
+                notify('context_menu', 'Context menu suppressed over the player.');
+            });
+            shell.addEventListener('dragstart', (event) => {
+                event.preventDefault();
+                notify('download_blocked', 'The media was dragged out of the player.');
+            });
+        }
+
+        // The save shortcut is refused only while the player itself holds focus, so saving any other
+        // part of the site is left alone.
+        player.addEventListener('keydown', (event) => {
+            if ((event.ctrlKey || event.metaKey) && !event.altKey && String(event.key).toLowerCase() === 's') {
+                event.preventDefault();
+                announce('Lesson recordings cannot be saved from the player.');
+                notify('download_blocked', 'Save shortcut pressed inside the player.');
+            }
+        });
+
+        if (video) {
+            // disablepictureinpicture should stop this outright; the listener is for a browser that
+            // ignores the attribute, so the mark cannot end up floating over a corner of the desktop.
+            video.addEventListener('enterpictureinpicture', () => {
+                try {
+                    if (document.pictureInPictureElement === video && typeof document.exitPictureInPicture === 'function') {
+                        document.exitPictureInPicture().catch(() => {});
+                    }
+                } catch (error) {
+                    // Nothing to exit: this browser never let it start.
+                }
+                announce('Picture-in-picture is turned off for lesson recordings.');
+                notify('pip_blocked', 'Picture-in-picture was entered and exited.');
+            });
+
+            // A jump forward of more than three heartbeats in one step is noted for the desk, and only
+            // for the desk - the watch-time rule keeps counting forward play exactly as before. A student
+            // returning to minute forty has not jumped anywhere, so the resume seek is not reported.
+            let lastSeen = position;
+            let started = false;
+            video.addEventListener('playing', () => { started = true; }, { once: true });
+            video.addEventListener('timeupdate', () => { lastSeen = Math.floor(video.currentTime); });
+            video.addEventListener('seeking', () => {
+                const where = Math.floor(video.currentTime);
+                if (started && where - lastSeen > heartbeatSeconds * 3) {
+                    notify('seek_ahead', `Jumped ${where - lastSeen} seconds forward in one step.`);
+                }
+                lastSeen = where;
+            });
+        }
 
         if (!finished) {
             ticker = window.setInterval(tick, interval);

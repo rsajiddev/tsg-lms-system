@@ -11,6 +11,22 @@ $media += [
     'rule_applies' => false, 'percent' => 90, 'heartbeat' => 10,
 ];
 $playerEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/watch';
+$viewEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/view';
+$watermark = isset($watermark) && is_array($watermark) ? $watermark : [];
+$watermark += ['enabled' => false, 'name' => '', 'reference' => '—', 'time' => '', 'trace' => '000000', 'label' => ''];
+// Drawn only while it is switched on. An overlay is absolutely positioned, so leaving it in the
+// page and hiding it would need a [hidden] override of its own for no benefit.
+$watermarkOverlay = static function () use ($escape, $watermark): string {
+    if (!$watermark['enabled'] || trim((string) $watermark['label']) === '') return '';
+    // Two copies of the same mark, one solid in the corner and one faint across the other, because a
+    // crop that removes one still leaves the other to identify the recording.
+    $line = '<b>' . $escape((string) $watermark['label']) . '</b>'
+        . '<i><span data-wm-time>' . $escape((string) $watermark['time']) . '</span> · <span data-wm-trace>' . $escape((string) $watermark['trace']) . '</span></i>';
+    return '<div class="lesson-watermark" data-watermark-overlay aria-hidden="true">'
+        . '<span class="lesson-watermark-mark lesson-watermark-strong">' . $line . '</span>'
+        . '<span class="lesson-watermark-mark lesson-watermark-faint">' . $line . '</span>'
+        . '</div>';
+};
 ?>
 <section class="dashboard-page learning-page">
   <div class="dashboard-topbar"><button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
@@ -30,20 +46,31 @@ $playerEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/watch';
   <?php if ($media['has_video']): ?>
     <article class="dashboard-panel lesson-player<?= $media['trackable'] ? ' lesson-player-file' : ' lesson-player-embed' ?>" data-lesson-player
              data-endpoint="<?= $playerEndpoint ?>"
+             data-view-endpoint="<?= $viewEndpoint ?>"
              data-lesson-id="<?= (int) $lesson['lesson_id'] ?>"
              data-csrf="<?= $escape(Security::csrfToken()) ?>"
              data-heartbeat="<?= (int) $media['heartbeat'] ?>"
              data-duration="<?= (int) $media['duration'] ?>"
              data-position="<?= (int) $media['position'] ?>"
              data-trackable="<?= $media['trackable'] ? '1' : '0' ?>"
+             data-watermark="<?= $watermark['enabled'] && trim((string) $watermark['label']) !== '' ? '1' : '0' ?>"
+             data-student-label="<?= $escape((string) $watermark['label']) ?>"
+             data-trace="<?= $escape((string) $watermark['trace']) ?>"
              data-completed="<?= ($media['completed'] || (int) $lesson['completed'] === 1) ? '1' : '0' ?>">
       <?php if ($media['trackable'] && $media['embed_url']): ?>
-        <video class="lesson-video" controls preload="metadata" playsinline src="<?= $media['embed_url'] ?>">
-          Your browser cannot play this video. <a href="<?= $media['embed_url'] ?>">Open the recording directly</a>.
-        </video>
+        <?php /* The shell is the fullscreen target: a <video> cannot hold a child overlay, and full-screening the element alone would leave the watermark behind on the page. */ ?>
+        <div class="lesson-video-shell" data-video-shell>
+          <video class="lesson-video" controls controlsList="nodownload" disablepictureinpicture preload="metadata" playsinline src="<?= $media['embed_url'] ?>">
+            Your browser cannot play this video. <a href="<?= $media['embed_url'] ?>">Open the recording directly</a>.
+          </video>
+          <?= $watermarkOverlay() ?>
+        </div>
       <?php elseif ($media['embed_url']): ?>
-        <div class="lesson-video-frame">
-          <iframe class="lesson-iframe" src="<?= $media['embed_url'] ?>" title="<?= $escape($lesson['lesson_title']) ?> lesson video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <div class="lesson-video-shell" data-video-shell>
+          <div class="lesson-video-frame">
+            <iframe class="lesson-iframe" src="<?= $media['embed_url'] ?>" title="<?= $escape($lesson['lesson_title']) ?> lesson video" loading="lazy" allow="accelerometer; autoplay; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          </div>
+          <?= $watermarkOverlay() ?>
         </div>
       <?php endif; ?>
       <div class="lesson-watch">
@@ -63,8 +90,13 @@ $playerEndpoint = $escape((string) ($baseUrl ?? '')) . '/learning/lesson/watch';
         ?></p>
       </div>
       <?php if (!$media['trackable']): ?>
-        <p class="lesson-player-hint"><?= $escape(ucfirst($media['provider'])) ?> videos cannot report their playhead, so watched time is measured while this tab stays open and active.</p>
+        <p class="lesson-player-hint"><?= $escape(ucfirst($media['provider'])) ?> videos cannot report their playhead, so watched time is measured while this tab stays open and active. Their own fullscreen and picture-in-picture controls are switched off here, so the account mark stays on screen.</p>
       <?php endif; ?>
+      <?php /* Filled by public/assets/js/main.js when the player refuses something. A line inside the card
+              rather than a floating toast, because the toast overlay is printed by PHP and has no script-side
+              injector, and a warning about the recording in front of the student belongs beside it. No display
+              rule is set here, so the browser's own [hidden] handling is what keeps it out of the way. */ ?>
+      <p class="lesson-protection-note" data-protection-note hidden></p>
     </article>
   <?php endif; ?>
   <article class="dashboard-panel learning-content"><?php if (trim((string) ($lesson['body'] ?? '')) !== ''): ?><div class="learning-body"><?= nl2br($escape($lesson['body'])) ?></div><?php else: ?><div class="dashboard-empty">

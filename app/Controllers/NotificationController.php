@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\LessonProtection;
 use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
@@ -44,6 +45,10 @@ final class NotificationController
      * Both lists are read-only reports over data the workspace produces, so the desk is the last
      * entry in the sidebar and the only action on it is the one that clears it for the next test
      * round.
+     *
+     * The lesson view log sits beside them for the same reason: the player fills it, nobody edits it,
+     * and it is the only place an Academy-side look at unusual viewing happens. Reading it sweeps the
+     * rows past the retention window first, because this environment has no scheduler to do it.
      */
     public function activity(): void
     {
@@ -70,6 +75,10 @@ final class NotificationController
         } catch (\Throwable $exception) {
             $emailTotal = 0;
         }
+        $protection = new LessonProtection($db);
+        $protection->sweepExpired();
+        $viewLog = $protection->recent(60);
+        $viewLogTotal = $protection->count();
         View::render('admin/activity', [
             'title' => 'Recent activity',
             'user' => $admin,
@@ -78,6 +87,9 @@ final class NotificationController
             'unreadTotal' => $unreadTotal,
             'automatedTotal' => $automatedTotal,
             'emailTotal' => $emailTotal,
+            'viewLog' => $viewLog,
+            'viewLogTotal' => $viewLogTotal,
+            'viewRetentionDays' => $protection->retentionDays(),
             'error' => $_SESSION['_flash_error'] ?? null,
             'message' => $_SESSION['_flash'] ?? null,
         ]);
@@ -156,6 +168,37 @@ final class NotificationController
         $_SESSION['_flash'] = $deleted > 0
             ? 'Cleared ' . number_format($deleted) . ' e-mail delivery record(s).'
             : 'The delivery log was already empty.';
+        $this->redirect('/admin/activity');
+    }
+
+    /**
+     * Empties the lesson view log.
+     *
+     * Same shape as the delivery log beside it: the reports are the Academy's, the rows underneath
+     * belong to lessons and students that stay untouched, and the next blocked action rebuilds the
+     * list. A clear is itself written to the audit trail.
+     */
+    public function clearViewLog(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        $this->csrf();
+        $protection = new LessonProtection(Database::connection());
+        if (!$protection->available()) {
+            $_SESSION['_flash_error'] = 'The lesson view log is not available in this database yet. Import the updated schema first.';
+            $this->redirect('/admin/activity');
+        }
+        $deleted = $protection->clearAll();
+        $db = Database::connection();
+        try {
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'lesson_view_log.cleared', 'lesson_view_log', JSON_OBJECT('deleted_rows', ?))")
+                ->execute([(int) $admin['id'], $deleted]);
+        } catch (\Throwable $exception) {
+            // The audit row is a nicety here; the cleared log is the outcome the admin asked for.
+            error_log('[VIDEO PROTECTION] Clear could not be audited: ' . $exception->getMessage());
+        }
+        $_SESSION['_flash'] = $deleted > 0
+            ? 'Cleared ' . number_format($deleted) . ' viewing report(s).'
+            : 'The lesson view log was already empty.';
         $this->redirect('/admin/activity');
     }
 

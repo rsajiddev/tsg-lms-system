@@ -43,7 +43,10 @@ foreach (
         '/app/Services/LessonMedia.php',
         '/app/Services/CourseGrading.php',
         '/app/Services/AttendanceService.php',
+        '/app/Services/LessonProtection.php',
+        '/app/Services/SessionRegistry.php',
         '/app/Controllers/DashboardController.php',
+        '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/NotificationController.php',
         '/app/Controllers/AccountController.php',
         '/app/Controllers/AssignmentController.php',
@@ -62,6 +65,7 @@ use App\Core\Database;
 use App\Core\Env;
 use App\Core\Security;
 use App\Controllers\AccountController;
+use App\Controllers\AdminManagementController;
 use App\Controllers\AssignmentController;
 use App\Controllers\ChatController;
 use App\Controllers\CourseAdminController;
@@ -73,7 +77,9 @@ use App\Controllers\QuizController;
 use App\Services\AccountIdentity;
 use App\Services\AdminAttention;
 use App\Services\ChatService;
+use App\Services\LessonProtection;
 use App\Services\NotificationService;
+use App\Services\SessionRegistry;
 
 Env::load(BASE_PATH . '/.env');
 $options = getopt('', ['database::', 'drop::']);
@@ -135,6 +141,23 @@ foreach (['student_cleared_at' => 'AFTER admin_seen_at', 'admin_cleared_at' => '
 }
 
 $db = Database::connection();
+// A scratch database that predates the video protection feature has neither of the two tables the
+// three surfaces below read, and a missing table would show up as an empty card rather than as the
+// stale schema it is. The migration is one guarded script that can be run again over a database it
+// already built, so the top-up re-imports it instead of copying the table definitions in here.
+$hasTable = static fn(string $table): bool => trim((string) shell_exec($mysql . ' ' . $credentials . ' -N -B -e ' . escapeshellarg(
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='" . $dbName . "' AND table_name='" . $table . "'"
+))) === '1';
+$protectionTables = ['user_sessions', 'lesson_view_events'];
+$missingTables = array_values(array_filter($protectionTables, static fn(string $table): bool => !$hasTable($table)));
+if ($missingTables !== []) {
+    shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' < '
+        . escapeshellarg(BASE_PATH . '/database/migrations/001_initial_schema.sql'));
+    echo 're-imported the schema into ' . $dbName . ' to add ' . implode(', ', $missingTables) . "\n";
+}
+$left = array_values(array_filter($protectionTables, static fn(string $table): bool => !$hasTable($table)));
+$assert($left === [], 'The scratch database holds the tables the protection surfaces read.',
+    'Even after a re-import, ' . $dbName . ' has no ' . implode(', ', $left) . '; the schema file is not the single guarded script it claims to be.');
 $adminEmail = 'render-smoke-admin@example.test';
 $studentEmail = 'render-smoke-student@example.test';
 
@@ -702,6 +725,93 @@ $db->exec('UPDATE users SET account_reference = NULL WHERE email IN (' . $db->qu
 AccountIdentity::saveScheme($db, $schemeBefore['prefix'], $schemeBefore['next'], $adminId);
 $assert(AccountIdentity::scheme($db) === $schemeBefore, 'The scheme the run found is the scheme it left behind.',
     'The identity section did not restore the saved scheme.');
+
+/* ------------------------------------------------------------ the video protection surfaces */
+// Three admin surfaces read the tables the video protection feature adds: the settings card that sets
+// the rules, the desk that prints what the player reported, and the student card that lists the live
+// devices. Each is rendered with real rows behind it, because a card that has only ever been seen in
+// its empty state can be broken for months without anyone noticing.
+echo "\n-- the video protection surfaces\n";
+$protectionReference = 'TSG-CER-2026-001';
+$db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$protectionReference, $studentId]);
+// The desk labels a device out of the stored hash, and only recognises the one in front of it - so
+// the harness has to be wearing the browser it expects to read back.
+$_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+$db->exec('DELETE FROM user_sessions WHERE user_id = ' . (int) $studentId);
+$db->exec('DELETE FROM lesson_view_events WHERE student_id = ' . (int) $studentId);
+$db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,user_agent_hash,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())')
+    ->execute([$studentId, hash('sha256', 'render-smoke-session'), '203.0.113.77', SessionRegistry::agentHash()]);
+$db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())')
+    ->execute([$studentId, $lessonId, 'download_blocked', '203.0.113.77', 'Save video as']);
+// An account-level report has no recording behind it, so the desk has to name the door it happened at
+// rather than leave a student's row standing next to a blank column.
+$db->prepare("INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,NULL,?,?,?,UTC_TIMESTAMP())")
+    ->execute([$studentId, 'session_cap', '203.0.113.77', '1 older session(s) signed out by this sign-in.']);
+
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/settings';
+$settingsHtml = $render(static fn() => (new AdminManagementController())->settings());
+foreach ([
+    'Sessions &amp; video protection',
+    'Active sessions per account',
+    'Account watermark over the player',
+    'Keep unusual viewing reports for',
+    '/admin/settings/video-protection',
+    'Save protection settings',
+    'name="' . SessionRegistry::MAX_ACTIVE_KEY . '"',
+    'name="' . LessonProtection::WATERMARK_KEY . '"',
+    'name="' . LessonProtection::RETENTION_KEY . '"',
+] as $needle) {
+    $assert(str_contains($settingsHtml, $needle), 'The settings card prints "' . $needle . '".',
+        'The Sessions & video protection card is missing "' . $needle . '".');
+}
+$assert(str_contains($settingsHtml, 'not burned into the video file') || str_contains($settingsHtml, 'not burned into'),
+    'The card states the limit of the mark where the switch is offered, not only in the README.',
+    'The watermark switch is offered without saying what it cannot do.');
+
+$_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/admin/activity';
+$activityHtml = $render(static fn() => (new NotificationController())->activity());
+$assert(str_contains($activityHtml, 'Lesson view log'), 'The recent activity report carries its own view log card.',
+    'No "Lesson view log" card on the activity page.');
+$assert(str_contains($activityHtml, '<code>' . $protectionReference . '</code>'), 'The view log names the student by Academy ID ' . $protectionReference . '.',
+    'The view log did not print the stored Academy ID.');
+$assert(preg_match('/<code>\s*' . (int) $studentId . '\s*<\/code>/', $activityHtml) !== 1,
+    'No view log row prints the internal row number where an ID belongs.',
+    'A view log row prints the users.id row instead of the Academy ID.');
+$assert(str_contains($activityHtml, 'Account session'), 'A sign-in report is filed under "Account session" rather than an invented lesson.',
+    'The account-level row lost its lesson-less label on the desk.');
+$assert(str_contains($activityHtml, 'Download attempted') && str_contains($activityHtml, 'Signed in on another device'),
+    'An event reaches the admin as a sentence, not as a column value.',
+    'The view log printed raw event keys.');
+$assert(str_contains($activityHtml, '/admin/activity/view-log/clear'), 'The view log has its own clear, apart from the page purge.',
+    'The view log card has no clear control, or it shares the recent activity purge.');
+$assert(str_contains($activityHtml, (new LessonProtection($db))->retentionDays() . ' day(s)'),
+    'The desk states the retention window it sweeps rows by.',
+    'The view log card does not name its retention window.');
+
+$_GET = ['student_id' => (string) $studentId];
+$sessionHtml = $render(static fn() => (new StudentManagementController())->index());
+$_GET = [];
+$assert(str_contains($sessionHtml, 'Open sessions') && str_contains($sessionHtml, 'Close all sessions'),
+    'The student detail lists the devices holding the account and how to close them.',
+    'The student detail renders no session block or no close control.');
+$assert(str_contains($sessionHtml, '203.0.113.77') && str_contains($sessionHtml, 'Chrome'),
+    'A listed session shows the address and the kind of device it was opened on.',
+    'The session table printed neither the address nor the device family.');
+$assert(!str_contains($sessionHtml, hash('sha256', 'render-smoke-session')),
+    'No session hash reaches the page an admin reads off the screen.',
+    'The session table prints the stored session hash.');
+$db->exec('DELETE FROM user_sessions WHERE user_id = ' . (int) $studentId);
+$_GET = ['student_id' => (string) $studentId];
+$noSessionHtml = $render(static fn() => (new StudentManagementController())->index());
+$_GET = [];
+$assert(str_contains($noSessionHtml, 'No open session'), 'A student with nothing signed in is told so in words.',
+    'The session block renders an empty table instead of saying there is nothing open.');
+// Back to how this section found the scratch database, so the queue counts below measure their own
+// fixtures and a rerun sees the same empty tables.
+$db->exec('DELETE FROM lesson_view_events WHERE student_id = ' . (int) $studentId);
+$db->prepare('UPDATE users SET account_reference = NULL WHERE id = ?')->execute([$studentId]);
+unset($_SERVER['HTTP_USER_AGENT']);
 
 /* ------------------------------------------------------- work waiting on the Academy */
 // A student can leave six kinds of work sitting on the Academy. Each has to be countable straight

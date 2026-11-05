@@ -7,7 +7,10 @@ $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $settings = $settings ?? [];
 $groups = $groups ?? [];
 $values = $values ?? [];
+$videoProtection = $videoProtection ?? [];
+$protectionValues = $protectionValues ?? [];
 $message = $message ?? null;
+$error = $error ?? null;
 ?>
 
 <section class="dashboard-page admin-workspace" data-reveal>
@@ -22,6 +25,7 @@ $message = $message ?? null;
     </header>
 
     <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
 
     <?php if (!empty($migrationRequired)): ?>
         <section class="admin-card">
@@ -106,6 +110,68 @@ $message = $message ?? null;
             </form>
         </section>
 
+    <?php endif; ?>
+
+    <?php if ($videoProtection !== []): ?>
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <div class="admin-card-title-group">
+                    <div class="admin-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <path d="M2 12h20"></path>
+                        </svg>
+                    </div>
+                    <div class="admin-card-titles">
+                        <h2>Sessions &amp; video protection</h2>
+                        <p>How many devices may hold a lesson at once, and what the player puts on screen while it plays.</p>
+                    </div>
+                </div>
+                <span class="count-pill"><?= count($videoProtection) ?> controls</span>
+            </div>
+
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/settings/video-protection" class="admin-form">
+                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+
+                <?php foreach ($videoProtection as $key => $spec): ?>
+                    <div class="admin-setting-row">
+                        <div class="admin-setting-row-text">
+                            <span class="admin-label"><?= $escape($spec['label']) ?></span>
+                            <span class="admin-hint"><?= $escape($spec['hint']) ?></span>
+                        </div>
+                        <div class="admin-setting-row-control">
+                            <?php if (isset($spec['choices'])): ?>
+                                <select class="admin-input" name="<?= $escape($key) ?>" aria-label="<?= $escape($spec['label']) ?>">
+                                    <?php foreach ($spec['choices'] as $option => $optionLabel): ?>
+                                        <option value="<?= $escape($option) ?>"<?= (string) ($protectionValues[$key] ?? $option) === (string) $option ? ' selected' : '' ?>><?= $escape($optionLabel) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <div class="admin-number-field">
+                                    <input class="admin-input" type="number" name="<?= $escape($key) ?>" min="<?= (int) $spec['min'] ?>" max="<?= (int) $spec['max'] ?>" required value="<?= (int) ($protectionValues[$key] ?? $spec['min']) ?>" aria-label="<?= $escape($spec['label']) ?>">
+                                    <span class="admin-number-unit"><?= $escape($spec['unit']) ?></span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <div class="form-actions">
+                    <button class="button" type="submit">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save protection settings
+                    </button>
+                </div>
+            </form>
+
+            <div class="admin-notice">
+                <p>Unusual viewing - blocked downloads, right-clicks, refused fullscreen and large forward jumps - is collected on the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/activity">Recent activity</a> page. Nothing there changes a student's watch time or grade; it is information for the Academy.</p>
+            </div>
+        </section>
     <?php endif; ?>
 
     <div class="dashboard-note settings-scope-note"><strong>Looking for a rule you used to set here?</strong><span>Feature settings now live with the page that uses them: the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">attendance confirmation window on Students</a>, the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons">lesson watch-time requirement on the Lesson library</a>, and the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/certificates">certificate prefix and validity on Certificates</a>.</span></div>

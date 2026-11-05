@@ -9,6 +9,7 @@ use App\Core\Security;
 use App\Core\View;
 use App\Services\AuthService;
 use App\Services\MailService;
+use App\Services\SessionRegistry;
 use RuntimeException;
 
 final class AuthController
@@ -83,7 +84,14 @@ final class AuthController
 
     public function loginPage(): void
     {
-        $this->page('login');
+        // The session registry signs a superseded device out through a redirect, and this is the
+        // page it lands on - without reading the flash here the student would arrive at a clean
+        // form with no explanation for having been kicked out of a lesson.
+        $message = isset($_SESSION['_flash_error']) && is_string($_SESSION['_flash_error'])
+            ? $_SESSION['_flash_error']
+            : null;
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+        $this->page('login', [], $message, $message === null ? 'success' : 'error');
     }
 
     public function login(): void
@@ -94,6 +102,9 @@ final class AuthController
             session_regenerate_id(true);
             unset($_SESSION['_csrf']);
             $_SESSION['user'] = ['id' => (int) $user['id'], 'name' => $user['full_name'], 'email' => $user['email'], 'role' => $user['role']];
+            // Registered after the id changes, and before anything else can be redirected: the new
+            // sign-in is the one that wins, and the session it displaces bounces on its next click.
+            (new SessionRegistry())->register((int) $user['id']);
             // Someone who came in through a course and already had an account should land on that
             // course's payment step, not on a dashboard. The payment page authorises the id itself.
             $intent = filter_var($_SESSION['enrol_course_id'] ?? null, FILTER_VALIDATE_INT);
@@ -108,6 +119,11 @@ final class AuthController
     public function logout(): void
     {
         if (!$this->csrfValid()) return;
+        // Close the registry row while the session id still exists to identify it.
+        $id = (int) ($_SESSION['user']['id'] ?? 0);
+        if ($id > 0) {
+            (new SessionRegistry())->revokeCurrent($id, 'logout');
+        }
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -171,13 +187,13 @@ final class AuthController
         return $this->auth->otpLifetimeSeconds();
     }
 
-    private function page(string $mode, array $values = [], ?string $message = null): void
+    private function page(string $mode, array $values = [], ?string $message = null, string $tone = 'success'): void
     {
         $resendSeconds = 0;
         if ($mode === 'verify' && filter_var((string)($values['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
             $resendSeconds = $this->auth->resendSecondsRemaining((string)$values['email']);
         }
-        View::render('auth/form', ['title' => $this->title($mode), 'mode' => $mode, 'values' => $values, 'message' => $message, 'resendSeconds' => $resendSeconds]);
+        View::render('auth/form', ['title' => $this->title($mode), 'mode' => $mode, 'values' => $values, 'message' => $message, 'messageTone' => $tone, 'resendSeconds' => $resendSeconds]);
     }
 
     private function title(string $mode): string

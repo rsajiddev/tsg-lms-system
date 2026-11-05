@@ -558,12 +558,24 @@ final class CourseAdminController
             $drop = $db->prepare("DELETE lp FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id WHERE lp.lesson_id IN ($in)");
             $drop->execute($lessonIds);
             $progressRows = $drop->rowCount();
+            // A removed lesson takes its viewing reports with it. The foreign key would cascade them
+            // away on its own; deleting them explicitly is what puts a number in the audit row, and it
+            // is skipped on a database that has not been re-imported with the table yet.
+            $viewRows = 0;
+            try {
+                $events = $db->prepare("DELETE FROM lesson_view_events WHERE lesson_id IN ($in)");
+                $events->execute($lessonIds);
+                $viewRows = $events->rowCount();
+            } catch (\PDOException $exception) {
+                if ((string) $exception->getCode() !== '42S02') throw $exception;
+            }
             $db->prepare("DELETE FROM lessons WHERE id IN ($in)")->execute($lessonIds);
             $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,NULL,?)')
                 ->execute([(int) $admin['id'], 'lesson.bulk_deleted', 'lesson', json_encode([
                     'course_id' => $courseId,
                     'lessons_deleted' => count($lessonIds),
                     'progress_deleted' => $progressRows,
+                    'view_events_deleted' => $viewRows,
                 ], JSON_THROW_ON_ERROR)]);
             $db->commit();
         } catch (\Throwable $error) {

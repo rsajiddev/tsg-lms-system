@@ -2328,3 +2328,75 @@ CREATE TABLE IF NOT EXISTS report_shares (
        CONSTRAINT fk_report_share_sender FOREIGN KEY(sent_by) REFERENCES users(id),
        INDEX idx_report_share_student(student_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- Video protection: one active session per account, and a log of unusual viewing.
+--
+-- A session is identified by a hash of its PHP session id, never by the id itself, so a
+-- leaked database row cannot be used to forge a cookie. The platform records what it can
+-- actually see - which machines are signed in as this account, and when the player is
+-- pushed towards capture (fullscreen, picture-in-picture, download) - because a DOM
+-- watermark and a session registry are deterrents and traces, not DRM.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_sessions (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       user_id BIGINT UNSIGNED NOT NULL,
+       session_hash CHAR(64) NOT NULL,
+       ip_address VARCHAR(45) NULL,
+       user_agent_hash CHAR(64) NULL,
+       created_at DATETIME NOT NULL,
+       last_seen_at DATETIME NOT NULL,
+       revoked_at DATETIME NULL,
+       revoked_reason ENUM(
+              'logout',
+              'password_change',
+              'superseded',
+              'admin_revoked',
+              'idle'
+       ) NULL,
+       UNIQUE KEY uq_user_session_hash(session_hash),
+       CONSTRAINT fk_user_session_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+       INDEX idx_user_session_active(user_id, revoked_at, last_seen_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Player-side protection events for one lesson and one student. Watch time is NOT decided
+-- from these rows: LessonMedia keeps sole authority over completion, so a blocked download
+-- attempt can never silently change a student's grade. A sign-in anomaly belongs to the
+-- account rather than to a recording, so the lesson reference is nullable and the desk prints
+-- those rows as "Account session" instead of inventing a lesson for them.
+CREATE TABLE IF NOT EXISTS lesson_view_events (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       lesson_id BIGINT UNSIGNED NULL,
+       event_type ENUM(
+              'session_cap',
+              'concurrent_ip',
+              'fullscreen_blocked',
+              'pip_blocked',
+              'download_blocked',
+              'seek_ahead',
+              'context_menu'
+       ) NOT NULL,
+       ip_address VARCHAR(45) NULL,
+       detail VARCHAR(255) NULL,
+       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       CONSTRAINT fk_view_event_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_view_event_lesson FOREIGN KEY(lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+       INDEX idx_view_event_created(created_at, id),
+       INDEX idx_view_event_student(student_id, created_at),
+       INDEX idx_view_event_lesson(lesson_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seeded once and never overwritten by a re-import, so an admin's own values survive.
+-- session_max_active is the literal company rule (one active session) at its default of 1;
+-- it is a setting rather than a constant because a student with a phone and a laptop is a
+-- real classroom fact, and the Academy has to be able to answer it without a code change.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('session_max_active', '1'),
+       ('video_watermark_enabled', '1'),
+       ('lesson_view_retention_days', '30') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+       (setting_key);
