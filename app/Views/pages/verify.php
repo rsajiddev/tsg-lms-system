@@ -141,3 +141,11 @@ $formatDate = static function (?string $value): string {
         <article><span class="verify-step" aria-hidden="true">3</span><h3>Anyone can confirm it</h3><p>Share your Academy ID or the verification link — employers and institutions can check every certificate behind it here without an account.</p></article>
     </div>
 </section>
+<?php
+$ctaKicker = 'EARN YOUR CERTIFICATE';
+$ctaTitle = 'Your certificate is proof of real work';
+$ctaDescription = 'Enroll in a practical course, finish every lesson and request your own verified Tech SG Academy certificate.';
+$ctaPrimaryLabel = 'Browse courses';
+$ctaPrimaryHref = $baseUrl . '/courses';
+require BASE_PATH . '/app/Views/components/academy-cta.php';
+?>

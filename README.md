@@ -19,372 +19,363 @@ Dashboard personal tasks and timed email alerts are available to students and ad
 
 ## Implemented features
 
-### Public website
-- Home page with course highlights, reviews and academy call-to-action.
-- Course catalogue (`/courses`), per-course detail pages (`/courses/{slug}`), About, Contact. A catalogue card leads a visitor to the course (`Explore course`) and a signed-in student to the step that is actually left (`Submit payment for further onboarding` → `/payments/new?course_id=…`, with a secondary *View course details* link so the course page is still reachable); which of the two renders comes from `$_SESSION['user']` in `pages/courses.php` and `home/index.php`, passed into `components/course-card.php`. The detail page (`pages/course-details.php`) sells the course with facts, inclusions and the enrollment flow and carries the enrollment card; it prints no curriculum list, because module and lesson titles belong to the student workspace and are not something a visitor who has not paid should read.
-- Every public door into an account now goes through a course: the header CTA reads **Enroll** and points at `/courses`, the footer reads *Enroll in a course*, and the home, About and catalogue call-to-actions lead to the catalogue rather than to a bare sign-up form. Spelled with two L's everywhere a person reads it (`Enroll`, `enrollment`); route paths, session keys, CSS class names and controller identifiers keep the short form so nothing functional moved.
-- Legal pages: Privacy Policy, Refund Policy, Terms of Service.
-- Public certificate verification (`/verify`) and certificate download (`/certificate/download`). The number a visitor types is the owner's Academy ID, and one ID legitimately opens several certificates — one per finished course — so the page lists every document behind it, keeps the verified/expired state per row, and each download names its course (`/certificate/download?cert_id=…&course_id=…`).
-- Public course review submission (`/reviews`).
-- `/health` reports database connectivity without exposing connection details.
-
-### Accounts and security
-- Student and admin registration with email OTP verification, resend with rate limits.
-- The wait before a code can be sent again is its own setting (`otp_resend_cooldown_seconds`, 10–600 seconds, seeded at 60) and no longer shares its value with how long a code stays valid. It used to be compared against `otp_lifetime_seconds`, so on a ten-minute lifetime a student whose mail server was slow was locked out of *Resend* for the whole expiry with nothing on the screen to say why. `AuthService::resendSecondsRemaining()` counts from the same interval the server enforces in `assertOtpCooldown()`, so the countdown the browser shows and the refusal the server gives can never disagree, and `AuthService::otpLifetimeSeconds()` is the single source for the pages that promise an expiry. A resend still puts only one code in play, because `issueOtp()` consumes the previous one. The code card states that wait on a single centred line under the fields — *Resend*, the remaining seconds, and the way back to the address — so an applicant who never received anything sees all three in one place instead of hunting down the page, and the timer text disappears the moment there is nothing left to count.
-- `AuthService::register()` returns `['created' => bool, 'mail' => bool]` instead of one boolean, because two opposite outcomes used to collapse into the same `false`: an address that already has an account, and an OTP the mail server refused to send. Both controllers now render the same non-committal wording when `created` is false — it offers the sign-in and code-request paths without confirming that an account exists for that address — and only says a code is on its way when the mail actually went. The old message told a returning student to go and configure SMTP.
-- Login/logout with per-IP and per-account throttling, password reset by OTP, session CSRF tokens on every mutating request.
-- Role-aware middleware (`student` / `admin`), password hashing, output escaping, upload and file-download guards.
-- **Private uploads are prepared by one helper, `App\Core\PrivateStorage`.** Assignment files, payment proofs and certificate images are written under `storage/uploads/private/<folder>` at mode `0700`, outside the web root, and each folder is created on the first write rather than expected to exist. This matters because the folders belong to whoever created them first: on XAMPP the site is served as `daemon`, so a folder left behind by a command-line run (or by another account) is not writable by the web server, and every student upload fails with a permission error nobody can see from the page. `PrivateStorage::directory()` therefore checks `is_writable()` before a file is attempted and, when it is not, names the folder and the account that owns it, so the failure says what to fix instead of only that something went wrong.
-- Security settings page for the admin: authentication limits only — OTP window, login protection, registration limits, password-reset limits. Controls that belong to another feature were moved to that feature's page (attendance window → Students, lesson watch rule → Lesson library, certificate prefix/validity → Certificates), each saved by its own endpoint that validates just its own keys.
-
-### Courses, modules and lessons
-- Admin course builder: course records with slug, category, visibility, cover image upload, duration, level, pricing, plus explicit module/lesson sort order and publish/draft state.
-- **Lesson editing & publishing** card on the Lesson library: one collapsible editor per lesson in the current list for content, video link and length, and publish/draft state — editing stays on the library page instead of the course page.
-- **Lesson library** (`/admin/lessons`): the lesson home page — the **Add lesson** authoring form (target course, module, title, content, video link and length, status), the **Watch-time rule** card, every lesson across all courses in one searchable list with filters by course / status / video state, KPI cards (total, published, with video, missing length), completion reach per lesson, pagination, and *Edit lesson* anchors that jump to that lesson's editor below.
-- **Live class link** (`lessons.meeting_url`, ≤600 characters) and an optional **Class date & time (UTC)** (`lessons.meeting_at`) on both the add card and every inline editor, so a Zoom or Google Meet address is set per lesson and changed there later. Only an **https** address with a real host is stored — `javascript:`, `data:`, plain `http://`, a `user@` prefix in the authority and an over-long value are each refused, the lesson row is left exactly as it was and the field is re-rendered with what was typed. There is deliberately no provider allowlist: a new meeting service must not break links the Academy pasted before it existed.
-- The class time is kept **exactly as typed, on the UTC clock** every other record here uses, and is printed to students labelled as that (`Wed, Nov 8, 2026, 8:00 PM UTC`). It is never converted to the reader's timezone, because one class shown as two start times is a worse failure than one shown in a clock the student reads off a line. A time without a link is refused, and clearing the link clears the time. The library list then prints ` · live class <time>` and a **Live** chip beside any lesson that has an address.
-- **Who receives the address.** The gate is the enrolment's delivery plan, not a per-lesson list: `student_course_access.plan_code` is `recorded_only` or `live_recorded`, and only `live_recorded` opens a class (`App\Services\AccessPlan::allowsLive()`). A Recorded Only student's lesson page **never contains the address at all** — the server withholds the card rather than hiding it with CSS, so there is nothing in the response to inspect — and their course page says one quiet line about the plan instead of hinting lesson by lesson which lessons have classes, which would leak the schedule it is meant to protect. A Live student gets the card above the player: the labelled start time, an *Open live class* button that opens in its own tab (`rel="noopener noreferrer"`), and the recording below it either way; once the scheduled time has passed the card says the recording covers it.
-- **The gate fails closed, on purpose.** Everything added around the player fails *open*, because the cost there was locking a paying student out of a lesson they own. A missing, unreadable, half-imported or nonsense plan here costs the opposite — a meeting address handed to somebody who never bought one, which cannot be taken back — so an unknown plan is always Recorded Only, and a database that has not been re-imported simply has no live class fields anywhere. Stated twice because it is the limit a parent asks about: the account watermark covers the lesson player, and cannot follow a student into a third-party meeting window; what the meeting service records inside that room is outside this site.
-- Student enrolment management per course (grant/revoke access, expiry, **delivery plan**), with access enforced on every learning page. Granting stores the plan chosen on the card; a separate **Set plan only** action (`access_action=plan`) moves an enrolment between plans — the upgrade path the public FAQ promises — leaving `status`, `granted_at` and `expires_at` untouched.
-
-### Course grading and completion
-- A weighted grade matrix (`course_grades`) is stored per student and course and rebuilt automatically: **video 30%** (average watched share of published lessons, or completion when a lesson has no video), **quizzes 28%** (best submitted score across the course's lesson and module quizzes), **exercises 14%** and **project 14%** (best reviewed score per `exercise` / `mini_project` assignment), **final test 14%** (best score on the `final` quiz).
-- A component the course does not offer is dropped and its weight is redistributed across the components that do exist, so a course without a project can still reach 100%. Which components were present is kept as a bitmask, and the course page labels an absent component "Not offered in this course" instead of showing it as 0%.
-- Letter scale: `A+ ≥ 90`, `A ≥ 80`, `B+ ≥ 70`, `B ≥ 60`, `C ≥ 50`, `F < 50`. `C` is the pass bar.
-- Weights and pass thresholds live in `app_settings` (`grade_weight_video|quiz|exercise|project|final`, `certificate_min_grade_percent`, `certificate_min_attendance_percent`) and are seeded once, so a manual edit survives a re-import. There is no admin edit UI for them yet.
-- Recompute hooks run after *Complete lesson*, after a quiz is graded, after an assignment review, and whenever a student opens a course page. Every hook is fail-open: grading logs a failure and lets the student action succeed, and a database that predates the migration still renders (grades simply read as unavailable).
-- Enrollment rows now carry a completion state: `active` → `completed` (set automatically once the pass bar is met and every published lesson is done) → `certified` (set when an admin issues the certificate). `revoked` is unchanged. All student-facing pages — course home, lessons, quizzes, assignments, coding challenges, sidebar badges and certificate requests — accept `active`, `completed` and `certified`, so finishing a course never locks the student out of it.
-- Student surfaces: a status chip (Access active / Completed / Certified) plus the overall percentage and letter grade on each **My courses** card, and a *Completion & grading* panel on the course page with one bar per component, its weight, the overall grade and the certificate eligibility verdict.
-- Admin surface: the grade and attendance captured at request time are shown on **Certificates** ("At request: A · 86.4% · attendance 100%"). The student roster page (`/admin/students`) has no enrollment table, so it carries no grade column.
-
-### Lesson videos and watch time
-- Video player on the lesson page, with resume-from-last-position and provider-aware embeds.
-- Server-side watch-time accounting: the browser sends a heartbeat to `POST /learning/lesson/watch`, and the server only credits forward movement, capped per ping, with a minimum ping gap.
-- Configurable completion rule: a student must watch `lesson_watch_completion_percent` (default 90%) of the video duration before the lesson can be marked complete. Setting lives in Admin → **Lesson library** → *Watch-time rule* (`POST /admin/lessons/watch-rule`, 10–100%).
-- **Lessons** page for students (`/student/lessons`): all published lessons of active courses with a progress ribbon, course/status filters, per-lesson watched percentage, last-watched time, and Open / Resume / Review actions.
-- Every video/watch column is probed at runtime: on a database that predates the video layer the pages still render and simply report no video data, with a migration notice for the admin.
-
-### Video protection and content safety
-The company documentation asks for three things around a recording: one device per account, a mark that names whoever is watching, and a note whenever the player is resisted. All three are additive layers — no watch-time maths, no completion rule and no existing column changed to accommodate them.
-
-- **One account, one open device.** `session_max_active` (1–10, seeded at the literal company value `1`) is enforced by `App\Services\SessionRegistry`. Every sign-in — `AuthController::login()`, `EnrolmentController`'s verified hand-off, the same door a returning student uses — registers the session *after* `session_regenerate_id(true)`, so the row holds `hash('sha256', session_id())` for the cookie that is actually in the browser's jar and nothing usable if the table leaks, beside the address it came from and a hash of the browser family. When the account already holds more rows than the cap, the oldest-seen one is closed as `superseded` in the same transaction with a `FOR UPDATE` on the account's rows: the new sign-in wins, and the displaced device learns that on its own next click rather than from a timer. A session untouched for `SessionRegistry::IDLE_MINUTES` (12 hours) closes as `idle`, and a session with no row at all — one opened before the feature was installed — is *adopted* rather than refused, so re-importing the schema can never lock a student out of a lesson half way through.
-- **One place where it is enforced.** The check lives in `App\Core\AuthMiddleware::requireRole()`, immediately after the users row is loaded — the choke point every protected student and admin page already passes through, which is exactly why a route someone forgets to patch is not a hole. It costs no extra query (the middleware already read the row) and touches `last_seen_at` only when a minute has passed, so normal browsing does not write to the table on every request. The whole block is fail-open: a database without `user_sessions` logs the reason and lets the student through.
-- **Closing the account's other devices.** Sign-out closes only that device (`revokeCurrent('logout')`). A password change closes every *other* device and re-registers the one that just proved it knows the previous password — `AuthService::changePassword()` and `AccountController::savePassword()` — because throwing a student off the device they are standing on only teaches them to distrust the change. A password reset closes everything, that session included (`AuthService::resetPassword()`): a reset proves the mailbox, not a device. Suspending a student on Admin → **Students** closes the account's sessions as `admin_revoked`, and an admin can do the same by hand from the student's detail card (`POST /admin/students/revoke-sessions`, audited as `session.revoked_all`). Each closed row keeps its `revoked_reason`, so the desk can say when and why without guessing.
-- **The watermark is drawn in the page, not burned into the video.** Two lines over the player — the student's name and Academy ID (`users.account_reference`, the number the Academy would quote back, not a new identifier), then the current UTC time and a six-character trace code — printed twice, once solid bottom-right and once faint top-left, so a crop that removes one still names somebody. The trace is `hash_hmac('sha256', 'wm:<minute>:<student id>', $_SESSION['_csrf'])` truncated to six upper-case hex digits: it turns over every minute, differs per student and per session, and deliberately introduces **no new secret** — the CSRF token is already in the session and already secret. It rides the heartbeat the player was already sending (`LessonProtection::refresh()` repaints `[data-wm-trace]` and `[data-wm-time]` from the watch response), so a tab left open cannot serve a stale mark. `video_watermark_enabled` is the admin's switch; off takes the overlay out of the markup entirely rather than hiding it.
-- **The shell, not the element, goes fullscreen.** A `<video>` cannot hold a child overlay, so the recording is wrapped in `div.lesson-video-shell` (`position: relative`, the player's own aspect ratio) and `public/assets/js/main.js` calls `requestFullscreen()` on that shell — which is what keeps the mark on the screen in fullscreen instead of leaving it behind on the page. The element itself asks the browser for no download button and no picture-in-picture (`controlsList="nodownload" disablepictureinpicture`), and **`noplaybackrate` is deliberately not set**, because the same documentation asks for 0.5×–2× speed control. A provider embed cannot be wrapped that way, so its iframe loses `allowfullscreen` and the `picture-in-picture` / `encrypted-media` entries in its `allow` list: the provider's own player no longer offers an escape route around the mark.
-- **Resisting the player, and saying so in the lesson card.** Right-click over the player, dragging the media out, `Ctrl`/`Cmd`-S while the player holds focus and a picture-in-picture window that a browser opened anyway are each refused, and the refusal prints one line inside the player card (`[data-protection-note]`) rather than as a floating toast — a warning about the recording in front of a student belongs beside it. A forward jump of more than three heartbeats in one step is noted as `seek_ahead`; a returning student seeking back to minute forty is not, and neither the resume seek nor the reported jump changes a single second of watch credit. Every one of these reports goes to `POST /learning/lesson/view` with the session's CSRF token, is refused for a lesson the student has no access to, is metered per account (`lesson_view_event`) so the table cannot be flooded, and accepts only the five event types a browser can honestly witness (`LessonProtection::CLIENT_EVENTS`) — `session_cap` and `concurrent_ip` describe what a sign-in displaced and are written by the registry alone, so no student can file an accusation about their own account from the console.
-- **What the Academy sees.** Admin → **Settings** carries a *Sessions & video protection* card — the cap, the watermark switch and `lesson_view_retention_days` (1–365, default 30) — saved by its own endpoint (`POST /admin/settings/video-protection`) that validates just those three keys, in the page's existing one-card-one-handler convention, and audited as `settings.video_protection_updated`. Admin → **Recent activity** carries a *Lesson view log* card: student by name and Academy ID, the event as a sentence rather than a column value, the lesson — or *Account session* when the report was about a sign-in rather than a recording — the course, the address and the UTC time, with its own clear (`POST /admin/activity/view-log/clear`, audited as `lesson_view_log.cleared`) because evidence about students must never be swept as a side effect of tidying another table. The retention window is applied the next time the desk is opened, so there is no scheduler to install. The student detail card lists the devices holding the account, with their addresses and device families and no session hash on the page.
-- **Purges follow the same order as the foreign keys.** Deleting a student's account takes `lesson_view_events` and `user_sessions` with it (child first), and a lesson purge takes the viewing reports of the lessons it removed — explicitly, not by cascade, because that is what puts a `view_events_deleted` count in the audit row. Reports filed against the account rather than a recording survive a lesson purge, because a lesson purge has no claim on them.
-- **Honest limits, stated where the switch is offered and not only here.** The mark is DOM-level: it appears in anything captured off the screen, but it is not in the video file, because the platform stores only a provider URL and has no video tooling and no intention of acquiring any. A student who opens the developer tools can remove the overlay from their own copy, and `controlsList` / `disablepictureinpicture` are friction rather than prevention — a determined viewer with the media URL has the media. Nothing in this layer is DRM: it makes a circulated copy *attributable* and casual resistance visible on a desk, which is what the documentation asks for. Provider-native fullscreen reached from inside the embed itself, and any screen recording, are outside what a page can refuse. Self-hosted protected streaming (token-limited, expiring URLs from the Academy's own storage) is the phase-B answer and is deliberately not implemented while the hosting decision in §9.2 — Bunny or Vimeo, and whether recordings move at all — is still open.
-
-### Assessments
-- Quizzes with question banks, publishing, attempts, auto-grading, results and admin quiz reports (filterable, paginated) with retake requests and admin decisions.
-- Coding challenges with an in-browser editor, submissions and admin review.
-- Assignments with student submission, file upload and admin grading. An admin opens a submission from **Assignments**, scores five rubric lines (technical, problem solving, code quality, timeliness, completeness) on 0–5, and either records marks or asks for a resubmission with feedback: the mark is `max_marks × raw/25` with the configured late deduction applied, the stored file is readable through `/learning/assignments/file?submission_id=…`, a link both the student's assignment list and the admin's review panel carry (an admin may open any submission, a student only their own), the review is written to `audit_logs`, the student's grade matrix is rebuilt and the student is notified. A student may submit again only while the previous attempt reads `resubmit_requested`, capped at five attempts, so a review can never be overwritten by accident.
-- Admin → **Assignments** opens with the submission review queue first, above the create form and assignment catalogue. The queue has a blue summary header, a waiting count and responsive review cards for the rubric, file/repository links and feedback.
-
-### Attendance
-- A successful student login opens the day's attendance row as pending; the student confirms presence before the deadline, otherwise the row closes as absent. Grace window is configurable (`attendance_grace_minutes`, 1–120 minutes) from the *Attendance confirmation window* card on Admin → **Students** (`POST /admin/students/attendance`).
-- Admin → **Reports** (`/admin/reports`) shows student regularity, attendance, quiz attempts and outcomes, and assignment submissions and review state. Weekly (Monday–Sunday) and current-month filters are available. Each report downloads as a branded PDF (up to 60 records) laid out as a document rather than a printout: a slim navy band carries the monogram, the wordmark and the report name with its printable reference (`TSG-REP-<desk>-<M|W>-<period>`) and generated stamp; below it a **Prepared for** block names the reader — *Academy administration* on the admin desk, the student plus the sending admin on a shared copy — beside right-aligned *Reporting period* and *Records* lines. The table measures every column against its own widest value instead of splitting the width evenly, so names and emails print whole; counts, rates and scores are right-aligned, and status words become tinted pills (green / amber / red) only in a column named *State*, *Status* or *Result*, so the same word used as a plain label elsewhere stays plain. The closing page reserves room for a **Report totals** panel, a short *What this report covers* note and the authorised-signature rule, continuation pages repeat the header row with the row window printed in the band, and every page ends on a quiet footer rule with the page marker. The PDF is drawn as native vector output by `App\Services\PdfCanvas` (core PHP — no GD, no JPEG, no external library), so its text is selectable and it stays crisp at any zoom. Payments are not a report desk — money is reported on **Revenue and payment**, not here — and the four remaining cards sit in a clean two-by-two with the consolidated pack spanning the row beneath them, so no card ever borders an empty cell.
-- An admin can **send one desk to one student** from the *Send a report to a student* card (`POST /admin/reports/send`). `App\Services\ReportSharing` stores only the metadata — recipient, desk, sender and the period boundaries **as they were at the moment of sending** — in `report_shares`. The boundaries matter: `ReportsController::period()` always recomputes from the clock, so a report shared in November and opened in December would otherwise describe December. No PDF is written to disk; the document is rebuilt from those frozen bounds on every download, which keeps storage empty and account deletion free of orphan files.
-- The *Recently sent* shelf under that form has a **Clear recently sent** button (`POST /admin/reports/clear-recent`, behind a browser confirmation) for emptying it between test rounds. The shelf is the admin's own running note, so clearing it writes one ceiling id to `app_settings` (`reports_recent_cleared_share_id`) and `ReportSharing::recent()` lists only shares above it — the rows are never deleted, so every student keeps the report already sent to them and their download link keeps working, and the next send reappears on the shelf on its own. The same promise the chat desk already makes.
-- A student opens what was shared on their own **Reports** page (`/student/reports`), listed as a table with the period, who sent it and a *Download PDF* link (`/student/reports/download?share_id=…`). The download checks that the share row belongs to the signed-in student and answers `404` before anything is built, so a guessed id reveals nothing. `ReportSharing::studentReport()` runs the same queries as the admin desk with a `student_id` filter in SQL, so **another student's rows can never reach the page** — the isolation is in the query, not in post-processing. The consolidated academy pack stays with the admin.
-
-### Enrolment checkout (course-first)
-- The course a visitor picked is remembered instead of lost. `Enroll now` on `/courses/{slug}` opens `GET /enrol/{slug}`, which stores the choice in the session (`enrol_course_slug`, `enrol_course_id`, `enrol_course_title`) and renders `app/Views/enrol/checkout.php`. Only the form is a card: the course, its category, duration and prices and the *How enrollment works* list sit loose in a left column, and the account or code form is the single white card on the right, with the four-step ribbon (Your details → Verify email → Submit payment → Course access) printed once above both columns. The page has its own `enrol-shell` styles rather than reusing `auth-shell`/`auth-panel`, which carried a fixed `min-height` and `overflow: hidden` that clipped the bottom of a long form. At narrow widths the columns stack and the card moves first.
-- The account form and the email code are **one card**, not two pages. `POST /enrol` creates the pending account and re-renders in the `otp` state with the six-digit field, the resend row and a *Wrong email? Go back* control (`POST /enrol/back`) that returns to the details step holding the name and address — never the password. Because the SMTP round trip happens inside that request, `main.js` locks the buttons and paints the "Emailing the code to …" progress panel on submit (`form[data-enrol-form]`), and a page the browser hands back from the back-forward cache is restored by the `pageshow` handler.
-- Confirming the code (`POST /enrol/verify`) signs the student in — `session_regenerate_id(true)`, the same session shape `AuthController::login()` builds, role pinned to `student` and only once the account is genuinely `active` with `email_verified_at` set — and goes straight to `/payments/new?course_id=…` for the course they came for. Nothing is typed twice and the dashboard is no longer an empty waiting room.
-- `AuthController::login()` reads the same intent, so a student who already had an account and clicked `Enroll now` lands on that course's payment step instead of the dashboard; with nothing in the session, sign-in behaves exactly as it always did. `PaymentController::submit()` clears the intent when the payment row is written, so a finished checkout cannot pull a later sign-in back into itself.
-- **The learning option the student picked is now stored, not only posted.** The card has always submitted `option_code`, and until live class links existed that choice travelled only into the `payment.submitted` audit blob (`metadata.option_code`) where no page could read it back — which made gating a lesson on the plan a student bought impossible. `POST /payments` therefore writes it into `payments.plan_code` as well, normalised through `AccessPlan::normalise()` so anything that is not exactly `live_recorded` becomes `recorded_only`; the audit row keeps its copy unchanged, and an invalid option is still refused before anything is written.
-- The course is read **only from the session** and re-checked against the database on every step, so there is nothing to forge: no field on the card carries a course id. An unknown, unpublished or zero-priced slug bounces to `/courses` with a flash that explains itself and clears itself (`PublicPageController::courses()` reads and unsets `_flash_error`), and a course withdrawn between two steps sends the student back to the catalogue rather than onto a payment form with nothing to sell.
-- `/register` is a redirect to `/courses`, while `POST /register` and `/verify-email` (GET/POST/resend) stay functional for recovery and for the harnesses; their wording now points at `/enrol/{slug}` instead of an orphan verification page.
-- No authorisation moved: a pending account still cannot sign in, and access is still granted only when an administrator approves a payment. The journey got shorter, the gate did not get weaker. What the approval now also decides is which plan the enrolment sits on — see *Payments*.
-
-### Payments
-- Manual payment flow: student submits proof, admin approves or rejects, revenue notifications, student receipt and admin revenue statement downloads (each a PDF), payment settings.
-- **Approving a payment grants access on the plan that payment was made for.** `PaymentController::decision()` carries `payments.plan_code` into the enrolment, and the grant is written as `ON DUPLICATE KEY UPDATE … plan_code = VALUES(plan_code)` — so a second approved payment for the same course upgrades a student from Recorded Only to Live + Recorded by itself, which is what the public FAQ means by "Can I upgrade later?". A payment made before plans were recorded grants `recorded_only`: the safe half of the choice. Student **Payments → History** prints that plan under the amount, and a legacy payment simply shows no line rather than claiming a purchase nobody saw.
-- Admin → **Revenue and payment** stores up to 12 bank and wallet destinations in `payment_accounts`, with add/remove controls and field validation. Importing the current schema creates the table and copies original `app_settings` payment details into the first account once; legacy settings remain synchronized with the first saved account. All saved accounts are shown on the student payment step after enrollment. The revenue heading, review cards, bank account editors and payment details reflow at mobile widths without clipping content. Shared **How to use** reference lines keep their small, still-readable type.
-- **Receipts download directly; there is no on-screen receipt page.** The dashboard and payment-history *Download receipt* links point at `/payments/receipt/download?payment_id=…`, and `PaymentController::receipt()` streams a PDF built by `App\Services\DocumentPdf::receipt()` — one branded card (a left-aligned *Payment Successful!* heading with a green **Paid** badge, receipt meta, an items and totals panel, billed-to and transaction reference, closing note). Ownership and approved-status are enforced before anything is rendered. The earlier standalone receipt page (route, controller method, view and its CSS) was removed, and the old GD→JPEG→PDF path was replaced by `PdfCanvas` + `DocumentPdf`, so the download is selectable vector text with no raster step.
-- The admin **Revenue and payment** *Download receipt* button (formerly labelled *Download PDF*, `GET /admin/payments/revenue-receipt`) streams `App\Services\DocumentPdf::revenue()` — the monthly revenue statement, redesigned to reuse the student receipt card UI: a left-aligned *Monthly Revenue Statement* heading with a green **Approved** badge, perforated ticket dividers, a meta block (period, enrolled students, payments received, generated), a per-currency revenue section with muted developer-share/all-time notes, and a pale developer-share totals panel, closing with the thank-you note. The card keeps the admin's own figures (period, counts, per-currency monthly revenue, 15% developer share, all-time totals) and grows to fit the number of currencies.
-- Admin **Revenue and payment** groups its four headline figures inside one low-shadow blue summary panel and lists approved student transactions with student, course, amount, reference and paid date.
-- While a transfer is with the Academy, `/payments/new` stays on the bank-details page and puts the state that matters at the top of it: the amount and transaction reference already submitted, the 24-hour expectation, a *Track all your payments* link and a line saying a second submission only delays the review. A student whose dashboard has no course yet but does have a pending payment is told their payment is being verified instead of being invited to browse again.
-- Student **Payments → History** (`/student/payments`) and admin **Revenue and payment → Student payment history** (`/admin/payments`) render each transaction as a labelled card on narrow screens; the history stays readable without horizontal scrolling. The admin page also stacks the revenue summary cards and payment review controls to fit phones.
-- The four student payment status figures are grouped in one blue summary card; the same card treatment is used for the four account totals on Admin → **Students**, course totals on Admin → **Manage courses**, and lesson totals on Admin → **Lesson library**.
-
-### Certificates
-- Admin issues and rejects certificates, students request them, verification and download public endpoints.
-- A certificate is printed with its owner's **Student ID** (`users.account_reference`) rather than a number minted per document, so the ID on the paper is the same one the student signs up with and the one they type into `/verify`. `certificates.certificate_id` is therefore indexed, not unique — the uniqueness that matters is `UNIQUE(student_id, course_id)`.
-- The **Certificates** page (`/admin/certificates`) owns its own settings: the *Certificate settings* card edits `certificate_available_days` (`POST /admin/certificates/settings`), and an *Eligibility requirements* card above the queue states the three bars an admin is enforcing. The ID prefix no longer lives here — it moved to the *Student ID scheme* card on the admin's account settings page, because the same number identifies the account as well as the document.
-- A request is gated on grade and attendance, not just lesson completion: the overall grade must reach `certificate_min_grade_percent` (default 50) and attendance — present as a share of decided days since access was granted — must reach `certificate_min_attendance_percent` (default 75). The refusal states the exact shortfall ("Overall grade is 46.33% (F); you need at least 50%."), and the same requirements are published on both sides: read-only on the Certificates page for the admin and in a collapsible *What you need for a certificate* panel on the student **My courses** page, plus on the course page before the student submits.
-- Attendance is only enforced once at least one day has been decided, so a student who just enrolled is not blocked by an unmeasurable 0%. Pending days are ignored; only present and absent count.
-- The grade, letter and attendance percentage achieved at request time are snapshotted onto the certificate row, so the record shows what the student had earned when they asked, and issuing sets the enrollment to `certified`.
-
-### Communication and moderation
-- Announcements (admin publish, threaded replies), student notifications inbox, a chat desk on each side, review moderation queue.
-- **News and conversation are two surfaces.** `/notifications` lists what the Academy published and carries no control over messages — its cards are set smaller than the admin boards (a 15 px title over a 13 px line of body text) so eight updates read as one list instead of eight panels. Each chat page is one screen in two panes (`professional-chat-layout`): the conversations on the left, the open thread on the right. A student meets a single contact — *The Academy* — because a student has exactly one line to the school and should never have to find an old answer in a second chat. The desk on the admin side holds every student in a picker, the conversations whose messages are still readable under it, and the two chips *All conversations* / *Waiting for you*, so a student message is a page an admin can open and answer instead of a number beside the announcement board. The desk's picker draws its own chevron (`appearance:none` with an inline SVG pinned to the right of its padding) because the native arrow sat glued to the border of the box.
-- **Clearing a chat hides it; only the desk deletes, and it says so.** Each side keeps its own mark on the thread row (`chat_threads.student_cleared_at` / `admin_cleared_at`, stamped with `UTC_TIMESTAMP()`), and a message is readable on a side only if it was written after that side's own mark. So *Clear this chat* on the student page and on the desk are the same act on two halves of one conversation: the messages leave the feed, the preview and the list of the side that pressed the button, and the other side goes on reading every line. `ChatService::messages()`, `studentThreads()`, `adminThreads()`, `unreadCount()` and `waitingCount()` all filter through those two columns, and so does the `messages` count in `AdminAttention` — a badge that outlived the list it counted was the old design's worst habit. Because no row is touched, a clear needs no typed phrase: one browser confirmation that names the side it affects is enough, and the thread is never a dead link, because the next message from the other side is written after the mark and the conversation comes back on its own. Deleting is the opposite act and sits on the desk only: `POST /admin/chats/delete` removes the `chat_messages` rows for both sides behind the phrase `DELETE THIS CONVERSATION`, keeps the `chat_threads` row so the student can still write into the same chat, and is audited as `chat.messages_deleted` — a clear is audited as `chat.cleared`.
-- **Everything a reader can do to a conversation is on the conversation page.** The feed keeps to the convention every messenger sets: the other side's bubbles on the left, yours on the right (`professional-message is-mine`), each with the time it was written printed under it, and the composer one bar whose send control is an arrow rather than a word. Beside the name in the header sits one quiet three-dot button, and behind it the only whole-conversation actions there are — *Clear this chat*, plus *Delete conversation* on the desk — because none of that belongs next to Send. The composer's emoji button opens a fixed grid of forty-eight glyphs in four named groups (Reactions, Faces, Study and work, The Academy); they are `type="button"` elements rather than inputs, so a stray click cannot send anything, a glyph is dropped at the caret and it travels as plain text — which is why the Academy reads exactly what the student saw. The window opens scrolled to the newest message, and a clear or a delete reports itself as one toast, because a banner that stacks up above the chat is the one thing a reader does not need after the messages have already moved.
-
-### Outgoing email (SMTP, no mail libraries)
-- `App\Services\MailService` speaks SMTP itself over `stream_socket_client` — STARTTLS or SSL, `AUTH LOGIN`, then a `multipart/alternative` message carrying the HTML body and a plain-text alternative. There is no Composer dependency and no reliance on PHP's `mail()`.
-- **Everything a handover needs is in the `MAIL_*` block of `.env`.** Put the company mailbox in `MAIL_USERNAME` and `MAIL_FROM_ADDRESS` and its 16-character Google App Password (spaces removed) in `MAIL_PASSWORD`, and every automated message — student OTP, payment requests and decisions, certificate alerts, developer revenue summary — starts going out as that address. No address, name or password is written anywhere in the code, so the client changes credentials, tests and deploys without touching a template.
-- Internal inboxes resolve through one cascade, so the sending address is never repeated: `MAIL_ADMIN_NOTIFICATION_ADDRESS` (the HR queue: new registrations and payment approvals) and `DEVELOPER_NOTIFICATION_MAIL_ADDRESS` (all three developer events — registration, approved share, monthly summary) each fall back to `MAIL_FROM_ADDRESS` when left blank, and `MAIL_CERTIFICATE_REQUEST_ADDRESS` falls back to the HR inbox. `MAIL_DEVELOPER_NAME` is the greeting on developer mail; a blank inbox skips that one copy without failing the event.
-- `app/Services/EmailMessages.php` holds the wording, `app/Services/EmailLayout.php` the design. Each event is written per role, in the tone a company would send it: the student gets the approval-request acknowledgement and the approval welcome with the *Your Login Credentials* block (email, Student ID, password reference), HR and the developer get the detail tables, and the developer's monthly summary carries the per-student `No. / Name / Student ID / Course / Amount / Your share (15%)` table with totals. Signature blocks switch between the HR Department and the LMS Automated System, and the legal links are built from `COMPANY_SITE_URL`.
-- Events covered: `otp.verify_email`, `otp.reset_password`, `otp.change_email`, registration (HR + developer), payment submitted (student, HR, developer with the 15% share), payment approved (student, the approving admin, developer), payment rejected (student), monthly revenue summary, certificate requested / issued / rejected.
-- **Every attempt is logged.** One `email_logs` row per message with its template key, recipient, subject, `sent`/`failed` and `related_user_id`, so a delivery problem is visible in the admin workspace instead of only in the PHP error log. `related_user_id` names the student for every copy of that student's event — including the HR and developer copies — so one account's full mail history is queryable. The log is the *Email delivery log* card on Admin → **Recent activity** (`/admin/activity`), whose *Clear delivery log* button (`POST /admin/activity/email-log/clear`) empties it between test rounds after a browser confirmation; the rows only lose their link to an account, never their record of what was sent.
-- **The envelope decides whether a mailbox can render the message.** Each part of the `multipart/alternative` body must open with its own `Content-Type` and `Content-Transfer-Encoding: base64` header lines and have those headers cut off by a real blank line (CRLF CRLF) before the payload, with the boundary closing the body. When a part's header block is left open, Gmail files the whole part away as header noise and prints the base64 instead of the email — so the header lines are built with the same double-quoted PHP strings as the rest of the payload, and `tests/auth-flow-smoke.php` reads the wire bytes the way a client does: it splits on the boundary, separates each part's headers from its body, decodes base64 strictly and refuses a message that is not shaped like mail.
-
-### In-app notifications and sidebar badges
-- `App\Services\NotificationService` publishes to nine categories (announcement, lesson, quiz, assignment, course, payment, grade, certificate, report) and groups them into the seven sidebar areas `notifications`, `lessons`, `courses`, `assignments`, `quizzes`, `payments` and `reports`. The group a notice belongs to is decided by **the link it carries**, with the category only as the fallback (`areaFor()`): what a student is sent to is what they have to see, so a grade raised by an assignment review counts on **Assignments** — the page it links to — and never on **Quizzes & results**, which no quiz notice explains.
-- Fan-out happens on the admin's own action, not on a cron: publishing or updating a lesson (`/admin/lessons`), a quiz (`/admin/quizzes`), an assignment (`/admin/assignments`) or a course (`/admin/courses`) notifies every enrolled student of that course; a payment submission or decision, an assignment review, a retake decision, a certificate request/issue/rejection and a shared report notify that student alone. Each call carries the deep link the student should land on.
-- The sidebar renders the unread count for its area on the entry itself (`dashboard-nav-badge` in `app/Views/layouts/header.php`), computed once per request by `unreadByArea()`. **Assignments** and **Quizzes & results** additionally count the work itself — published assignments not yet submitted, released tests not yet attempted — as the larger of the two numbers, so a badge means "something is waiting for you" whether it arrived as a notice or was there all along. A zero renders no badge at all, and counts above 99 show `99+`. **Chats** is counted separately by `ChatService::unreadCount()`: it is the number of conversations in which the Academy has written since the student last opened the thread, which is a different question from unread news and is settled by opening that conversation — and messages this side already cleared are outside the count, because a badge cannot keep insisting on something the reader deliberately put out of sight.
-- Opening the page a notice pointed at is how a student says they have seen it, so `markAreaSeen()` settles that area from `public/index.php` before the page renders — one write per student request, only for the area of the page being opened, and fail-soft: a workspace must still open when the counters cannot be kept. Announcements are the deliberate exception, because listing unread items is not reading them; those still need the student to open each notice, or the **Mark all read** button (`POST /notifications/read-all`) next to the unread count in the inbox (`/notifications`), which is rendered only while something is unread and empties all of this student's own badges in one action. It touches only their `notification_recipients` rows: a shared announcement stays unread for everyone else until they read it themselves.
-- The same courtesy runs the other way. `App\Services\AdminAttention` counts the work a student can leave sitting on the Academy, and the admin sidebar badges **Chats** (a message no one has answered), **Certificates** (a request), **Assignments** (a submission waiting for review), **Quiz reports** (a retake request awaiting a decision), **Revenue and payment** (a payment to check) and **Review moderation** (a review to moderate), with the total on **Overview**. Signing in is enough to know where to start; an admin does not have to open each page to find out whether a student left something behind. The message count used to sit on **Announcements**, where there was nothing to read or answer — it now sits beside the desk that holds the conversations, and **Overview** repeats it as an alert that links straight there. Clearing a thread off that desk takes its message off the count as well, because a badge that outlives the list it counts is only noise — and the student's next message returns both.
-- Those admin numbers are queues, not alerts: each counts rows still in an open state (`submitted`, `requested`, `pending`, an unanswered thread), so a badge clears when the work is actually finished — the message answered, the certificate issued, the review saved — and nothing has to be dismissed by hand. An admin has no unread rows of their own, so no admin page writes anything.
-- Automatic grading means an ordinary quiz submission is not admin work, so **Quiz reports** counts only pending retake requests and finished attempts that carry no result — the two states the grading engine genuinely cannot close on its own.
-- Re-publishing the same source within `COALESCE_MINUTES` (30) refreshes the existing notification instead of stacking duplicates, so an admin editing one lesson five times does not flood the inbox. Deleting a lesson, quiz, assignment or retake record — singly or through a bulk purge — retires the notifications that pointed at it, so no badge ever leads a student to a dead page.
-
-### Account settings (student and admin)
-- Student: `/student/settings`. Admin: `/admin/account`. Both render `app/Views/account/settings.php` inside the normal dashboard shell.
-- What a user may change is the profile: display name (`POST /account/name`, 2–150 characters), password (`POST /account/password` — the current password must verify, the new one must be at least 12 characters and differ from the old one, failures are rate-limited per account, and the change is written to `audit_logs`) and email address, which is only applied after a six-digit OTP delivered to the new address (`POST /account/email/request`, `POST /account/email/confirm`); the pending change is shown on the page until it expires.
-- All four password fields on that page — current, new, repeat, and the one that authorises an email change — carry the same eye button the sign-in and enrolment forms use, so a 12-character password can be checked before it is submitted. The button needs an input wrapper to resolve against: the auth forms use `.input-wrap`, the admin-styled fields use `.admin-input-wrap`, and `main.js` answers both (`closest('.input-wrap, .admin-input-wrap')`).
-- Every account carries a public ID in `users.account_reference` — `TSG-CER-001` for a student, `TSG-ADM-00001` for an admin. It is stored, not derived, and it is the number quoted in emails, receipts and on certificates, so the student's own ID is what a visitor types into `/verify`. Admin → **Students** prints that same ID on every row and in the student detail card, and its search box accepts it, so an admin and a student always quote the same number — never the internal row id, which belongs to the database rather than to the person.
-- The schema file fills that column in for any account created before it existed, and it does so without ever renumbering an account that already has an ID: both backfills start one past the highest number already handed out to that role, and they are `UPDATE IGNORE`, so a half-imported database (an account with no ID sitting next to one that has) picks up the missing numbers on the next import instead of stopping the whole file on `#1062 Duplicate entry`.
-- Admins only, on the same page: the **Student ID scheme** card (`POST /admin/account/identity-scheme`) sets the prefix and the first number every new Student ID is minted from (`student_id_prefix`, `student_id_next_number`), and its *Re-issue existing students* checkbox renumbers the whole roll oldest-first in one transaction — clearing the old references first so the unique index cannot collide, skipping numbers an admin already answers to, carrying already-issued certificates along with their owner and moving the counter past the last number handed out. New sign-ups continue from there. The card shows a live example and the student count, and a confirmation dialog repeats the values before they are saved.
-- Also admins only: their **own** Admin ID is an editable field (`POST /admin/account/id`) behind a confirmation dialog that quotes the old and the new value and lists what a rename touches. An ID that is malformed or already taken by another account is refused and the old one stays. Both writes land in `audit_logs` (`account.identity_scheme_updated`, `account.id_updated`).
-- A student's own ID is read-only on their page: it is printed on documents, so only the admin's scheme writes it. Admin → **Settings** (`/admin/settings`) stays what it was: authentication limits only. Cards on both settings pages follow the platform's 22px gap (16px below 640px).
-
-### Testing tools: bulk delete
-- Admin → **Assignments**, **Quizzes** and **Lesson library** each carry a *Delete all* card (`app/Views/components/purge-zone.php`) posting to `/admin/assignments/purge`, `/admin/quizzes/purge` and `/admin/lessons/purge`. The card can scope the delete to one course or leave it at "every course". The card carries no "testing tool" tag: it is always visible, and its own warning, typed phrase and record count say what it does.
-- Admin → **Students** carries the same card for the whole directory (`POST /admin/students/purge`, phrase `DELETE ALL STUDENTS`): it removes every student account with its enrolments, lesson progress, attendance, quiz and challenge attempts, assignment submissions, payments, grades, certificates, OTPs, sign-in events, chat conversations and uploaded files, plus the notifications that pointed at the removed payments, submissions and certificate requests. The chat goes through its thread row rather than its messages, because `chat_threads.student_id` and `chat_messages.sender_id` both key back at `users` with no cascade of their own, so deleting only the messages (what the desk's *Delete conversation* does, by design, to keep the student's next message opening a clean page) would leave the thread holding the key and refuse the account with an FK 1451; removing the thread takes the messages with it through the cascade that does exist between them. Courses, content, admin accounts and the email delivery log stay, and the Student ID counter keeps running so a re-registered student never inherits somebody else's printed reference. It is the reset that lets one sign-up be followed from registration mail to certificate mail.
-- Admin → **Announcements** carries it for the announcement board (`POST /admin/announcements/purge`, phrase `DELETE ALL ANNOUNCEMENTS`): every announcement and every automated student update goes with its recipient rows and its private replies, in the child-first order the foreign keys demand. This is the workspace a test round fills without meaning to, because each published lesson, quiz, assignment and payment decision leaves a notice behind, and it is the only reset that also brings the students' unread badges down — those counts are the recipient rows the purge removes.
-- Admin → **Recent activity** (`/admin/activity`, the last entry in the admin sidebar) holds the two tables the platform fills by themselves — the automated fan-out with its recipient and unread counts, and the e-mail delivery log. They were lifted off the Announcements page so publishing and reporting stop sharing one screen, and both are cleared here: *Clear delivery log* empties the mail history after a browser confirmation, and the *Clear recent activity* card (`POST /admin/activity/clear`, phrase `CLEAR RECENT ACTIVITY`) removes the automated updates with their recipient rows, the replies filed under them and the whole log in one transaction, leaving every announcement an admin wrote by hand standing on the board. Announcements themselves are deliberately not editable here — the page carries no save control, because nothing on it is authored.
-- The safety is confirmation, not concealment: `App\Core\PurgeGuard` requires the phrase typed exactly (`DELETE ALL ASSIGNMENTS` / `DELETE ALL QUIZZES` / `DELETE ALL LESSONS` / `DELETE ALL STUDENTS` / `DELETE ALL ANNOUNCEMENTS` / `CLEAR RECENT ACTIVITY`), a permanent-deletion checkbox and a server-side re-check, because a form can be bypassed with curl and a mistyped phrase must delete nothing. The student side's chat action is the exception, and the reason is that it destroys nothing: clearing a conversation moves one mark on one thread, so it carries a browser confirmation and a CSRF token instead of a typed phrase, and the desk's half of it is recorded in `audit_logs` as `chat.cleared`. The desk's *Delete conversation* is not an exception — it demands `DELETE THIS CONVERSATION`, the acknowledgement checkbox and its own `chat.messages_deleted` audit row, because those messages go for the student as well.
-- A purge removes the dependants with the records — submissions and uploaded files, attempts, answers and grades, stored private files — rebuilds the affected students' grades, retires the matching notifications and writes an audit row recording the scale of the deletion (`assignment.bulk_deleted`, `quiz.bulk_deleted`, `lesson.bulk_deleted`, `student.bulk_deleted`, `announcement.bulk_deleted`, `email_log.cleared`). Use it to clear data built up while content was being written before real student work begins.
-
-### Dashboards and navigation
-- Admin overview with KPI cards, top courses and operation panels; student overview with enrolments, progress and pending actions.
-- Both overview pages include a live local date/time card and a personal task list. Each signed-in account can add and delete tasks, mark them complete/incomplete, switch between open and completed tasks, and set a **reminder** time for an open task. The task records are private to that account in `dashboard_tasks`.
-- **The "My tasks" organizer card (`todo-card`) is a single shared component** (`components/dashboard-tools.php`) so the student and admin dashboards render the identical panel. Its design reads from one authoritative block in `pages.css`: a thin navy gradient accent bar across the card top, a navy gradient icon chip beside the label, an `N open` count pill, a full-width add field with an integrated navy **+** button, a segmented **To do / Completed** filter, and task rows that grow a navy left accent bar on hover and show a custom gradient checkbox, the title, an amber **reminder chip** when a time is set, and a subtle delete icon. The **Set reminder** control is a light dashed ghost button that expands its datetime picker **inline beneath its own row** with a short slide-in and a soft-shadowed panel — it never overlays the title or delete action — and completed rows render pre-filtered out so the default **To do** view matches the active tab. The card's primary buttons use a navy gradient rather than the flat `var(--blue)` fill, so the global brand-token block no longer special-cases `.todo-*` selectors; that shared rule had been forcing the ghost toggle to a solid navy background that made its navy label text disappear into the button.
-- **Dashboard task alerts are delivered by email**, not as in-app notification rows: the scheduled worker `bin/send-dashboard-reminders.php` groups each account's due, unsent reminders and calls `MailService::sendDashboardTaskReminder()`, which renders the `dashboard_task_reminder` message through the `MAIL_*` SMTP transport and records the attempt in `email_logs` (`sent`/`failed`). Delivery was verified end-to-end against the `.env` testing mailbox (`razaullahchuhan05@gmail.com`, `smtp.gmail.com:587` TLS) — the message arrived and `email_logs` recorded a `sent` row. Note the reminder is sent to the **task owner's own account email**, so an account left on a placeholder address (e.g. `admin@example.com`) will not receive it until a real address is set on that user.
-- KPI figures on both overview pages sit together in one blue summary card. The student directory's account totals and the student payment status totals use the same treatment, with white labels and values sized for mobile readability.
-- **The student dashboard opens on one navy analytics card** (`student-dashboard-hero`) that folds the old separate attendance card and learning-snapshot card into a single surface, so the first screen reads as a dashboard rather than two stacked boxes. Its top row splits into a left column of two metric tiles — today's attendance shown as a value, not a sentence (the mark time when present, the state otherwise, with the *Mark me present* form and countdown living inside the tile while the window is open) and a day-streak tile — and a right column holding a **donut chart** of the 30-day attendance mix. The four states (Present, Absent, Waiting, No sign-in) are drawn as `conic-gradient` segments; "No sign-in" is the remainder of the window, so it needs no column of its own, and the attendance rate sits in the donut hole. Hovering (or tapping, via pointer events) a slice raises a tooltip naming the segment with its count and share — the slice is recovered from the angle around the centre and matched to a server-rendered `data-donut-segments` list, because the ring is one gradient and has no per-slice DOM nodes. Below the row, two insight cards: a **weekly trend** bar chart that folds the window into 7-day buckets and plots present days per week, and a **forecast** that solves how many consecutive present days lift the counted rate to the 90% goal (`x = (90·counted − 100·present) / 10`, floored at one, with "past the goal" and "not started" worded separately) over a progress meter. The KPI grid closes the card. Everything is drawn from data `AttendanceService::studentSummary()` already returns — no new query, endpoint or dependency — and the whole card collapses to a single column on narrow screens.
-- **The admin overview opens on a redesigned navy summary card** (`admin-dashboard-snapshot`) whose six headline figures (Students, Present today, Absent today, Pending payments, Quiz attempts, Assignments to review) now render as translucent **snapshot tiles** — each a rounded glass panel with a tone-coloured left accent bar, an icon chip, an uppercase label, a value-first number, a hint line and a pill-shaped delta — instead of the previous bordered spreadsheet-style grid. The tiles lift on hover and reflow from three columns to two (≤1080px) to one (≤620px). The white analytics cards below keep their content, but two cleanups landed with this pass: the standalone arrow navigation links that used to sit in the card headers (`Students →`, `Revenue →`, `Reports →`, `Lessons →`, `Manage →`, `Review →`, `See report →`) were removed so each chart card reads as data, not a button row — the actionable `Open →` links inside the *Needs attention* queue are kept because they route to a specific issue — and the attendance *Present vs absent* bar chart now thins its date labels to about six evenly spaced ticks (`ceil(days / 6)`) with reduced type, so the day labels no longer collide into one another at the 14-day and 30-day ranges. No new query, endpoint or dependency was introduced; every figure still comes from `DashboardController`'s existing admin payload.
-- Timed alert controls expand beneath their own task row with a short slide-in animation; they no longer cover the task title or delete action.
-- Timed task alerts are sent to the account email through the configured `MAIL_*` SMTP transport. The worker is `bin/send-dashboard-reminders.php`; import the current schema and schedule the worker once per minute (setup command is in Quick start). It groups due reminders by account and uses a database lock to avoid overlapping worker runs.
-- The dashboard overview places the admin analytics and student learning panels beside the tools rail on wide screens, then stacks the rail below the content on smaller screens. KPI cards, charts, task controls and payment history adapt to phone widths without content overlapping the page background.
-- The dashboard search is available only on Overview and queries role-visible records across students/courses, lessons, quizzes/results, assignments/submissions, payments, announcements, certificates, reviews, chats and personal tasks. Results link to their owning module; the `GET /dashboard/search?q=…` endpoint checks the signed-in role before querying data.
-- Sidebar navigation is generated from one ordered list per role: numbering follows list order (inserting an entry never leaves duplicate numbers), each entry has its own icon, and the active entry is highlighted for the whole sub-route group. A student reads **Notifications** for what the Academy published and **Chats** for the conversations they started; an admin answers messages on **Chats** and closes the list with **Recent activity**, because a report is the thing you open after the work, not before it.
-- Consistent page shell across dashboards: a compact Overview search, heading with actions, panels, metric grids, data-label responsive tables, empty states and notes. The Workspace/current-page breadcrumb is removed, content gutters are balanced between the sidebar and right edge, and top spacing is reduced; major blocks use a 22 px gap, panels use 20 px inner spacing, and grids use 16 px gaps.
-- On phones the dashboard bottom tab strip horizontally positions the active page after navigation, while the document itself stays at its normal scroll position. At very narrow widths KPI cards collapse to one column to prevent clipping.
-- On a phone (`max-width: 760px`) an admin data table marked `admin-table-stacked` stops being a table: the header row is taken out of the layout, each row becomes a bordered card and every cell a `label / value` line, so nothing is ever hidden behind a horizontal scroll. The workspace tables that list many columns — announcements, assignments, quizzes, challenges, payments, reviews, certificates — carry that class.
-
-### Confirmations and page guides
-- **One rule for every confirmation.** An action answers with a card floated over the page, not a banner stacked above its content: `App\Core\View::toast('success'|'error', $message)` queues the sentence while the page renders, and `app/Views/components/flash-toast.php` — required by `layouts/footer.php` as the last thing in the body — prints it as a centred card over a dimmed backdrop: an icon, the outcome as a word (**SUCCESS** / **ERROR** / **NOTICE**), the full sentence underneath, and a button that repeats the outcome. It closes itself after 4 s (5.2 s for an error, which is longer to read), or on the button, the backdrop or `Escape`. Covers the admin workspace, the student workspace and every public page — course enquiries, the review form, sign-in, checkout and the payment step — so no form invents its own wording of "it worked".
-- **The card carries the outcome twice.** Colour alone is not the message: the label is text, so an error stays legible for a colour-blind reader and on a screen that renders the palette flat, and the failure card is announced with `role="alert"`. Success and failure use the same shape, which is what stops a confirmation being mistaken for a problem. The success button is the platform blue every primary action on the site already uses, so the card's one call to action reads as familiar; the card itself still reads green through its icon and label, and a failure keeps its red button.
-- **It is drawn last, on purpose.** A dashboard section animates in behind a `transform`, and a transformed ancestor captures a `position: fixed` child — printing the overlay inside the block it was meant to float over. The footer is outside every one of those sections, and a page with nothing to report prints no markup at all. JavaScript is an enhancement only: with it off the card shows and simply stays until dismissed.
-- **Persistent notices stay inline.** Anything a page has to keep saying — a schema that needs re-importing, a live region that reports a sending-in-progress state — is not a confirmation and is not swept into the overlay. Only the one-shot `$_SESSION['_flash']` / `_flash_error` pair becomes a card, and every page that receives one consumes it in the same request: a confirmation that waits in the session for some later page to print it is the bug that made a retake request look like it had done nothing.
-- **Every workspace page closes with the same reference list, and it is always the last block.** Most readers never work through a walkthrough, so `app/Views/components/usage-guide.php` no longer prints a card: a hairline rule, a small uppercase line naming the desk, the plain-English promise on one row with its intro, and then a single quiet column of short pointers — a stroked arrow ring in the brand navy beside one short title — spaced so the block reads as a list of links rather than a paragraph. A line is a pointer, not an explanation: the component cuts every entry at its first full stop, so the detail stays in the work above and nobody is asked to read a paragraph at the foot of the page. Twelve admin desks (courses, lessons, quizzes, quiz reports, assignments, coding challenges, payments, certificates, announcements, chats, students, recent activity) and eight student surfaces (courses, lessons, quizzes, assignments, payments, inbox, chats, coding challenges) render it, each written from the point of view of the person who has to use it: the admin reads how the desk is worked, the student reads what to do with their own work. Being last means *below the bulk delete card* wherever a desk has one, so a reader never meets the reference in the middle of a workflow. The student dashboard prints none — it summarises pages that each carry their own. A standing caveat belongs to the page it qualifies and closes that page *under* the list, never in front of the workflow: the coding-challenge surfaces end with their "Practice checks" and course-access notes below the reference, and the student quiz, assignment, lesson, course and payment pages end with their server-side grading, submission-window, watch-time, help and review notes there. A note that replaces the workflow entirely is the one exception — the admin challenge desk explaining that a course has to exist first opens its page, because there is no workflow to walk through yet.
-
-## Testing the lesson video and watch-time module
-
-Work through this in order. Steps 1–3 are the happy path, 4–8 prove the rule is actually enforced.
-
-**Step 0 — automated smoke test.** From the project folder run:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/php tests/lesson-watch-flow-smoke.php
-```
-
-It exercises the watch-time service against the database and exits non-zero on failure. Run the other smoke scripts in `tests/` the same way.
-
-**Step 1 — attach a short video as admin.** Log in as admin → **Lesson library** → the *Add lesson* card: pick the target course, type a module title and lesson title, set the status to Published, put a clip you can measure in the video link — for example `https://www.w3schools.com/html/mov_bbb.mp4` — and set Video length to that clip's length (`10` seconds, shown as `0:10`). Save: you stay on the Lesson library with a confirmation, and the new lesson appears in the list below with `Video 0:10`.
-
-**Step 2 — see the player as student.** Log in as a student who has access to that course → **Lessons** → open the lesson. The player must render, the watch bar must show `0%`, and the required watch time must be stated (`you must watch 90% …`).
-
-**Step 3 — completion is blocked.** Without playing anything, open the lesson and try *Complete lesson*. The button stays locked (the hint under it reads "Unlocks after 90% watched") and submitting the form anyway must leave the lesson incomplete with the refusal message showing the time watched so far.
-
-**Step 4 — watch time accrues.** Play the clip. Open DevTools → Network and watch for `POST …/learning/lesson/watch` roughly every 10 seconds; each response carries `watched`, `required` and `ratio`. In parallel verify from the database:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/mysql -h 127.0.0.1 -u root tsg_academy_lms \
-  -e "SELECT student_id, lesson_id, watched_seconds, last_position_seconds, completed_at, updated_at
-      FROM lesson_progress ORDER BY updated_at DESC LIMIT 5;"
-```
-
-`watched_seconds` must climb while the tab is playing and freeze when you pause or switch tabs.
-
-**Step 5 — try to cheat it.** Each row is a separate attempt; all of them must fail to give free credit.
-
-| Attempt | Expected behaviour |
-| --- | --- |
-| Seek straight to the end | Only the capped delta is credited (one ping ≈ 20 s max), so a 10 s clip can be satisfied but a 10 min clip cannot |
-| Reload the page | `last_position_seconds` is restored and the player resumes; the earlier seconds are not re-credited |
-| Switch browser tab | Heartbeats stop, `watched_seconds` stops growing |
-| Send a forged heartbeat with a huge position | Request is rejected with `{"ok":false,"error":"position"}` |
-| Send two heartbeats back to back | The second is ignored (minimum ping gap) |
-
-Forge a heartbeat from the console on the lesson page (CSRF token is read from the form):
-
-```js
-const body = new FormData();
-body.append('_csrf', document.querySelector('input[name="_csrf"]').value);
-body.append('lesson_id', new URLSearchParams(location.search).get('lesson_id'));
-body.append('position', '99999');
-fetch('/TSG-Academy-LMS/learning/lesson/watch', { method: 'POST', body })
-  .then(r => r.json()).then(console.log);
-```
-
-Honest limit: the guards (`MAX_DELTA_SECONDS = 20`, `MIN_PING_SECONDS = 8`) mean a hand-driven client can still earn roughly a third of the video length by seeking forward. Short demo clips are therefore weaker proof than a full-length lesson video — the rule throttles casual cheating, it is not DRM.
-
-**Step 6 — admin sees the effect.** As admin, **Lesson library** shows the per-lesson completion reach and the watched percentages; the student row should now be in progress or complete.
-
-**Step 7 — fallbacks.** A lesson with no video, or with a video but no length set, must remain completable the old way — the watch rule only applies when a duration exists. On a database that has not been re-imported with the current schema file, the video columns are missing: both lesson pages must still open, the admin page shows the migration notice and hides the video filter, and the student page drops the watch-tracking note.
-
-**Step 8 — downstream effect.** Finish the last lesson of a course, then confirm lesson completion feeds the course progress used by the certificate request flow.
-
-## Testing video protection
-
-Steps 1–4 of the watch-time walkthrough above are the preconditions for this list: a lesson with a measurable video, a student who can open it, and the watch rule in force. Re-run them after this feature and confirm watch time still accrues exactly as before — that is the one regression this layer could cause, and it is the reason nothing here touches `LessonMedia::apply()`.
-
-**Step 0 — automated smoke test.** From the project folder run:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/php tests/video-protection-flow-smoke.php --database=tsg_video_protection_check_tmp
-```
-
-It signs in over real HTTP with two cookie jars against a scratch database, so the cap, the eviction, the bounce and the watermark are checked as a browser meets them, and stops half way if `--database=` does not look like a scratch name. Watch it report the same trace code on the page and on the player, `20 → 40` seconds credited for a 25 second scrub, and a session that predates the feature being adopted instead of refused.
-
-**Step 1 — the mark is there, and it is yours.** Open a lesson video as a student. Two lines sit over the player: the student's name with the Academy ID, and the UTC time with a six-character code. Fullscreen the recording — the mark must come with it, because the page fullscreens its own wrapper rather than the element. Wait past the minute boundary and the code and the printed time turn over together, in the corner and in the faint copy.
-
-**Step 2 — the refusals say so.** Right-click the player, press `Cmd`/`Ctrl`-S with the player focused, and drag the video out of the frame. Each one is refused and prints a line inside the player card; the browser's own save button is missing from the controls and the picture-in-picture entry is gone from the video menu. Seek from near the start to several minutes ahead in one jump: nothing on the page changes, because a large jump is noted for the admin desk only. Check the desk agrees:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/mysql -h 127.0.0.1 -u root tsg_academy_lms \
-  -e "SELECT student_id, lesson_id, event_type, ip_address, detail, created_at
-      FROM lesson_view_events ORDER BY id DESC LIMIT 10;"
-```
-
-**Step 3 — one account, one device.** Sign in as the same student in a second browser or a private window, then click anything in the first. It lands on the sign-in form with one sentence explaining that the account signed in somewhere else, and the message does not follow the student to the next page. Admin → **Students** → the student's detail card now lists the surviving device with its address and browser family, and **Close all sessions** signs every device out — including the one you are testing from, so expect to sign back in.
-
-**Step 4 — the settings are the admin's, not the code's.** On Admin → **Settings**, the *Sessions & video protection* card: raise the cap to 3 and sign in from three devices, all of which keep their dashboards; put a value outside 1–10 in and the save is refused with the card's own wording; switch the watermark off and the overlay leaves the lesson page entirely rather than turning transparent. Then open Admin → **Recent activity** and check the *Lesson view log* card names each student by Academy ID, prints an event as a sentence, and shows *Account session* where the report was about a sign-in rather than a recording.
-
-**Step 5 — a password change keeps the current device.** Change the student's password from their own account settings. The device they changed it on stays signed in; a second browser holding the same account is bounced on its next click, and its row reads `password_change`.
-
-**Step 6 — half-imported database.** On a database that has not been re-imported with the current schema file, `user_sessions` and `lesson_view_events` do not exist. Every student and admin page must still open, the lesson page still draws the mark, and the log simply drops what it cannot store. This is the fail-open path, and `video-protection-flow-smoke.php` walks it against an empty schema so it stays true.
-
-## Testing live class links
-
-Re-import the schema first — **over a backup** — or none of this is visible: `lessons.meeting_url`, `lessons.meeting_at`, `payments.plan_code` and `student_course_access.plan_code` are all new columns, and with them missing the site keeps working and simply shows no live class field anywhere.
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/mysql -u root tsg_academy_lms < database/migrations/001_initial_schema.sql
-```
-
-The migration backfills what it can read: a payment's plan from the `payment.submitted` audit rows, and an enrolment's plan from its newest approved payment that says `live_recorded`. **Anything it cannot read stays `recorded_only`, which is the closed side.** That means old enrolments are the admin's job, not the script's — walk the accounts that were sold the Live + Recorded option before the column existed and set them on Admin → **Manage courses** with *Set plan only*, or those students will sit out classes they paid for.
-
-**Step 0 — automated smoke test.** From the project folder run:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/php tests/live-class-flow-smoke.php --database=tsg_live_class_check_tmp
-```
-
-It boots the schema into a scratch database, starts `php -S` on a free port and drives the purchase, the approval, the admin's plan change and both students' lesson pages over real HTTP with one cookie jar per account. The line worth reading is the leak check: a Recorded Only student's raw response must not contain the address in any form, checked again after the address is changed, so the value is known to come from the row on every request rather than from a cached render. It then drops the four columns and expects every page to keep working with no card anywhere.
-
-The checkout's file upload is the one step a command line cannot always do: `storage/uploads/private/payment-proofs` belongs to whichever account created it and is mode `0700`, so when it was made by the web server the harness is refused and says so in a `NOTE` instead of pretending the INSERT was tested. Steps 1 and 2 below are that half, in a browser.
-
-**Step 1 — buy the plan, and see it written down.** As a student with no access, go through `/enrol/{slug}` to the payment step, choose **Live + Recorded**, upload a proof and submit. Then check the row the form wrote:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/mysql -u root tsg_academy_lms \
-  -e "SELECT id, plan_code, amount, status FROM payments ORDER BY id DESC LIMIT 5;"
-```
-
-`plan_code` is `live_recorded` and the amount is that option's price. **Payments → History** on the student's own desk prints *Live + Recorded* under the amount. Repeat with **Recorded Only** for a second student — the two accounts are what the rest of this list compares.
-
-**Step 2 — approval carries the plan to the enrolment.** On Admin → **Revenue and payment**, approve the pending payment, then read the grant: `student_course_access.plan_code` for that student and course matches the payment. Approve a *second*, higher payment for the same pair and the plan moves without a second enrolment row appearing — that is the upgrade, and it is what *Set plan only* does by hand.
-
-**Step 3 — set a link, and refuse a bad one.** On Admin → **Lesson library**, put `https://meet.google.com/abc-defg-hij` and a UTC start time in a published lesson's editor; save and check the list line now reads ` · live class …` with a **Live** chip. Now try `http://zoom.us/j/1`, `javascript:alert(1)`, `https://zoom.us@evil.test/`, a 601-character paste, and a class time with the link field emptied. Each is refused with its own sentence, and the lesson keeps the address it had — nothing is saved "corrected". Also confirm the plain `https://…` you typed reaches the student exactly as typed.
-
-**Step 4 — the two students, side by side.** Open the lesson as the Live student: a card above the player with the labelled UTC time and an **Open live class** button that opens the meeting in a new tab, and the recording still below it. Open the same lesson as the Recorded Only student, then use *View source* on that page: the address is not in the bytes — not hidden, not commented out, not in a `data-` attribute. Their course page carries the one line about the plan, and their lesson list shows no **Live** pill, so nothing tells them which lessons have classes.
-
-**Step 5 — move a plan, and watch only the plan move.** On Admin → **Manage courses**, pick the Recorded student, choose **Set plan only (leave access as it is)**, save, reload their lesson page — the card is there now. Check the row: `status`, `granted_at` and `expires_at` are unchanged, and the audit row for the save names the plan. Then revoke access and confirm the class link goes with it, plan or no plan.
-
-**Step 6 — watch time was not touched.** Steps 1–4 of *Testing the lesson video and watch-time module* above, on a lesson that now has a live class link: the playhead still accrues, the completion rule still applies, and the grade is unchanged. A live class is a link in the page, not a second recording, and `LessonMedia` still owns every number.
-
-**Step 7 — a database that has not been re-imported.** On a schema without the four columns, the lesson page still opens for every student with no card, the admin's two desks hide the meeting fields and the plan selector behind a notice that names `database/migrations/001_initial_schema.sql`, saving a lesson still works with those fields absent, and a checkout still records the payment (without a plan). `live-class-flow-smoke.php` walks this by dropping the columns and putting them back.
-
-## Testing the grading engine and certificate eligibility
-
-Re-import the schema first (back up the database), otherwise every grade read fails open and the panels stay empty:
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/mysql -u root tsg_academy_lms < database/migrations/001_initial_schema.sql
-```
-
-Then, in order:
-
-| Step | Action | Expected |
-| --- | --- | --- |
-| 1 | Open a course as an enrolled student | The *Completion & grading* panel shows five bars; components the course has no items for read **Not offered in this course** with a `—`, not 0% |
-| 2 | Watch part of a video lesson, then finish it | The video bar rises with the watched share; `course_grades.video_pct` matches the average across published lessons |
-| 3 | Submit a quiz attempt | The quiz bar updates without a page reload of your own — the next course page load recomputes it. Best attempt per quiz counts |
-| 4 | Have an admin review an assignment | Exercise or project bar updates according to `assignment_type`; un-reviewed submissions do not count |
-| 5 | Check **My courses** | Chip still reads *Access active* while the pass bar or lesson completion is unmet |
-| 6 | Meet the bar (overall ≥ `certificate_min_grade_percent`, every published lesson complete) | Chip becomes **Completed**, the grade badge shows `86.4% · A`, and the course, lessons, quizzes and assignments remain open to the student |
-| 7 | Request a certificate below the grade or attendance bar | Refused with the exact shortfall quoted on the page, and no certificate row created |
-| 8 | Request it once eligible | Certificate row stores the snapshot (`overall_percent`, `letter_grade`, `attendance_percent`); **Certificates** shows "At request: …" |
-| 9 | Admin issues it | Enrollment chip becomes **Certified**; the student keeps full access to the course |
-| 10 | Verify weight redistribution | Remove/hide the only final quiz, reload the course page: `components_mask` loses that bit and the overall is recalculated over the remaining weights (it does not drop by 14%) |
-
-Numbers to trust: attendance counts only decided days since `granted_at` (pending is ignored), and legacy `lesson_progress` rows written before the watch-time layer have no logged seconds, so an old completed lesson contributes 0% video unless it has no video length (then completion counts as 100%).
-
-## Automated tests
-
-`tests/` holds CLI smoke scripts that need only PHP and the database:
-
-| Script | Covers | Status |
-| --- | --- | --- |
-| `lesson-watch-flow-smoke.php` | video providers, duration parsing, watch accrual caps, threshold auto-completion, replay safety | passes |
-| `video-protection-flow-smoke.php` | the whole protection layer, over real HTTP with two cookie jars where it matters and in-process where the arithmetic does: the imported tables and their cascade, the three seeded settings, the trace code being the session secret keyed over the minute (same minute same code, next minute a different one, one student unable to reproduce another's), the cap of 1 displacing a session and the cap of 3 holding three devices, a session that predates the feature being adopted instead of refused, an idle row closing as `idle`, a password change keeping the device that proved itself while a reset keeps nothing, both tables then removed to prove `requireRole()` and the lesson page fail open, a sign-in registering the cookie that is really in the jar, the shell/overlay/attribute markup on the player page with the iframe stripped of its escape routes, `20 → 40` credited for a 25-second scrub with no view event filed for ordinary watching, the report endpoint refusing a forged token, a registry-only event and a lesson the student cannot reach, the displaced device landing on the sign-in with its one sentence, the admin card saving its three keys and refusing an out-of-range value and a forged save, the mark leaving and returning with the switch, the retention sweep taking a 400-day row and leaving a fresh one, the desk's clear, the student card listing and closing sessions, a real logout closing exactly its own row and no other, and the routes/loader/CSS/JS hooks the browser depends on | passes |
-| `live-class-flow-smoke.php` | the live class half, over HTTP with one cookie jar per account: the four columns and their index arriving with the migration and the loader naming the service; `allowsLive()` refusing `null`, `''`, `live`, `LIVE_RECORDED` and a trailing space while `normalise()` folds each of them to Recorded Only; the checkout refusing a forged option before anything is written, and — where the private proof folder will not let this account write, as on the machine this run was recorded on — measuring that refusal instead of the INSERT and printing a `NOTE` for the browser step, then seeding the row the form would have written so the approval and the gate halves still run; an approval carrying the plan into the enrolment, a second approved payment upgrading it in place, and a plan-less legacy payment granting the safe half; *Set plan only* moving `plan_code` while `status`, `granted_at`, `expires_at` and a revoke all read exactly as before, idempotent on re-save, audited with the plan, refused without an enrolment, and refused for a forged token and for a student on an admin endpoint; a Live student's page holding the address, the labelled UTC time and `rel="noopener"`, and a Recorded Only student's raw bytes holding none of it — re-checked after the address is changed, so the value is proven to come from the row each request; a passed class time saying the recording covers it; the course page printing one plan line and no per-lesson hints, and the lesson list printing the *Live class* pill for the plan that may see it; every URL refusal (`javascript:`, plain `http://`, `https://zoom.us@evil.test/`, 601 characters, a time with no link) leaving the lesson row untouched, and clearing a link clearing its time; and the whole feature on a schema with the four columns dropped — lesson page 200 with no card, admin fields hidden, saves refusing with the migration file in the sentence, checkout unaffected, columns restored afterwards | passes |
-| `attendance-flow-smoke.php` | sign-in window, present mark, expiry sweep, duplicate guard, summaries, settings | passes |
-| `auth-flow-smoke.php` | registration, delivery, the MIME envelope decoded the way a mail client decodes it, OTP activation, replay rejection, login, password reset, duplicate rejection, `email_logs`, rate limiting, the separate resend interval, and the session registry beside it — a reset leaving no live session, or the whole flow running on the fail-open path where the table has not been imported yet | passes |
-| `enrol-flow-smoke.php` | the course-first journey end to end over HTTP: route and card wiring, unpublished/priceless/unknown slug bouncing to the catalogue with a flash that clears, `GET /register` redirect, the code step arriving in the same card, resend countdown on the cooldown rather than the lifetime, both escapes sharing the centred line with Resend first (the hook the countdown script drives), the course named once in the summary, a wrong code being survivable, a posted `course_id` being inert, the verified hand-off onto the payment step, a course withdrawn mid-checkout, sign-in with and without intent, forged CSRF on both steps, and — since the plan had to become a stored fact — the payment step finishing as a real `POST /payments` with a proof upload: the option select offering both plans, the chosen one landing in `payments.plan_code` at that option's price, the student's own history printing it back, an unsellable option refused without a row, and on a machine where the private proof folder cannot be written, the refusal naming the folder and leaving no half-written payment (with a `NOTE` sending the reader to the browser step) | passes |
-| `email-notification-smoke.php` | every `MAIL_*` recipient resolves, all email events render as HTML and plain text, both alternatives of the envelope carry real CRLFs and decode cleanly, notification fan-out, badge counts, coalescing, source retirement | passes |
-| `purge-tools-smoke.php` | wrong phrase deletes nothing, the five bulk deletes empty every dependant in foreign-key order, files/notifications/grades/audit handled, the delivery log keeps its rows when an account goes and clears on request, Mark all read stamps only this student's rows and refuses a forged request, a clear on either side hides only its own half of one conversation (news counters, messages and notices all survive) and refuses a forged request, the desk's delete takes every message of a thread for both sides behind `DELETE THIS CONVERSATION` while the thread itself survives for the student's next message, and `Clear recent activity` empties both generated tables around the announcements it has no claim on; the session registry and the viewing reports go with the account and with the lesson they were filed against, while a report about a sign-in survives a lesson purge and the audit row counts what was taken | passes |
-| `interface-render-smoke.php` | dashboard, announcements, both chat pages, the recent activity report, student inbox, both account settings pages and all five purge workspaces render; the student sidebar badges count real unread work, a grade lit by an assignment review lands on **Assignments** and not **Quizzes & results**, and opening one page settles only its own area; the closing usage reference is a single-column list of short arrow-marked pointers that carry no trailing explanation, and it prints below the bulk delete card on every desk that owns one while the student dashboard prints none, and no standing note is left above a reference list; both confirmation outcomes print as one overlay card each with their word and their full sentence and no banner above the page; the bulk delete card wears no testing tag; the inbox offers its *Mark all read* shortcut only while something is unread and carries no chat control; admin sidebar badges open and close on the work a student leaves behind, the message count sits on **Chats** and no longer on **Announcements**, and it is moved by a real chat message rather than by a reply; both chat pages render as one two-pane screen with the list beside the open conversation, the reader's own bubbles marked as theirs, every message carrying a readable time line, the composer ending in an icon-only send, the emoji button opening a forty-eight glyph grid in named groups and the three-dot menu holding the clear form — with the permanent delete offered on the desk only, behind its phrase and its checkbox, and never on a student page; the desk's two chips count exactly the conversations the feed reads; and clearing one side is measured against the other, so the feed, the list, the badge and the eight notifications all agree while no message row is destroyed; the directory, its search and the detail card print the Academy ID and never a row id; the three video protection surfaces render with real rows behind them and in their empty state — the settings card with its three named fields and its honest note that the mark is not burned into the file, the view log printing an Academy ID where an ID belongs and *Account session* where there is no recording, and the student card listing a live device with its address and browser family; the Lesson library rendering its two meeting fields twice over — add card and inline editor — with the stored address prefilled, the ` · live class` line and the **Live** chip, and the honest limit of the mark printed beside the field; the course desk's enrolment card offering the plan selector with both codes the checkout uses, its *Set plan only* action and its plan names in the student's words; the lesson template printing an address it was handed, in a new tab with `rel="noopener"` and the time labelled UTC, and printing **none** of `meet.google.com`, `Open live class` or the card's own class name when the same row arrives with the gate closed — while the lesson text stays; the catalogue card CTA is chosen by role; `.env` / `.env.example` keys agree | passes |
-| `certificate-verify-smoke.php` | one Academy ID opening several certificates, the multi-certificate banner, per-row expiry, the download link naming the live course, lower-case and malformed input | passes |
-| `admin-identity-flow-smoke.php` | both admin identity POSTs end to end in a child process: scheme save and re-numbering, certificates carried along, counter, stale CSRF writing nothing, Admin ID rename with duplicate/malformed refusal, audit rows, a student bounced by the role guard | passes |
-
-Scripts that write bulk rows only ever run against a scratch database, and the guard is part of the design: each refuses any `--database=` value that does not contain `tmp`, `check`, `scratch` or `test` — with `exit(1)`, never a recorded failure — and creates and imports the schema itself when the database does not exist yet (`purge-tools`, `interface-render`, `certificate-verify`, `admin-identity`, `enrol-flow`, `video-protection-flow`, `live-class-flow`). `email-notification-smoke.php` takes `--database=` too but expects the schema to be imported first. The rest run on the development database and delete the fixture rows they create.
-
-`purge-tools-smoke.php` writes its fixture uploads to a scratch folder of its own, `storage/uploads/private/smoke-purge`, and removes it at the end. Borrowing a real upload folder would have made the result depend on who created it last: those folders are mode `0700` and belong to whichever account made them, so a directory left by the command line is unwritable to the web server and one left by the web server is unwritable to the command line.
-
-`enrol-flow-smoke.php`, `video-protection-flow-smoke.php` and `live-class-flow-smoke.php` are the three harnesses that exercise the real HTTP surface: each starts `php -S` on a free loopback port against the scratch database and drives the journey with per-device cookie jars, so the session intent, the redirects, the rendered card and the CSRF rejection are checked as a browser meets them instead of as a unit test imagines them. The live class harness needs it for the same reason the protection one does, and one reason of its own: the question is not whether a value is correct but whether it is **in the bytes a particular browser received**, and a lesson page is built from query parameters that an in-process render cannot feed — so `filter_input(INPUT_GET, …)` returning nothing under the CLI is exactly why the gate is measured over HTTP. The protection harness needs that architecture for a reason of its own: a session cap is a statement about two cookies in two jars, `session_regenerate_id(true)` moves the id out from under anything a stubbed `$_SESSION` could imitate, and with strict session mode on a forged cookie id cannot be injected at all — so the eviction, the bounce and the logout can only be measured against a real server. Everything that is arithmetic rather than transport — the cap numbers, the idle sweep, adoption, the password hooks, the trace derivation and the fail-open half run against an empty schema — stays in process, where it is deterministic and never trips the sign-in rate limits the HTTP path would otherwise spend. `enrol-flow-smoke.php` also writes both OTP intervals itself rather than trusting what the seed left behind, because a scratch database that already had them would keep its own values and the countdown check would prove nothing.
-
-```bash
-/Applications/XAMPP/xamppfiles/bin/php tests/auth-flow-smoke.php
-/Applications/XAMPP/xamppfiles/bin/php tests/email-notification-smoke.php
-/Applications/XAMPP/xamppfiles/bin/php tests/purge-tools-smoke.php --database=tsg_purge_check_tmp
-/Applications/XAMPP/xamppfiles/bin/php tests/interface-render-smoke.php --database=tsg_render_check_tmp --drop=1
-/Applications/XAMPP/xamppfiles/bin/php tests/certificate-verify-smoke.php --database=tsg_verify_check_tmp --drop=1
-/Applications/XAMPP/xamppfiles/bin/php tests/admin-identity-flow-smoke.php --database=tsg_identity_check_tmp --drop=1
-/Applications/XAMPP/xamppfiles/bin/php tests/enrol-flow-smoke.php --database=tsg_enrol_check_tmp --drop=1
-/Applications/XAMPP/xamppfiles/bin/php tests/video-protection-flow-smoke.php --database=tsg_video_protection_check_tmp --drop=1
-/Applications/XAMPP/xamppfiles/bin/php tests/live-class-flow-smoke.php --database=tsg_live_class_check_tmp --drop=1
-```
-
-`auth-flow-smoke.php` does not stub the mailer. It starts a throwaway SMTP server on `127.0.0.1`, points `MAIL_*` at it and reads the messages the application actually puts on the wire, so the handshake, the login, the MIME envelope and the `email_logs` row are all exercised for real. Nothing leaves the machine. The `MAIL_*` values it needs are overridden inside the script, so it runs unchanged on a development `.env`.
-
-Its parser is deliberately as unforgiving as a mailbox: every captured message is split on its boundary, each part's header block is separated from its payload, base64 is decoded in strict mode and a part whose headers are not terminated by a real blank line fails the run. That is the guard against the bug this script once sat through silently — a single-quoted `'\r\n'` in a part header sent the four characters to the server instead of a line break, and Gmail answered by showing the base64 text of every automated mail.
-
-`admin-identity-flow-smoke.php` uses the same child-process trick for a different reason: the two admin identity handlers end in a redirect and an `exit`, which would take the parent down with them, so each POST is replayed in a throwaway process and every claim is read back out of the database rather than out of the HTML.
-
-`tests/TEST-PLAN.md` lists the manual regression matrix that goes with the scripts above.
-
-## Documentation
-
-This README is the single feature catalogue for the project: what exists, where each control lives, and how to prove it works. Earlier planning, audit and decision records were kept in `docs/` and have been retired — recover any of them from git history (`git log --diff-filter=D -- docs/` to find the commit, then `git show <commit>:docs/OPEN-DECISIONS.md`).
-
-**Status:** public site, authentication, course-first enrolment checkout, courses/lessons (including per-lesson live class links gated on the enrolment's delivery plan), lesson video watch time, video protection (one session per account, the player watermark and the viewing report desk), quizzes, coding challenges, assignments, attendance, payments, certificates, announcements, private chats on their own desks, review moderation, account settings, automated email with delivery logging, notification, chat and admin-queue badges and both dashboards are implemented, on top of the weighted grading engine with automatic `completed`/`certified` enrollment states and grade + attendance certificate eligibility. Do not deploy to production or load real student data before the pending security review and the outstanding business decisions (quiz policy, payment and access grants, commission, certificate and invoice details, authentication limits, and the hosting decision the video protection layer deliberately stops short of — §9.2, Bunny or Vimeo, and whether protected expiring streaming is worth building as phase B; the retired open-decisions list names the rest in full) are closed, and before the `MAIL_*` block has been filled in with the company mailbox and tested end to end against a real SMTP server: the automated messages have been verified against a loopback server, not against Gmail. Grading weights and the certificate thresholds are seeded settings with no admin editing screen yet, and the grading engine has only been verified numerically against a scratch database — its UI has not been walked through in a browser. Two notes on the protection layer: `user_sessions` and `lesson_view_events` are new tables, so until the schema file is re-imported (over a backup) the feature runs fail-open — every page works, no cap is enforced and nothing is logged, which is the intended behaviour rather than a fault; and the mark is drawn over the player rather than burned into the video, so the whole layer is attribution and friction, not DRM. Two notes on live class links, in the opposite direction: `lessons.meeting_url`, `lessons.meeting_at`, `payments.plan_code` and `student_course_access.plan_code` are new columns, so until that same re-import the meeting fields, the plan selector and every class card are simply absent — which is the intended **fail-closed** behaviour, and a plan that cannot be read is always Recorded Only; and because the plan was never stored before this feature, the backfill can only recover what the audit log happened to record, so **the admin has to review which plan each old enrolment sits on** (Manage courses → *Set plan only*) rather than trust it. No Zoom or Meet API is wired in — the Academy pastes the address it created elsewhere, and the platform neither joins, records nor ends that meeting.
+### 1\. Admin Login & Dashboard Security
+* Admin apne login credentials ke zariye dashboard mein login karega.
+* Admin dashboard ko fully secure banaya gaya hai.
+* Koi external user ya student admin dashboard mein login nahi kar sakta.
+* Sirf authorised admin hi dashboard access kar sakta hai.
+* Dashboard ka layout do main sections mein divided hai:
+    * Left side par sidebar navigation hogi.
+    * Right side par selected page ka content show hoga.
+* Sidebar mein jis button ya navigation link ko active kiya jayega, uska relevant page right side par open hoga.
+
+### 2\. Overview Dashboard
+* Overview page par complete dashboard summary show hogi.
+* Total records aur historical data available hoga.
+* Charts aur graphs ke zariye performance statistics show hongi.
+* Important records aur management summaries yahan display hongi.
+
+### 3\. Manage Courses
+Admin yahan se students ke liye different courses create aur manage kar sakta hai.
+Create Course mein following fields hongi:
+* Course Title
+* Course URL
+* Course Category
+* Visibility (Published / Draft)
+* Course Cover Image
+* Course Duration
+* Course Level (Beginner / Medium / Professional)
+* Recorded Course Price
+* Live + Recorded Course Price
+* Course Card Summary
+* Short Course Description
+Course Management:
+* Neeche uploaded courses ki complete list show hogi.
+* Admin kisi bhi course ko edit kar sakta hai.
+* Admin courses delete bhi kar sakta hai.
+* Student Course Access ke zariye specific students ko specific courses assign kiye ja sakte hain.
+
+### 4\. Lesson Library
+* Admin yahan se har course ke lessons upload aur manage karega.
+* Agar kisi course mein 10 lessons hain, toh admin unhein one by one upload kar sakta hai.
+* Lessons daily basis par bhi add kiye ja sakte hain.
+Create Lesson mein fields:
+* Target Course Selection
+* Module Title
+* Lesson Title
+* Visibility (Published / Draft)
+* Lesson Content
+* Video URL (YouTube ya kisi doosre platform ki link jaise record kar k video)
+* Video Duration / Length
+* Zoom Meeting Link (Live Classes ke liye)
+* Save Lesson Button
+Video Completion Rules:
+* Admin video completion percentage set kar sakta hai.
+* Example: Agar 80% video watch karna compulsory hai, toh student ke 80% video complete karne par lesson automatically completed mark ho jayega.
+Lesson Management:
+* Neeche tamam courses ke uploaded lessons show honge.
+* Admin lesson details dekh sakta hai.
+* Lessons edit aur delete kar sakta hai.
+* Delete All Lessons ka option bhi available hoga.
+
+### 5\. Quiz Management
+Admin yahan se courses aur students ke liye quizzes create aur manage karega.
+Quiz Creation Fields:
+* Course Selection
+* Week Selection
+* Assignment Type:
+    * Practice Test
+    * Module Test
+    * Final Test
+* Question Bank / Question Category
+* Time Limit
+* Passing Marks
+* Allowed Attempts
+* Quiz Title
+* Instructions / Rules
+* Available From (Start Date)
+* Available Until (End Date)
+* Visibility (Published / Draft)
+Quiz Workflow:
+* Admin Create Quiz par click karega.
+* Quiz ki tamam details save ho jayengi.
+* Uske baad Add Questions ka section open hoga.
+* Admin yahan MCQs aur unke multiple-choice answers add kar sakta hai.
+Additional Options:
+* Final Test Retake Requests
+* Delete All Quizzes
+
+### 6\. Coding Challenge
+* Yeh module specially Full Stack Development students ke liye hai.
+* Admin yahan live coding challenges create kar sakta hai.
+Challenge Creation Fields:
+* Challenge Title
+* Course Selection
+* Challenge Instructions
+* HTML Starter Code
+* CSS Starter Code
+* Test Cases
+* Save Challenge
+Example Challenge:
+* HTML mein ek heading create karein.
+* Heading ka text colour Red hona chahiye.
+Admin challenge save karega aur woh automatically student dashboard par available ho jayega.
+
+### 7\. Quiz Reports
+* Admin tamam students ki quiz performance reports dekh sakta hai.
+* Kis student ne quiz pass ya fail kiya, uski details available hongi.
+* Total attempts show honge.
+* Quiz attempt aur submission ki date aur time show honge.
+* Student-wise quiz performance track ki ja sakti hai.
+
+### 8\. Assignments
+Is section mein do main functionalities hongi.
+
+A. Assignment Reviews
+* Students ke submitted assignments yahan show honge.
+* Admin submitted assignments review kar sakta hai.
+* Assignment approve ya feedback ke liye return kiya ja sakta hai.
+
+B. Create Assignment
+Fields:
+* Assignment Title
+* Category
+* Course / Week
+* Duration
+* Due Date
+* Status
+Assignment Catalogue:
+* Tamam created assignments ki list show hogi.
+* Submitted assignments ki details bhi available hongi.
+
+### 9\. Students Management
+* Admin tamam registered students ki details dekh sakta hai.
+* Student profile aur account information access kar sakta hai.
+* Individual student ki activity monitor kar sakta hai.
+Student Activity Tracking:
+* Student ne kab login kiya.
+* Kitni der login raha.
+* Kitni baar login kiya.
+* Complete login history aur activity records.
+* Admin zaroorat par student activity records clear bhi kar sakta hai.
+
+### 10\. Attendance Confirmation Window
+* Admin attendance confirmation ka time set kar sakta hai.
+* Example: Agar attendance window 5 minutes set hai, toh student login ke baad 5 minutes ke andar attendance mark kar sakta hai.
+* Agar student given time mein attendance mark nahi karta, toh system automatically usko Absent mark kar dega.
+
+### 11\. Announcements
+* Admin students ke liye announcements create kar sakta hai.
+* Example: Aaj ki class late start hogi.
+Announcement Fields:
+* Announcement Title
+* Message
+* Target Audience
+Admin announcement in logon ke liye send kar sakta hai:
+* All Students
+* Selected Students
+* Specific Course Students
+### 12\. Chats
+* Admin individual students ke saath in-app chat kar sakta hai.
+* Students aur admin ke darmiyan direct communication possible hogi.
+* Messages aur notifications dashboard ke andar available hongi.
+
+### 13\. Certificates
+* Jab student course complete karega aur required completion rules fulfil karega, toh certificate request automatically generate hogi.
+* Admin certificate requests dekh sakta hai.
+* Eligible students ke certificates manage kiye ja sakte hain.
+
+### 14\. Revenue & Payments
+* Admin tamam students ki payment history dekh sakta hai.
+* Revenue aur payment records manage kar sakta hai.
+* Admin apne bank account aur bank cards add kar sakta hai.
+* Payment summaries aur related notifications available hongi.
+
+### 15\. Notifications
+* Admin ko important dashboard notifications receive hongi.
+* Payment updates, student activities aur other important events ki notifications show hongi.
+
+### 16\. Reports
+Reports section mein tamam important modules ki reports available hongi.
+* Quiz Reports
+* Monthly Reports
+* Assignment Reports
+* Attendance Reports
+* Student Performance Reports
+* Overall Reports
+Admin tamam important activities aur performance ko monitor kar sakta hai.
+
+### 17\. Moderation
+* Public website ke home page par publish hone wale reviews pehle admin ke paas moderation ke liye aayenge.
+* Admin har review ko check karega.
+* Admin review approve ya reject kar sakta hai.
+* Sirf approved reviews public home page par publish honge.
+
+### 18\. Security Settings
+Admin yahan se authentication aur login security rules manage kar sakta hai.
+
+A. OTP Authentication Settings
+* OTP Expiry Time
+* OTP Resend Waiting Time
+* Maximum OTP Verification Attempts
+* OTP Resend Limits
+* Resend Window Configuration
+B. Login Protection
+* Maximum Login Attempts set karna.
+* Example: Maximum 5 login attempts allowed honge.
+
+C. Registration Limits
+* Registration requests ki maximum limit set hogi.
+* Example: 1 hour ke andar maximum 5 registration attempts.
+* Limit complete hone par student ko next hour tak wait karna hoga.
+
+D. Password Reset Limits
+* Password reset requests ki limit set hogi.
+* Example: 5 minutes ki window mein maximum 2 password reset requests allowed hongi.
+
+### 19\. My Account
+* Admin ki complete profile details yahan available hongi.
+* Admin apne account credentials update kar sakta hai.
+* Account information aur login details manage kar sakta hai.
+
+### 20\. Recent Activity
+* Admin ki taraf se ki gayi tamam recent activities yahan show hongi.
+* Kis admin action ko perform kiya gaya, uski history available hogi.
+* Admin apni recent activity monitor kar sakta hai.
+
+
+
+### Student Dashboard – Complete Functionalities
+
+Neeche aapke Student Dashboard ki complete explanation ko pehle Roman Urdu aur phir UK English mein professional, easy-to-understand aur structured points mein convert kiya gaya hai. Isay aap apni project documentation (SRS/SDD) aur development team ke liye bhi use kar sakte hain.
+
+### Part 1: Roman Urdu
+### 1\. Student Registration & OTP Verification
+* Student admin ke registration form ke zariye apna account register karega.
+* Registration form mein required information, Gmail address aur password enter karega.
+* Registration ke baad student ko email par OTP receive hoga.
+* Student OTP enter karke apna account verify karega.
+* OTP verification successful hone ke baad student ka account register ho jayega.
+* Account registration ke baad student automatically Payment Page par redirect ho jayega.
+
+### 2\. Course Payment & Approval Process
+* Payment page par admin ke dashboard mein configured bank account details show hongi.
+* Student apne selected course ki payment diye gaye bank account mein transfer karega.
+* Payment complete karne ke baad student:
+    * Payment receipt upload karega.
+    * Transaction ID enter ya upload karega.
+* Payment submission ke baad student ko admin ki approval ka wait karna hoga.
+* Payment submission par admin aur student dono ko email notification receive hogi.
+* Admin payment details aur uploaded receipt verify karega.
+* Payment confirm hone ke baad admin apne dashboard se payment approve karega.
+* Approval ke baad student ko confirmation message aur email receive hogi.
+* Student apne registered Gmail aur password ke zariye dobara login kar sakega.
+* Successful login ke baad Student Dashboard open ho jayega.
+
+### 3\. Student Overview Dashboard
+* Overview student dashboard ka main page hoga.
+* Is page par student ki overall academic performance aur activities ka summary show hoga.
+* Different cards, charts aur statistics ke zariye important information display hogi.
+
+A. Attendance Card
+* Student yahan se apni daily attendance mark karega.
+* Attendance history bhi available hogi.
+* Present, Absent aur Waiting status show honge.
+* Attendance ke saath notes aur related information bhi show hogi.
+* Circular chart ke zariye attendance percentage display hogi.
+
+B. Weekly Attendance Statistics
+* Student apni weekly attendance performance dekh sakega.
+* Har week mein kitne din Present aur kitne din Absent raha, ye show hoga.
+
+C. Video Watching Progress
+* Admin jo recorded lessons upload karega, student unki video links ke zariye lessons watch karega.
+* Dashboard par video watching progress percentage show hogi.
+* Example: Agar student ne kisi video ka sirf 10% dekha hai, toh 10% progress show hogi.
+* Agar student ne 90% video complete kar li hai, toh 90% progress show hogi.
+
+D. Performance Summary Cards Overview page par following summary cards honge:
+* My Courses
+* Completed Lessons
+* Quizzes
+* Attendance
+* Learning Progress
+
+### 4\. My Courses
+* Overview page par My Courses ka section available hoga.
+* Is section mein student ke purchased aur approved courses cards ki form mein show honge.
+* Student sidebar ke My Courses button par click karke bhi apne tamam purchased courses dekh sakta hai.
+* Course cards mein relevant course information available hogi.
+
+### 5\. Lessons
+* Lessons section mein student ko admin ki taraf se uploaded aur published lessons show honge.
+* Sirf wohi lessons student ko available honge jinhein admin ne publish ya approve kiya hoga.
+* Student apne enrolled courses ke lessons access kar sakega.
+* Recorded video lessons aur live Zoom meeting links yahan available honge.
+* Student apni lesson completion aur video watching progress track kar sakega.
+
+### 6\. Payments & Payment History
+* Payments page par student ki tamam course payments ka record available hoga.
+* Student apni payment history check kar sakega.
+* Uploaded payment receipts ka record bhi available hoga.
+* Student Download Receipt button par click karke apni payment receipt PDF ya available format mein download kar sakega.
+* Student apni payment details aur transaction information bhi dekh sakega.
+
+### 7\. Quizzes & Results
+* Student yahan se available quizzes attempt kar sakega.
+* Practice Tests, Module Tests aur Final Tests access kar sakega.
+* Quiz instructions aur time limits dekh sakega.
+* Quiz submit karne ke baad results check kar sakega.
+* Previous quiz attempts aur performance results bhi available honge.
+
+### 8\. Coding Challenges
+* Yeh module specially Full Stack Web Development students ke liye available hoga.
+* Students yahan HTML, CSS aur JavaScript ki practical coding practice kar sakenge.
+* Admin ki taraf se upload kiye gaye coding challenges yahan show honge.
+* Student coding editor mein code likh kar challenges solve karega.
+* Test cases ke zariye apne code ko check kar sakega.
+* Coding practice aur challenge performance track kar sakega.
+
+### 9\. Assignments
+* Assignments page par admin ki taraf se upload kiye gaye tamam assignments show honge.
+* Student assignment details aur instructions dekh sakega.
+* Assignment ko review karke given deadline ke andar submit kar sakega.
+Assignment Submission Options:
+  * GitHub Project Link
+  * Project ZIP File
+  * Required Assignment Files
+Submission Process:
+  * Student apna completed project upload karega.
+  * GitHub repository ka link provide kar sakega.
+  * Code ki ZIP file upload kar sakega.
+  * Assignment deadline ke mutabiq submission complete karega.
+  * Submitted assignment admin ke review ke liye available ho jayegi.
+  * Student assignment review status aur feedback check kar sakega.
+
+### 10\. Reports
+* Reports page par admin ki taraf se student ke liye selected reports show hongi.
+* Admin apne dashboard ke Reports section se specific student ko report send kar sakta hai.
+* Jab admin kisi student ko report share karega, toh woh report automatically us student ke Reports page par available ho jayegi.
+* Student report online view kar sakega.
+* Student Download PDF button ke zariye report PDF format mein download kar sakega.
+
+### 11\. Notifications
+* Notifications page par admin ki taraf se bheji gayi tamam important updates show hongi.
+* New courses ki notifications receive hongi.
+* New lessons aur course updates ki notifications show hongi.
+* New assignments aur quizzes ki notifications receive hongi.
+* Important announcements aur other updates bhi yahan display honge.
+
+### 12\. Chats / Personal Chat
+* Student admin ke saath direct personal chat kar sakega.
+* Agar student ko kisi lesson, assignment ya course ke regarding koi issue ho, toh woh admin ko message kar sakega.
+* In-app messaging system ke zariye student aur admin communicate kar sakenge.
+* Student apne messages aur replies dashboard mein dekh sakega.
+
+### 13\. Account Settings
+* Student apni account information manage kar sakega.
+* Apna name update kar sakega.
+* Apni email information manage kar sakega.
+* Password change kar sakega.
+* Apni personal profile details update kar sakega.
+* Account security aur login credentials manage kar sakega.

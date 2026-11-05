@@ -76,12 +76,10 @@ $heroImages = [
 <?php endif; ?>
 
 <?php
+$ctaKicker = 'FIND YOUR COURSE';
 $ctaTitle = 'Build skills you can put to work';
 $ctaDescription = 'Learn with Tech SG Academy through practical courses guided by developers, designers and marketers who build real projects.';
 $ctaPrimaryLabel = 'Choose a course to enroll';
 $ctaPrimaryHref = '#course-list';
-$ctaSecondaryLabel = 'Ask about a course';
-$ctaSecondaryHref = $baseUrl . '/contact';
-$ctaNote = 'Practical learning · Clear course pricing · Academy support';
 require BASE_PATH . '/app/Views/components/academy-cta.php';
 ?>

@@ -45,67 +45,36 @@ $checkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke
 $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 ?>
 <section class="home-hero" data-reveal>
-    <div class="hero-decor" aria-hidden="true">
-        <span class="decor-blob decor-blob-1"></span>
-        <span class="decor-blob decor-blob-2"></span>
-        <span class="decor-blob decor-blob-3"></span>
-        <span class="decor-shape decor-star decor-star-1"></span>
-        <span class="decor-shape decor-star decor-star-2"></span>
-        <span class="decor-shape decor-star decor-star-3"></span>
-        <span class="decor-shape decor-sparkle decor-sparkle-1">✦</span>
-        <span class="decor-shape decor-sparkle decor-sparkle-2">✦</span>
-        <span class="decor-shape decor-plus">+</span>
-        <span class="decor-shape decor-ring"></span>
-        <span class="decor-shape decor-ring decor-ring-2"></span>
-        <span class="decor-shape decor-square"></span>
-        <span class="decor-shape decor-triangle"></span>
-        <span class="decor-shape decor-dot"></span>
-        <span class="decor-shape decor-dot decor-dot-2"></span>
-        <span class="decor-shape decor-dot decor-dot-3"></span>
-        <span class="decor-shape decor-cross">×</span>
-    </div>
+    <span class="hero-watermark hero-watermark-1" aria-hidden="true">ACADEMY</span>
+    <span class="hero-watermark hero-watermark-2" aria-hidden="true">ACADEMY</span>
+    <p class="hero-side-label" aria-hidden="true"><span>ONLINE</span><small>2026</small></p>
+    <span class="hero-arcs" aria-hidden="true"></span>
+    <span class="hero-cube hero-cube-1" aria-hidden="true"></span>
+    <span class="hero-cube hero-cube-2" aria-hidden="true"></span>
     <div class="home-copy">
-        <p class="eyebrow">TECH SG ACADEMY · BY TECH SG STUDIO (SMC-PVT.) LTD.</p>
+        <p class="eyebrow">TECH SG ACADEMY</p>
         <h1>Learn practical skills.<br><span>Build what’s next.</span></h1>
-        <p class="lead">Project-based training from a SECP-registered software company — learn from developers who build for clients in Pakistan, the UK, the USA, the UAE and Europe.</p>
+        <div class="hero-lead-row">
+            <span class="hero-rule" aria-hidden="true"></span>
+            <p class="lead">Project-based training from a SECP-registered software company — learn from developers who build for clients in Pakistan, the UK, the USA, the UAE and Europe.</p>
+        </div>
+        <div class="hero-trust" aria-label="Academy highlights">
+            <div class="trust-pill">
+                <span class="trust-num">01</span>
+                <span class="trust-text">SECP Registered Company</span>
+            </div>
+            <div class="trust-pill">
+                <span class="trust-num">02</span>
+                <span class="trust-text">Project-Based Learning</span>
+            </div>
+            <div class="trust-pill">
+                <span class="trust-num">03</span>
+                <span class="trust-text">Certificate on Completion</span>
+            </div>
+        </div>
         <div class="hero-actions">
             <a class="button" href="<?= Security::escape($baseUrl) ?>/courses">Explore courses <span aria-hidden="true">→</span></a>
         </div>
-    </div>
-    <div class="hero-art" aria-hidden="true">
-        <div class="art-glow"></div>
-
-        <div class="art-card art-card-main">
-            <div class="art-card-top">
-                <span class="art-mark">TSG</span>
-                <span class="art-chip"><i></i>Live + Recorded</span>
-            </div>
-            <div class="hero-trust" aria-label="Academy highlights">
-                <div class="trust-pill">
-                    <span class="trust-num">01</span>
-                    <span class="trust-text">SECP Registered Company</span>
-                </div>
-                <div class="trust-pill">
-                    <span class="trust-num">02</span>
-                    <span class="trust-text">Project-Based Learning</span>
-                </div>
-                <div class="trust-pill">
-                    <span class="trust-num">03</span>
-                    <span class="trust-text">Certificate on Completion</span>
-                </div>
-            </div>
-            <div class="art-features">
-                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"></path><path d="M10 9.5l4.5 2.5L10 14.5z"></path></svg></i>Recorded lessons<strong>24</strong></span>
-                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg></i>Hands-on projects<strong>06</strong></span>
-                <span class="art-feature"><i><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"></path><path d="M9 3.5h6v3H9z"></path><path d="M8.5 13l2.2 2.2 4.3-4.4"></path></svg></i>Quizzes &amp; tasks<strong>12</strong></span>
-            </div>
-            <span class="art-label">Learning that moves you forward</span>
-            <div class="art-progress">
-                <span class="art-progress-head"><span>Course progress</span><strong>78%</strong></span>
-                <span class="art-bar"><i></i></span>
-            </div>
-        </div>
-        <span class="art-orbit"></span>
     </div>
 </section>
 <section class="stats-band" data-reveal aria-label="Academy highlights">
@@ -307,12 +276,10 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
     </div>
 </section>
 <?php
+$ctaKicker = 'FIND YOUR COURSE';
 $ctaTitle = 'Ready to start learning?';
 $ctaDescription = 'Pick a practical course, create your account on the enrollment step and take the next step in your career.';
 $ctaPrimaryLabel = 'Browse courses';
 $ctaPrimaryHref = $baseUrl . '/courses';
-$ctaSecondaryLabel = 'Talk to our team';
-$ctaSecondaryHref = $baseUrl . '/contact';
-$ctaNote = 'Course-first enrollment · No hidden fees · Mon–Sat support';
 require BASE_PATH . '/app/Views/components/academy-cta.php';
 ?>
