@@ -68,6 +68,18 @@
         const closeLogoutConfirm = () => {
             logoutConfirm.hidden = true;
             document.body.classList.remove('logout-confirm-open');
+            // A swipe that reached the edge but whose dialog was cancelled must not leave the handle
+            // parked at the right, where it could never be swiped again - reset it to the start.
+            if (pendingLogoutForm) {
+                const swipe = pendingLogoutForm.querySelector('[data-logout-swipe]');
+                if (swipe) {
+                    swipe.classList.remove('is-complete');
+                    const knob = swipe.querySelector('.logout-swipe-handle');
+                    if (knob) { knob.style.transition = ''; knob.style.transform = ''; delete knob.dataset.dragging; }
+                    const bar = swipe.querySelector('.logout-swipe-fill');
+                    if (bar) bar.style.width = '';
+                }
+            }
             if (logoutTrigger) logoutTrigger.focus({ preventScroll: true });
             pendingLogoutForm = null;
         };
@@ -94,6 +106,87 @@
             if (event.key === 'Escape' && !logoutConfirm.hidden) closeLogoutConfirm();
         });
     }
+
+
+    /* =========================================================
+       SWIPE-TO-LOGOUT (desktop account card)
+       The handle is a real submit button, so nothing here is required to log out: with no
+       JavaScript the button submits, and a keyboard Enter/Space still submits (that click has
+       event.detail === 0). This only layers the drag gesture on top - a completed drag to the
+       right edge calls requestSubmit(), which the confirmation above intercepts to open the
+       dialog. A plain pointer tap is ignored so the gesture stays deliberate, and a release short
+       of the edge springs the handle back.
+       ========================================================= */
+
+    const swipeReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    document.querySelectorAll('[data-logout-swipe]').forEach((swipe) => {
+        const form = swipe.closest('form');
+        const handle = swipe.querySelector('.logout-swipe-handle');
+        const fill = swipe.querySelector('.logout-swipe-fill');
+        if (!form || !handle) return;
+
+        let dragging = false;
+        let completed = false;
+        let startX = 0;
+        let maxX = 0;
+
+        const paint = (x) => {
+            handle.style.transform = x ? `translateX(${x}px)` : '';
+            if (fill) fill.style.width = (x + handle.offsetWidth) + 'px';
+        };
+
+        handle.addEventListener('pointerdown', (event) => {
+            if (event.button) return;
+            dragging = true;
+            completed = false;
+            startX = event.clientX;
+            const track = swipe.getBoundingClientRect();
+            const knob = handle.getBoundingClientRect();
+            maxX = Math.max(0, track.width - knob.width - 6);
+            handle.dataset.dragging = '1';
+            handle.style.transition = 'none';
+            if (handle.setPointerCapture) { try { handle.setPointerCapture(event.pointerId); } catch (e) {} }
+        });
+
+        handle.addEventListener('pointermove', (event) => {
+            if (!dragging) return;
+            paint(Math.min(Math.max(event.clientX - startX, 0), maxX));
+        });
+
+        const endDrag = (event) => {
+            if (!dragging) return;
+            dragging = false;
+            delete handle.dataset.dragging;
+            if (handle.releasePointerCapture) { try { handle.releasePointerCapture(event.pointerId); } catch (e) {} }
+            const dx = Math.min(Math.max(event.clientX - startX, 0), maxX);
+            handle.style.transition = '';
+            if (dx >= maxX - 6) {
+                completed = true;
+                paint(maxX);
+                swipe.classList.add('is-complete');
+                const fire = () => { if (form.requestSubmit) form.requestSubmit(); else form.submit(); };
+                if (swipeReduce) fire(); else setTimeout(fire, 140);
+            } else {
+                paint(0);
+                swipe.classList.remove('is-complete');
+            }
+        };
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', () => {
+            dragging = false;
+            delete handle.dataset.dragging;
+            handle.style.transition = '';
+            paint(0);
+            swipe.classList.remove('is-complete');
+        });
+
+        // Block a pointer tap that never swiped; let keyboard activation (detail 0) submit.
+        handle.addEventListener('click', (event) => {
+            if (event.detail !== 0 && !completed) event.preventDefault();
+            completed = false;
+        });
+    });
 
 
     /* =========================================================

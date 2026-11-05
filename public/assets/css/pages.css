@@ -142,7 +142,7 @@
 .top-nav .nav-cta {
   padding: 10px 16px;
   border-radius: 11px;
-  background: #002147;
+  background: var(--btn-bg-dim);
   color: #fff;
   box-shadow: 0 8px 20px #00214726
 }
@@ -332,12 +332,12 @@ input[type="submit"].button {
   padding: 10px 18px;
   border-radius: 11px;
   border: none;
-  background: #002147;
+  background: var(--btn-bg-dim);
   color: #ffffff;
   text-decoration: none;
   cursor: pointer;
   box-shadow: 0 8px 20px #00214726;
-  transition: transform 0.18s ease;
+  transition: box-shadow .18s ease, background .18s ease, color .18s ease;
   user-select: none;
   -webkit-appearance: none;
   appearance: none;
@@ -346,17 +346,16 @@ input[type="submit"].button {
 .button:hover,
 button.button:hover,
 input[type="submit"].button:hover {
-  background: #002147;
+  background: var(--btn-bg);
   color: #ffffff;
   border: none;
-  box-shadow: 0 8px 20px #00214726;
-  transform: scale(1.03);
+  box-shadow: var(--btn-glow);
 }
 
 .button:active,
 button.button:active,
 input[type="submit"].button:active {
-  transform: scale(0.99);
+  box-shadow: var(--btn-glow-press);
 }
 
 .button-secondary,
@@ -372,14 +371,13 @@ button.button-secondary:hover {
   background: #f8fafc;
   border-color: #94a3b8;
   color: #0f172a;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px 0 rgba(15, 23, 42, 0.07);
+  box-shadow: var(--btn-glow-soft);
 }
 
 .button-secondary:active,
 button.button-secondary:active {
-  transform: translateY(0);
   background: #f1f5f9;
+  box-shadow: var(--btn-glow-press);
 }
 
 .hero-art {
@@ -1961,13 +1959,13 @@ button.button-secondary:active {
   }
 }
 
-/* ===== Register nav button: deliberately no hover effect ===== */
+/* ===== Register nav button: dim → full navy + glow, no movement ===== */
 .top-nav .nav-cta:hover,
 .top-nav .nav-cta:focus-visible {
-  background: #002147;
+  background: var(--btn-bg);
   color: #fff;
   transform: none;
-  box-shadow: 0 8px 20px #00214726
+  box-shadow: var(--btn-glow)
 }
 
 /* ===== Mobile navigation (hamburger) ===== */
@@ -2043,16 +2041,17 @@ body.nav-open .mobile-nav {
   padding: 13px 16px;
   border: 0;
   border-radius: 12px;
-  background: #002147;
+  background: var(--btn-bg-dim);
   color: #fff;
   text-align: center;
   box-shadow: 0 10px 22px #0021472e
 }
 
 .mobile-nav .nav-cta:hover {
-  background: #002147;
+  background: var(--btn-bg);
   color: #fff;
-  transform: none
+  transform: none;
+  box-shadow: var(--btn-glow)
 }
 
 .mobile-nav a.active {
@@ -2862,18 +2861,18 @@ textarea.review-input {
   padding: 13px 22px;
   border: 0;
   border-radius: 12px;
-  background: #002147;
+  background: var(--btn-bg-dim);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
   text-align: center;
   cursor: pointer;
-  transition: background .2s ease, transform .2s ease
+  transition: background .2s ease, box-shadow .2s ease
 }
 
 .review-submit:hover {
-  background: #002147;
-  transform: translateY(-1px)
+  background: var(--btn-bg);
+  box-shadow: var(--btn-glow)
 }
 
 .review-note {
@@ -4323,7 +4322,7 @@ html.js [data-reveal].is-visible.dash-card:hover {
   margin-left: auto;
   padding: 10px 24px;
   border-radius: 11px;
-  background: linear-gradient(135deg, #0d3a6b, #002147);
+  background: linear-gradient(135deg, #2a4a70, #1c3a5e);
   color: #fff;
   font-size: 14px;
   font-weight: 800;
@@ -4331,18 +4330,18 @@ html.js [data-reveal].is-visible.dash-card:hover {
   text-decoration: none;
   white-space: nowrap;
   box-shadow: 0 10px 22px -8px rgba(0, 33, 71, .75);
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease
+  transition: box-shadow .18s ease, background .18s ease
 }
 
 .quiz-open-btn:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.05);
+  background: linear-gradient(135deg, #0d3a6b, #002147);
   color: #fff;
-  box-shadow: 0 16px 28px -10px rgba(0, 33, 71, .85)
+  box-shadow: 0 16px 28px -10px rgba(0, 33, 71, .85), 0 0 18px rgba(30, 64, 175, .45)
 }
 
 .quiz-open-btn:active {
-  transform: translateY(0)
+  background: linear-gradient(135deg, #0d3a6b, #002147);
+  box-shadow: var(--btn-glow-press)
 }
 
 @media (max-width: 640px) {
@@ -6920,7 +6919,7 @@ body.dashboard-shell>main.dashboard-container {
 /* The brand block and the logout card stay pinned; only the nav links travel.
    The scroll box is pulled under both ends with negative margins and pushed
    back into place with equal padding, so links slide behind the WORKSPACE
-   caption when scrolled up and fade under the logout card when scrolled down. */
+   caption when scrolled up and behind the navy logout card when scrolled down. */
 .dashboard-sidebar-head {
   position: relative;
   z-index: 3;
@@ -7065,15 +7064,17 @@ body.dashboard-shell>main.dashboard-container {
   z-index: 3;
   flex: 0 0 auto;
   margin-top: auto;
-  padding-top: 26px;
-  background: linear-gradient(180deg, #fff0, #fff 34%)
+  /* No top gap and no white fade: the navy card's own top edge is the mask, so the links
+     slide straight behind the card instead of resting on a white strip above it. */
+  padding-top: 0;
+  background: transparent
 }
 
 .dashboard-logout-card {
   position: relative;
   overflow: visible;
   display: block;
-  margin-top: 24px;
+  margin-top: 0;
   padding: 32px 18px 18px;
   border-radius: 20px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cpath d='M4 26c14-22 26-22 40 0s26 22 40 0 20-16 32-6' fill='none' stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") top right 10px/104px 34px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cpath d='M4 26c14-22 26-22 40 0s26 22 40 0 20-16 32-6' fill='none' stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") bottom left 10px/104px 34px no-repeat, linear-gradient(160deg, #002147, #001530);
@@ -7119,18 +7120,6 @@ body.dashboard-shell>main.dashboard-container {
   font-weight: 800;
   letter-spacing: -.01em;
   color: #fff
-}
-
-.dashboard-logout-role {
-  padding: 2px 9px;
-  border: 1px solid #ffffff40;
-  border-radius: 999px;
-  background: #ffffff1f;
-  color: #dbe7ff;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-transform: uppercase
 }
 
 .dashboard-logout-identity p {
@@ -7179,6 +7168,98 @@ body.dashboard-shell>main.dashboard-container {
 
 .dashboard-logout-card button:active {
   transform: translateY(0)
+}
+
+/* Swipe-to-logout control (desktop account card only). The handle is a real submit button, so it
+   works with no JavaScript and from the keyboard; main.js layers the drag gesture on top and opens
+   the confirmation dialog only when the handle is released at the right edge. These rules come after
+   the pill button rules above so they win on the shared handle selectors. */
+.logout-swipe {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  background: #00152f;
+  box-shadow: inset 0 1px 0 #ffffff14
+}
+
+.logout-swipe-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  background: linear-gradient(90deg, #0a2a52, #14406f)
+}
+
+.logout-swipe-label {
+  position: absolute;
+  right: 16px;
+  left: 56px;
+  color: #a9bdd8;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .18s ease
+}
+
+.dashboard-logout-card .logout-swipe-handle {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  margin: 3px;
+  padding: 0;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--blue);
+  cursor: grab;
+  box-shadow: 0 6px 14px #00000059;
+  touch-action: none;
+  transition: transform .18s ease, box-shadow .18s ease
+}
+
+.dashboard-logout-card .logout-swipe-handle:hover {
+  background: #fff;
+  transform: none
+}
+
+/* The handle reuses the shared rail icon, which the desktop sidebar hides with the global
+   `.dashboard-nav-icon { display: none }`, so it is switched back on and sized for the knob. */
+.logout-swipe-handle .dashboard-nav-icon {
+  display: block;
+  width: 20px;
+  height: 20px
+}
+
+.dashboard-logout-card .logout-swipe-handle[data-dragging="1"] {
+  cursor: grabbing;
+  box-shadow: 0 8px 18px #00000073
+}
+
+.logout-swipe.is-complete .logout-swipe-label {
+  opacity: 0
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logout-swipe-fill,
+  .logout-swipe-label,
+  .dashboard-logout-card .logout-swipe-handle {
+    transition: none
+  }
 }
 
 /* The sidebar account footer is a centered card with an overlapping badge:
@@ -11272,6 +11353,7 @@ body.dashboard-shell {
   background: #f8fafc;
   color: #0f172a;
   transform: none;
+  box-shadow: var(--btn-glow-soft);
 }
 
 /* --- Gmail-style setting rows -------------------------------- */
@@ -19504,13 +19586,19 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 /* The public and workspace blue accents read from one global brand token.
-   The todo card owns its own button styling, so its controls are excluded here. */
+   Buttons sit dim at rest and snap to the full brand navy (plus the shared glow)
+   on hover. The todo card owns its own button styling, so its controls are excluded. */
 .button,
-.button:hover,
-.button:focus-visible,
 .nav-cta,
 .verify-search-button {
-  background: var(--blue)
+  background: var(--btn-bg-dim)
+}
+
+.button:hover,
+.button:focus-visible,
+.nav-cta:hover,
+.verify-search-button:hover {
+  background: var(--btn-bg)
 }
 
 .button {
@@ -19538,7 +19626,8 @@ html.admin-modal-js .admin-modal.is-open {
 .button-ghost:hover {
   background: #f8fafc;
   color: #0f172a;
-  transform: none
+  transform: none;
+  box-shadow: var(--btn-glow-soft);
 }
 
 .panel-icon,
