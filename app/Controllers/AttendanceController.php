@@ -27,7 +27,11 @@ final class AttendanceController
                 throw new RuntimeException('Attendance is not available yet. Please try again after the Academy updates the system.');
             }
             $result = $service->markPresent((int) $user['id']);
-            $_SESSION[$result['ok'] ? '_flash' : '_flash_error'] = $result['message'];
+            if (!$result['ok']) {
+                $_SESSION['_flash_error'] = $result['message'];
+            } else {
+                unset($_SESSION['_flash']);
+            }
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
         }

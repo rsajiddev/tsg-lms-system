@@ -10,7 +10,6 @@ $assignments = is_array($assignments ?? null) ? $assignments : [];
 $submissions = is_array($submissions ?? null) ? $submissions : [];
 $message = $message ?? null;
 $error = $error ?? null;
-$purgeCount = count($assignments);
 ?>
 <section class="dashboard-page admin-workspace assignment-admin-page">
   <header class="admin-header">
@@ -76,8 +75,6 @@ $purgeCount = count($assignments);
             </div><span class="dashboard-status status-<?= $escape($a['status']) ?>"><?= $escape(ucfirst($a['status'])) ?></span><span><?= $escape($a['submission_count']) ?> submissions</span><span><?= $escape($a['max_marks']) ?> marks</span>
           </article><?php endforeach; ?></div><?php endif; ?>
   </section>
-  <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all assignments&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
-
   <?php
   $usageEyebrow = 'Assignment desk';
   $usageTitle = 'How to use assignments';

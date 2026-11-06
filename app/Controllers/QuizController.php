@@ -29,7 +29,7 @@ final class QuizController
             $question['options'] = $optionStmt->fetchAll();
         }
         unset($question);
-        View::render('admin/quizzes', ['title' => 'Quiz management', 'user' => $admin, 'courses' => $courses, 'quizzes' => $quizzes, 'questions' => $questions, 'retakeRequests' => $retakeRequests, 'purgeCount' => count($quizzes), 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        View::render('admin/quizzes', ['title' => 'Quiz management', 'user' => $admin, 'courses' => $courses, 'quizzes' => $quizzes, 'questions' => $questions, 'retakeRequests' => $retakeRequests, 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
@@ -179,10 +179,7 @@ final class QuizController
             $body = 'A ' . strtolower($kind) . ', “' . $title . '”, is ' . ($status === 'released' ? 'now open' : 'scheduled to open') . ' in ' . $courseTitle . '. Questions: ' . $questionCount . '; pass mark: ' . rtrim(rtrim(number_format((float)$passMark, 2), '0'), '.') . '%.' . $timing . ' Find it under Quizzes & results in your workspace.';
             (new NotificationService($db))->notifyCourse($courseId, NotificationService::QUIZ, $kind . ' ' . ($status === 'released' ? 'open' : 'scheduled') . ': ' . $title, $body, 'quiz', $quizId, '/learning/quizzes?course_id=' . $courseId, (int)$admin['id']);
         }
-        // The confirmation belongs to creating a brand-new assessment only. Editing the details of
-        // an existing quiz (title, week, timing) already shows its saved values inline, so a flash on
-        // every settings save just repeats what the admin can already see and reads as noise.
-        if ($id === 0) $_SESSION['_flash'] = 'Quiz created.';
+        unset($_SESSION['_flash']);
         $this->redirect('/admin/quizzes#quiz-' . $quizId);
     }
 
@@ -364,6 +361,7 @@ final class QuizController
         $quiz->execute([$quizId]);
         $quizRow = $quiz->fetch();
         if (!$quizRow || $quizRow['status'] !== 'draft') throw new RuntimeException('Questions can only be changed while the quiz is in draft.');
+        $isNewQuestion = $questionId === 0;
         if ($quizRow['quiz_type'] === 'practice' && $explanation === '') throw new RuntimeException('Practice questions need an explanation so students can learn from a wrong answer.');
         $attempts = $db->prepare('SELECT 1 FROM quiz_attempts WHERE quiz_id=? LIMIT 1');
         $attempts->execute([$quizId]);
@@ -395,7 +393,17 @@ final class QuizController
             throw $exception;
         }
         $this->audit($db, (int)$admin['id'], 'quiz.question_saved', $questionId, ['quiz_id' => $quizId]);
-        $_SESSION['_flash'] = 'Question saved with four options and one answer key.';
+        if ($isNewQuestion) {
+            $count = $db->prepare('SELECT COUNT(*) FROM quiz_questions WHERE quiz_id=?');
+            $count->execute([$quizId]);
+            if ((int) $count->fetchColumn() === (int) $quizRow['question_count']) {
+                $_SESSION['_flash'] = 'Assessment and all ' . (int) $quizRow['question_count'] . ' questions saved successfully.';
+            } else {
+                unset($_SESSION['_flash']);
+            }
+        } else {
+            unset($_SESSION['_flash']);
+        }
         $this->redirect('/admin/quizzes#quiz-' . $quizId);
     }
 

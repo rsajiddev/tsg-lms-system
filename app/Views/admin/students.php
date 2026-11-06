@@ -23,6 +23,7 @@ use App\Services\AccountIdentity;
  * @var string|null $error
  */
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+$escape = static fn(mixed $value): string => Security::escape((string) $value);
 $students = is_array($students ?? null) ? $students : [];
 $activity = is_array($activity ?? null) ? $activity : [];
 $sessions = is_array($sessions ?? null) ? $sessions : [];
@@ -237,8 +238,6 @@ $accountId = static function (array $account): string {
             <?php endif; ?>
         </section>
     <?php endif; ?>
-
-    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all students&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
     <?php
     $usageEyebrow = 'Student directory';

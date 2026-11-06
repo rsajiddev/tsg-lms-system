@@ -382,8 +382,6 @@ $checkPage('Admin dashboard', '/dashboard', static fn() => (new DashboardControl
 // The board is publishing only now: the reports it used to carry have their own page, and the
 // messages have theirs, so a reader is handed a link rather than a second table.
 $checkPage('Announcement workspace', '/admin/announcements', static fn() => (new NotificationController())->adminIndex(), [
-    'danger-moved-note',
-    '/admin/danger-zone',
     'Open the chat desk',
     'Open recent activity',
 ]);
@@ -395,27 +393,36 @@ $checkPage('Admin chat desk', '/admin/chats', static fn() => (new ChatController
 ]);
 $checkPage('Recent activity report', '/admin/activity', static fn() => (new NotificationController())->activity(), [
     'Automated student updates',
+    '/admin/activity/automated/clear',
+    'Clear updates',
     'Email delivery log',
-    'danger-moved-note',
     'How to use recent activity',
 ]);
-$checkPage('Assignment workspace', '/admin/assignments', static fn() => (new AssignmentController())->adminIndex(), [
-    'danger-moved-note',
-    '/admin/danger-zone',
-]);
-$checkPage('Quiz workspace', '/admin/quizzes', static fn() => (new QuizController())->adminIndex(), [
-    'danger-moved-note',
-]);
-$checkPage('Lesson library', '/admin/lessons', static fn() => (new CourseAdminController())->lessons(), [
-    'danger-moved-note',
-]);
-$checkPage('Student directory', '/admin/students', static fn() => (new StudentManagementController())->index(), [
-    'danger-moved-note',
-    '/admin/danger-zone',
-]);
+$adminUpdateHtml = $render(static function (): void {
+    \App\Core\View::render('notifications/read', [
+        'title' => 'Announcement',
+        'user' => $_SESSION['user'],
+        'notification' => [
+            'title' => 'Rendered admin update',
+            'body' => 'Update detail.',
+            'category' => 'lesson',
+            'published_at' => '2026-01-01 12:00:00',
+            'author_name' => 'Render Smoke Admin',
+        ],
+    ]);
+});
+$assert(!str_contains($adminUpdateHtml, 'Back to notifications'),
+    'The update detail has no Back to notifications button.',
+    'The update detail still shows a Back to notifications button.');
+$assert(str_contains($adminUpdateHtml, '/admin/activity">Recent activity</a>'),
+    'An admin update detail links back to Recent activity.',
+    'An admin update detail has no working Recent activity breadcrumb.');
+$checkPage('Assignment workspace', '/admin/assignments', static fn() => (new AssignmentController())->adminIndex(), []);
+$checkPage('Quiz workspace', '/admin/quizzes', static fn() => (new QuizController())->adminIndex(), []);
+$checkPage('Lesson library', '/admin/lessons', static fn() => (new CourseAdminController())->lessons(), []);
+$checkPage('Student directory', '/admin/students', static fn() => (new StudentManagementController())->index(), []);
 // Every guarded bulk delete - seven wipes plus the counter re-arm - now lives on one Danger Zone
-// page. Each card renders here with its exact confirmation phrase, acknowledgement checkbox and
-// submit button intact, and the source pages only keep a pointer linking this way.
+// page. Each card renders here with its exact confirmation phrase and acknowledgement checkbox.
 $checkPage('Danger Zone', '/admin/danger-zone', static fn() => (new AdminManagementController())->dangerZone(), [
     'Danger Zone',
     'Read before deleting',
@@ -641,11 +648,10 @@ $assert(substr_count($html, 'admin-usage-number') === 0,
 $assert(!str_contains($html, 'admin-usage-detail'),
     'A reference line is one short pointer, with no explanatory sentence trailing it.',
     'The reference still prints the long explanation after each line title.');
-// The walkthrough is the last card on the page, so it never cuts the workflow above it in half -
-// and that holds even now the bulk delete itself lives on the Danger Zone behind a pointer.
-$assert(stripos($html, 'admin-usage-card') > stripos($html, 'danger-moved-note'),
-    'The guide sits below the moved-delete pointer at the very bottom of the Lesson library.',
-    'The Lesson library prints its walkthrough above its delete pointer.');
+// The walkthrough closes each workspace page without a moved-delete note taking up space.
+$assert(!str_contains($html, 'danger-moved-note'),
+    'The Lesson library has no moved-delete note.',
+    'The Lesson library still renders a moved-delete note.');
 // The two desks that had no walkthrough now close with one, in the same place.
 foreach (
     [
@@ -656,9 +662,9 @@ foreach (
     $deskHtml = $render($deskCase[0]);
     $assert(str_contains($deskHtml, $deskCase[1]), 'The ' . $deskLabel . ' closes with its own walkthrough.',
         'The ' . $deskLabel . ' prints no "' . $deskCase[1] . '" card.');
-    $assert(stripos($deskHtml, 'admin-usage-card') > stripos($deskHtml, 'danger-moved-note'),
-        'The ' . $deskLabel . ' prints its walkthrough below its delete pointer.',
-        'The ' . $deskLabel . ' guide is not the last card on the page.');
+    $assert(!str_contains($deskHtml, 'danger-moved-note'),
+        'The ' . $deskLabel . ' has no moved-delete note.',
+        'The ' . $deskLabel . ' still renders a moved-delete note.');
 }
 // The dashboard is a summary of the pages around it, each of which already closes with a guide, so
 // it deliberately prints none of its own.
@@ -687,10 +693,15 @@ $assert(stripos($html, 'admin-usage-card') !== false && stripos($html, 'admin-us
 $assert(stripos($html, 'admin-usage-card') < stripos($html, 'For web development students'),
     'The course-access note closes the challenge page under the walkthrough instead of opening it.',
     'The challenge page meets the student with the access note before the guide.');
-// The placement rule holds on every surface that carries a walkthrough: a standing note never sits
-// above it, so the guide is always the last card and the notes are the page's closing lines. The one
-// exception is a precondition that replaces the workflow altogether - a desk with nothing to work on
-// yet explains itself before it explains how to work.
+// A moved-delete pointer is no longer needed now every workspace's destructive action is on the
+// Danger Zone page.
+echo "\n-- moved-delete notes removed\n";
+foreach (glob(BASE_PATH . '/app/Views/admin/*.php') ?: [] as $adminView) {
+    $adminSource = (string) file_get_contents($adminView);
+    $assert(!str_contains($adminSource, 'Bulk delete moved'),
+        basename($adminView) . ' has no moved-delete note.',
+        basename($adminView) . ' still contains a moved-delete note.');
+}
 echo "\n-- no standing note above a walkthrough\n";
 $preconditions = ['Create a course first'];
 foreach (glob(BASE_PATH . '/app/Views/*/*.php') ?: [] as $viewFile) {
@@ -828,9 +839,6 @@ foreach ([
     'name="' . SessionRegistry::MAX_ACTIVE_KEY . '"',
     'name="' . LessonProtection::WATERMARK_KEY . '"',
     'name="' . LessonProtection::RETENTION_KEY . '"',
-    // The handover wipe and counter re-arm now live on the Danger Zone; settings only links there.
-    'danger-moved-note',
-    '/admin/danger-zone',
 ] as $needle) {
     $assert(str_contains($settingsHtml, $needle), 'The settings card prints "' . $needle . '".',
         'The Sessions & video protection card is missing "' . $needle . '".');

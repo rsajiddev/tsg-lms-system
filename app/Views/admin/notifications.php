@@ -70,8 +70,6 @@ $error = $error ?? null; ?>
             <div class="announcement-routing-item"><strong>Recent activity</strong><span>The automated student updates the platform sent by itself and the e-mail delivery log, with the controls that clear both.</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/activity">Open recent activity <span aria-hidden="true">→</span></a></div>
         </div>
     </section>
-    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Clear the announcement board&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
-
     <?php
     $usageEyebrow = 'Announcement board';
     $usageTitle = 'How to use the announcement board';

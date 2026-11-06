@@ -200,6 +200,7 @@ $router->post('/chats/send', [\App\Controllers\ChatController::class, 'send']);
 $router->post('/chats/clear', [\App\Controllers\ChatController::class, 'clear']);
 $router->post('/admin/chats/delete', [\App\Controllers\ChatController::class, 'deleteThread']);
 $router->get('/admin/activity', [\App\Controllers\NotificationController::class, 'activity']);
+$router->post('/admin/activity/automated/clear', [\App\Controllers\NotificationController::class, 'clearAutomatedUpdates']);
 $router->post('/admin/activity/email-log/clear', [\App\Controllers\NotificationController::class, 'clearEmailLog']);
 $router->post('/admin/activity/view-log/clear', [\App\Controllers\NotificationController::class, 'clearViewLog']);
 $router->post('/admin/activity/clear', [\App\Controllers\NotificationController::class, 'clearActivity']);

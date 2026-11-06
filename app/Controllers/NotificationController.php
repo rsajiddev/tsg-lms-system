@@ -172,6 +172,61 @@ final class NotificationController
     }
 
     /**
+     * Clears only the automated updates shown in the first Recent activity card.
+     */
+    public function clearAutomatedUpdates(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        try {
+            $this->csrf();
+            $db = Database::connection();
+            $ids = array_map('intval', $db->query(
+                "SELECT id FROM notifications WHERE category <> 'announcement' AND category <> '' AND category IS NOT NULL ORDER BY id"
+            )->fetchAll(PDO::FETCH_COLUMN));
+            if ($ids === []) {
+                $_SESSION['_flash'] = 'Automated student updates were already empty.';
+                $this->redirect('/admin/activity');
+            }
+
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            $db->beginTransaction();
+            try {
+                $replies = $db->prepare('DELETE FROM notification_replies WHERE notification_id IN (' . $in . ')');
+                $replies->execute($ids);
+                $replyCount = $replies->rowCount();
+                $recipients = $db->prepare('DELETE FROM notification_recipients WHERE notification_id IN (' . $in . ')');
+                $recipients->execute($ids);
+                $recipientCount = $recipients->rowCount();
+                $updates = $db->prepare('DELETE FROM notifications WHERE id IN (' . $in . ')');
+                $updates->execute($ids);
+                $updateCount = $updates->rowCount();
+
+                $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'activity.updates_cleared', 'notification', ?)")
+                    ->execute([(int) $admin['id'], json_encode([
+                        'automated_deleted' => $updateCount,
+                        'recipients_deleted' => $recipientCount,
+                        'replies_deleted' => $replyCount,
+                    ], JSON_THROW_ON_ERROR)]);
+                $db->commit();
+            } catch (\Throwable $exception) {
+                if ($db->inTransaction()) $db->rollBack();
+                throw $exception;
+            }
+
+            $_SESSION['_flash'] = sprintf(
+                'Cleared %d automated update(s) with %d recipient record(s) and %d private reply/replies. Email logs and published announcements were left untouched.',
+                $updateCount,
+                $recipientCount,
+                $replyCount
+            );
+            $this->redirect('/admin/activity');
+        } catch (\Throwable $exception) {
+            $_SESSION['_flash_error'] = $exception->getMessage();
+            $this->redirect('/admin/activity');
+        }
+    }
+
+    /**
      * Empties the lesson view log.
      *
      * Same shape as the delivery log beside it: the reports are the Academy's, the rows underneath

@@ -10,7 +10,6 @@ $questions = $questions ?? [];
 $retakeRequests = is_array($retakeRequests ?? null) ? $retakeRequests : [];
 $message = $message ?? null;
 $error = $error ?? null;
-$purgeCount = count($quizzes);
 $questionsByQuiz = [];
 foreach ($questions as $question) {
   $questionsByQuiz[(int) $question['quiz_id']][] = $question;
@@ -453,8 +452,6 @@ $optionLetters = ['A', 'B', 'C', 'D'];
       <form method="post" action="<?= $escape($baseUrl) ?>/admin/quizzes/retake-decision" class="admin-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>"><div class="admin-field"><label class="admin-label" for="retake-note-<?= (int)$request['id'] ?>">Admin note</label><textarea class="admin-textarea" id="retake-note-<?= (int)$request['id'] ?>" name="admin_note" rows="2" maxlength="1000"></textarea></div><div class="form-actions"><button class="button" name="decision" value="approved" type="submit">Approve retake</button><button class="button button-secondary" name="decision" value="rejected" type="submit">Reject request</button></div></form>
     </article><?php endforeach; ?></div><?php endif; ?>
   </section>
-
-  <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all quizzes&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
   <?php
   $usageEyebrow = 'Quiz builder';

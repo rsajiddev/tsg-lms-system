@@ -464,9 +464,6 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
         <?php endif; ?>
     </section>
 
-  <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all lessons&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
-
-    <!-- The walkthrough always closes the page, below the bulk delete card. -->
     <?php
     $usageEyebrow = 'Lesson library';
     $usageTitle = 'How to use the Lesson library';

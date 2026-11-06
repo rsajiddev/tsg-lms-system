@@ -30,6 +30,10 @@ $error = $error ?? null; ?>
                 <h2>Automated student updates</h2>
                 <p><?= $unreadTotal > 0 ? $unreadTotal . ' unread notification(s) are still waiting in student workspaces.' : 'Every notification sent so far has been read.' ?> Lessons, tests, assignments, payments, grades and certificates announce themselves here.</p>
             </div>
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/activity/automated/clear" class="student-status-form">
+                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                <button class="student-action-button is-clear" type="submit"<?= $automatedTotal === 0 ? ' disabled' : '' ?>>Clear updates</button>
+            </form>
         </div>
         <?php if ($automated === []): ?><div class="admin-empty-state">
                 <h3>No automated updates yet</h3>
@@ -97,8 +101,6 @@ $error = $error ?? null; ?>
                         </tr><?php endforeach; ?>
                 </tbody></table></div><?php endif; ?>
     </section>
-    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Clear recent activity&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
-
     <?php
     $usageEyebrow = 'Platform report';
     $usageTitle = 'How to use recent activity';

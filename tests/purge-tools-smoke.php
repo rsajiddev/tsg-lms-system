@@ -120,6 +120,10 @@ $phrases = [
     'announcements' => 'DELETE ALL ANNOUNCEMENTS',
     // The report on the recent activity page empties both generated tables at once.
     'activity' => 'CLEAR RECENT ACTIVITY',
+    // The shortcut on the automated-updates card clears only its own records, without a dialog phrase.
+    'automated' => '',
+    'quizcreate' => '',
+    'quizquestion' => '',
     // The student's Mark all read and the two clears have no phrase; their unsafe variant is a forged
     // request. Clearing is one endpoint both sides of a conversation use, and only the desk's delete
     // of the messages asks for a typed phrase.
@@ -175,6 +179,33 @@ if ($run !== '') {
             // The typed serial rides along, exactly as the settings form posts it.
             $_POST['student_id_start'] = (string) $options['start'];
         }
+        if ($run === 'quizcreate') {
+            $_POST['course_id'] = (string) (int) ($options['sid'] ?? 0);
+            $_POST += [
+                'week_number' => '1',
+                'title' => 'Flash timing smoke quiz',
+                'instructions' => '',
+                'quiz_type' => 'lesson',
+                'practice_topic' => 'general',
+                'status' => 'draft',
+                'time_limit_minutes' => '20',
+                'question_count' => '5',
+                'pass_mark_percent' => '60',
+                'attempt_limit' => '3',
+                'unlock_at' => '',
+                'close_at' => '',
+            ];
+        }
+        if ($run === 'quizquestion') {
+            $_POST += [
+                'quiz_id' => (string) (int) ($options['nid'] ?? 0),
+                'question_text' => 'Which answer completes this flash timing test?',
+                'explanation' => '',
+                'marks' => '1',
+                'options' => ['First option', 'Second option', 'Third option', 'Fourth option'],
+                'correct_option' => '0',
+            ];
+        }
     }
     $_SERVER['REQUEST_METHOD'] = 'POST';
     register_shutdown_function(static function (): void {
@@ -188,6 +219,9 @@ if ($run !== '') {
             'students' => (new StudentManagementController())->purgeAll(),
             'emaillog' => (new NotificationController())->clearEmailLog(),
             'activity' => (new NotificationController())->clearActivity(),
+            'automated' => (new NotificationController())->clearAutomatedUpdates(),
+            'quizcreate' => (new QuizController())->saveQuiz(),
+            'quizquestion' => (new QuizController())->saveQuestion(),
             'announcements' => (new NotificationController())->purgeAll(),
             'cleardata' => (new AdminManagementController())->clearAllData(),
             'resetcounter' => (new AdminManagementController())->resetIdCounter(),
@@ -383,6 +417,30 @@ try {
     // Repeating a purge on an empty workspace must say so instead of failing.
     $output = $invoke('quizzes');
     $assert(str_contains($output, 'FLASH|There are no quizzes left to delete.'), 'An empty quiz purge reported: ' . trim($output));
+
+    /* --------------------------------------------- quiz creation flash timing */
+    $output = $invoke('quizcreate', false, 0, $courseId);
+    $assert(str_contains($output, 'FLASH|none'), 'Creating an assessment should not show a success flash: ' . trim($output));
+    $quizLookup = $db->prepare('SELECT id FROM quizzes WHERE title=?');
+    $quizLookup->execute(['Flash timing smoke quiz']);
+    $flashQuizId = (int) $quizLookup->fetchColumn();
+    $assert($flashQuizId > 0, 'The quiz creation smoke fixture was not saved.');
+
+    $output = $invoke('quizquestion', false, $flashQuizId);
+    $assert(str_contains($output, 'FLASH|none'), 'Adding an individual question should not show a success flash: ' . trim($output));
+    $seedQuestion = $db->prepare('INSERT INTO quiz_questions(quiz_id,question_text,marks,sort_order) VALUES(?,?,1,?)');
+    for ($order = 2; $order <= 4; $order++) {
+        $seedQuestion->execute([$flashQuizId, 'Seeded question ' . $order, $order]);
+    }
+
+    $output = $invoke('quizquestion', false, $flashQuizId);
+    $assert(str_contains($output, 'FLASH|Assessment and all 5 questions saved successfully.'),
+        'The last configured question should show the completion flash: ' . trim($output));
+    $assert((int) $db->query('SELECT COUNT(*) FROM quiz_questions WHERE quiz_id=' . $flashQuizId)->fetchColumn() === 5,
+        'The completion flash appeared before the configured question count was reached.');
+    $db->exec('DELETE FROM quiz_options WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id=' . $flashQuizId . ')');
+    $db->exec('DELETE FROM quiz_questions WHERE quiz_id=' . $flashQuizId);
+    $db->exec('DELETE FROM quizzes WHERE id=' . $flashQuizId);
 
     /* ------------------------------------------------- the student directory purge */
     // A second round of student-owned records, because the content purges above already cleared
@@ -715,6 +773,38 @@ try {
 
     $output = $invoke('activity');
     $assert(str_contains($output, 'FLASH|Recent activity was already empty.'), 'An empty activity report said: ' . trim($output));
+
+    /* -------------------------------------------- automated updates card shortcut */
+    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
+        VALUES(?,'grade','New grade posted','A new grade is available.','selected_students',UTC_TIMESTAMP())")->execute([$adminId]);
+    $quickUpdateId = (int) $db->lastInsertId();
+    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+        ->execute([$quickUpdateId, $readerId]);
+    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+        ->execute([$quickUpdateId, $readerId, $adminId, 'Thanks for the update.']);
+    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+        VALUES('grade.posted',?,'New grade posted','sent',?)")->execute([$studentEmail, $readerId]);
+    $quickEmailCount = $count('email_logs');
+
+    $output = $invoke('automated', true);
+    $assert(str_contains($output, 'FLASH|') && !str_contains($output, 'cleared'),
+        'The automated-update shortcut rejected a request without a valid CSRF token: ' . trim($output));
+    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 1,
+        'A request without a valid CSRF token deleted the automated update.');
+
+    $output = $invoke('automated');
+    $assert(str_contains($output, 'FLASH|Cleared 1 automated update(s) with 1 recipient record(s) and 1 private reply/replies. Email logs and published announcements were left untouched.'),
+        'The automated-update shortcut reported: ' . trim($output));
+    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 0
+        && (int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0
+        && (int) $db->query('SELECT COUNT(*) FROM notification_replies WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0,
+        'The automated-update shortcut left notification records behind.');
+    $assert($count('email_logs') === $quickEmailCount
+        && (int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+        'The automated-update shortcut cleared email logs or a published announcement.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='activity.updates_cleared'")->fetchColumn() === 1,
+        'No audit row for the automated-update shortcut.');
+    $db->exec("DELETE FROM email_logs WHERE template_key='grade.posted'");
 
     /* ----------------------------------------------------- the announcement board */
     // A private reply filed under the surviving announcement, so the board purge is proven to take
