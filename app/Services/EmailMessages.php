@@ -15,13 +15,19 @@ namespace App\Services;
  *    'subject'  => inbox subject line,
  *    'view'     => EmailLayout view array]
  *
- * Recipients are resolved from the environment only — see MailService::hrAddress(),
- * developerAddress() and certificateAddress(), all of which deliver to the sending
- * mailbox — so a client redirects all mail by editing the MAIL_* block.
+ * Recipients are resolved from the environment only - see MailService::hrAddress(),
+ * developerAddress() and certificateAddress(). Company alerts (HR, certificate) land in
+ * the sending mailbox, while developer copies go to their own MAIL_DEVELOPER_ADDRESS inbox,
+ * so a client redirects company mail by editing the MAIL_* block and keeps the developer
+ * stream separate by editing one developer address.
  */
 final class EmailMessages
 {
-    /** Developer revenue-share percentage quoted in internal emails. */
+    /**
+     * Default developer revenue-share percentage. The value quoted in mail is read at send time
+     * from MailService::developerSharePercent() so an 18% configuration shows as 18% everywhere;
+     * this constant is only the fallback the accessor reports when the environment is unset.
+     */
     public const SHARE_PERCENT = MailService::DEVELOPER_SHARE_PERCENT;
 
     /* ---------------------------------------------------------------------- auth & OTP */
@@ -126,7 +132,7 @@ final class EmailMessages
         $name = self::name($payment);
         $course = self::course($payment);
         $amount = MailService::money(self::amount($payment), self::currency($payment));
-        $share = MailService::money(self::amount($payment) * self::SHARE_PERCENT / 100, self::currency($payment));
+        $share = MailService::money(MailService::developerShareOf(self::amount($payment)), self::currency($payment));
         $submitted = self::when((string) ($payment['submitted_at'] ?? ''));
         $details = array_merge(self::studentDetails($payment), [
             ['label' => 'Course', 'value' => $course],
@@ -188,7 +194,7 @@ final class EmailMessages
                     'greeting' => MailService::developerGreeting(),
                     'paragraphs' => ['A new student has registered and requested payment approval. The details are below for your records.'],
                     'heading' => 'Student Details',
-                    'details' => array_merge($details, [['label' => 'Your Share (' . self::SHARE_PERCENT . '%)', 'value' => $share]]),
+                    'details' => array_merge($details, [['label' => 'Your Share (' . self::shareLabel() . '%)', 'value' => $share]]),
                     'closing' => ['Status: Pending admin approval. Your share will be confirmed once the payment is approved.'],
                     'signature' => EmailLayout::SIGN_SYSTEM,
                 ],
@@ -209,7 +215,7 @@ final class EmailMessages
         $course = self::course($payment);
         $email = (string) ($payment['student_email'] ?? '');
         $amount = MailService::money(self::amount($payment), self::currency($payment));
-        $share = MailService::money(self::amount($payment) * self::SHARE_PERCENT / 100, self::currency($payment));
+        $share = MailService::money(MailService::developerShareOf(self::amount($payment)), self::currency($payment));
         $decided = self::when((string) ($payment['decided_at'] ?? ''));
         $note = trim((string) ($payment['note'] ?? ''));
         $studentId = MailService::studentId((int) ($payment['student_id'] ?? 0));
@@ -294,7 +300,7 @@ final class EmailMessages
                         ['label' => 'Email', 'value' => $email],
                         ['label' => 'Course', 'value' => $course],
                         ['label' => 'Total Payment', 'value' => $amount],
-                        ['label' => 'Your Share (' . self::SHARE_PERCENT . '%)', 'value' => $share],
+                        ['label' => 'Your Share (' . self::shareLabel() . '%)', 'value' => $share],
                         ['label' => 'Approved On', 'value' => $decided],
                         ['label' => 'Status', 'value' => 'Approved'],
                     ],
@@ -351,7 +357,7 @@ final class EmailMessages
                 MailService::studentId((int) ($row['student_id'] ?? 0)),
                 (string) ($row['course_title'] ?? '—'),
                 number_format($amount),
-                number_format($amount * self::SHARE_PERCENT / 100),
+                number_format(MailService::developerShareOf($amount)),
             ];
         }
         $period = (string) ($report['period'] ?? 'Current month');
@@ -369,10 +375,10 @@ final class EmailMessages
                     ['label' => 'Reporting Period', 'value' => self::when((string) ($report['start_date'] ?? '')) . ' to ' . self::when((string) ($report['end_date'] ?? ''))],
                     ['label' => 'Total Students Enrolled', 'value' => number_format((int) ($report['student_count'] ?? 0))],
                     ['label' => 'Total Revenue', 'value' => MailService::money((float) ($report['total_revenue'] ?? 0), $currency)],
-                    ['label' => 'Your Share (' . self::SHARE_PERCENT . '%)', 'value' => MailService::money((float) ($report['developer_share'] ?? 0), $currency)],
+                    ['label' => 'Your Share (' . self::shareLabel() . '%)', 'value' => MailService::money((float) ($report['developer_share'] ?? 0), $currency)],
                 ],
                 'table' => [
-                    'columns' => ['No.', 'Student Name', 'Student ID', 'Course', 'Amount Paid (' . $currency . ')', 'Your Share ' . self::SHARE_PERCENT . '% (' . $currency . ')'],
+                    'columns' => ['No.', 'Student Name', 'Student ID', 'Course', 'Amount Paid (' . $currency . ')', 'Your Share ' . self::shareLabel() . '% (' . $currency . ')'],
                     'rows' => $rows,
                     'footer' => $rows === []
                         ? 'No approved payments were recorded in this period.'
@@ -583,6 +589,19 @@ final class EmailMessages
     private static function currency(array $row): string
     {
         return strtoupper(trim((string) ($row['currency'] ?? '')));
+    }
+
+    /**
+     * The developer share percentage as it should appear in a label: 15 rather than 15.0, and
+     * decimals only when the configuration actually has them (e.g. 12.5). Reads the same
+     * accessor every calculation uses, so the number in the text always matches the number in
+     * the amount beside it.
+     */
+    private static function shareLabel(): string
+    {
+        $percent = MailService::developerSharePercent();
+        $text = rtrim(rtrim(number_format($percent, 2, '.', ''), '0'), '.');
+        return $text === '' ? '0' : $text;
     }
 
     private static function when(string $sqlValue): string

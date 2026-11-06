@@ -238,15 +238,7 @@ $accountId = static function (array $account): string {
         </section>
     <?php endif; ?>
 
-    <?php
-    // Testing tool: clears the whole student directory so the next sign-up can be followed end to end.
-    $purgeAction = '/admin/students/purge';
-    $purgePhrase = 'DELETE ALL STUDENTS';
-    $purgeTitle = 'Delete all students';
-    $purgeDescription = 'Removes every student account with its enrollments, attendance, submissions, quiz attempts, payments, grades, certificates, chat conversations and uploaded files. Admin accounts, courses and the email delivery log stay untouched.';
-    $purgeCount = (int) ($statusCounts['total'] ?? 0);
-    require BASE_PATH . '/app/Views/components/purge-zone.php';
-    ?>
+    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all students&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
     <?php
     $usageEyebrow = 'Student directory';

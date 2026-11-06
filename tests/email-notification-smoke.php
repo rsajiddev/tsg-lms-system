@@ -90,11 +90,23 @@ try {
     }
     $assert(filter_var(MailService::hrAddress(), FILTER_VALIDATE_EMAIL) !== false, 'The HR inbox does not resolve to an address.');
     $assert(filter_var(MailService::certificateAddress(), FILTER_VALIDATE_EMAIL) !== false, 'The certificate inbox does not resolve to an address.');
-    // Every internal alert - HR, developer, certificate - resolves to the one sending mailbox,
-    // so a company that swaps in its no-reply address receives all of it without further edits.
+    $assert(filter_var(MailService::developerAddress(), FILTER_VALIDATE_EMAIL) !== false, 'The developer inbox does not resolve to an address.');
+    // Company alerts (HR, certificate) resolve to the one sending mailbox, so a company that
+    // swaps in its no-reply address receives all of it. Developer alerts are kept separate: they
+    // follow MAIL_DEVELOPER_ADDRESS and must NOT collapse onto the company mailbox when that
+    // address is configured - that mix-up is exactly what this restores protection against.
     $sending = trim((string) (getenv('MAIL_FROM_ADDRESS') ?: ''));
-    foreach (['hr' => MailService::hrAddress(), 'developer' => MailService::developerAddress(), 'certificates' => MailService::certificateAddress()] as $label => $resolved) {
+    foreach (['hr' => MailService::hrAddress(), 'certificates' => MailService::certificateAddress()] as $label => $resolved) {
         $assert($resolved === $sending, 'The ' . $label . ' inbox does not resolve to MAIL_FROM_ADDRESS.');
+    }
+    $developer = trim((string) (getenv('MAIL_DEVELOPER_ADDRESS') ?: ''));
+    if (filter_var($developer, FILTER_VALIDATE_EMAIL)) {
+        $assert(MailService::developerAddress() === $developer, 'The developer inbox does not resolve to MAIL_DEVELOPER_ADDRESS.');
+        $assert(MailService::developerAddress() !== $sending, 'The developer inbox must stay separate from the company mailbox.');
+    } else {
+        // With no developer address configured the copies fall back to the company mailbox rather
+        // than being dropped, so the developer still receives them instead of losing mail.
+        $assert(MailService::developerAddress() === $sending, 'With MAIL_DEVELOPER_ADDRESS unset the developer inbox should fall back to MAIL_FROM_ADDRESS.');
     }
     printf("environment: from=%s hr=%s developer=%s certificates=%s\n", $sending, MailService::hrAddress(), MailService::developerAddress(), MailService::certificateAddress());
 
@@ -113,7 +125,7 @@ try {
     $assert($legalLinksForStudent(EmailMessages::paymentSubmitted($payment)), 'The student payment-request mail must carry the three legal links.');
     $recipients = array_map(static fn(array $m): string => (string) $m['to'], EmailMessages::paymentSubmitted($payment));
     $assert(in_array($student['student_email'], $recipients, true), 'A payment request must reach the student.');
-    $assert(in_array(MailService::developerAddress(), $recipients, true), 'A payment request must reach the developer copy of the sending inbox.');
+    $assert(in_array(MailService::developerAddress(), $recipients, true), 'A payment request must reach the developer inbox.');
     $assert(in_array(MailService::hrAddress(), $recipients, true), 'A payment request must reach the HR copy of the sending inbox.');
     $approved = EmailMessages::paymentDecision($payment + ['decision' => 'approved', 'note' => 'Receipt verified.', 'decided_at' => gmdate('Y-m-d H:i:s'), 'receipt_number' => 'TSG-RCP-0001', 'reviewer_name' => 'Admin', 'reviewer_email' => 'admin@example.test']);
     $check($approved, 'payment.approved', 3);

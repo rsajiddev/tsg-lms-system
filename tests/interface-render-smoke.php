@@ -207,12 +207,28 @@ foreach (['MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM_ADDRESS'] as $required) {
     $assert(in_array($required, $liveKeys, true), '.env carries ' . $required . ' for the handover.',
         '.env is missing ' . $required . ', so the company could not send mail.');
 }
-// One sending mailbox routes everything: the internal alert readers all resolve to MAIL_FROM_ADDRESS,
-// which is what lets a company swap in its no-reply address without touching any other key.
-foreach (['hrAddress', 'developerAddress', 'certificateAddress'] as $reader) {
+// Company alerts share the one sending mailbox: the HR and certificate readers resolve to
+// MAIL_FROM_ADDRESS, which is what lets a company swap in its no-reply address without touching
+// any other key. The developer reader is deliberately separate - it follows MAIL_DEVELOPER_ADDRESS
+// and only falls back to the company mailbox when that address is blank - so developer copies
+// never land in the company inbox.
+foreach (['hrAddress', 'certificateAddress'] as $reader) {
     $assert(\App\Services\MailService::$reader() === (string) getenv('MAIL_FROM_ADDRESS'),
         'MailService::' . $reader . '() follows MAIL_FROM_ADDRESS.',
         'MailService::' . $reader . '() does not follow MAIL_FROM_ADDRESS, so the handover would still reach an old inbox.');
+}
+$developerConfigured = filter_var((string) getenv('MAIL_DEVELOPER_ADDRESS'), FILTER_VALIDATE_EMAIL);
+if ($developerConfigured) {
+    $assert(\App\Services\MailService::developerAddress() === (string) getenv('MAIL_DEVELOPER_ADDRESS'),
+        'MailService::developerAddress() follows MAIL_DEVELOPER_ADDRESS.',
+        'MailService::developerAddress() does not follow MAIL_DEVELOPER_ADDRESS, so developer alerts would mix into the company inbox.');
+    $assert(\App\Services\MailService::developerAddress() !== (string) getenv('MAIL_FROM_ADDRESS'),
+        'The developer inbox is separate from the company inbox.',
+        'The developer inbox equals the company inbox, so developer notifications would be delivered to the company.');
+} else {
+    $assert(\App\Services\MailService::developerAddress() === (string) getenv('MAIL_FROM_ADDRESS'),
+        'The developer inbox falls back to the company mailbox when unconfigured.',
+        'With MAIL_DEVELOPER_ADDRESS unset the developer inbox should fall back to MAIL_FROM_ADDRESS rather than drop the copies.');
 }
 
 /* ------------------------------------------------------------------------ scratch data */
@@ -366,8 +382,8 @@ $checkPage('Admin dashboard', '/dashboard', static fn() => (new DashboardControl
 // The board is publishing only now: the reports it used to carry have their own page, and the
 // messages have theirs, so a reader is handed a link rather than a second table.
 $checkPage('Announcement workspace', '/admin/announcements', static fn() => (new NotificationController())->adminIndex(), [
-    'Clear the announcement board',
-    'DELETE ALL ANNOUNCEMENTS',
+    'danger-moved-note',
+    '/admin/danger-zone',
     'Open the chat desk',
     'Open recent activity',
 ]);
@@ -380,27 +396,45 @@ $checkPage('Admin chat desk', '/admin/chats', static fn() => (new ChatController
 $checkPage('Recent activity report', '/admin/activity', static fn() => (new NotificationController())->activity(), [
     'Automated student updates',
     'Email delivery log',
-    'CLEAR RECENT ACTIVITY',
-    'admin-card-testing',
+    'danger-moved-note',
     'How to use recent activity',
 ]);
 $checkPage('Assignment workspace', '/admin/assignments', static fn() => (new AssignmentController())->adminIndex(), [
-    'DELETE ALL ASSIGNMENTS',
-    'admin-card-testing',
-    'confirm_phrase',
+    'danger-moved-note',
+    '/admin/danger-zone',
 ]);
 $checkPage('Quiz workspace', '/admin/quizzes', static fn() => (new QuizController())->adminIndex(), [
-    'DELETE ALL QUIZZES',
-    'admin-card-testing',
+    'danger-moved-note',
 ]);
 $checkPage('Lesson library', '/admin/lessons', static fn() => (new CourseAdminController())->lessons(), [
-    'DELETE ALL LESSONS',
-    'admin-card-testing',
+    'danger-moved-note',
 ]);
 $checkPage('Student directory', '/admin/students', static fn() => (new StudentManagementController())->index(), [
-    'DELETE ALL STUDENTS',
+    'danger-moved-note',
+    '/admin/danger-zone',
+]);
+// Every guarded bulk delete - seven wipes plus the counter re-arm - now lives on one Danger Zone
+// page. Each card renders here with its exact confirmation phrase, acknowledgement checkbox and
+// submit button intact, and the source pages only keep a pointer linking this way.
+$checkPage('Danger Zone', '/admin/danger-zone', static fn() => (new AdminManagementController())->dangerZone(), [
+    'Danger Zone',
+    'Read before deleting',
     'admin-card-testing',
     'confirm_phrase',
+    'data-purge-ack',
+    'CLEAR ALL DATA',
+    '/admin/settings/clear-data',
+    'DELETE ALL STUDENTS',
+    '/admin/students/purge',
+    'DELETE ALL ANNOUNCEMENTS',
+    'CLEAR RECENT ACTIVITY',
+    '/admin/activity/clear',
+    'DELETE ALL LESSONS',
+    'DELETE ALL QUIZZES',
+    'DELETE ALL ASSIGNMENTS',
+    'RESET ID COUNTER',
+    '/admin/settings/reset-counter',
+    'name="student_id_start"',
 ]);
 // A student row has to print the number an admin is quoted back - the Academy ID on the account,
 // the same one the student sees on their own settings page - and never the internal row id.
@@ -608,10 +642,10 @@ $assert(!str_contains($html, 'admin-usage-detail'),
     'A reference line is one short pointer, with no explanatory sentence trailing it.',
     'The reference still prints the long explanation after each line title.');
 // The walkthrough is the last card on the page, so it never cuts the workflow above it in half -
-// and that holds even on a desk that ends with a guarded bulk delete.
-$assert(stripos($html, 'admin-usage-card') > stripos($html, 'admin-card-testing'),
-    'The guide sits below the bulk delete card at the very bottom of the Lesson library.',
-    'The Lesson library prints its walkthrough above its bulk delete card.');
+// and that holds even now the bulk delete itself lives on the Danger Zone behind a pointer.
+$assert(stripos($html, 'admin-usage-card') > stripos($html, 'danger-moved-note'),
+    'The guide sits below the moved-delete pointer at the very bottom of the Lesson library.',
+    'The Lesson library prints its walkthrough above its delete pointer.');
 // The two desks that had no walkthrough now close with one, in the same place.
 foreach (
     [
@@ -622,8 +656,8 @@ foreach (
     $deskHtml = $render($deskCase[0]);
     $assert(str_contains($deskHtml, $deskCase[1]), 'The ' . $deskLabel . ' closes with its own walkthrough.',
         'The ' . $deskLabel . ' prints no "' . $deskCase[1] . '" card.');
-    $assert(stripos($deskHtml, 'admin-usage-card') > stripos($deskHtml, 'admin-card-testing'),
-        'The ' . $deskLabel . ' prints its walkthrough below its bulk delete card.',
+    $assert(stripos($deskHtml, 'admin-usage-card') > stripos($deskHtml, 'danger-moved-note'),
+        'The ' . $deskLabel . ' prints its walkthrough below its delete pointer.',
         'The ' . $deskLabel . ' guide is not the last card on the page.');
 }
 // The dashboard is a summary of the pages around it, each of which already closes with a guide, so
@@ -794,6 +828,9 @@ foreach ([
     'name="' . SessionRegistry::MAX_ACTIVE_KEY . '"',
     'name="' . LessonProtection::WATERMARK_KEY . '"',
     'name="' . LessonProtection::RETENTION_KEY . '"',
+    // The handover wipe and counter re-arm now live on the Danger Zone; settings only links there.
+    'danger-moved-note',
+    '/admin/danger-zone',
 ] as $needle) {
     $assert(str_contains($settingsHtml, $needle), 'The settings card prints "' . $needle . '".',
         'The Sessions & video protection card is missing "' . $needle . '".');

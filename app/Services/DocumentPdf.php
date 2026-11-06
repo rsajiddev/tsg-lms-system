@@ -216,6 +216,11 @@ final class DocumentPdf
 
         self::ticketDivider($pdf, $cardL, $cardR, $divider2, $c);
 
+        // The share percentage printed below matches the value the controller used to compute
+        // each developer_share, so an 18% configuration never shows a stale 15% on the receipt.
+        $shareLabel = rtrim(rtrim(number_format(MailService::developerSharePercent(), 2, '.', ''), '0'), '.');
+        if ($shareLabel === '') $shareLabel = '0';
+
         // Revenue by currency, styled like the receipt's items table (a row plus a muted note).
         $pdf->text('Revenue by currency', $innerL, $itemsHeader, $c['navy'], 14, true);
         $pdf->text('This month', $innerR, $itemsHeader, $c['navy'], 14, true, 'sans', 'right');
@@ -227,9 +232,9 @@ final class DocumentPdf
             $rowY = $itemsRowStart + $index * $itemsRowStep;
             $pdf->text($currency . ' approved revenue', $innerL, $rowY, $c['text'], 13);
             $pdf->text(number_format((float) ($rate['monthly_revenue'] ?? 0), 2), $innerR, $rowY, $c['text'], 13, false, 'sans', 'right');
-            $note = 'Dev 15%: ' . number_format((float) ($rate['developer_share'] ?? 0), 2)
+            $note = 'Dev ' . $shareLabel . '%: ' . number_format((float) ($rate['developer_share'] ?? 0), 2)
                 . ' · All time: ' . number_format((float) ($rate['lifetime_revenue'] ?? 0), 2)
-                . ' · Dev 15% (all): ' . number_format((float) ($rate['lifetime_developer_share'] ?? 0), 2);
+                . ' · Dev ' . $shareLabel . '% (all): ' . number_format((float) ($rate['lifetime_developer_share'] ?? 0), 2);
             $pdf->text($pdf->fit($note, 11, false, 'sans', $innerR - $innerL), $innerL, $rowY + 22, $c['muted'], 11);
         }
 
@@ -237,7 +242,7 @@ final class DocumentPdf
 
         // Pale totals panel: the developer share the statement owes, one line per currency.
         $pdf->roundRect($innerL, $panelTop, $innerR - $innerL, $panelH, 14, $c['pale'], $c['border']);
-        $pdf->text('DEVELOPER SHARE (15%)', $innerL + 22, $panelTop + 30, $c['muted'], 9, true);
+        $pdf->text('DEVELOPER SHARE (' . $shareLabel . '%)', $innerL + 22, $panelTop + 30, $c['muted'], 9, true);
         if ($rates === []) {
             $pdf->text('Nothing owed for this month.', $innerL + 22, $panelTop + 52, $c['navy'], 13, true);
         }
@@ -253,7 +258,7 @@ final class DocumentPdf
         // Closing note.
         $pdf->text('Thank you — ' . self::BRAND, $center, $thanks, $c['navy'], 16, true, 'sans', 'center');
         $pdf->text('Issued by ' . self::COMPANY . ' · ' . self::EMAIL, $center, $issued, $c['muted'], 10, false, 'sans', 'center');
-        $pdf->text('Approved course payments only · Developer share calculated at 15%.', $center, $confirms, $c['muted'], 10, false, 'sans', 'center');
+        $pdf->text('Approved course payments only · Developer share calculated at ' . $shareLabel . '%.', $center, $confirms, $c['muted'], 10, false, 'sans', 'center');
 
         return $pdf->output();
     }
@@ -489,6 +494,214 @@ final class DocumentPdf
         return $pdf->output();
     }
 
+    /**
+     * The student's Certificate & Learning Progress picture as a clean, branded A4 report.
+     *
+     * Content flows top to bottom and rolls onto fresh pages whenever a block would hang past the
+     * footer, with the brand band and the student's identity repeated at the top of each continuation.
+     * Headings, key/value tables, real progress bars and a requirement checklist carry the same numbers
+     * the on-screen page shows, because both read from one StudentProgress summary.
+     */
+    public static function progressReport(array $summary): string
+    {
+        $pdf = new PdfCanvas();
+        $c = self::palette();
+
+        $student = is_array($summary['student'] ?? null) ? $summary['student'] : [];
+        $overall = is_array($summary['overall'] ?? null) ? $summary['overall'] : [];
+        $courses = array_slice(is_array($summary['courses'] ?? null) ? $summary['courses'] : [], 0, 12);
+
+        $name = self::safeText((string) ($student['name'] ?? 'Student')) ?: 'Student';
+        $sid = self::safeText((string) ($student['id'] ?? ''));
+        $email = self::safeText((string) ($student['email'] ?? ''));
+        $generated = self::safeText(date('M j, Y'));
+
+        $W = 827;
+        $H = 1169;
+        $left = 64;
+        $right = $W - 64;
+        $cw = $right - $left;
+        $center = (int) ($W / 2);
+        $limit = $H - 92; // content must stay above the footer rule
+
+        $cursor = 0.0;
+        $pageNum = 0;
+
+        $startPage = static function (bool $first) use ($pdf, $c, $W, $H, $left, $right, $cw, $center, $name, $sid, $generated, &$cursor, &$pageNum): void {
+            $pdf->newPage();
+            $pageNum++;
+            $pdf->rect(0, 0, $W, $H, $c['page']);
+            $pdf->roundRect(24, 24, $W - 48, $H - 48, 20, $c['white']);
+
+            $bandH = $first ? 108 : 66;
+            $pdf->roundRect(24, 24, $W - 48, $bandH, 20, $c['brand']);
+            $pdf->roundRect(56, $first ? 46 : 40, $first ? 40 : 32, $first ? 40 : 32, 10, $c['white']);
+            $pdf->text('TS', 76, $first ? 73 : 62, $c['brand'], $first ? 15 : 12, true, 'sans', 'center');
+            $bx = $first ? 108 : 98;
+            $pdf->text(self::BRAND, $bx, $first ? 66 : 60, $c['white'], $first ? 17 : 14, true);
+            if ($first) {
+                $pdf->text('Learning Progress Report', $right, 60, $c['white'], 20, true, 'sans', 'right');
+                $pdf->text($name . ($sid !== '' ? '  ·  ' . $sid : '') . '  ·  Generated ' . $generated, $right, 84, $c['bandText'], 10, false, 'sans', 'right');
+            } else {
+                $pdf->text('LEARNING PROGRESS · ' . $name, $right, 62, $c['bandText'], 11, true, 'sans', 'right');
+            }
+
+            $pdf->line($left, $H - 66, $right, $H - 66, $c['border']);
+            $pdf->text('Thank you — ' . self::BRAND, $left, $H - 44, $c['muted'], 9);
+            $pdf->text('Page ' . $pageNum, $right, $H - 44, $c['navy'], 9, true, 'sans', 'right');
+
+            $cursor = 24 + $bandH + 24;
+        };
+
+        $ensure = static function (float $needed) use ($startPage, $limit, &$cursor): void {
+            if ($cursor + $needed > $limit) {
+                $startPage(false);
+            }
+        };
+
+        $section = static function (string $title, float $size = 12.5) use ($pdf, $c, $left, $right, $ensure, &$cursor): void {
+            $ensure(34);
+            $pdf->text(self::safeText($title), $left, $cursor + 11, $c['navy'], $size, true);
+            $cursor += 8;
+            $pdf->line($left, $cursor, $right, $cursor, $c['dash']);
+            $cursor += 12;
+        };
+
+        $kv = static function (string $key, string $value, bool $strong = false) use ($pdf, $c, $left, $right, $cw, $ensure, &$cursor): void {
+            $ensure(19);
+            $pdf->text($key, $left, $cursor + 10, $c['muted'], 10.5);
+            $fit = $pdf->fit(self::safeText($value), 11, $strong, 'sans', $cw - 220);
+            $pdf->text($fit, $right, $cursor + 10, $c['navy'], 11, $strong, 'sans', 'right');
+            $cursor += 18;
+        };
+
+        $bar = static function (string $label, float $pct, ?string $override = null) use ($pdf, $c, $left, $right, $cw, $ensure, &$cursor): void {
+            $ensure(36);
+            $pct = max(0, min(100, $pct));
+            $pdf->text(self::safeText($label), $left, $cursor + 9, $c['text'], 10.5);
+            $pdf->text($override !== null ? self::safeText($override) : self::trimNum($pct) . '%', $right, $cursor + 9, $c['navy'], 10.5, true, 'sans', 'right');
+            $cursor += 13;
+            $track = 9;
+            $pdf->roundRect($left, $cursor, $cw, $track, 4, $c['border']);
+            $w = $cw * $pct / 100;
+            if ($w > 1) {
+                $pdf->roundRect($left, $cursor, $w, $track, 4, $pct >= 100 ? $c['paid'] : $c['brand']);
+            }
+            $cursor += $track + 14;
+        };
+
+        $check = static function (string $label, string $detail, bool $met) use ($pdf, $c, $left, $right, $cw, $ensure, &$cursor): void {
+            $ensure(24);
+            $rowH = 18;
+            $pdf->roundRect($left, $cursor, $cw, $rowH, 6, $met ? $c['ring'] : $c['amberTint']);
+            $pdf->circle($left + 12, $cursor + $rowH / 2, 7, $met ? $c['paid'] : $c['amber']);
+            $pdf->text(self::safeText($label), $left + 24, $cursor + 12, $c['text'], 10.5);
+            $fit = $pdf->fit(self::safeText($detail), 10, false, 'sans', $cw - 320);
+            $pdf->text($fit, $right - 10, $cursor + 12, $c['muted'], 10, false, 'sans', 'right');
+            $cursor += $rowH + 6;
+        };
+
+        $startPage(true);
+
+        // Identity block on the opening page.
+        $pdf->text('Prepared for', $left, $cursor + 10, $c['muted'], 9, true);
+        $cursor += 6;
+        $pdf->text($pdf->fit($name, 17, true, 'sans', $cw), $left, $cursor + 24, $c['navy'], 17, true);
+        $cursor += 26;
+        if ($sid !== '') {
+            $kv('Student ID', $sid, true);
+        }
+        if ($email !== '') {
+            $kv('Email', $email);
+        }
+        $cursor += 6;
+
+        // Overall progress.
+        $section('Overall progress');
+        $kv('Enrolled courses', number_format((int) ($overall['enrolled'] ?? 0)));
+        $kv('Completed courses', number_format((int) ($overall['completed'] ?? 0)));
+        $kv('In progress', number_format((int) ($overall['in_progress'] ?? 0)));
+        $kv('Certificates issued', number_format((int) ($overall['certificates_issued'] ?? 0)));
+        $kv('Courses certificate-ready', number_format((int) ($overall['courses_eligible'] ?? 0)));
+        $ensure(40);
+        $bar('Overall lesson completion', (float) ($overall['completion_percent'] ?? 0));
+        $bar('Average weighted grade', (float) ($overall['weighted_percent'] ?? 0));
+        $cursor += 8;
+
+        if ($courses === []) {
+            $section('Courses');
+            $pdf->text('There are no courses with active access to report yet.', $left, $cursor + 10, $c['muted'], 11);
+            $cursor += 24;
+        }
+
+        foreach ($courses as $course) {
+            $video = is_array($course['video'] ?? null) ? $course['video'] : [];
+            $quizzes = is_array($course['quizzes'] ?? null) ? $course['quizzes'] : [];
+            $assignments = is_array($course['assignments'] ?? null) ? $course['assignments'] : [];
+            $modules = is_array($course['modules'] ?? null) ? $course['modules'] : [];
+            $grade = is_array($course['grade'] ?? null) ? $course['grade'] : [];
+            $elig = is_array($course['eligibility'] ?? null) ? $course['eligibility'] : [];
+            $cert = is_array($course['certificate'] ?? null) ? $course['certificate'] : [];
+
+            // Each course starts a fresh page so its detail never splits awkwardly mid-block.
+            if ($cursor > 170) {
+                $startPage(false);
+            }
+
+            $section(self::safeText((string) ($course['title'] ?? 'Course')), 14);
+            $state = (string) ($course['state'] ?? 'in-progress');
+            $kv('Course state', $state === 'completed' ? 'Completed' : 'In progress');
+            if (($grade['overall_percent'] ?? null) !== null) {
+                $kv('Weighted grade', self::trimNum((float) $grade['overall_percent']) . '% · ' . self::safeText((string) ($grade['letter'] ?? '')), true);
+            }
+            $cursor += 4;
+
+            $section('Module-wise progress', 11);
+            if ($modules === []) {
+                $pdf->text('No published modules yet.', $left, $cursor + 8, $c['muted'], 10.5);
+                $cursor += 20;
+            }
+            foreach ($modules as $i => $module) {
+                $bar('Module ' . ($i + 1) . ': ' . self::safeText((string) ($module['title'] ?? '')), (float) ($module['percent'] ?? 0));
+            }
+
+            $section('Video, quiz and assignment detail', 11);
+            $bar('Video completion', (float) ($video['percent'] ?? 0), number_format((int) ($video['watched'] ?? 0)) . ' of ' . number_format((int) ($video['total'] ?? 0)) . ' watched');
+            $kv('Videos remaining', number_format((int) ($video['remaining'] ?? 0)));
+            $kv('Quizzes attempted', number_format((int) ($quizzes['attempted'] ?? 0)) . ' of ' . number_format((int) ($quizzes['total'] ?? 0)));
+            $kv('Quizzes pending', number_format((int) ($quizzes['pending'] ?? 0)));
+            $kv('Quiz score obtained', self::trimNum((float) ($quizzes['obtained_percent'] ?? 0)) . '%');
+            $kv('Average passing mark', self::trimNum((float) ($quizzes['pass_percent'] ?? 0)) . '%');
+            $kv('Quizzes passed', number_format((int) ($quizzes['passed'] ?? 0)));
+            $kv('Assignments submitted', number_format((int) ($assignments['submitted'] ?? 0)) . ' of ' . number_format((int) ($assignments['total'] ?? 0)));
+            $kv('Assignments reviewed', number_format((int) ($assignments['reviewed'] ?? 0)));
+            $cursor += 4;
+
+            $section('Certificate requirements', 11);
+            $ready = (bool) ($elig['ok'] ?? false);
+            $bar('Progress to eligibility', count(array_filter(is_array($elig['requirements'] ?? []) ? $elig['requirements'] : [], static fn(array $r): bool => (bool) ($r['met'] ?? false))) / max(1, count(is_array($elig['requirements'] ?? []) ? $elig['requirements'] : [])) * 100, $ready ? 'Eligible now' : (int) ($elig['remaining'] ?? 0) . ' remaining');
+            foreach ((is_array($elig['requirements'] ?? null) ? $elig['requirements'] : []) as $requirement) {
+                $check(self::safeText((string) ($requirement['label'] ?? '')), self::safeText((string) ($requirement['detail'] ?? '')), (bool) ($requirement['met'] ?? false));
+            }
+
+            $cursor += 6;
+            $status = strtolower((string) ($cert['status'] ?? ''));
+            if ($status === 'issued') {
+                $certFormat = strtolower((string) ($cert['format'] ?? '')) === 'pdf' ? 'PDF' : 'JPG';
+                $kv('Certificate', 'Issued · ID ' . self::safeText((string) ($cert['id'] ?? '')) . ' · ' . $certFormat, true);
+            } elseif ($status === 'requested') {
+                $kv('Certificate', 'Requested — awaiting academy review');
+            } elseif ($status === 'rejected') {
+                $kv('Certificate', 'Request declined — see the open tasks above');
+            } else {
+                $kv('Certificate', $ready ? 'Ready to request' : 'Locked — finish the tasks above');
+            }
+            $cursor += 12;
+        }
+
+        return $pdf->output();
+    }
+
     /* ------------------------------------------------------------------ shared blocks */
 
     /** Perforated ticket divider: a page-coloured notch is cut into both card edges and a dashed rule joins them. */
@@ -707,6 +920,12 @@ final class DocumentPdf
     private static function safeText(string $value): string
     {
         return trim(preg_replace('/[\r\n\x00-\x1F]+/u', ' ', $value) ?? '');
+    }
+
+    /** A percentage without trailing noise: 90.0 -> "90", 87.50 -> "87.5". */
+    private static function trimNum(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.');
     }
 
     private static function issuedLabel(mixed $value): string

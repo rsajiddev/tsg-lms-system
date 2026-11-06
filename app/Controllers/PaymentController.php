@@ -178,8 +178,8 @@ final class PaymentController
         $totals = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: ['student_count' => 0, 'payment_count' => 0];
         $approvedRows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,COALESCE(p.reviewed_at,p.created_at) AS paid_at,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($revenue as &$currencyTotals) {
-            $currencyTotals['developer_share'] = (float) $currencyTotals['monthly_revenue'] * 0.15;
-            $currencyTotals['lifetime_developer_share'] = (float) $currencyTotals['lifetime_revenue'] * 0.15;
+            $currencyTotals['developer_share'] = MailService::developerShareOf((float) $currencyTotals['monthly_revenue']);
+            $currencyTotals['lifetime_developer_share'] = MailService::developerShareOf((float) $currencyTotals['lifetime_revenue']);
         }
         unset($currencyTotals);
         $paymentValues = [];
@@ -188,7 +188,7 @@ final class PaymentController
         if ($paymentAccounts === [] && count(array_filter($paymentValues, static fn($value): bool => trim((string)$value) !== '')) > 0) {
             $paymentAccounts[] = ['account_title'=>$paymentValues['payment_account_title'] ?? '', 'bank_name'=>$paymentValues['payment_bank_name'] ?? '', 'account_number'=>$paymentValues['payment_account_number'] ?? '', 'iban'=>$paymentValues['payment_iban'] ?? '', 'wallet_name'=>$paymentValues['payment_wallet_name'] ?? '', 'wallet_number'=>$paymentValues['payment_wallet_number'] ?? '', 'instructions'=>$paymentValues['payment_instructions'] ?? ''];
         }
-        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'paymentAccounts' => $paymentAccounts, 'revenue' => $revenue, 'revenueTotals' => $totals, 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'paymentAccounts' => $paymentAccounts, 'revenue' => $revenue, 'revenueTotals' => $totals, 'developerSharePercent' => MailService::developerSharePercent(), 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -332,8 +332,8 @@ final class PaymentController
         $totals = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'")->fetch(PDO::FETCH_ASSOC) ?: [];
         $report = ['period' => gmdate('F Y'), 'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC', 'student_count' => (int) ($totals['student_count'] ?? 0), 'payment_count' => (int) ($totals['payment_count'] ?? 0), 'rates' => []];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $row['developer_share'] = (float) $row['monthly_revenue'] * 0.15;
-            $row['lifetime_developer_share'] = (float) $row['lifetime_revenue'] * 0.15;
+            $row['developer_share'] = MailService::developerShareOf((float) $row['monthly_revenue']);
+            $row['lifetime_developer_share'] = MailService::developerShareOf((float) $row['lifetime_revenue']);
             $report['rates'][] = $row;
         }
         $document = DocumentPdf::revenue($report);
@@ -347,7 +347,7 @@ final class PaymentController
 
     public function notifyDeveloper(): void
     {
-        AuthMiddleware::requireRole('admin');
+        $admin = AuthMiddleware::requireRole('admin');
         if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) throw new RuntimeException('Your session expired. Refresh and try again.');
         $db = Database::connection();
         $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
@@ -363,12 +363,31 @@ final class PaymentController
             $_SESSION['_flash'] = ['type' => 'error', 'text' => 'No approved payments were recorded this month, so there is nothing to report.'];
             $this->redirect('/admin/payments');
         }
+        // Duplicate protection: the figures that would go out are fingerprinted (month + each
+        // currency's payment count and rounded total). An identical fingerprint to the last one
+        // sent means nothing has changed since, so a double-click or an accidental repeat stops
+        // here instead of mailing the developer the same report twice. New approvals move the
+        // total and are therefore reported again, as they should be.
+        $fingerprintParts = [];
+        $totals = [];
+        foreach ($groups as $currency => $rows) {
+            $total = 0.0;
+            foreach ($rows as $row) $total += (float) $row['amount'];
+            $totals[$currency] = $total;
+            $fingerprintParts[] = $currency . ':' . count($rows) . ':' . number_format($total, 2, '.', '');
+        }
+        sort($fingerprintParts);
+        $fingerprint = md5(gmdate('Y-m') . '|' . implode('|', $fingerprintParts));
+        $previous = $db->query("SELECT setting_value FROM app_settings WHERE setting_key='developer_revenue_notify_fingerprint'")->fetchColumn();
+        if (is_string($previous) && $previous === $fingerprint) {
+            $_SESSION['_flash'] = ['type' => 'error', 'text' => 'The current month\'s revenue summary has already been sent with these exact figures, so no duplicate notification was issued.'];
+            $this->redirect('/admin/payments');
+        }
         $mail = new MailService($db);
         $sent = true;
         $reports = 0;
         foreach ($groups as $currency => $rows) {
-            $total = 0.0;
-            foreach ($rows as $row) $total += (float) $row['amount'];
+            $total = $totals[$currency];
             $sent = $mail->sendDeveloperRevenueReport([
                 'period' => gmdate('F Y'),
                 'start_date' => $monthStart,
@@ -376,7 +395,7 @@ final class PaymentController
                 'currency' => $currency,
                 'student_count' => count(array_unique(array_column($rows, 'student_id'))),
                 'total_revenue' => $total,
-                'developer_share' => $total * MailService::DEVELOPER_SHARE_PERCENT / 100,
+                'developer_share' => MailService::developerShareOf($total),
                 'rows' => array_map(static fn(array $row): array => [
                     'student_name' => (string) $row['student_name'],
                     'student_id' => (int) $row['student_id'],
@@ -385,6 +404,12 @@ final class PaymentController
                 ], $rows),
             ]) && $sent;
             $reports++;
+        }
+        // The fingerprint is only stored once every currency has actually gone out, so a partial
+        // or failed run leaves the button free to retry rather than locking the month shut.
+        if ($sent) {
+            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+                ->execute(['developer_revenue_notify_fingerprint', $fingerprint, (int) $admin['id']]);
         }
         $_SESSION['_flash'] = ['type' => $sent ? 'success' : 'error', 'text' => $sent
             ? 'Monthly revenue summary sent to the developer inbox (' . $reports . ' ' . ($reports === 1 ? 'currency' : 'currencies') . ').'

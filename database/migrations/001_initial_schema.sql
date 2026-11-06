@@ -2588,3 +2588,61 @@ UPDATE
        setting_key =
 VALUES
        (setting_key);
+
+-- ---------------------------------------------------------------------------
+-- Certificate ID format and signed-file format (v3.1 update).
+--
+-- A certificate keeps being issued under its owner's account ID, so one permanent Student ID
+-- still opens every certificate behind it. The account ID gains an optional year segment the
+-- admin can switch on from the Certificate settings page: when on, a newly minted ID reads
+-- PREFIX-YYYY-SERIAL (TSG-CER-2026-001); when off it reads the original PREFIX-SERIAL. The
+-- setting is seeded OFF and forward-only, so no existing student ID or issued certificate is
+-- ever rewritten by importing this file.
+--
+-- The signed document an admin attaches is no longer JPG-only: the stored extension is recorded
+-- so the download and verification pages can hand back the same format that was uploaded.
+-- ---------------------------------------------------------------------------
+SET
+       @add_certificate_file_type = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE certificates ADD COLUMN file_type VARCHAR(8) NULL AFTER file_path',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND COLUMN_NAME = 'file_type'
+       );
+
+PREPARE add_certificate_file_type_stmt
+FROM
+       @add_certificate_file_type;
+
+EXECUTE add_certificate_file_type_stmt;
+
+DEALLOCATE PREPARE add_certificate_file_type_stmt;
+
+-- Seeded once and never overwritten by a re-import, so an admin's chosen format survives.
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('student_id_include_year', '0')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
+-- ---------------------------------------------------------------------------
+-- Completion video lock (proposal 5.7).
+--
+-- The proposal asked that a student's lesson videos disappear as soon as the course is complete.
+-- The platform's standing behaviour instead keeps recordings available until the access period
+-- (expires_at) ends, so a finished student can revise. This switch lets an Academy choose the
+-- completion lock rather than forcing it on every install, so the recordings-access promise is a
+-- decision and not a code change. Seeded OFF - the behaviour every install has always had - and
+-- forward-only: importing this file never hides a video from anybody who can watch one today.
+-- ---------------------------------------------------------------------------
+INSERT INTO app_settings(setting_key, setting_value)
+VALUES
+       ('video_lock_on_completion', '0')
+ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);

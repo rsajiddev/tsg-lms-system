@@ -34,7 +34,8 @@ final class CertificateController
 {
     private const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
     private const STORAGE_FOLDER = 'certificates';
-    private const FILE_PATTERN = '#^certificates/[a-f0-9]{48}\.jpg$#';
+    /** The signed document is JPG or PDF; the extension in the stored name is the format of record. */
+    private const FILE_PATTERN = '#^certificates/[a-f0-9]{48}\.(jpg|pdf)$#';
     private const PUBLIC_ID_PATTERN = '/^[A-Z][A-Z0-9-]{3,63}$/';
     private const CONTACT_FALLBACK = 'info@techsgstudio.com';
 
@@ -151,9 +152,10 @@ final class CertificateController
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
         $days = $this->validityDays($db);
-        // Shown on the settings card so the admin can see which ID the next certificate takes.
+        // Shown on the settings card so the admin can see which ID the next certificate takes, and
+        // so the format fields can be edited from this very page. preview() applies the year switch.
         $scheme = AccountIdentity::scheme($db);
-        $nextStudentId = AccountIdentity::format($scheme['prefix'], $scheme['next']);
+        $nextStudentId = AccountIdentity::preview($scheme, $scheme['next']);
         $status = (string) ($_GET['status'] ?? 'all');
         if (!in_array($status, ['all', 'requested', 'issued', 'expired', 'rejected'], true)) $status = 'all';
         $search = trim((string) ($_GET['q'] ?? ''));
@@ -205,6 +207,7 @@ final class CertificateController
             $list = $db->prepare(
                 "SELECT cert.id, cert.course_id, cert.certificate_id, cert.status, cert.requested_at, cert.issued_at, cert.expires_at,
                         cert.student_remarks, cert.admin_remarks, cert.notified_at, cert.file_path IS NOT NULL AS has_file,
+                        LOWER(SUBSTRING_INDEX(cert.file_path, '.', -1)) AS file_ext,
                         {$snapshotColumns}
                         u.full_name AS student_name, u.email AS student_email,
                         c.title AS course_title, c.duration_label, c.level_label,
@@ -237,6 +240,10 @@ final class CertificateController
                 'min_days' => self::MIN_DAYS,
                 'max_days' => self::MAX_DAYS,
                 'idExample' => $nextStudentId,
+                'prefix' => $scheme['prefix'],
+                'start' => $scheme['next'],
+                'include_year' => $scheme['include_year'],
+                'max_sequence' => AccountIdentity::MAX_SEQUENCE,
             ],
             'criteria' => $this->eligibilityCriteria($db, $days),
             'message' => $_SESSION['_flash'] ?? null,
@@ -246,10 +253,13 @@ final class CertificateController
     }
 
     /**
-     * Saves how long an issued certificate stays verifiable. The number of days is validated
-     * here rather than in the browser, so a crafted request cannot park an absurd value in the
-     * settings table. The ID itself is no longer configured on this page: certificates carry
-     * their owner's account ID, and that scheme is set under Admin to Account settings.
+     * Saves how long an issued certificate stays verifiable and the Certificate ID format.
+     *
+     * The number of days is validated here rather than in the browser, so a crafted request cannot
+     * park an absurd value in the settings table. The ID format is the student account scheme, which
+     * a certificate inherits because it is issued under its owner's ID: the admin sets the prefix,
+     * whether a year segment is included, and the serial new IDs start from. It is applied forward
+     * only - existing student IDs and already-issued certificates are never rewritten here.
      */
     public function saveSettings(): void
     {
@@ -271,12 +281,25 @@ final class CertificateController
         if (!ctype_digit($rawDays) || (int) $rawDays < self::MIN_DAYS || (int) $rawDays > self::MAX_DAYS) {
             throw new RuntimeException('Certificate availability must be between ' . self::MIN_DAYS . ' and ' . self::MAX_DAYS . ' days.');
         }
+        // Only reject the format fields when the page actually posted them, so an older request
+        // that carries just the days still saves instead of erroring on absent inputs.
+        $postsFormat = array_key_exists('student_id_prefix', $_POST) || array_key_exists('student_id_start', $_POST);
+        $prefix = AccountIdentity::cleanPrefix((string) ($_POST['student_id_prefix'] ?? ''));
+        $rawStart = trim((string) ($_POST['student_id_start'] ?? ''));
+        $includeYear = ((string) ($_POST['student_id_include_year'] ?? '')) === '1';
+        if ($postsFormat && (!ctype_digit($rawStart) || (int) $rawStart < 1 || (int) $rawStart > AccountIdentity::MAX_SEQUENCE)) {
+            throw new RuntimeException('Enter the serial number new certificate IDs start from, between 1 and ' . AccountIdentity::MAX_SEQUENCE . '.');
+        }
         $db = Database::connection();
         $db->beginTransaction();
         try {
             $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
             $upsert->execute([self::DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',JSON_OBJECT('days', ?))")->execute([(int) $admin['id'], (int) $rawDays]);
+            if ($postsFormat) {
+                AccountIdentity::saveScheme($db, $prefix, (int) $rawStart, (int) $admin['id'], $includeYear);
+            }
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',?)")
+                ->execute([(int) $admin['id'], json_encode(['days' => (int) $rawDays, 'format_updated' => $postsFormat, 'prefix' => $postsFormat ? $prefix : null, 'include_year' => $postsFormat ? $includeYear : null, 'start' => $postsFormat ? (int) $rawStart : null], JSON_THROW_ON_ERROR)]);
             $db->commit();
             $_SESSION['_flash'] = 'Certificate settings saved.';
         } catch (\Throwable $e) {
@@ -320,7 +343,7 @@ final class CertificateController
         $remarks = trim((string) ($_POST['admin_remarks'] ?? ''));
         if (mb_strlen($remarks) > 1000) throw new RuntimeException('Admin remarks must be 1000 characters or fewer.');
         $upload = $_FILES['certificate_file'] ?? null;
-        if (!is_array($upload)) throw new RuntimeException('Attach the signed certificate as a JPG image.');
+        if (!is_array($upload)) throw new RuntimeException('Attach the signed certificate as a JPG image or a PDF document.');
 
         $db = Database::connection();
         $stmt = $db->prepare(
@@ -335,7 +358,7 @@ final class CertificateController
         if (!is_array($certificate)) throw new RuntimeException('That certificate request no longer exists.');
         if ((string) $certificate['status'] === 'issued') throw new RuntimeException('This certificate has already been issued.');
 
-        $storedPath = $this->storeCertificateJpg($upload);
+        [$storedPath, $fileType] = $this->storeCertificateFile($upload);
         $days = $this->validityDays($db);
         // The certificate is issued under its owner's own account ID, so the number printed on
         // the document is the one the student already quotes everywhere else and types into the
@@ -344,7 +367,7 @@ final class CertificateController
 
         $update = $db->prepare(
             "UPDATE certificates
-             SET certificate_id = ?, status = 'issued', admin_remarks = ?, file_path = ?,
+             SET certificate_id = ?, status = 'issued', admin_remarks = ?, file_path = ?, file_type = ?,
                  issued_by = ?, reviewed_by = ?, issued_at = UTC_TIMESTAMP(),
                  expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY), notified_at = NULL
              WHERE id = ? AND status <> 'issued'"
@@ -353,6 +376,7 @@ final class CertificateController
             $publicId,
             $remarks !== '' ? $remarks : null,
             $storedPath,
+            $fileType,
             (int) $admin['id'],
             (int) $admin['id'],
             $days,
@@ -483,9 +507,11 @@ final class CertificateController
                     // who finished two courses gets both documents listed, the live ones first.
                     $stmt = $db->prepare(
                         "SELECT cert.id AS certificate_row_id, cert.course_id, cert.certificate_id,
-                                cert.issued_at, cert.expires_at, cert.admin_remarks,
+                                cert.issued_at, cert.expires_at, cert.admin_remarks, cert.status AS certificate_status,
                                 cert.file_path IS NOT NULL AS has_file,
-                                u.full_name AS student_name, c.title AS course_title, c.duration_label, c.level_label
+                                LOWER(SUBSTRING_INDEX(cert.file_path, '.', -1)) AS file_ext,
+                                u.full_name AS student_name, u.account_reference AS student_id,
+                                c.title AS course_title, c.duration_label, c.level_label
                          FROM certificates cert
                          JOIN users u ON u.id = cert.student_id
                          JOIN courses c ON c.id = cert.course_id
@@ -567,15 +593,25 @@ final class CertificateController
             $this->notFound();
             return;
         }
-        if ((new \finfo(FILEINFO_MIME_TYPE))->file($file) !== 'image/jpeg') {
+        // The format served is the format the file really is, taken from its own content and then
+        // required to agree with the extension stored against it - so a JPG is handed back as a JPG
+        // and a PDF as a PDF, and a mislabelled file is refused rather than guessed at.
+        $declared = strtolower(pathinfo((string) $certificate['file_path'], PATHINFO_EXTENSION));
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file);
+        $format = match (true) {
+            $mime === 'image/jpeg' && $declared === 'jpg' => 'jpg',
+            $mime === 'application/pdf' && $declared === 'pdf' => 'pdf',
+            default => null,
+        };
+        if ($format === null) {
             $this->notFound();
             return;
         }
 
         $safeName = preg_replace('/[^A-Za-z0-9-]/', '-', (string) $certificate['certificate_id']) ?: 'certificate';
-        header('Content-Type: image/jpeg');
+        header('Content-Type: ' . ($format === 'pdf' ? 'application/pdf' : 'image/jpeg'));
         header('Content-Length: ' . (string) filesize($file));
-        header('Content-Disposition: attachment; filename="' . $safeName . '.jpg"');
+        header('Content-Disposition: attachment; filename="' . $safeName . '.' . $format . '"');
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
         readfile($file);
@@ -618,30 +654,45 @@ final class CertificateController
         return $days >= self::MIN_DAYS && $days <= self::MAX_DAYS ? $days : self::DEFAULT_DAYS;
     }
 
-    private function storeCertificateJpg(array $upload): string
+    /**
+     * Stores the signed certificate the admin attached, in either of the two accepted formats.
+     *
+     * A JPG is checked the way a certificate image always was (finfo, getimagesize and the JPEG
+     * magic bytes). A PDF is a document, not an image, so it is checked by its %PDF header and
+     * finfo type instead of getimagesize, which cannot read one. The extension on the random,
+     * server-generated filename is also the format of record, so the download hands back what was
+     * uploaded and never trusts a client-supplied name.
+     *
+     * @return array{0:string,1:string} the storage-relative path and the stored format (jpg|pdf)
+     */
+    private function storeCertificateFile(array $upload): array
     {
         $tmp = (string) ($upload['tmp_name'] ?? '');
         if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || $tmp === '' || !is_uploaded_file($tmp)) {
-            throw new RuntimeException('Attach the signed certificate as a JPG image.');
+            throw new RuntimeException('Attach the signed certificate as a JPG image or a PDF document.');
         }
         $size = filesize($tmp);
         if ($size === false || $size < 1 || $size > self::MAX_UPLOAD_BYTES) {
-            throw new RuntimeException('The certificate image must be 5 MB or smaller.');
+            throw new RuntimeException('The certificate file must be 5 MB or smaller.');
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($tmp);
-        if ($mime !== 'image/jpeg') throw new RuntimeException('Only JPG certificate images are accepted.');
-        $info = @getimagesize($tmp);
-        if (!is_array($info) || ($info[2] ?? null) !== IMAGETYPE_JPEG) throw new RuntimeException('The uploaded file is not a readable JPG image.');
-        if ((string) file_get_contents($tmp, false, null, 0, 3) !== "\xFF\xD8\xFF") {
-            throw new RuntimeException('The uploaded file content does not match a JPG image.');
+        $magic = (string) file_get_contents($tmp, false, null, 0, 4);
+        if ($mime === 'image/jpeg' && str_starts_with($magic, "\xFF\xD8\xFF")) {
+            $info = @getimagesize($tmp);
+            if (!is_array($info) || ($info[2] ?? null) !== IMAGETYPE_JPEG) throw new RuntimeException('The uploaded file is not a readable JPG image.');
+            $extension = 'jpg';
+        } elseif ($mime === 'application/pdf' && str_starts_with($magic, '%PDF')) {
+            $extension = 'pdf';
+        } else {
+            throw new RuntimeException('Only JPG images and PDF documents are accepted as a certificate.');
         }
         $directory = PrivateStorage::directory(self::STORAGE_FOLDER);
-        $relative = self::STORAGE_FOLDER . '/' . bin2hex(random_bytes(24)) . '.jpg';
+        $relative = self::STORAGE_FOLDER . '/' . bin2hex(random_bytes(24)) . '.' . $extension;
         if (!move_uploaded_file($tmp, BASE_PATH . '/storage/uploads/private/' . $relative)) {
             throw new RuntimeException('The certificate file could not be stored.');
         }
         @chmod(BASE_PATH . '/storage/uploads/private/' . $relative, 0600);
-        return $relative;
+        return [$relative, $extension];
     }
 
     private function contactAddress(): string

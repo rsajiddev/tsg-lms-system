@@ -30,6 +30,8 @@ final class LessonProtection
 {
     public const WATERMARK_KEY = 'video_watermark_enabled';
     public const RETENTION_KEY = 'lesson_view_retention_days';
+    /** When '1', an enrolment whose certificate is issued loses its lesson videos before it expires. */
+    public const LOCK_ON_COMPLETION_KEY = 'video_lock_on_completion';
     public const DEFAULT_RETENTION_DAYS = 30;
     public const MIN_RETENTION_DAYS = 1;
     public const MAX_RETENTION_DAYS = 365;
@@ -76,6 +78,8 @@ final class LessonProtection
 
     private ?bool $watermarkEnabled = null;
 
+    private ?bool $lockOnCompletion = null;
+
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::connection();
@@ -115,6 +119,31 @@ final class LessonProtection
         // Absent or unreadable means on: the mark protects the Academy's recordings, and the
         // setting exists to switch it off for a lesson that is not paid content, not by accident.
         return $this->watermarkEnabled = ($stored === '' || $stored === '1');
+    }
+
+    /**
+     * Whether a certified enrolment loses its lesson videos before the access period ends.
+     *
+     * The proposal asked for the recordings to disappear once a course is complete; the standing
+     * behaviour keeps them available until expires_at so a finished student can revise. This
+     * switch lets an Academy pick the completion lock instead. Absent or unreadable means off -
+     * the behaviour every install has always had - so a half-imported database can never hide a
+     * lesson from a student by accident.
+     */
+    public function lockOnCompletion(): bool
+    {
+        if ($this->lockOnCompletion !== null) {
+            return $this->lockOnCompletion;
+        }
+        $stored = '';
+        try {
+            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt->execute([self::LOCK_ON_COMPLETION_KEY]);
+            $stored = trim((string) $stmt->fetchColumn());
+        } catch (\PDOException $exception) {
+            $stored = '';
+        }
+        return $this->lockOnCompletion = ($stored === '1');
     }
 
     public function retentionDays(): int

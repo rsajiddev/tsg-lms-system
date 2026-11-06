@@ -25,6 +25,8 @@ final class AccountIdentity
 {
     public const PREFIX_KEY = 'student_id_prefix';
     public const NEXT_KEY = 'student_id_next_number';
+    /** When '1', a newly minted ID carries the issue year between the prefix and the serial. */
+    public const INCLUDE_YEAR_KEY = 'student_id_include_year';
     public const DEFAULT_PREFIX = 'TSG-CER';
     public const ADMIN_PREFIX = 'TSG-ADM';
     /** The pre-column format, kept so an account without a stored ID still shows something stable. */
@@ -41,11 +43,18 @@ final class AccountIdentity
     /** @var array<int,string> One lookup per account per request. */
     private static array $references = [];
 
-    /** PREFIX-001, padded to at least three digits and grown when the sequence outgrows them. */
-    public static function format(string $prefix, int $sequence): string
+    /**
+     * PREFIX-001, or PREFIX-2026-001 when a year is supplied: padded to at least three digits and
+     * grown when the sequence outgrows them. The year is optional so the original format is kept
+     * exactly for every caller that does not ask for it, and existing IDs never change shape.
+     */
+    public static function format(string $prefix, int $sequence, ?int $year = null): string
     {
         $digits = (string) max(1, $sequence);
-        return $prefix . '-' . str_pad($digits, max(self::MIN_WIDTH, strlen($digits)), '0', STR_PAD_LEFT);
+        $serial = str_pad($digits, max(self::MIN_WIDTH, strlen($digits)), '0', STR_PAD_LEFT);
+        return $year === null
+            ? $prefix . '-' . $serial
+            : $prefix . '-' . $year . '-' . $serial;
     }
 
     /** Upper-cases a typed prefix and rejects anything that would leak into a public URL. */
@@ -74,24 +83,35 @@ final class AccountIdentity
      * The scheme as it stands, falling back to the defaults when nothing has been saved yet or
      * a stored value has been edited by hand into something unusable.
      *
-     * @return array{prefix:string,next:int}
+     * @return array{prefix:string,next:int,include_year:bool}
      */
     public static function scheme(?PDO $db = null): array
     {
         $db = $db ?? Database::connection();
         $prefix = self::DEFAULT_PREFIX;
         $next = 1;
+        $includeYear = false;
         try {
-            $stmt = $db->prepare('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?)');
-            $stmt->execute([self::PREFIX_KEY, self::NEXT_KEY]);
+            $stmt = $db->prepare('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)');
+            $stmt->execute([self::PREFIX_KEY, self::NEXT_KEY, self::INCLUDE_YEAR_KEY]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 if ((string) $row['setting_key'] === self::PREFIX_KEY) $prefix = (string) $row['setting_value'];
-                else $next = (int) $row['setting_value'];
+                elseif ((string) $row['setting_key'] === self::NEXT_KEY) $next = (int) $row['setting_value'];
+                else $includeYear = (string) $row['setting_value'] === '1';
             }
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
         }
-        return ['prefix' => self::cleanPrefix($prefix, false), 'next' => max(1, min($next, self::MAX_SEQUENCE))];
+        return ['prefix' => self::cleanPrefix($prefix, false), 'next' => max(1, min($next, self::MAX_SEQUENCE)), 'include_year' => $includeYear];
+    }
+
+    /**
+     * The scheme example an admin should see on a settings page: it honours the year switch, so
+     * the number printed on the Certificate settings card matches what the next ID will really be.
+     */
+    public static function preview(array $scheme, int $sequence): string
+    {
+        return self::format($scheme['prefix'], $sequence, ($scheme['include_year'] ?? false) ? (int) gmdate('Y') : null);
     }
 
     /**
@@ -109,6 +129,7 @@ final class AccountIdentity
         if (!$joined) $db->beginTransaction();
         try {
             $scheme = self::scheme($db);
+            $year = $scheme['include_year'] ? (int) gmdate('Y') : null;
             $db->prepare('INSERT IGNORE INTO app_settings(setting_key, setting_value) VALUES(?, ?)')
                 ->execute([self::NEXT_KEY, (string) $scheme['next']]);
             $lock = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? FOR UPDATE');
@@ -118,7 +139,7 @@ final class AccountIdentity
             $taken = $db->prepare('SELECT 1 FROM users WHERE account_reference = ? LIMIT 1');
             $reference = '';
             for (; $sequence <= self::MAX_SEQUENCE; $sequence++) {
-                $candidate = self::format($scheme['prefix'], $sequence);
+                $candidate = self::format($scheme['prefix'], $sequence, $year);
                 $taken->execute([$candidate]);
                 if (!$taken->fetch()) { $reference = $candidate; break; }
             }
@@ -197,7 +218,7 @@ final class AccountIdentity
      * if it points at a number that is already out, issue() walks past the taken ones rather
      * than handing out a duplicate, so a lower start can never overwrite somebody's certificate.
      */
-    public static function saveScheme(PDO $db, string $rawPrefix, int $start, int $actorId): array
+    public static function saveScheme(PDO $db, string $rawPrefix, int $start, int $actorId, ?bool $includeYear = null): array
     {
         $prefix = self::cleanPrefix($rawPrefix);
         if ($start < 1 || $start > self::MAX_SEQUENCE) {
@@ -206,7 +227,12 @@ final class AccountIdentity
         $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
         $upsert->execute([self::PREFIX_KEY, $prefix, $actorId]);
         $upsert->execute([self::NEXT_KEY, (string) $start, $actorId]);
-        return ['prefix' => $prefix, 'next' => $start];
+        // A caller that does not name the year switch (the account settings page) leaves it exactly
+        // as it is; only the Certificate settings page passes a choice through.
+        if ($includeYear !== null) {
+            $upsert->execute([self::INCLUDE_YEAR_KEY, $includeYear ? '1' : '0', $actorId]);
+        }
+        return ['prefix' => $prefix, 'next' => $start, 'include_year' => $includeYear ?? self::scheme($db)['include_year']];
     }
 
     /** How many student accounts a re-issue would touch. */
@@ -234,6 +260,7 @@ final class AccountIdentity
     public static function reissueStudents(PDO $db, int $actorId): array
     {
         $scheme = self::scheme($db);
+        $year = $scheme['include_year'] ? (int) gmdate('Y') : null;
         $joined = $db->inTransaction();
         if (!$joined) $db->beginTransaction();
         try {
@@ -252,7 +279,7 @@ final class AccountIdentity
                 $studentId = (int) $studentId;
                 $candidate = '';
                 while ($sequence <= self::MAX_SEQUENCE) {
-                    $test = self::format($scheme['prefix'], $sequence);
+                    $test = self::format($scheme['prefix'], $sequence, $year);
                     $clash->execute([$test]);
                     if ($clash->fetch()) { $sequence++; continue; }
                     $candidate = $test;

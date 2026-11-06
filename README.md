@@ -390,6 +390,32 @@ Submission Process:
 * Submission par CSRF check, field validation aur IP-based throttle (RateLimiter, 5 per hour) lagta hai, taake spam na ho.
 * Handover par company sirf `MAIL_USERNAME`, `MAIL_PASSWORD` aur `MAIL_FROM_ADDRESS` badle to enquiry usi ki mailbox par aayengi, koi code edit ki zaroorat nahi.
 
+### 15\. Admin Settings – Clear All Data & Reset System
+Testing ke waqt jo data banta hai (students, enrollments, payments, quiz attempts, results, progress, submissions, attendance, certificates, messages) wo Admin Dashboard ke **Settings** page se ek jagah clear ho sakta hai.
+
+* **Clear All Data button** (`CLEAR ALL DATA` phrase + irreversible tick + server-side re-check):
+  * Tamam test students apne poore data graph ke saath delete hote hain — enrollments, payments, quiz attempts aur results, lesson progress, submissions, grades, attendance, certificate records aur uploaded files, chats, sessions.
+  * ID counter bhi reset ho kar saved scheme ke mutabiq number one se dubara shuru hota hai.
+  * **Delete NAHI hota:** admin accounts, login credentials, system settings, ID format configuration, courses aur content, email delivery log. Database ke primary/foreign keys safely handle hote hain (FK order ke mutabiq deletion, transaction me).
+* **Reset ID Counter button** (koi record delete nahi karta):
+  * Student/certificate ID counter ko fresh starting serial par le jata hai (example: prefix TSG-CER + year 2026 + serial 001 se next IDs TSG-CER-2026-001, -002, -003 generate honge).
+  * Field blank chhorne par existing sabse bade serial ke baad se resume ho jata hai.
+  * **Duplicate protection:** jo serial kisi existing student ya issued certificate ke paas hai, counter usay kabhi nahi deta — sequence chalte waqt taken numbers skip ho jate hain, is liye reset se existing IDs kabhi touch nahi hote.
+* Student directory ka **Delete all students** tool bhi ab fail nahi hota: shared reports (`report_shares`) ka foreign key purge me safely delete ho jata hai (pehle FK 1451 error aata tha).
+* Poora flow `tests/purge-tools-smoke.php` me automated hai — wrong phrase se kuch delete nahi hota, wipe sirf zero state banata hai, aur counter reset ke baad issued IDs prove hote hain.
+
+### 16\. Email Notification System – Recipient Routing
+Har automated email ka recipient `.env` se decide hota hai. Company ki mail aur developer ki mail **alag inboxes** me jaati hain — developer ki notifications kabhi company ki Gmail par mix nahi hoti.
+
+* **Recipient mapping** (`App\Services\MailService` ke readers):
+  * **Student notifications** (OTP, payment confirmation, approval/rejection) → student ka apna registered email.
+  * **Company notifications** (HR registration aur payment queue, certificate requests) → `MAIL_FROM_ADDRESS` (company ka sending mailbox).
+  * **Developer notifications** (registration, payment submitted, payment approved, monthly revenue report) → `MAIL_DEVELOPER_ADDRESS` (alag developer Gmail). Address blank/invalid ho to developer copies company mailbox par **fall back** karti hain (drop nahi hoti), lekin live install me hamesha alag developer address set karein.
+  * **Admin copy** (payment approval record) → jis admin ne approve kiya uska `reviewer_email`.
+* **Developer revenue share**: percentage `DEVELOPER_SHARE_PERCENT` (`.env`) se aata hai, default 15. Ek number badalne (maslan 18) se payment emails, monthly report, Revenue & Payments card aur PDF receipt — sab jagah calculation aur label saath update ho jaate hain. Pending payment par "expected share" dikhta hai, approved hone par hi confirmed earning me count hota hai.
+* **Notify Developer button** (Revenue & Payments page): current month ka approved revenue currency-wise summary banakar sirf developer inbox par bhejta hai, aur admin ko **asli** success/failure response dikhata hai (mail log me detail). **Duplicate protection:** same month ki same figures (currency + count + total ka fingerprint) dubara click karne par doosri notification nahi jaati — naye approvals figures badal dete hain, tab hi dobara send hota hai.
+* `.env` aur `.env.example` synchronize hain (`.env.example` placeholder template hai, real credentials nahi). Routing aur separation `tests/email-notification-smoke.php` aur `tests/interface-render-smoke.php` me assert hoti hai.
+
 ## Automated test suite (smoke tests)
 The `tests/` directory holds standalone CLI smoke tests. Each one exercises a specific feature or
 end-to-end flow, prints a `PASS`/`FAIL` line per assertion, and exits non-zero on any failure so the

@@ -33,6 +33,7 @@ foreach (
         '/app/Services/LessonProtection.php',
         '/app/Services/SessionRegistry.php',
         '/app/Services/CourseGrading.php',
+        '/app/Services/StudentProgress.php',
         '/app/Controllers/HomeController.php',
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/HealthController.php',
@@ -159,6 +160,8 @@ $router->get('/student/quizzes', [\App\Controllers\StudentPortalController::clas
 $router->get('/student/assignments', [\App\Controllers\StudentPortalController::class, 'assignments']);
 $router->get('/student/reports', [\App\Controllers\StudentPortalController::class, 'reports']);
 $router->get('/student/reports/download', [\App\Controllers\StudentPortalController::class, 'reportDownload']);
+$router->get('/student/progress', [\App\Controllers\StudentPortalController::class, 'progress']);
+$router->get('/student/progress/report', [\App\Controllers\StudentPortalController::class, 'progressReport']);
 $router->get('/student/settings', [\App\Controllers\AccountController::class, 'studentSettings']);
 $router->get('/admin/account', [\App\Controllers\AccountController::class, 'adminSettings']);
 $account = \App\Controllers\AccountController::class;
@@ -229,6 +232,12 @@ $router->post('/admin/courses/access', [\App\Controllers\CourseAdminController::
 $router->get('/admin/settings', [\App\Controllers\AdminManagementController::class, 'settings']);
 $router->post('/admin/settings', [\App\Controllers\AdminManagementController::class, 'saveSettings']);
 $router->post('/admin/settings/video-protection', [\App\Controllers\AdminManagementController::class, 'saveVideoProtection']);
+// Handover testing tools: the phrase-guarded wipe of all student data and the ID counter re-arm.
+$router->post('/admin/settings/clear-data', [\App\Controllers\AdminManagementController::class, 'clearAllData']);
+$router->post('/admin/settings/reset-counter', [\App\Controllers\AdminManagementController::class, 'resetIdCounter']);
+// Danger Zone: the single page that gathers every guarded bulk-delete tool. The cards post to the
+// workspace endpoints above, so this route only renders the page - no delete has its own new handler.
+$router->get('/admin/danger-zone', [\App\Controllers\AdminManagementController::class, 'dangerZone']);
 $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::class, 'reviews']);
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);

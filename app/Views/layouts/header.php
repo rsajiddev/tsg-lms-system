@@ -67,6 +67,7 @@ $dashboardNavIcon = static function (string $name): string {
         'certificate' => '<circle cx="12" cy="9" r="6"/><path d="M8.5 14.5 7 22l5-2.6L17 22l-1.5-7.5"/>',
         'star' => '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',
         'settings' => '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/>',
+        'danger' => '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
         'logout' => '<path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-5"/>',
         default => '<circle cx="12" cy="12" r="9"/>',
     };
@@ -93,10 +94,14 @@ $dashboardNavItems = $dashboardRole === 'admin'
         // The report sits at the end of the list on purpose: it is the desk you open after everything
         // else, and the only way to empty it is the testing card at the bottom of that page.
         ['label' => 'Recent activity', 'href' => '/admin/activity', 'icon' => 'activity', 'active' => $activePath === '/admin/activity'],
+        // The Danger Zone closes the list because it is the one place permanent deletion lives, kept
+        // last so it is never reached by accident while moving between the everyday workspaces.
+        ['label' => 'Danger Zone', 'href' => '/admin/danger-zone', 'icon' => 'danger', 'active' => $activePath === '/admin/danger-zone'],
     ]
     : [
         ['label' => 'Overview', 'href' => '/dashboard', 'icon' => 'overview', 'active' => $activePath === '/dashboard'],
         ['label' => 'My courses', 'href' => '/student/courses', 'icon' => 'book', 'badge' => 'courses', 'active' => in_array($activePath, ['/student/courses', '/learning'], true)],
+        ['label' => 'Certificate & progress', 'href' => '/student/progress', 'icon' => 'certificate', 'active' => str_starts_with($activePath, '/student/progress')],
         ['label' => 'Lessons', 'href' => '/student/lessons', 'icon' => 'play', 'badge' => 'lessons', 'active' => in_array($activePath, ['/student/lessons', '/learning/lesson'], true)],
         ['label' => 'Payments', 'href' => '/student/payments', 'icon' => 'card', 'badge' => 'payments', 'active' => $activePath === '/student/payments' || str_starts_with($activePath, '/payments')],
         ['label' => 'Quizzes & results', 'href' => '/student/quizzes', 'icon' => 'quiz', 'badge' => 'quizzes', 'active' => $activePath === '/student/quizzes' || str_starts_with($activePath, '/learning/quizzes')],

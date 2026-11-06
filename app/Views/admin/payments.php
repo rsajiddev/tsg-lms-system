@@ -9,6 +9,9 @@ if ($paymentAccounts === []) $paymentAccounts[] = array_fill_keys(['account_titl
 $payments = is_array($payments ?? null) ? $payments : [];
 $revenue = is_array($revenue ?? null) ? $revenue : [];
 $revenueTotals = is_array($revenueTotals ?? null) ? $revenueTotals : [];
+/* The developer split shown on the card matches the same configured percentage the reports use. */
+$developerShareLabel = rtrim(rtrim(number_format((float) ($developerSharePercent ?? 15), 2, '.', ''), '0'), '.');
+if ($developerShareLabel === '') $developerShareLabel = '0';
 $flash = $message ?? null;
 if (is_string($flash) && $flash !== '') $flash = ['type' => 'success', 'text' => $flash];
 if (!is_array($flash)) $flash = null;
@@ -67,9 +70,9 @@ $inlineTotals = static function (array $totals): string {
     </article>
 
     <article class="revenue-kpi revenue-kpi--developer">
-      <div class="revenue-kpi-top"><span class="revenue-kpi-label">Developer share · 15%</span><span class="revenue-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11l4 4 8-8"/><path d="M15 7h6v6"/></svg></span></div>
+      <div class="revenue-kpi-top"><span class="revenue-kpi-label">Developer share · <?= $escape($developerShareLabel) ?>%</span><span class="revenue-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11l4 4 8-8"/><path d="M15 7h6v6"/></svg></span></div>
       <div class="revenue-kpi-value"><?= $metricLines($developerTotals) ?></div>
-      <p class="revenue-kpi-foot"><span class="revenue-kpi-foot-label">15% of all-time revenue</span><span>This month · <?= $escape($inlineTotals($developerMonthly)) ?></span></p>
+      <p class="revenue-kpi-foot"><span class="revenue-kpi-foot-label"><?= $escape($developerShareLabel) ?>% of all-time revenue</span><span>This month · <?= $escape($inlineTotals($developerMonthly)) ?></span></p>
     </article>
 
     <article class="revenue-kpi revenue-kpi--payments">

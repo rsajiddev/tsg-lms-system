@@ -32,6 +32,12 @@ final class LearningController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
+        // The course page itself stays open for a certified enrolment - the grade, quizzes and the
+        // certificate all live behind it - but when the completion lock is on the lesson videos are
+        // hidden, so the outline is marked closed rather than 404. AccessibleLesson is what actually
+        // refuses playback; this flag only decides what the page shows.
+        $videosLocked = (string) ($courseRow['access_status'] ?? '') === 'certified'
+            && (new LessonProtection($db))->lockOnCompletion();
         // Which lessons carry a class is listed only for the plan that may open one, so the outline
         // cannot hint at a live session a student has no claim on.
         $liveColumn = AccessPlan::columnStored($db, 'lessons.meeting_url');
@@ -51,7 +57,7 @@ final class LearningController
         $lessons->execute([(int) $student['id'], $courseId]);
         $grading = new CourseGrading($db);
         $grade = $grading->refresh((int) $student['id'], $courseId);
-        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll(), 'liveAllowed' => $liveAllowed, 'liveNotice' => $courseHasClasses && !$liveAllowed, 'grade' => $grade, 'weights' => $grading->weights(), 'eligibility' => $grading->eligibility((int) $student['id'], $courseId)]);
+        View::render('learning/course', ['title' => $courseRow['title'], 'user' => $student, 'course' => $courseRow, 'lessons' => $lessons->fetchAll(), 'liveAllowed' => $liveAllowed, 'liveNotice' => $courseHasClasses && !$liveAllowed, 'videosLocked' => $videosLocked, 'grade' => $grade, 'weights' => $grading->weights(), 'eligibility' => $grading->eligibility((int) $student['id'], $courseId)]);
     }
 
     public function lesson(): void
@@ -233,7 +239,14 @@ final class LearningController
             ? 'l.meeting_url,l.meeting_at'
             : 'NULL AS meeting_url,NULL AS meeting_at';
         $planColumn = AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'a.plan_code' : 'NULL AS plan_code';
-        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,$liveColumns,$planColumn,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
+        // The completion lock (proposal 5.7) hides recordings from an enrolment whose certificate is
+        // already issued, but only when the Academy has switched it on. The status list is composed
+        // here rather than hard-coded, so playback and the heartbeat gate below fail the same way;
+        // off by default, so a certified student keeps watching until expires_at as they always did.
+        $videoStatuses = (new LessonProtection($db))->lockOnCompletion()
+            ? "('active','completed')"
+            : "('active','completed','certified')";
+        $stmt = $db->prepare("SELECT l.id AS lesson_id,l.title AS lesson_title,l.body,cm.title AS module_title,c.id AS course_id,c.title AS course_title,$liveColumns,$planColumn,EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.student_id=? AND lp.lesson_id=l.id AND lp.completed_at IS NOT NULL) AS completed FROM lessons l JOIN course_modules cm ON cm.id=l.module_id JOIN courses c ON c.id=cm.course_id JOIN student_course_access a ON a.course_id=c.id AND a.student_id=? AND a.status IN $videoStatuses AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) WHERE l.id=? AND l.status='published' LIMIT 1");
         $stmt->execute([$studentId, $studentId, $lessonId]);
         return $stmt->fetch() ?: null;
     }

@@ -12,6 +12,7 @@ use App\Services\AccessPlan;
 use App\Services\DocumentPdf;
 use App\Services\LessonMedia;
 use App\Services\ReportSharing;
+use App\Services\StudentProgress;
 
 /**
  * Dedicated workspace pages for signed-in students.
@@ -317,6 +318,48 @@ final class StudentPortalController
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="techsg-' . $report['type'] . '-' . strtolower((string) $share['period_key']) . '-' . $studentId . '.pdf"');
         header('Content-Length: ' . strlen($pdf));
+        echo $pdf;
+    }
+
+    /**
+     * The Certificate & Learning Progress dashboard.
+     *
+     * Everything a student needs to see about how far they have come and how far a certificate still
+     * sits: an overall picture, then per course the module-by-module progress, watched-versus-remaining
+     * videos, quiz scores, assignment status, and the exact certificate requirements still open. The
+     * figures are the same weighted ones the certificate gate uses, so this page and the request button
+     * never disagree.
+     */
+    public function progress(): void
+    {
+        $user = AuthMiddleware::requireRole('student');
+        $summary = (new StudentProgress(Database::connection()))->summary((int) $user['id']);
+
+        View::render('student/progress', [
+            'title' => 'Certificate & progress',
+            'user' => $user,
+            'summary' => $summary,
+            'message' => $_SESSION['_flash'] ?? null,
+            'error' => $_SESSION['_flash_error'] ?? null,
+        ]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
+    }
+
+    /**
+     * The same progress picture, exported as a branded PDF the student keeps. Rebuilt on request from
+     * live records - nothing about the document is cached or stored.
+     */
+    public function progressReport(): void
+    {
+        $user = AuthMiddleware::requireRole('student');
+        $summary = (new StudentProgress(Database::connection()))->summary((int) $user['id']);
+        $pdf = DocumentPdf::progressReport($summary);
+
+        $name = preg_replace('/[^A-Za-z0-9]+/', '-', (string) ($summary['student']['name'] ?: 'student')) ?: 'student';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="techsg-progress-' . strtolower($name) . '-' . (int) $user['id'] . '.pdf"');
+        header('Content-Length: ' . strlen($pdf));
+        header('X-Content-Type-Options: nosniff');
         echo $pdf;
     }
 

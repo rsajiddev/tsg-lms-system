@@ -97,18 +97,7 @@ $error = $error ?? null; ?>
                         </tr><?php endforeach; ?>
                 </tbody></table></div><?php endif; ?>
     </section>
-    <?php
-    // The first two tables are reports the platform fills itself, so a test round writes straight into
-    // them. This is the one card that empties them together without touching an announcement an admin
-    // published by hand. The lesson view log keeps its own control above: it is evidence about students,
-    // and clearing it should never be a side effect of tidying up something else.
-    $purgeAction = '/admin/activity/clear';
-    $purgePhrase = 'CLEAR RECENT ACTIVITY';
-    $purgeTitle = 'Clear recent activity';
-    $purgeDescription = 'Removes the automated student updates with their recipient records and private replies, and empties the e-mail delivery log. Announcements you published stay on the board.';
-    $purgeCount = $automatedTotal + $emailTotal;
-    require BASE_PATH . '/app/Views/components/purge-zone.php';
-    ?>
+    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Clear recent activity&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
     <?php
     $usageEyebrow = 'Platform report';

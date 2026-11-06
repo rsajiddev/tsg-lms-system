@@ -176,8 +176,8 @@ $filters = [
                                     </td>
                                     <td class="certificate-row-actions" data-label="Actions">
                                         <?php if ($rowStatus === 'issued'): ?>
-                                            <?php if (!empty($certificate['has_file'])): ?>
-                                                <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($publicId)) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">Download JPG <span aria-hidden="true">↓</span></a>
+                                            <?php if (!empty($certificate['has_file'])): $certFormat = strtolower((string) ($certificate['file_ext'] ?? '')) === 'pdf' ? 'PDF' : 'JPG'; ?>
+                                                <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($publicId)) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">Download <?= $escape($certFormat) ?> <span aria-hidden="true">↓</span></a>
                                             <?php endif; ?>
                                             <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode($publicId)) ?>" target="_blank" rel="noopener">View public record <span aria-hidden="true">→</span></a>
                                         <?php else: ?>
@@ -186,8 +186,8 @@ $filters = [
                                                 <form class="certificate-review-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/issue" enctype="multipart/form-data">
                                                     <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                                                     <input type="hidden" name="certificate_id" value="<?= (int) $certificate['id'] ?>">
-                                                    <label class="admin-label" for="certificate-file-<?= (int) $certificate['id'] ?>">Certificate image (JPG, max 5 MB)</label>
-                                                    <input class="admin-input certificate-file-input" id="certificate-file-<?= (int) $certificate['id'] ?>" type="file" name="certificate_file" accept="image/jpeg" required>
+                                                    <label class="admin-label" for="certificate-file-<?= (int) $certificate['id'] ?>">Signed certificate (JPG image or PDF, max 5 MB)</label>
+                                                    <input class="admin-input certificate-file-input" id="certificate-file-<?= (int) $certificate['id'] ?>" type="file" name="certificate_file" accept="image/jpeg,application/pdf" required>
                                                     <label class="admin-label" for="certificate-issue-remarks-<?= (int) $certificate['id'] ?>">Remarks shown on the public record (optional)</label>
                                                     <textarea class="admin-textarea" id="certificate-issue-remarks-<?= (int) $certificate['id'] ?>" name="admin_remarks" rows="2" maxlength="1000" placeholder="For example: awarded with distinction."></textarea>
                                                     <div class="certificate-review-actions">
@@ -229,7 +229,7 @@ $filters = [
                 </div>
                 <div class="admin-card-titles">
                     <h2>Certificate settings</h2>
-                    <p>Control how long an issued certificate stays verifiable.</p>
+                    <p>Set the Certificate ID format and how long an issued certificate stays verifiable.</p>
                 </div>
             </div>
         </div>
@@ -238,10 +238,31 @@ $filters = [
             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
             <div class="admin-form-row">
                 <div class="admin-field">
-                    <label class="admin-label" for="certificate-id-scheme">Certificate ID</label>
-                    <input class="admin-input" id="certificate-id-scheme" type="text" value="Issued as <?= $escape($certificateValues['idExample'] ?? 'TSG-CER-001') ?>" readonly>
-                    <span class="admin-hint">A certificate carries its owner's own account ID, so the student verifies it with the number they were given. The prefix and the number new students start at are set on your <a href="<?= $escape($baseUrl) ?>/admin/account">account settings</a> page.</span>
+                    <label class="admin-label" for="certificate-id-prefix">Certificate ID prefix</label>
+                    <input class="admin-input" id="certificate-id-prefix" name="student_id_prefix" type="text" maxlength="24" required value="<?= $escape($certificateValues['prefix'] ?? 'TSG-CER') ?>" placeholder="TSG-CER" autocomplete="off" spellcheck="false">
+                    <span class="admin-hint">Uppercase letters, digits or single hyphens (for example <strong>TSG</strong>, <strong>CER</strong> or <strong>TSG-CER</strong>).</span>
                 </div>
+                <div class="admin-field">
+                    <label class="admin-label" for="certificate-id-start">First serial number</label>
+                    <input class="admin-input" id="certificate-id-start" name="student_id_start" type="number" min="1" max="<?= (int) ($certificateValues['max_sequence'] ?? 9999999) ?>" required value="<?= (int) ($certificateValues['start'] ?? 1) ?>">
+                    <span class="admin-hint">The number the next new ID starts counting from; taken numbers are skipped, so nobody is overwritten.</span>
+                </div>
+            </div>
+            <div class="admin-form-row">
+                <div class="admin-field">
+                    <label class="admin-label" for="certificate-include-year">Include the year</label>
+                    <label class="certificate-year-toggle" for="certificate-include-year">
+                        <input id="certificate-include-year" name="student_id_include_year" type="checkbox" value="1" <?= !empty($certificateValues['include_year']) ? 'checked' : '' ?>>
+                        <span>Add the issue year between the prefix and the serial (e.g. <strong>TSG-CER-<?= $escape(gmdate('Y')) ?>-001</strong>).</span>
+                    </label>
+                </div>
+                <div class="admin-field">
+                    <label class="admin-label" for="certificate-id-preview">The next certificate ID looks like</label>
+                    <input class="admin-input" id="certificate-id-preview" type="text" value="<?= $escape($certificateValues['idExample'] ?? 'TSG-CER-001') ?>" readonly>
+                    <span class="admin-hint">A certificate is issued under its owner's own permanent Student ID, so one ID opens every course certificate that student earns.</span>
+                </div>
+            </div>
+            <div class="admin-form-row">
                 <div class="admin-field">
                     <label class="admin-label" for="certificate-available-days">Available for</label>
                     <div class="admin-number-field">

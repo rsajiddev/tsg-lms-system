@@ -76,15 +76,7 @@ $purgeCount = count($assignments);
             </div><span class="dashboard-status status-<?= $escape($a['status']) ?>"><?= $escape(ucfirst($a['status'])) ?></span><span><?= $escape($a['submission_count']) ?> submissions</span><span><?= $escape($a['max_marks']) ?> marks</span>
           </article><?php endforeach; ?></div><?php endif; ?>
   </section>
-  <?php
-  // Testing tool: clears the assignment bank built up while the course content was being written.
-  $purgeAction = '/admin/assignments/purge';
-  $purgePhrase = 'DELETE ALL ASSIGNMENTS';
-  $purgeTitle = 'Delete all assignments';
-  $purgeDescription = 'Removes every assignment with its submissions, reviews and uploaded files. Use it to clear test data before student work begins.';
-  $purgeScopeCourses = $courses;
-  require BASE_PATH . '/app/Views/components/purge-zone.php';
-  ?>
+  <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all assignments&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
   <?php
   $usageEyebrow = 'Assignment desk';

@@ -12,13 +12,15 @@ use RuntimeException;
  *
  * Configuration comes from the environment only, so a client installs the platform by
  * filling in the MAIL_* block: SMTP host/port/encryption, the mailbox and app password,
- * the display name and the sender address. Every internal alert - HR registration and
- * payment notices, developer summaries, certificate requests - is delivered to the
- * sending mailbox itself, so one address pair in .env routes the whole installation.
+ * the display name and the sender address. Company alerts (HR registration and payment
+ * notices, certificate requests) are delivered to the sending mailbox itself, so one
+ * address pair in .env routes them. Developer alerts are kept separate: they go to
+ * MAIL_DEVELOPER_ADDRESS, never mixed into the company inbox, and only fall back to the
+ * sending mailbox when that developer address has not been configured.
  */
 final class MailService
 {
-    /** Developer revenue-share percentage quoted in internal emails. */
+    /** Default developer revenue-share percentage when the environment does not set one. */
     public const DEVELOPER_SHARE_PERCENT = 15;
 
     private ?PDO $resolved = null;
@@ -135,22 +137,50 @@ final class MailService
 
     /* ------------------------------------------------------- recipients & formatting */
 
-    /** Internal alerts all land in the company's own sending mailbox; see sendingAddress(). */
+    /** Internal company alerts (HR, certificate) land in the company's own sending mailbox. */
     public static function hrAddress(): string
     {
         return self::sendingAddress();
     }
 
-    /** Developer alerts are delivered to the same sending mailbox as every other message. */
+    /**
+     * Developer alerts have their own inbox so they never mix with company mail. They follow
+     * MAIL_DEVELOPER_ADDRESS; only when that is unset or invalid do they fall back to the
+     * sending mailbox, so an installation that has not configured a developer address keeps
+     * delivering rather than silently dropping the copies.
+     */
     public static function developerAddress(): string
+    {
+        $value = trim((string) (getenv('MAIL_DEVELOPER_ADDRESS') ?: ''));
+        return filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : self::sendingAddress();
+    }
+
+    /** Certificate requests join the company sending mailbox, keeping one company inbox. */
+    public static function certificateAddress(): string
     {
         return self::sendingAddress();
     }
 
-    /** Certificate requests join the sending mailbox too, keeping one inbox for the company. */
-    public static function certificateAddress(): string
+    /**
+     * The developer revenue-share percentage every calculation and label should use. It is
+     * configurable through DEVELOPER_SHARE_PERCENT so a handover that moves the split from
+     * 15% to, say, 18% changes one environment key instead of several code paths; anything
+     * outside 0-100 falls back to the default so a typo cannot silently invert the maths.
+     */
+    public static function developerSharePercent(): float
     {
-        return self::sendingAddress();
+        $raw = trim((string) (getenv('DEVELOPER_SHARE_PERCENT') ?: ''));
+        if ($raw === '' || !is_numeric($raw)) {
+            return (float) self::DEVELOPER_SHARE_PERCENT;
+        }
+        $percent = (float) $raw;
+        return ($percent >= 0 && $percent <= 100) ? $percent : (float) self::DEVELOPER_SHARE_PERCENT;
+    }
+
+    /** Share of an amount at the configured developer percentage. */
+    public static function developerShareOf(float $amount): float
+    {
+        return $amount * self::developerSharePercent() / 100;
     }
 
     /** Greeting used in developer-facing mail; the name lives in the environment. */

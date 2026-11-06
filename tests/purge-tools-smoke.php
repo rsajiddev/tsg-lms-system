@@ -57,6 +57,7 @@ foreach (
         '/app/Controllers/QuizController.php',
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/StudentManagementController.php',
+        '/app/Controllers/AdminManagementController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -65,6 +66,7 @@ foreach (
 use App\Core\Database;
 use App\Core\Env;
 use App\Core\Security;
+use App\Controllers\AdminManagementController;
 use App\Controllers\AssignmentController;
 use App\Controllers\ChatController;
 use App\Controllers\CourseAdminController;
@@ -75,7 +77,7 @@ use App\Services\ChatService;
 use App\Services\NotificationService;
 
 Env::load(BASE_PATH . '/.env');
-$options = getopt('', ['database::', 'run::', 'bad::', 'nid::', 'sid::']);
+$options = getopt('', ['database::', 'run::', 'bad::', 'nid::', 'sid::', 'start::']);
 if (isset($options['database']) && is_string($options['database']) && $options['database'] !== '') {
     putenv('DB_NAME=' . $options['database']);
 }
@@ -125,6 +127,9 @@ $phrases = [
     'clarchat' => '',
     'admclearchat' => '',
     'admdeletechat' => 'DELETE THIS CONVERSATION',
+    // The handover tools on the settings page: the full wipe and the counter re-arm both type a phrase.
+    'cleardata' => 'CLEAR ALL DATA',
+    'resetcounter' => 'RESET ID COUNTER',
 ];
 
 /* --------------------------------------------------------------------- child process */
@@ -166,6 +171,10 @@ if ($run !== '') {
             $_POST['thread_id'] = (string) (int) ($options['nid'] ?? 0);
             $_POST['student_id'] = (string) (int) ($options['sid'] ?? 0);
         }
+        if ($run === 'resetcounter' && ($options['start'] ?? '') !== '') {
+            // The typed serial rides along, exactly as the settings form posts it.
+            $_POST['student_id_start'] = (string) $options['start'];
+        }
     }
     $_SERVER['REQUEST_METHOD'] = 'POST';
     register_shutdown_function(static function (): void {
@@ -180,6 +189,8 @@ if ($run !== '') {
             'emaillog' => (new NotificationController())->clearEmailLog(),
             'activity' => (new NotificationController())->clearActivity(),
             'announcements' => (new NotificationController())->purgeAll(),
+            'cleardata' => (new AdminManagementController())->clearAllData(),
+            'resetcounter' => (new AdminManagementController())->resetIdCounter(),
             'readall' => (new NotificationController())->markAllRead(),
             'clarchat' => (new ChatController())->clear(),
             'admclearchat' => (new ChatController())->clear(),
@@ -204,6 +215,8 @@ $tables = [
     // before either parent - the same order the purges themselves keep.
     'lesson_view_events', 'user_sessions',
     'payments', 'attendance_records', 'email_otps', 'coding_challenge_attempts', 'login_events',
+    // A shared report holds two plain keys back at users, so it is emptied with the other children.
+    'report_shares',
     'student_course_access', 'course_pricing_options', 'courses',
     'notification_recipients', 'notification_replies', 'notifications', 'audit_logs', 'email_logs',
 ];
@@ -327,10 +340,10 @@ try {
     $self = escapeshellarg(\PHP_BINARY);
     $script = escapeshellarg(__FILE__);
     $database = escapeshellarg('--database=' . $dbName);
-    $invoke = static function (string $target, bool $bad = false, int $notificationId = 0, int $studentId = 0) use ($self, $script, $database): string {
+    $invoke = static function (string $target, bool $bad = false, int $notificationId = 0, int $studentId = 0, string $start = '') use ($self, $script, $database): string {
         $command = $self . ' ' . $script . ' ' . $database . ' --run=' . escapeshellarg($target)
             . ($bad ? ' --bad=1' : '') . ($notificationId > 0 ? ' --nid=' . $notificationId : '')
-            . ($studentId > 0 ? ' --sid=' . $studentId : '') . ' 2>&1';
+            . ($studentId > 0 ? ' --sid=' . $studentId : '') . ($start !== '' ? ' --start=' . escapeshellarg($start) : '') . ' 2>&1';
         $output = (string) shell_exec($command);
         // The child writes and deletes real files behind this process's back, and PHP replays
         // cached stat() results for paths already looked at - a stale is_file() entry would make
@@ -405,6 +418,11 @@ try {
     $db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
         ->execute([$studentId, hash('sha256', 'purge-smoke-session-two'), '127.0.0.1', gmdate('Y-m-d H:i:s')]);
     $db->prepare("INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,NULL,'seek_ahead','127.0.0.1','A head start at the last heartbeat')")->execute([$studentId]);
+    // A report the desk shared with the student: report_shares holds a plain foreign key back at
+    // users on both sides, and this is the row that used to block the whole account delete with
+    // an FK 1451 until the purge learned about it.
+    $db->prepare("INSERT INTO report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
+        VALUES(?,?,'monthly',UTC_TIMESTAMP() - INTERVAL 30 DAY,UTC_TIMESTAMP(),?)")->execute([$studentId, 'students', $adminId]);
 
     $assert($count('payments') === 1 && $count('certificates') === 1 && $count('email_logs') === 1 && $count('attendance_records') === 1,
         'The student fixture round did not load.');
@@ -415,13 +433,13 @@ try {
 
     $output = $invoke('students');
     $assert(str_contains($output, 'FLASH|Deleted 1 student account(s)'), 'Student purge reported: ' . trim($output));
-    $assert(str_contains($output, 'sessions and certificates'), 'The student purge does not say it took the account\'s sessions with it: ' . trim($output));
+    $assert(str_contains($output, 'sessions, chats and certificates'), 'The student purge does not say it took the account\'s sessions and chats with it: ' . trim($output));
     $assert(str_contains($output, '1 uploaded file(s) were removed'), 'Student purge did not report the removed submission file: ' . trim($output));
     $assert(!is_file($proofPath), 'The stored submission file survived the student purge.');
     $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
         'The student purge must leave the admin account and remove every student.');
     foreach (['assignment_submissions', 'attendance_records', 'certificates', 'course_grades', 'email_otps', 'login_events',
-        'notification_recipients', 'payments', 'quiz_retake_approvals', 'student_course_access',
+        'notification_recipients', 'payments', 'quiz_retake_approvals', 'report_shares', 'student_course_access',
         // A live session row is the one record that would otherwise outlive the account it identifies
         // and keep a hash of nobody's sign-in on file.
         'user_sessions', 'lesson_view_events'] as $table) {
@@ -443,6 +461,97 @@ try {
 
     $output = $invoke('students');
     $assert(str_contains($output, 'FLASH|There are no student accounts to delete.'), 'An empty student purge reported: ' . trim($output));
+
+    /* ------------------------------------------------ the settings page handover wipe */
+    // A fresh test student with the full graph a real account gathers - enrolment, payment,
+    // certificate, a shared report and an uploaded file - plus a burned-ahead ID counter, so the
+    // Clear All Data button has something to clear and a wrong number to correct.
+    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Rejoin',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-499')")
+        ->execute(['purge-smoke-rejoin@example.test']);
+    $rejoinId = (int) $db->lastInsertId();
+    $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")->execute([$rejoinId, $courseId, $adminId]);
+    $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
+        VALUES(?,?,12000,'PKR','PURGE-SMOKE-2','approved',?,UTC_TIMESTAMP())")->execute([$rejoinId, $courseId, $adminId]);
+    $db->prepare("INSERT INTO certificates(student_id,course_id,status,certificate_id) VALUES(?,?,'issued',?)")->execute([$rejoinId, $courseId, 'TSG-CER-499']);
+    $db->prepare("INSERT INTO report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
+        VALUES(?,?,'weekly',UTC_TIMESTAMP() - INTERVAL 7 DAY,UTC_TIMESTAMP(),?)")->execute([$rejoinId, 'attendance', $adminId]);
+    $lateProofHash = bin2hex(random_bytes(24));
+    $lateProofPath = $uploadDir . '/' . $lateProofHash . '.txt';
+    file_put_contents($lateProofPath, 'Work that has to disappear with the wipe.');
+    $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
+        VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $rejoinId, 'Wipe me', 'smoke-purge/' . $lateProofHash . '.txt']);
+    // The settings row only exists once some page has saved the scheme; the upsert makes sure it is there.
+    $db->prepare("INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES('student_id_next_number','500',?) ON DUPLICATE KEY UPDATE setting_value='500'")
+        ->execute([$adminId]);
+
+    $assert($count('users') === 2 && $count('payments') === 1 && $count('certificates') === 1 && $count('report_shares') === 1,
+        'The handover wipe fixtures did not load.');
+
+    $output = $invoke('cleardata', true);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'The Clear All Data button accepted a wrong phrase: ' . trim($output));
+    $assert($count('users') === 2 && $count('payments') === 1, 'A wrong phrase cleared real data anyway.');
+
+    $output = $invoke('cleardata');
+    $assert(str_contains($output, 'FLASH|Cleared 1 student account(s)'), 'The Clear All Data wipe reported: ' . trim($output));
+    $assert(str_contains($output, '1 uploaded file(s) were removed'), 'The wipe did not report the removed upload: ' . trim($output));
+    clearstatcache();
+    $assert(!is_file($lateProofPath), 'The wipe left an uploaded submission file on disk.');
+    foreach (['assignment_submissions', 'certificates', 'payments', 'report_shares', 'student_course_access'] as $table) {
+        $assert($count($table) === 0, $table . ' still holds rows after the Clear All Data wipe.');
+    }
+    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
+        'The wipe must leave exactly the admin account standing.');
+    // What a fresh launch needs survives: courses, content and the configured scheme.
+    $assert($count('courses') === 1 && $count('assignments') === 1, 'The wipe deleted course content it has no claim on.');
+    $assert((string) $db->query("SELECT setting_value FROM app_settings WHERE setting_key='student_id_next_number'")->fetchColumn() === '1',
+        'The ID counter did not restart from the saved scheme after the wipe.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='system.data_cleared'")->fetchColumn() === 1,
+        'No audit row for the Clear All Data wipe.');
+
+    $output = $invoke('cleardata');
+    $assert(str_contains($output, 'FLASH|There is no student data to clear.'), 'An empty system wipe reported: ' . trim($output));
+
+    /* ----------------------------------------------------- the ID counter re-arm */
+    // One student keeps an ID while the counter is walked back: the reset may move the counter but
+    // must never delete the account, rewrite its ID, or hand out a serial somebody already holds.
+    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Keeper',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-007')")
+        ->execute(['purge-smoke-keeper@example.test']);
+    $keeperId = (int) $db->lastInsertId();
+    $counter = static fn(): string => (string) $db->query("SELECT setting_value FROM app_settings WHERE setting_key='student_id_next_number'")->fetchColumn();
+    $db->prepare("UPDATE app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
+
+    $output = $invoke('resetcounter', true);
+    $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'The Reset ID Counter button accepted a wrong phrase: ' . trim($output));
+    $assert($counter() === '900' && $count('users') === 2, 'A wrong phrase moved the counter or deleted a record.');
+
+    // A typed start on a free serial lands there - the duplicate protection is that the sequence
+    // walks past a still-held number when it reaches it, which the three issues below prove.
+    $output = $invoke('resetcounter', false, 0, 0, '5');
+    $assert(str_contains($output, 'FLASH|ID counter reset') && str_contains($output, 'TSG-CER-005'),
+        'A reset to a free serial did not land on it: ' . trim($output));
+    $assert($counter() === '5', 'The reset parked the counter at ' . $counter() . ' instead of 5.');
+    $issuedIds = [];
+    for ($round = 0; $round < 3; $round++) {
+        $issuedIds[] = App\Services\AccountIdentity::issue($db);
+    }
+    $assert($issuedIds === ['TSG-CER-005', 'TSG-CER-006', 'TSG-CER-008'],
+        'The re-armed sequence did not skip the serial the keeper still holds: ' . implode(', ', $issuedIds));
+    $assert((string) $db->query('SELECT account_reference FROM users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
+        'The walking sequence overwrote the existing account\'s ID.');
+
+    // No serial typed: resume after the highest ID the current scheme still has on it.
+    $db->prepare("UPDATE app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
+    $output = $invoke('resetcounter');
+    $assert(str_contains($output, 'FLASH|ID counter reset') && str_contains($output, 'TSG-CER-008'), 'A blank reset did not resume after the highest ID in use: ' . trim($output));
+    $assert($counter() === '8', 'The blank reset parked the counter at ' . $counter() . ' instead of after TSG-CER-007.');
+    $assert($count('users') === 2 && (string) $db->query('SELECT account_reference FROM users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
+        'The counter reset touched an existing account or its ID.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='account.id_counter_reset'")->fetchColumn() === 2,
+        'The two accepted counter resets did not both leave an audit row.');
+
+    // The wipe rounds below expect an empty directory and a fresh counter, exactly like a launch.
+    $db->exec('DELETE FROM users WHERE id=' . $keeperId);
+    $db->prepare("UPDATE app_settings SET setting_value='1' WHERE setting_key='student_id_next_number'")->execute();
 
     /* --------------------------------------------------- the recent activity report */
     $output = $invoke('emaillog', true);
@@ -628,14 +737,14 @@ try {
     $output = $invoke('announcements');
     $assert(str_contains($output, 'FLASH|The announcement board is already empty.'), 'An empty board reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats cleared on each side without losing a message and deleted by the desk behind its phrase, activity report cleared around the board, announcement board purged\n";
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats cleared on each side without losing a message and deleted by the desk behind its phrase, activity report cleared around the board, announcement board purged, settings wipe cleared the system to a zero state, ID counter re-armed without touching a record\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     $status = 1;
 } finally {
-    foreach ([$uploadPath, $proofPath] as $scratchFile) {
+    foreach ([$uploadPath, $proofPath, $lateProofPath ?? ''] as $scratchFile) {
         if ($scratchFile !== '' && is_file($scratchFile)) {
             @unlink($scratchFile);
         }

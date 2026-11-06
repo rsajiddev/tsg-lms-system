@@ -11,6 +11,7 @@ $videoProtection = $videoProtection ?? [];
 $protectionValues = $protectionValues ?? [];
 $message = $message ?? null;
 $error = $error ?? null;
+$testingCounts = $testingCounts ?? ['students' => 0, 'certificates' => 0];
 ?>
 
 <section class="dashboard-page admin-workspace" data-reveal>
@@ -172,6 +173,10 @@ $error = $error ?? null;
                 <p>Unusual viewing - blocked downloads, right-clicks, refused fullscreen and large forward jumps - is collected on the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/activity">Recent activity</a> page. Nothing there changes a student's watch time or grade; it is information for the Academy.</p>
             </div>
         </section>
+    <?php endif; ?>
+
+    <?php if (empty($migrationRequired)): ?>
+        <div class="dashboard-note danger-moved-note"><strong>Bulk delete and ID reset moved</strong><span>The phrase-guarded &ldquo;Clear All Data&rdquo; wipe and the &ldquo;Reset ID Counter&rdquo; tool now live together in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, alongside every other permanent delete.</span></div>
     <?php endif; ?>
 
     <div class="dashboard-note settings-scope-note"><strong>Looking for a rule you used to set here?</strong><span>Feature settings now live with the page that uses them: the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">attendance confirmation window on Students</a>, the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/lessons">lesson watch-time requirement on the Lesson library</a>, and the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/certificates">certificate prefix and validity on Certificates</a>.</span></div>

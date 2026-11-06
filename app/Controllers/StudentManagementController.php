@@ -323,6 +323,10 @@ final class StudentManagementController
                 'quiz_attempts' => 'DELETE FROM quiz_attempts WHERE student_id IN ' . $students,
                 'coding_challenge_attempts' => 'DELETE FROM coding_challenge_attempts WHERE student_id IN ' . $students,
                 'quiz_retake_approvals' => 'DELETE FROM quiz_retake_approvals WHERE student_id IN ' . $students,
+                // A report an admin shared with the student holds the last key back: report_shares
+                // points at users(id) without a cascade on both student_id and sent_by, so the
+                // account delete fails with FK 1451 until the shares filed under these students go.
+                'report_shares' => 'DELETE FROM report_shares WHERE student_id IN ' . $students,
                 'student_course_access' => 'DELETE FROM student_course_access WHERE student_id IN ' . $students,
                 'login_events' => 'DELETE FROM login_events WHERE user_id IN ' . $students,
                 'audit_logs' => 'DELETE FROM audit_logs WHERE actor_user_id IN ' . $students,

@@ -2162,7 +2162,7 @@ button.button.contact-send:focus {
   background: var(--navy);
   transition: transform .25s ease, opacity .2s ease
 }
-}
+/* } */
 
 body.nav-open .nav-toggle-bar:nth-child(2) {
   opacity: 0
@@ -4679,6 +4679,27 @@ html.js [data-reveal].is-visible.dash-card:hover {
 .learning-lesson-status.is-complete {
   background: #ecfdf5;
   color: #059669
+}
+
+/* Completion lock (proposal 5.7): a certified row is a plain block, not a link, so it must not
+   borrow the hover wash or the pointer of the open rows. Muted slate keeps it clearly unavailable
+   while sitting in the same rhythm as the watchable lessons above it. */
+.learning-lesson-row.is-locked {
+  cursor: default;
+  opacity: .78
+}
+
+.learning-lesson-row.is-locked:hover {
+  background: transparent
+}
+
+.learning-lesson-status.is-locked {
+  background: #f1f5f9;
+  color: #94a3b8
+}
+
+.learning-videos-locked {
+  border-left-color: #fbbf24
 }
 
 .learning-lesson-arrow {
@@ -15664,6 +15685,340 @@ html.admin-modal-js .admin-modal.is-open {
   }
 }
 
+/* Student Certificate & Progress page. */
+.progress-page .dashboard-metrics {
+  margin-top: 16px
+}
+
+.progress-student-id {
+  padding: 7px 13px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #f4f8ff;
+  color: #52627a;
+  font-size: 12px;
+  white-space: nowrap
+}
+
+.progress-student-id strong {
+  color: #002147;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em
+}
+
+.progress-bars {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px
+}
+
+.progress-bar-block {
+  min-width: 0
+}
+
+.progress-eligibility-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 15px 17px;
+  border: 1px solid #dbe6f7;
+  border-radius: 16px;
+  background: #f4f8ff
+}
+
+.progress-eligibility-banner.is-ready {
+  border-color: #d6f0e1;
+  background: #f2fbf6
+}
+
+.progress-eligibility-banner strong {
+  display: block;
+  color: #17233d;
+  font-size: 14px
+}
+
+.progress-eligibility-banner p {
+  margin: 4px 0 0;
+  color: #52627a;
+  font-size: 12.5px;
+  line-height: 1.55
+}
+
+.progress-eligibility-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: #fff;
+  color: #087443;
+  font-size: 16px;
+  font-weight: 900
+}
+
+.progress-eligibility-banner.is-not-ready .progress-eligibility-mark {
+  color: #b45309
+}
+
+.progress-course {
+  margin-top: 4px
+}
+
+.progress-course-head {
+  align-items: flex-start
+}
+
+.progress-course-sub {
+  margin: 4px 0 0;
+  color: #8391a6;
+  font-size: 12px
+}
+
+.progress-course-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end
+}
+
+.progress-course-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 8px
+}
+
+.progress-modules h3,
+.progress-block h3,
+.progress-requirements h3 {
+  margin: 0 0 12px;
+  color: #17233d;
+  font-size: 14px;
+  font-weight: 800
+}
+
+.progress-module {
+  padding: 12px 0;
+  border-bottom: 1px solid #eef2f8
+}
+
+.progress-module:last-child {
+  border-bottom: 0
+}
+
+.progress-module-meta {
+  display: block;
+  margin-top: 5px;
+  color: #8391a6;
+  font-size: 11px
+}
+
+.progress-side {
+  display: grid;
+  gap: 16px
+}
+
+.progress-block {
+  padding: 16px;
+  border: 1px solid #eaf0f8;
+  border-radius: 16px;
+  background: #f8fbff
+}
+
+.progress-metric-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  font-size: 13px
+}
+
+.progress-metric-row:last-of-type {
+  border-bottom: 0
+}
+
+.progress-metric-row span {
+  color: #8391a6
+}
+
+.progress-metric-row strong {
+  color: #17233d;
+  text-align: right;
+  overflow-wrap: anywhere
+}
+
+.progress-requirements {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid #e6ecf6;
+  border-radius: 18px;
+  background: #fafcff
+}
+
+.progress-requirements-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px
+}
+
+.progress-requirements-head h3 {
+  margin: 0
+}
+
+.progress-requirements-count {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #fff3e0;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap
+}
+
+.progress-requirements-count.is-done {
+  background: #e7f7ee;
+  color: #087443
+}
+
+.progress-checklist {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none
+}
+
+.progress-check {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid #eaf0f8;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px
+}
+
+.progress-check.is-met {
+  border-color: #d6f0e1
+}
+
+.progress-check-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 900
+}
+
+.progress-check.is-met .progress-check-mark {
+  background: #e7f7ee;
+  color: #087443
+}
+
+.progress-check.is-open .progress-check-mark {
+  background: #fff3e0;
+  color: #b45309
+}
+
+.progress-check-label {
+  color: #17233d;
+  overflow-wrap: anywhere
+}
+
+.progress-check-detail {
+  color: #8391a6;
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere
+}
+
+.progress-certificate {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e6ecf6;
+  font-size: 13px;
+  color: #52627a
+}
+
+.progress-certificate p {
+  margin: 8px 0 0;
+  line-height: 1.6
+}
+
+.progress-certificate a {
+  color: #002147;
+  font-weight: 700
+}
+
+.progress-muted {
+  margin: 0;
+  color: #8391a6;
+  font-size: 12.5px
+}
+
+@media(max-width:903px) {
+  .progress-course-grid {
+    grid-template-columns: 1fr
+  }
+
+  .progress-course-head {
+    flex-wrap: wrap
+  }
+
+  .progress-course-badges {
+    justify-content: flex-start
+  }
+}
+
+@media(max-width:560px) {
+  .progress-check {
+    grid-template-columns: 22px minmax(0, 1fr)
+  }
+
+  .progress-check-detail {
+    grid-column: 2;
+    text-align: left
+  }
+}
+
+/* Certificate ID format toggle on the admin settings card. */
+.certificate-year-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #52627a;
+  font-size: 13px;
+  line-height: 1.55;
+  cursor: pointer;
+  overflow-wrap: anywhere
+}
+
+.certificate-year-toggle input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: #002147
+}
+
+.certificate-year-toggle strong {
+  color: #002147
+}
+
 /* Public verification page. */
 .verify-hero {
   overflow: hidden;
@@ -20549,4 +20904,177 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   .course-path-card { min-height: 0; gap: 15px; padding: 22px 18px; }
   .course-benefit-caption { margin-top: 22px; }
   .course-benefit-caption p { font-size: 13px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Danger Zone - the single page that gathers every permanent, bulk delete.
+   Everything is scoped to .danger-zone-page so the shared .button-danger style
+   used by the chat and account screens keeps its original light-red look. The
+   cards themselves still inherit the rose theming of .admin-card-testing from
+   app.css; these rules only sharpen that into an unmistakable danger area.
+   --------------------------------------------------------------------------- */
+.danger-zone-page .danger-zone-eyebrow {
+  color: #b42318;
+}
+
+.danger-zone-page .danger-zone-header h1 {
+  color: #7f1d1d;
+}
+
+/* Mandatory read-before-you-delete notice: a bordered amber/red panel above the cards. */
+.danger-guidelines {
+  border: 1px solid #fda4af;
+  border-left: 5px solid #dc2626;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fff1f2, #fff7f7);
+  padding: 22px 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 6px 22px -6px rgba(190, 18, 60, 0.14);
+}
+
+.danger-guidelines-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.danger-guidelines-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #fee2e2;
+  color: #b42318;
+}
+
+.danger-guidelines-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.danger-guidelines-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #7f1d1d;
+}
+
+.danger-guidelines-list {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  color: #4b1220;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.danger-guidelines-list strong {
+  color: #7f1d1d;
+}
+
+/* One card plus its caption header; the caption names the workspace the tool came from. */
+.danger-card-group {
+  margin-bottom: 24px;
+}
+
+.danger-card-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.danger-category-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #9f1239;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.danger-source-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+}
+
+.danger-source-link:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+/* Reinforce the shared testing card with a red rail so each delete action reads as dangerous. */
+.danger-zone-page .danger-card {
+  border-left: 5px solid #dc2626;
+}
+
+.danger-zone-page .danger-card .admin-card-icon.danger {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+/* The Reset ID Counter is not a deletion, so its card and icon use an amber caution tint. */
+.danger-zone-page .danger-card-caution {
+  border-left-color: #d97706;
+}
+
+.danger-zone-page .danger-card-caution .admin-card-icon.caution {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* Delete button: dim red while locked (disabled), solid red once armed, brighter red with a
+   soft glow on hover, and white text throughout. */
+.danger-zone-page .button.button-danger {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.18);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.danger-zone-page .button.button-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(220, 38, 38, 0.45);
+}
+
+.danger-zone-page .button.button-danger:active:not(:disabled) {
+  background: #991b1b;
+  border-color: #991b1b;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(153, 27, 27, 0.5);
+}
+
+.danger-zone-page .button.button-danger:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+
+.danger-zone-page .button.button-danger:disabled {
+  background: #eaa3a3;
+  border-color: #eaa3a3;
+  color: #fff;
+  box-shadow: none;
+  opacity: 0.9;
+  cursor: not-allowed;
+}
+
+/* One-line pointer left on each source page after its card moved here. */
+.danger-moved-note {
+  border-left: 4px solid #dc2626;
+  background: #fff7f7;
 }

@@ -131,9 +131,16 @@ final class AccountController
     private function performSaveScheme(array $admin): void
     {
         $prefix = AccountIdentity::cleanPrefix((string) ($_POST['student_id_prefix'] ?? ''));
-        $start = trim((string) ($_POST['student_id_start'] ?? ''));
-        if (!ctype_digit($start) || (int) $start < 1) {
+        $rawStart = trim((string) ($_POST['student_id_start'] ?? ''));
+        if ($rawStart === '') {
+            // The page prefills the counter, but a blank submit keeps the number already in use
+            // rather than failing the whole save, matching how the Certificate settings page
+            // treats the same field - the scheme is never half-applied to an unusable value.
+            $start = (string) AccountIdentity::scheme(Database::connection())['next'];
+        } elseif (!ctype_digit($rawStart) || (int) $rawStart < 1) {
             throw new RuntimeException('Enter the number the next student ID starts at, for example 1.');
+        } else {
+            $start = $rawStart;
         }
         $reissue = ((string) ($_POST['apply_to_existing'] ?? '')) === '1';
         $db = Database::connection();
@@ -149,9 +156,9 @@ final class AccountController
             if ($db->inTransaction()) $db->rollBack();
             throw $exception;
         }
-        $example = AccountIdentity::format($scheme['prefix'], $next);
+        $example = AccountIdentity::preview($scheme, $next);
         $_SESSION['_flash'] = $tally['students'] > 0
-            ? 'Student ID scheme saved. ' . $tally['students'] . ' student' . ($tally['students'] === 1 ? '' : 's') . ' re-numbered from ' . AccountIdentity::format($scheme['prefix'], (int) $start) . ', ' . $tally['certificates'] . ' issued certificate' . ($tally['certificates'] === 1 ? '' : 's') . ' carried across. The next sign-up gets ' . $example . '.'
+            ? 'Student ID scheme saved. ' . $tally['students'] . ' student' . ($tally['students'] === 1 ? '' : 's') . ' re-numbered from ' . AccountIdentity::preview($scheme, (int) $start) . ', ' . $tally['certificates'] . ' issued certificate' . ($tally['certificates'] === 1 ? '' : 's') . ' carried across. The next sign-up gets ' . $example . '.'
             : 'Student ID scheme saved. The next student to sign up is issued ' . $example . '.';
     }
 

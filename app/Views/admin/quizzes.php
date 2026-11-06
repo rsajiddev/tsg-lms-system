@@ -454,15 +454,7 @@ $optionLetters = ['A', 'B', 'C', 'D'];
     </article><?php endforeach; ?></div><?php endif; ?>
   </section>
 
-  <?php
-  // Testing tool: clears the question banks written while the course was being built.
-  $purgeAction = '/admin/quizzes/purge';
-  $purgePhrase = 'DELETE ALL QUIZZES';
-  $purgeTitle = 'Delete all quizzes';
-  $purgeDescription = 'Removes every quiz with its questions, attempts, results and retake requests. Attempt history cannot be recovered afterwards.';
-  $purgeScopeCourses = $courses;
-  require BASE_PATH . '/app/Views/components/purge-zone.php';
-  ?>
+  <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Delete all quizzes&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
   <?php
   $usageEyebrow = 'Quiz builder';

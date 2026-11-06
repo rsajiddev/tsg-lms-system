@@ -70,16 +70,7 @@ $error = $error ?? null; ?>
             <div class="announcement-routing-item"><strong>Recent activity</strong><span>The automated student updates the platform sent by itself and the e-mail delivery log, with the controls that clear both.</span><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/activity">Open recent activity <span aria-hidden="true">→</span></a></div>
         </div>
     </section>
-    <?php
-    // The board is the one workspace a test round fills without meaning to: every published lesson,
-    // quiz, assignment and payment decision leaves a notice behind. This clears all of it at once.
-    $purgeAction = '/admin/announcements/purge';
-    $purgePhrase = 'DELETE ALL ANNOUNCEMENTS';
-    $purgeTitle = 'Clear the announcement board';
-    $purgeDescription = 'Removes every announcement and automated student update with its recipient records and private replies, which also clears the unread badges in student sidebars.';
-    $purgeCount = (int) ($notificationTotal ?? 0);
-    require BASE_PATH . '/app/Views/components/purge-zone.php';
-    ?>
+    <div class="dashboard-note danger-moved-note"><strong>Bulk delete moved</strong><span>The phrase-guarded &ldquo;Clear the announcement board&rdquo; tool now lives in the <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/danger-zone">Danger Zone</a>, together with every other permanent delete.</span></div>
 
     <?php
     $usageEyebrow = 'Announcement board';

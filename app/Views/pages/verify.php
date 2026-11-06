@@ -42,7 +42,7 @@ $formatDate = static function (?string $value): string {
             <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="TSG-CER-001" autocomplete="off" spellcheck="false" maxlength="64" required>
             <button class="button verify-search-button" type="submit">Verify</button>
         </div>
-        <p class="verify-search-hint">Use the Academy ID printed on your certificate, or the Student ID shown in your account settings, for example <strong>TSG-CER-001</strong>.</p>
+        <p class="verify-search-hint">Enter your Student ID (shown in your account settings) or the Certificate ID printed on your certificate — they are the same number, and one ID lists every course certificate you have earned, for example <strong>TSG-CER-001</strong>.</p>
     </form>
 </section>
 
@@ -58,7 +58,11 @@ $formatDate = static function (?string $value): string {
             <p class="verify-multiple">This ID was issued for <strong><?= count($certificates) ?></strong> certificates by Tech SG Academy. Every one of them is listed below.</p>
         <?php endif; ?>
         <?php foreach ($certificates as $cardIndex => $certificate): ?>
-            <?php $lapsed = (string) ($certificate['expires_at'] ?? '') !== '' && (string) $certificate['expires_at'] <= gmdate('Y-m-d H:i:s'); ?>
+            <?php
+            $lapsed = (string) ($certificate['expires_at'] ?? '') !== '' && (string) $certificate['expires_at'] <= gmdate('Y-m-d H:i:s');
+            $certFormat = strtolower((string) ($certificate['file_ext'] ?? '')) === 'pdf' ? 'PDF' : 'JPG';
+            $studentId = trim((string) ($certificate['student_id'] ?? ''));
+            ?>
             <article class="verify-card <?= $lapsed ? 'verify-card-expired' : 'verify-card-valid' ?>">
                 <header class="verify-card-head">
                     <span class="verify-card-mark" aria-hidden="true"><?= $lapsed ? '⏱' : '✓' ?></span>
@@ -72,12 +76,16 @@ $formatDate = static function (?string $value): string {
                     <h3 class="verify-name"><?= $escape($certificate['student_name']) ?></h3>
                     <p class="verify-course"><?= $escape($certificate['course_title']) ?></p>
                     <dl class="verify-grid">
+                        <div><dt>Student name</dt><dd><?= $escape($certificate['student_name']) ?></dd></div>
+                        <div><dt>Student ID</dt><dd class="verify-id"><?= $escape($studentId !== '' ? $studentId : $certificate['certificate_id']) ?></dd></div>
+                        <div><dt>Course name</dt><dd><?= $escape($certificate['course_title']) ?></dd></div>
                         <div><dt>Certificate ID</dt><dd class="verify-id"><?= $escape($certificate['certificate_id']) ?></dd></div>
-                        <div><dt>Date of issue</dt><dd><?= $escape($formatDate((string) ($certificate['issued_at'] ?? ''))) ?></dd></div>
+                        <div><dt>Issue date</dt><dd><?= $escape($formatDate((string) ($certificate['issued_at'] ?? ''))) ?></dd></div>
                         <div><dt>Course duration</dt><dd><?= $escape($certificate['duration_label'] ?: 'Not specified') ?></dd></div>
                         <div><dt>Level</dt><dd><?= $escape($certificate['level_label'] ?: 'All levels') ?></dd></div>
                         <div><dt>Valid until</dt><dd><?= $escape($formatDate((string) ($certificate['expires_at'] ?? ''))) ?></dd></div>
-                        <div><dt>Status</dt><dd class="<?= $lapsed ? 'verify-lapsed' : 'verify-ok' ?>"><?= $lapsed ? '⏱ Expired' : '✓ Valid' ?></dd></div>
+                        <div><dt>Certificate status</dt><dd><?= $escape(ucfirst((string) ($certificate['certificate_status'] ?? 'issued'))) ?></dd></div>
+                        <div><dt>Verification status</dt><dd class="<?= $lapsed ? 'verify-lapsed' : 'verify-ok' ?>"><?= $lapsed ? '⏱ Expired' : '✓ Verified' ?></dd></div>
                     </dl>
                     <?php if (!empty($certificate['admin_remarks'])): ?>
                         <p class="verify-remarks"><strong>Academy remarks</strong><span><?= $escape($certificate['admin_remarks']) ?></span></p>
@@ -97,7 +105,7 @@ $formatDate = static function (?string $value): string {
                         </div>
                         <?php if (!empty($certificate['has_file'])): ?>
                             <div class="verify-actions">
-                                <a class="button verify-download" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode((string) $certificate['certificate_id'])) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">↓ Download certificate</a>
+                                <a class="button verify-download" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode((string) $certificate['certificate_id'])) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">↓ Download <?= $escape($certFormat) ?> certificate</a>
                                 <?php if ($cardIndex === 0): ?><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/courses">Browse our courses</a><?php endif; ?>
                             </div>
                         <?php endif; ?>
