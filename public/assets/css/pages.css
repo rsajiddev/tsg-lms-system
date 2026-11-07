@@ -2490,6 +2490,9 @@ body.nav-open .mobile-nav {
 }
 
 .legal-sidebar {
+  position: sticky;
+  top: 106px;
+  align-self: start;
   display: grid;
   gap: 14px;
   min-width: 0
@@ -2765,7 +2768,8 @@ body.nav-open .mobile-nav {
 
   .legal-sidebar {
     grid-template-columns: minmax(0, 1fr) minmax(210px, .7fr);
-    align-items: start
+    align-items: start;
+    position: static
   }
 
 }
@@ -2816,12 +2820,7 @@ body.nav-open .mobile-nav {
 
   .legal-toc,
   .legal-help-card {
-    padding: 16px
-  }
-
-  .legal-toc ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 8px
+    display: none
   }
 
   .legal-document {
