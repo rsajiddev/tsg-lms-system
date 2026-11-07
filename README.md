@@ -487,3 +487,37 @@ This workflow lets the company test the student request, admin notification, sam
 3. After the queue is cleared, students can click **Test certificate workflow** again. The clear action does **not** delete or alter official certificate requests, issued/revoked certificates, student grades, attendance, lesson progress, certificate eligibility settings or certificate IDs.
 4. If a student account is removed by the admin student purge or system **Clear All Data**, its test request and associated test sample file are also removed with that account. The separate test queue clear button is preferred when only certificate test data should be reset.
 5. If the admin reports a sample-file cleanup error, check the application/server log and permissions on the private test upload folder. Do not delete the whole `storage/uploads/private/` directory; it may contain unrelated private uploads.
+
+## Prompt for Removing the TEST ONLY Certificate Workflow
+
+After the company has finished testing and explicitly approves removal, give the following prompt to the AI coding agent working in this repository. It is intentionally narrow: remove only the temporary test-certificate workflow described above. Do not use it before testing is approved.
+
+```text
+Task: Permanently remove the temporary TEST ONLY certificate workflow from this repository after company testing has been approved.
+
+Start by inspecting the current worktree, the certificate implementation, the database migration strategy, the test suite, and this README section. Treat this prompt as a scoped code-removal task, not as permission to redesign certificates. Preserve all unrelated and pre-existing worktree changes. Do not reset, revert, or overwrite unrelated files.
+
+REMOVE ONLY THE TEST-ONLY CERTIFICATE FEATURE:
+- Remove the student “Test certificate workflow” control, its POST route and handler, test-only request state, and test-only student notifications.
+- Remove the separate admin “Sample certificate workflow” queue, sample upload and “Clear all test requests” UI, its routes and handlers.
+- Remove test-only public lookup behavior (including exact-name sample lookup), the test-sample download endpoint, and test-only verification labels. Keep official public verification by Academy ID.
+- Remove test-specific email template/service code, CSS, audit/event handling, and any test-table/test-file cleanup branches that exist solely for this feature.
+- Remove the `certificate_test_requests` schema from fresh installs and safely clean up the already-installed test table and its test rows using the repository’s established migration/decommission approach. Do not put an unconditional destructive table drop in a migration that runs on every normal schema re-import unless that is explicitly how this repository safely handles one-time destructive migrations. Back up or preserve user data according to the existing project conventions.
+- Remove only files that are proven to be test samples under `storage/uploads/private/certificate-tests/` and whose names match the feature’s generated random JPG/PDF filename pattern. Never recursively delete `storage/uploads/private/`, `storage/uploads/private/certificates/`, or any unrelated uploads. Report any file that cannot safely be identified or removed; do not broaden the deletion.
+- Update/remove test fixtures and assertions that exist only for the test-only workflow. Keep and strengthen tests for the real certificate flow.
+- Remove the TEST ONLY usage/cleanup guide and this removal-prompt section from README. Keep accurate documentation of real certificate eligibility, official issue/upload, revocation/reissue, download, and public verification rules. Remove test-only claims elsewhere in documentation, but do not erase or rewrite unrelated docs.
+
+MUST REMAIN INTACT — DO NOT CHANGE OR REMOVE:
+- Official student certificate requests and the real eligibility gates: all published lessons complete, minimum 60% overall grade, and the configured attendance threshold only for Live + Recorded plans (not Recorded Only).
+- The official `certificates` records and their statuses, certificate ID/account-reference scheme, admin validity settings, real JPG/PDF upload validation, private official certificate storage, and issued-certificate download.
+- Real admin issue/reject/revoke/reissue actions, CSRF/role protections, audit records, student email/in-app notifications, certificate expiry behavior, and official public verification.
+- Unrelated clear-data tools, student/account purge behavior, unrelated mail templates, unrelated tables, files, CSS, and test cases.
+
+WORKING RULES:
+1. Search for references first and trace each one to decide whether it belongs exclusively to test certificates or is shared with the real flow. Do not remove shared helpers just because the test workflow calls them.
+2. Make the smallest complete changes. Do not rename or refactor real certificate APIs as cleanup.
+3. If an existing database cleanup could affect real certificate rows or non-test uploads, stop and ask instead of guessing. Test cleanup must never delete from the official `certificates` table or remove files from its `certificates/` folder.
+4. Update directly related documentation and tests. Do not leave dead routes, dead CSS, misleading README instructions, or orphaned test-only schema references.
+5. Run PHP lint on changed PHP files, `git diff --check`, and the focused certificate, interface-render, notification and purge smoke tests available in this repository. Add/run an assertion that the real certificate request/eligibility and public issued-certificate flow still work. Use only a scratch database for database tests.
+6. Review the final diff against the initial worktree. Summarize exactly what test-only functionality was removed, confirm the official certificate workflow remains, list validation results, and disclose any test sample files/table data that could not safely be cleaned.
+```
