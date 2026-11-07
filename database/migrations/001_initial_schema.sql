@@ -1870,15 +1870,18 @@ CREATE TABLE IF NOT EXISTS certificates (
        certificate_id VARCHAR(64) NULL,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
-       status ENUM('requested', 'issued', 'rejected') NOT NULL DEFAULT 'requested',
+       status ENUM('requested', 'issued', 'rejected', 'revoked') NOT NULL DEFAULT 'requested',
        student_remarks VARCHAR(1000) NULL,
        admin_remarks VARCHAR(1000) NULL,
        file_path VARCHAR(500) NULL,
        issued_by BIGINT UNSIGNED NULL,
        reviewed_by BIGINT UNSIGNED NULL,
+       revoked_by BIGINT UNSIGNED NULL,
        requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
        issued_at DATETIME NULL,
        expires_at DATETIME NULL,
+       revoked_at DATETIME NULL,
+       revoked_reason VARCHAR(1000) NULL,
        notified_at DATETIME NULL,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_certificate_student_course(student_id, course_id),
@@ -1889,8 +1892,30 @@ CREATE TABLE IF NOT EXISTS certificates (
        CONSTRAINT fk_certificate_course FOREIGN KEY(course_id) REFERENCES courses(id),
        CONSTRAINT fk_certificate_issuer FOREIGN KEY(issued_by) REFERENCES users(id),
        CONSTRAINT fk_certificate_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
+       CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id),
        INDEX idx_certificate_status(status, requested_at),
        INDEX idx_certificate_student(student_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Isolated sample workflow for exercising certificate screens without bypassing real issuance
+-- or creating records in the official certificate register.
+CREATE TABLE IF NOT EXISTS certificate_test_requests (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       student_id BIGINT UNSIGNED NOT NULL,
+       course_id BIGINT UNSIGNED NOT NULL,
+       status ENUM('requested', 'issued') NOT NULL DEFAULT 'requested',
+       file_path VARCHAR(500) NULL,
+       file_type ENUM('jpg', 'pdf') NULL,
+       requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       issued_by BIGINT UNSIGNED NULL,
+       issued_at DATETIME NULL,
+       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       UNIQUE KEY uq_certificate_test_student_course(student_id, course_id),
+       CONSTRAINT fk_certificate_test_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_certificate_test_course FOREIGN KEY(course_id) REFERENCES courses(id),
+       CONSTRAINT fk_certificate_test_issuer FOREIGN KEY(issued_by) REFERENCES users(id) ON DELETE SET NULL,
+       INDEX idx_certificate_test_status(status, requested_at),
+       INDEX idx_certificate_test_student(student_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Certificate defaults are seeded once and never overwritten by a re-import, so admin edits survive.
@@ -2018,9 +2043,14 @@ VALUES
        ('grade_weight_exercise', '14'),
        ('grade_weight_project', '14'),
        ('grade_weight_final', '14'),
-       ('certificate_min_grade_percent', '50'),
+       ('certificate_min_grade_percent', '60'),
        ('certificate_min_attendance_percent', '75')
 ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+
+-- Move the old default to the company-approved 60% pass mark without replacing an admin override.
+UPDATE app_settings
+SET setting_value = '60'
+WHERE setting_key = 'certificate_min_grade_percent' AND setting_value = '50';
 
 -- Automated in-app notifications need to say what they are about, so the reader can group
 -- them per workspace area and the sidebar can count unread items by category. Added in one
@@ -2625,6 +2655,55 @@ FROM
 EXECUTE add_certificate_file_type_stmt;
 
 DEALLOCATE PREPARE add_certificate_file_type_stmt;
+
+-- Certificate revocation is retained in the register and invalidated by the status on every reader.
+SET
+       @add_certificate_revocation = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE certificates MODIFY status ENUM(''requested'',''issued'',''rejected'',''revoked'') NOT NULL DEFAULT ''requested'', ADD COLUMN revoked_by BIGINT UNSIGNED NULL AFTER reviewed_by, ADD COLUMN revoked_at DATETIME NULL AFTER expires_at, ADD COLUMN revoked_reason VARCHAR(1000) NULL AFTER revoked_at',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND COLUMN_NAME = 'revoked_at'
+       );
+
+PREPARE add_certificate_revocation_stmt
+FROM
+       @add_certificate_revocation;
+
+EXECUTE add_certificate_revocation_stmt;
+
+DEALLOCATE PREPARE add_certificate_revocation_stmt;
+
+SET
+       @add_certificate_revoked_by_fk = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE certificates ADD CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.TABLE_CONSTRAINTS
+              WHERE
+                     CONSTRAINT_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'certificates'
+                     AND CONSTRAINT_NAME = 'fk_certificate_revoked_by'
+       );
+
+PREPARE add_certificate_revoked_by_fk_stmt
+FROM
+       @add_certificate_revoked_by_fk;
+
+EXECUTE add_certificate_revoked_by_fk_stmt;
+
+DEALLOCATE PREPARE add_certificate_revoked_by_fk_stmt;
 
 -- Seeded once and never overwritten by a re-import, so an admin's chosen format survives.
 INSERT INTO app_settings(setting_key, setting_value)

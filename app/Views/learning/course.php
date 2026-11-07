@@ -65,7 +65,7 @@ $gradeRows = [
             <p class="grade-eligibility-title">Your certificate unlocks once you meet every requirement:</p>
             <ul class="grade-eligibility-list">
               <?php foreach ($eligibility['missing'] as $reason): ?><li><?= $escape($reason) ?></li><?php endforeach; ?>
-              <?php if ($eligibility['attendance'] === null): ?><li>Attendance is measured from your first confirmed sign-in.</li><?php endif; ?>
+              <?php if (!$eligibility['attendanceRequired']): ?><li>The attendance threshold applies only to Live + Recorded course plans.</li><?php elseif ($eligibility['attendance'] === null): ?><li>Attendance is measured from your first confirmed sign-in.</li><?php endif; ?>
             </ul>
           <?php endif; ?>
         </div>

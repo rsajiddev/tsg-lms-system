@@ -430,6 +430,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         ['label' => 'Awaiting your review', 'value' => (int) $assignments['pendingReview'], 'total' => max(1, (int) $assignments['submitted']), 'tone' => 'amber'],
                         ['label' => 'Quizzes released', 'value' => (int) $quizzes['released'], 'total' => max(1, (int) $quizzes['total']), 'tone' => 'blue'],
                         ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'violet'],
+                        ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'rose'],
                         ['label' => 'Lessons completed', 'value' => (int) $courses['lessonsCompleted'], 'total' => max(1, (int) $courses['lessonsPublished']), 'tone' => 'indigo'],
                     ];
                     foreach ($meters as $meter):
@@ -547,6 +548,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'tone' => 'violet'],
                         ['label' => 'Requests awaiting review', 'value' => (int) ($certificateSplit['requested'] ?? 0), 'tone' => 'amber'],
                         ['label' => 'Requests rejected', 'value' => (int) ($certificateSplit['rejected'] ?? 0), 'tone' => 'rose'],
+                        ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'tone' => 'rose'],
                     ];
                     foreach ($certificateMeters as $meter):
                         $ratio = $certificateTotal > 0 ? min(100, (int) round($meter['value'] / $certificateTotal * 100)) : 0; ?>

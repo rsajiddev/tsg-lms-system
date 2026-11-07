@@ -428,6 +428,38 @@ final class EmailMessages
         ]];
     }
 
+    /** Test-only request: explicitly warns the certificate inbox that eligibility was bypassed. */
+    public static function certificateTestRequest(array $request): array
+    {
+        $course = (string) ($request['course_title'] ?? '');
+        return [[
+            'template' => 'certificate.test_requested',
+            'to' => MailService::certificateAddress(),
+            'student' => (int) ($request['student_id'] ?? 0),
+            'subject' => 'TEST ONLY: Sample Certificate Request — ' . $course,
+            'view' => [
+                'audience' => 'admin',
+                'preheader' => 'A test-only certificate workflow request needs a sample upload.',
+                'greeting' => 'Dear Certification Team,',
+                'paragraphs' => [
+                    'This is a TEST ONLY request created from the student testing button. Course eligibility rules were not checked and no official certificate request or certificate record was created.',
+                    'If you are testing the upload flow, attach a clearly marked sample JPG or PDF in the Test Certificate Requests section of the admin certificate page. Clear all test requests there to remove the sample and reset the student button.',
+                ],
+                'heading' => 'Test Request Details',
+                'details' => [
+                    ['label' => 'Student', 'value' => (string) ($request['student_name'] ?? 'Student')],
+                    ['label' => 'Student ID', 'value' => MailService::studentId((int) ($request['student_id'] ?? 0))],
+                    ['label' => 'Email', 'value' => (string) ($request['student_email'] ?? '')],
+                    ['label' => 'Course', 'value' => $course],
+                    ['label' => 'Test Request Reference', 'value' => '#' . (string) ($request['reference'] ?? '')],
+                    ['label' => 'Eligibility', 'value' => 'Not checked — test workflow only'],
+                ],
+                'cta' => ['label' => 'Open test certificate requests', 'url' => self::url('/admin/certificates')],
+                'signature' => EmailLayout::SIGN_SYSTEM,
+            ],
+        ]];
+    }
+
     /**
      * Certificate issued.
      * Keys: student_id, student_email, student_name, course_title, certificate_id, issued_on,
@@ -486,6 +518,39 @@ final class EmailMessages
                 ],
                 'heading' => 'Reviewer Remarks',
                 'details' => [['label' => 'Reason', 'value' => trim((string) ($certificate['remarks'] ?? '')) ?: 'Eligibility requirements are not met yet.']],
+                'cta' => ['label' => 'Open my courses', 'url' => self::url('/student/courses')],
+                'legal' => true,
+                'signature' => EmailLayout::SIGN_HR,
+            ],
+        ]];
+    }
+
+    /**
+     * Certificate revoked by an administrator.
+     * Keys: student_id, student_email, student_name, course_title, certificate_id, reason.
+     */
+    public static function certificateRevoked(array $certificate): array
+    {
+        $course = (string) ($certificate['course_title'] ?? '');
+        return [[
+            'template' => 'certificate.revoked',
+            'to' => (string) ($certificate['student_email'] ?? ''),
+            'student' => (int) ($certificate['student_id'] ?? 0),
+            'subject' => 'Certificate Revoked — ' . $course,
+            'view' => [
+                'audience' => 'student',
+                'preheader' => 'Your certificate for ' . $course . ' is no longer valid.',
+                'greeting' => 'Dear ' . (string) ($certificate['student_name'] ?? 'Student') . ',',
+                'paragraphs' => [
+                    'The certificate previously issued for ' . $course . ' has been revoked by the Academy and is no longer valid.',
+                    'If you believe this is incorrect, please contact the Academy team.',
+                ],
+                'heading' => 'Revocation Details',
+                'details' => [
+                    ['label' => 'Certificate ID', 'value' => (string) ($certificate['certificate_id'] ?? '')],
+                    ['label' => 'Course', 'value' => $course],
+                    ['label' => 'Reason', 'value' => (string) ($certificate['reason'] ?? '')],
+                ],
                 'cta' => ['label' => 'Open my courses', 'url' => self::url('/student/courses')],
                 'legal' => true,
                 'signature' => EmailLayout::SIGN_HR,

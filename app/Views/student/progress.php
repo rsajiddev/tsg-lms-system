@@ -18,7 +18,7 @@ $summary = is_array($summary ?? null) ? $summary : [];
 $user = is_array($user ?? null) ? $user : [];
 $student = is_array($summary['student'] ?? null) ? $summary['student'] : ['name' => '', 'id' => '', 'email' => ''];
 $overall = is_array($summary['overall'] ?? null) ? $summary['overall'] : [];
-$criteria = is_array($summary['criteria'] ?? null) ? $summary['criteria'] : ['grade' => 50, 'attendance' => 75];
+$criteria = is_array($summary['criteria'] ?? null) ? $summary['criteria'] : ['grade' => 60, 'attendance' => 75];
 $courses = is_array($summary['courses'] ?? null) ? array_values($summary['courses']) : [];
 $flashMessage = is_string($message ?? null) && $message !== '' ? $message : null;
 $flashError = is_string($error ?? null) && $error !== '' ? $error : null;
@@ -123,7 +123,7 @@ $issuedCertificates = (int) ($overall['certificates_issued'] ?? 0);
             $assignments = is_array($course['assignments'] ?? null) ? $course['assignments'] : ['total' => 0, 'submitted' => 0, 'reviewed' => 0, 'pending' => 0];
             $modules = is_array($course['modules'] ?? null) ? $course['modules'] : [];
             $grade = is_array($course['grade'] ?? null) ? $course['grade'] : ['overall_percent' => null, 'letter' => '—'];
-            $certificate = is_array($course['certificate'] ?? null) ? $course['certificate'] : ['status' => '', 'id' => '', 'expires_at' => null, 'format' => null];
+            $certificate = is_array($course['certificate'] ?? null) ? $course['certificate'] : ['status' => '', 'id' => '', 'expires_at' => null, 'format' => null, 'revoked_reason' => ''];
             $elig = is_array($course['eligibility'] ?? null) ? $course['eligibility'] : ['ok' => false, 'overall' => 0, 'remaining' => 0, 'requirements' => [], 'min_grade' => $criteria['grade'], 'min_attendance' => $criteria['attendance']];
             $videoPercent = $pct($video['percent'] ?? 0);
             $certStatus = (string) ($certificate['status'] ?? '');
@@ -219,6 +219,10 @@ $issuedCertificates = (int) ($overall['certificates_issued'] ?? 0);
                         <div class="progress-certificate progress-certificate-rejected">
                             <span class="certificate-chip certificate-chip-rejected"><span aria-hidden="true">✕</span> Request declined</span>
                             <p>Review the remaining tasks above, then request again from <a href="<?= $escape($baseUrl) ?>/student/courses">My courses</a>.</p>
+                    <?php elseif ($certStatus === 'revoked'): ?>
+                        <div class="progress-certificate progress-certificate-rejected">
+                            <span class="certificate-chip certificate-chip-revoked"><span aria-hidden="true">×</span> Certificate revoked</span>
+                            <p><?= $escape((string) ($certificate['revoked_reason'] ?? 'This certificate is no longer valid. Contact the academy team if you have questions.')) ?></p>
                         </div>
                     <?php else: ?>
                         <div class="progress-certificate progress-certificate-none">

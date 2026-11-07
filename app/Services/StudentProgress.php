@@ -416,16 +416,16 @@ final class StudentProgress
         ];
     }
 
-    /** @return array{status:string,id:string,expires_at:?string,format:?string} */
+    /** @return array{status:string,id:string,expires_at:?string,format:?string,revoked_reason:string} */
     private function certificate(int $studentId, int $courseId): array
     {
         if (!$this->tableExists('certificates')) {
-            return ['status' => '', 'id' => '', 'expires_at' => null, 'format' => null];
+            return ['status' => '', 'id' => '', 'expires_at' => null, 'format' => null, 'revoked_reason' => ''];
         }
         $fileType = $this->columnExists('certificates', 'file_type') ? 'file_type' : 'NULL AS file_type';
         try {
             $stmt = $this->db->prepare(
-                "SELECT status, certificate_id, expires_at, file_path, $fileType
+                "SELECT status, certificate_id, expires_at, file_path, revoked_reason, $fileType
                  FROM certificates WHERE student_id = ? AND course_id = ? LIMIT 1"
             );
             $stmt->execute([$studentId, $courseId]);
@@ -447,6 +447,7 @@ final class StudentProgress
             'id' => (string) ($row['certificate_id'] ?? ''),
             'expires_at' => $row['expires_at'] ?? null,
             'format' => $format,
+            'revoked_reason' => (string) ($row['revoked_reason'] ?? ''),
         ];
     }
 
@@ -454,7 +455,7 @@ final class StudentProgress
      * The certificate requirements, shown the way the request gate actually measures them so a student
      * always reads the same bars an admin enforces.
      *
-     * @param array{ok:bool,overall:float,letter:string,attendance:?float,minGrade:int,minAttendance:int,missing:array<int,string>} $gate
+     * @param array{ok:bool,overall:float,letter:string,attendance:?float,attendanceRequired:bool,minGrade:int,minAttendance:int,missing:array<int,string>} $gate
      * @return array<string, mixed>
      */
     private function eligibility(array $gate, array $video, array $quizzes, bool $allLessonsDone): array
@@ -508,6 +509,7 @@ final class StudentProgress
             'attendance' => $gate['attendance'],
             'min_grade' => $gate['minGrade'],
             'min_attendance' => $gate['minAttendance'],
+            'attendance_required' => $gate['attendanceRequired'],
             'missing' => $gate['missing'],
             'requirements' => $requirements,
             'remaining' => count(array_filter($requirements, static fn(array $r): bool => !$r['met'])),

@@ -457,6 +457,17 @@ try {
         VALUES(?,?,25000,'PKR','PURGE-SMOKE-1','approved',?,UTC_TIMESTAMP())")->execute([$studentId, $courseId, $adminId]);
     $paymentId = (int) $db->lastInsertId();
     $db->prepare("INSERT INTO certificates(student_id,course_id,status) VALUES(?,?,'requested')")->execute([$studentId, $courseId]);
+    $testCertificateHash = bin2hex(random_bytes(24));
+    $testCertificateRelativePath = 'certificate-tests/' . $testCertificateHash . '.jpg';
+    $testCertificateDirectory = BASE_PATH . '/storage/uploads/private/certificate-tests';
+    $testCertificateDirectoryCreated = !is_dir($testCertificateDirectory);
+    if (!is_dir($testCertificateDirectory) && !@mkdir($testCertificateDirectory, 0700, true)) {
+        throw new RuntimeException('The test-certificate upload folder could not be created.');
+    }
+    $testCertificatePath = $testCertificateDirectory . '/' . $testCertificateHash . '.jpg';
+    file_put_contents($testCertificatePath, 'test-only sample');
+    $db->prepare("INSERT INTO certificate_test_requests(student_id,course_id,status,file_path,file_type,issued_at)
+        VALUES(?,?,'issued',?,'jpg',UTC_TIMESTAMP())")->execute([$studentId, $courseId, $testCertificateRelativePath]);
     $db->prepare("INSERT INTO course_grades(student_id,course_id,overall_pct,letter_grade) VALUES(?,?,92.50,'A+')
         ON DUPLICATE KEY UPDATE overall_pct=92.50, letter_grade='A+'")->execute([$studentId, $courseId]);
     $db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at)
@@ -482,7 +493,8 @@ try {
     $db->prepare("INSERT INTO report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
         VALUES(?,?,'monthly',UTC_TIMESTAMP() - INTERVAL 30 DAY,UTC_TIMESTAMP(),?)")->execute([$studentId, 'students', $adminId]);
 
-    $assert($count('payments') === 1 && $count('certificates') === 1 && $count('email_logs') === 1 && $count('attendance_records') === 1,
+    $assert($count('payments') === 1 && $count('certificates') === 1 && $count('certificate_test_requests') === 1
+        && $count('email_logs') === 1 && $count('attendance_records') === 1,
         'The student fixture round did not load.');
 
     $output = $invoke('students', true);
@@ -492,8 +504,10 @@ try {
     $output = $invoke('students');
     $assert(str_contains($output, 'FLASH|Deleted 1 student account(s)'), 'Student purge reported: ' . trim($output));
     $assert(str_contains($output, 'sessions, chats and certificates'), 'The student purge does not say it took the account\'s sessions and chats with it: ' . trim($output));
-    $assert(str_contains($output, '1 uploaded file(s) were removed'), 'Student purge did not report the removed submission file: ' . trim($output));
+    $assert(str_contains($output, '2 uploaded file(s) were removed'), 'Student purge did not report the removed submission and test sample files: ' . trim($output));
     $assert(!is_file($proofPath), 'The stored submission file survived the student purge.');
+    $assert(!is_file($testCertificatePath) && $count('certificate_test_requests') === 0,
+        'The test sample file or its request row survived the student purge.');
     $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
         'The student purge must leave the admin account and remove every student.');
     foreach (['assignment_submissions', 'attendance_records', 'certificates', 'course_grades', 'email_otps', 'login_events',
@@ -827,14 +841,14 @@ try {
     $output = $invoke('announcements');
     $assert(str_contains($output, 'FLASH|The announcement board is already empty.'), 'An empty board reported: ' . trim($output));
 
-    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with files, notifications and audits handled, delivery log cleared, inbox marked read, chats cleared on each side without losing a message and deleted by the desk behind its phrase, activity report cleared around the board, announcement board purged, settings wipe cleared the system to a zero state, ID counter re-armed without touching a record\n";
+    echo "purge tools: wrong phrase blocked, workspaces cleared, accounts purged with official and test certificate files, notifications and audits handled, delivery log cleared, inbox marked read, chats cleared on each side without losing a message and deleted by the desk behind its phrase, activity report cleared around the board, announcement board purged, settings wipe cleared the system to a zero state, ID counter re-armed without touching a record\n";
     echo "PASS: bulk delete tools behave as designed on " . $dbName . "\n";
     $status = 0;
 } catch (Throwable $exception) {
     fwrite(STDERR, 'FAIL: ' . $exception->getMessage() . "\n");
     $status = 1;
 } finally {
-    foreach ([$uploadPath, $proofPath, $lateProofPath ?? ''] as $scratchFile) {
+    foreach ([$uploadPath, $proofPath, $lateProofPath ?? '', $testCertificatePath ?? ''] as $scratchFile) {
         if ($scratchFile !== '' && is_file($scratchFile)) {
             @unlink($scratchFile);
         }
@@ -842,6 +856,10 @@ try {
     // The scratch folder always goes, so the next run finds it exactly as empty as this one made it.
     if (is_dir($uploadDir)) {
         @rmdir($uploadDir);
+    }
+    if (($testCertificateDirectoryCreated ?? false) && isset($testCertificateDirectory)
+        && is_dir($testCertificateDirectory) && count(scandir($testCertificateDirectory)) === 2) {
+        @rmdir($testCertificateDirectory);
     }
 }
 

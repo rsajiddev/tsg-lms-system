@@ -264,6 +264,149 @@ final class DocumentPdf
     }
 
     /**
+     * Six-month revenue report: a currency-aware overview followed by one monthly page per month.
+     * Empty months remain visible so the report always presents a complete six-month window.
+     */
+    public static function revenueHistory(array $report): string
+    {
+        $pdf = new PdfCanvas();
+        $c = self::palette();
+        $currencyTotals = is_array($report['currency_totals'] ?? null) ? $report['currency_totals'] : [];
+        $months = is_array($report['months'] ?? null) ? $report['months'] : [];
+        $generated = self::safeText((string) ($report['generated_at'] ?? gmdate('Y-m-d H:i:s') . ' UTC'));
+        $period = self::safeText((string) ($report['period'] ?? 'Last six months'));
+        $pageNumber = 0;
+        $singleMonth = count($months) === 1;
+
+        $newPage = static function (string $eyebrow, string $title, string $subtitle) use ($pdf, $c, &$pageNumber, $generated): void {
+            $pdf->newPage();
+            $pageNumber++;
+            $pdf->rect(0, 0, PdfCanvas::PAGE_WIDTH, PdfCanvas::PAGE_HEIGHT, $c['page']);
+            $pdf->roundRect(24, 24, 779, 1121, 18, $c['white'], $c['border']);
+            $pdf->roundRect(24, 24, 779, 164, 18, $c['brand']);
+            $pdf->rect(24, 45, 8, 122, $c['blue']);
+            $pdf->text(self::BRAND, 56, 61, $c['white'], 20, true);
+            $pdf->text(self::TAGLINE, 56, 81, $c['bandText'], 9);
+            $pdf->text(self::CITY . ' · ' . self::EMAIL, 775, 61, $c['bandText'], 8, false, 'sans', 'right');
+            $pdf->text($eyebrow, 56, 111, $c['bandText'], 9, true);
+            $pdf->text($pdf->fit($title, 21, true, 'sans', 650), 56, 139, $c['white'], 21, true);
+            $pdf->text($pdf->fit($subtitle, 10, false, 'sans', 650), 56, 161, $c['bandText'], 10);
+            $pdf->line(56, 1114, 771, 1114, $c['border']);
+            $pdf->text(self::COMPANY . ' · Internal administration report', 56, 1134, $c['muted'], 8);
+            $pdf->text('Generated ' . $generated . ' · Page ' . $pageNumber, 771, 1134, $c['muted'], 8, false, 'sans', 'right');
+        };
+
+        $newPage($singleMonth ? 'MONTHLY REVENUE OVERVIEW' : 'SIX-MONTH OVERVIEW', $singleMonth ? 'Monthly revenue statement' : 'Revenue summary', $period);
+        $pdf->text('PERIOD TOTALS', 56, 221, $c['navy'], 11, true);
+        $summaryTiles = [
+            ['APPROVED PAYMENTS', number_format((int) ($report['payment_count'] ?? 0))],
+            ['DISTINCT STUDENTS', number_format((int) ($report['student_count'] ?? 0))],
+            [$singleMonth ? 'MONTH INCLUDED' : 'MONTHS INCLUDED', number_format(count($months))],
+        ];
+        $tileGap = 12;
+        $tileWidth = (715 - 2 * $tileGap) / 3;
+        foreach ($summaryTiles as $index => [$label, $value]) {
+            $x = 56 + $index * ($tileWidth + $tileGap);
+            $pdf->roundRect($x, 238, $tileWidth, 74, 10, $c['pale'], $c['border']);
+            $pdf->text($label, $x + 14, 262, $c['muted'], 8, true);
+            $pdf->text($value, $x + 14, 292, $c['blueDark'], 19, true);
+        }
+
+        $pdf->text($singleMonth ? 'MONTHLY TOTAL BY CURRENCY' : 'SIX-MONTH TOTAL BY CURRENCY', 56, 350, $c['navy'], 11, true);
+        $columns = [
+            ['x' => 64, 'label' => 'CURRENCY', 'align' => 'left'],
+            ['x' => 200, 'label' => 'REVENUE', 'align' => 'right'],
+            ['x' => 350, 'label' => 'PAYMENTS', 'align' => 'right'],
+            ['x' => 510, 'label' => 'STUDENTS', 'align' => 'right'],
+            ['x' => 755, 'label' => 'DEVELOPER SHARE', 'align' => 'right'],
+        ];
+        $pdf->roundRect(56, 365, 715, 30, 6, $c['navyBand']);
+        foreach ($columns as $column) {
+            $pdf->text($column['label'], $column['x'], 384, $c['white'], 8, true, 'sans', $column['align']);
+        }
+        $rowY = 421;
+        foreach ($currencyTotals as $index => $total) {
+            if ($rowY > 1025) {
+                $newPage('OVERVIEW CONTINUED', 'Currency totals', $period);
+                $pdf->roundRect(56, 218, 715, 30, 6, $c['navyBand']);
+                foreach ($columns as $column) {
+                    $pdf->text($column['label'], $column['x'], 237, $c['white'], 8, true, 'sans', $column['align']);
+                }
+                $rowY = 279;
+            }
+            if ($index % 2 === 0) {
+                $pdf->rect(56, $rowY - 19, 715, 28, $c['pale']);
+            }
+            $pdf->text(strtoupper((string) ($total['currency'] ?? '')), 64, $rowY, $c['navy'], 10, true);
+            $pdf->text(number_format((float) ($total['revenue'] ?? 0), 2), 200, $rowY, $c['text'], 9, false, 'sans', 'right');
+            $pdf->text(number_format((int) ($total['payment_count'] ?? 0)), 350, $rowY, $c['text'], 9, false, 'sans', 'right');
+            $pdf->text(number_format((int) ($total['student_count'] ?? 0)), 510, $rowY, $c['text'], 9, false, 'sans', 'right');
+            $pdf->text(number_format((float) ($total['developer_share'] ?? 0), 2), 755, $rowY, $c['blueDark'], 9, true, 'sans', 'right');
+            $rowY += 28;
+        }
+        if ($currencyTotals === []) {
+            $pdf->text('No approved payments were recorded. Revenue and developer share are 0.00.', 64, $rowY, $c['muted'], 10);
+        }
+        $pdf->text('Amounts stay separate by currency. Student counts in currency rows are distinct within that currency.', 56, min(1080, $rowY + 27), $c['muted'], 8);
+
+        if ($singleMonth) {
+            return $pdf->output();
+        }
+
+        foreach ($months as $month) {
+            $monthLabel = self::safeText((string) ($month['label'] ?? 'Monthly summary'));
+            $rates = is_array($month['rates'] ?? null) ? $month['rates'] : [];
+            $newPage('MONTH-BY-MONTH BREAKDOWN', $monthLabel, 'Approved course payments · ' . $period);
+            $monthTiles = [
+                ['APPROVED PAYMENTS', number_format((int) ($month['payment_count'] ?? 0))],
+                ['DISTINCT STUDENTS', number_format((int) ($month['student_count'] ?? 0))],
+                ['CURRENCIES', number_format(count($rates))],
+            ];
+            foreach ($monthTiles as $index => [$label, $value]) {
+                $x = 56 + $index * ($tileWidth + $tileGap);
+                $pdf->roundRect($x, 218, $tileWidth, 74, 10, $c['pale'], $c['border']);
+                $pdf->text($label, $x + 14, 242, $c['muted'], 8, true);
+                $pdf->text($value, $x + 14, 272, $c['blueDark'], 19, true);
+            }
+
+            $pdf->text('MONTHLY TOTALS BY CURRENCY', 56, 334, $c['navy'], 11, true);
+            $pdf->roundRect(56, 349, 715, 30, 6, $c['navyBand']);
+            foreach ($columns as $column) {
+                $pdf->text($column['label'], $column['x'], 368, $c['white'], 8, true, 'sans', $column['align']);
+            }
+            if ($rates === []) {
+                $pdf->roundRect(56, 395, 715, 72, 10, $c['pale'], $c['border']);
+                $pdf->text('No approved payments this month', 74, 424, $c['navy'], 12, true);
+                $pdf->text('Revenue 0.00 · Payments 0 · Students 0 · Developer share 0.00', 74, 446, $c['muted'], 9);
+                continue;
+            }
+            $rowY = 405;
+            foreach ($rates as $index => $rate) {
+                if ($rowY > 1025) {
+                    $newPage('MONTHLY TOTALS CONTINUED', $monthLabel, 'Approved course payments · ' . $period);
+                    $pdf->roundRect(56, 218, 715, 30, 6, $c['navyBand']);
+                    foreach ($columns as $column) {
+                        $pdf->text($column['label'], $column['x'], 237, $c['white'], 8, true, 'sans', $column['align']);
+                    }
+                    $rowY = 279;
+                }
+                if ($index % 2 === 0) {
+                    $pdf->rect(56, $rowY - 19, 715, 28, $c['pale']);
+                }
+                $pdf->text(strtoupper((string) ($rate['currency'] ?? '')), 64, $rowY, $c['navy'], 10, true);
+                $pdf->text(number_format((float) ($rate['monthly_revenue'] ?? 0), 2), 200, $rowY, $c['text'], 9, false, 'sans', 'right');
+                $pdf->text(number_format((int) ($rate['payment_count'] ?? 0)), 350, $rowY, $c['text'], 9, false, 'sans', 'right');
+                $pdf->text(number_format((int) ($rate['student_count'] ?? 0)), 510, $rowY, $c['text'], 9, false, 'sans', 'right');
+                $pdf->text(number_format((float) ($rate['developer_share'] ?? 0), 2), 755, $rowY, $c['blueDark'], 9, true, 'sans', 'right');
+                $rowY += 28;
+            }
+            $pdf->text('Student counts are distinct within each currency.', 56, min(1080, $rowY + 24), $c['muted'], 8);
+        }
+
+        return $pdf->output();
+    }
+
+    /**
      * Branded period report as one or more A4 pages. Rows that no longer fit flow onto the next
      * page with a repeated table header, and every page carries a footer band with a "Page x of y"
      * marker. All pages live in a single PdfCanvas, so output() returns one multi-page PDF.

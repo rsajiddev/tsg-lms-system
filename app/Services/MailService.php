@@ -78,6 +78,12 @@ final class MailService
         return $this->sendAll(EmailMessages::certificateRequest($request));
     }
 
+    /** Test-only certificate request raised by a student; routed to the certificate inbox. */
+    public function sendCertificateTestRequest(array $request): bool
+    {
+        return $this->sendAll(EmailMessages::certificateTestRequest($request));
+    }
+
     /** Certificate issued and waiting in the student workspace. */
     public function sendCertificateIssued(array $certificate): bool
     {
@@ -88,6 +94,12 @@ final class MailService
     public function sendCertificateRejected(array $certificate): bool
     {
         return $this->sendAll(EmailMessages::certificateRejected($certificate));
+    }
+
+    /** Certificate revoked by an administrator. */
+    public function sendCertificateRevoked(array $certificate): bool
+    {
+        return $this->sendAll(EmailMessages::certificateRevoked($certificate));
     }
 
     /** Public contact form submitted: the company inbox is alerted and the sender is acknowledged. */

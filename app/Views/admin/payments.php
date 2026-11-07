@@ -6,6 +6,8 @@ $escape = [Security::class, 'escape'];
 $paymentValues = is_array($paymentValues ?? null) ? $paymentValues : [];
 $paymentAccounts = is_array($paymentAccounts ?? null) ? $paymentAccounts : [];
 if ($paymentAccounts === []) $paymentAccounts[] = array_fill_keys(['account_title','bank_name','account_number','iban','wallet_name','wallet_number','instructions'], '');
+$revenueMonthOptions = is_array($revenueMonthOptions ?? null) ? $revenueMonthOptions : [];
+$currentRevenueMonth = gmdate('Y-m');
 $payments = is_array($payments ?? null) ? $payments : [];
 $revenue = is_array($revenue ?? null) ? $revenue : [];
 $revenueTotals = is_array($revenueTotals ?? null) ? $revenueTotals : [];
@@ -51,12 +53,32 @@ $inlineTotals = static function (array $totals): string {
       <button class="dashboard-menu-toggle" type="button" data-dashboard-toggle aria-expanded="false" aria-controls="dashboard-sidebar" aria-label="Open dashboard menu"><span></span><span></span><span></span></button>
       <p class="eyebrow">ADMIN WORKSPACE</p>
       <h1>Revenue and payment</h1>
-      <p>Track approved course revenue, manage payment details, and review student submissions.</p>
+      <p>Track approved course revenue, manage payment details, review student submissions, and download monthly reports.</p>
+      <aside class="revenue-reporting-tip" aria-label="Reporting tip">
+        <span class="revenue-reporting-tip-label">REPORTING TIP</span>
+        <p>Choose a month for its individual report, or download the six-month report for a complete month-by-month view. Revenue is shown separately for each currency.</p>
+      </aside>
     </div>
-    <div class="revenue-page-toolbar">
-      <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/payments/revenue-receipt?format=pdf"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4-4 4"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>Download receipt</a>
-      <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/revenue-notify"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><button class="button" type="submit"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>Notify developer</button></form>
-    </div>
+    <aside class="admin-card revenue-actions-card" aria-labelledby="revenue-actions-title">
+      <div class="revenue-actions-heading">
+        <p class="eyebrow">REVENUE ACTIONS</p>
+        <h2 id="revenue-actions-title">Reports &amp; notifications</h2>
+      </div>
+      <form class="revenue-month-export" method="get" action="<?= $escape($baseUrl) ?>/admin/payments/revenue-receipt">
+        <label for="revenue-report-month">Choose a month</label>
+        <select class="admin-input" id="revenue-report-month" name="period">
+          <?php foreach ($revenueMonthOptions as $option): ?>
+            <option value="<?= $escape($option['value'] ?? '') ?>" <?= ($option['value'] ?? '') === $currentRevenueMonth ? 'selected' : '' ?>><?= $escape($option['label'] ?? '') ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button class="button button-secondary revenue-action-button" type="submit">Download monthly PDF</button>
+      </form>
+      <a class="button revenue-six-month-download revenue-action-button" href="<?= $escape($baseUrl) ?>/admin/payments/revenue-receipt?period=six-months">Download last 6 months</a>
+      <form class="revenue-notify-form" method="post" action="<?= $escape($baseUrl) ?>/admin/payments/revenue-notify">
+        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+        <button class="button revenue-action-button" type="submit"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>Notify developer</button>
+      </form>
+    </aside>
   </header>
 
   <?php /* The payment controller tags each confirmation, so the overlay can pick its colour. */ ?>

@@ -46,7 +46,7 @@ final class CourseGrading
 
     public const MIN_GRADE_KEY = 'certificate_min_grade_percent';
     public const MIN_ATTENDANCE_KEY = 'certificate_min_attendance_percent';
-    public const DEFAULT_MIN_GRADE = 50;
+    public const DEFAULT_MIN_GRADE = 60;
     public const DEFAULT_MIN_ATTENDANCE = 75;
 
     /** Letter bands, highest first: [inclusive percent floor, label]. */
@@ -176,7 +176,7 @@ final class CourseGrading
      * Whether a certificate may be requested now, with the exact shortfalls for the student copy.
      * Recomputes first so a just-finished quiz counts.
      *
-     * @return array{ok:bool,overall:float,letter:string,attendance:?float,minGrade:int,minAttendance:int,missing:array<int,string>}
+     * @return array{ok:bool,overall:float,letter:string,attendance:?float,attendanceRequired:bool,minGrade:int,minAttendance:int,missing:array<int,string>}
      */
     public function eligibility(int $studentId, int $courseId): array
     {
@@ -185,15 +185,20 @@ final class CourseGrading
         $letter = $grade === null ? 'F' : (string) $grade['letter_grade'];
 
         $since = null;
+        $requiresAttendance = false;
         try {
-            $stmt = $this->db->prepare('SELECT granted_at FROM student_course_access WHERE student_id = ? AND course_id = ? LIMIT 1');
+            $planColumn = AccessPlan::columnStored($this->db, 'student_course_access.plan_code') ? ', plan_code' : '';
+            $stmt = $this->db->prepare('SELECT granted_at' . $planColumn . ' FROM student_course_access WHERE student_id = ? AND course_id = ? LIMIT 1');
             $stmt->execute([$studentId, $courseId]);
-            $since = $stmt->fetchColumn();
-            $since = $since === false ? null : (string) $since;
+            $access = $stmt->fetch();
+            if (is_array($access)) {
+                $since = (string) ($access['granted_at'] ?? '');
+                $requiresAttendance = AccessPlan::allowsLive(isset($access['plan_code']) ? (string) $access['plan_code'] : null);
+            }
         } catch (\PDOException $exception) {
             error_log('[COURSE GRADING] Access lookup failed: ' . $exception->getMessage());
         }
-        $attendance = $this->attendancePercent($studentId, $since);
+        $attendance = $requiresAttendance ? $this->attendancePercent($studentId, $since) : null;
 
         $settings = $this->thresholds();
         $minGrade = $settings['grade'];
@@ -203,7 +208,7 @@ final class CourseGrading
         if ($overall < $minGrade) {
             $missing[] = sprintf('Overall grade is %s%% (%s); you need at least %d%%.', rtrim(rtrim(number_format($overall, 2, '.', ''), '0'), '.'), $letter, $minGrade);
         }
-        if ($attendance !== null && $attendance < $minAttendance) {
+        if ($requiresAttendance && $attendance !== null && $attendance < $minAttendance) {
             $missing[] = sprintf('Attendance is %s%%; you need at least %d%%.', rtrim(rtrim(number_format($attendance, 2, '.', ''), '0'), '.'), $minAttendance);
         }
 
@@ -212,6 +217,7 @@ final class CourseGrading
             'overall' => $overall,
             'letter' => $letter,
             'attendance' => $attendance,
+            'attendanceRequired' => $requiresAttendance,
             'minGrade' => $minGrade,
             'minAttendance' => $minAttendance,
             'missing' => $missing,
@@ -246,7 +252,7 @@ final class CourseGrading
         $grade = isset($stored[self::MIN_GRADE_KEY]) ? (int) $stored[self::MIN_GRADE_KEY] : self::DEFAULT_MIN_GRADE;
         $attendance = isset($stored[self::MIN_ATTENDANCE_KEY]) ? (int) $stored[self::MIN_ATTENDANCE_KEY] : self::DEFAULT_MIN_ATTENDANCE;
         return [
-            'grade' => $grade < 0 || $grade > 100 ? self::DEFAULT_MIN_GRADE : $grade,
+            'grade' => $grade < self::DEFAULT_MIN_GRADE || $grade > 100 ? self::DEFAULT_MIN_GRADE : $grade,
             'attendance' => $attendance < 0 || $attendance > 100 ? self::DEFAULT_MIN_ATTENDANCE : $attendance,
         ];
     }

@@ -29,6 +29,7 @@ foreach (
         '/app/Core/Security.php',
         '/app/Core/Database.php',
         '/app/Core/AuthMiddleware.php',
+        '/app/Core/PrivateStorage.php',
         '/app/Core/RateLimiter.php',
         '/app/Core/PurgeGuard.php',
         '/app/Services/EmailLayout.php',
@@ -56,6 +57,8 @@ foreach (
         '/app/Controllers/CourseAdminController.php',
         '/app/Controllers/PublicPageController.php',
         '/app/Controllers/StudentManagementController.php',
+        '/app/Controllers/StudentPortalController.php',
+        '/app/Controllers/CertificateController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -534,6 +537,29 @@ $assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered
     'The student settings page exposes the scheme an admin owns.');
 $assert(stripos($html, 'account-id-input') === false, 'A student sees their ID as read-only text.',
     'The student settings page renders an editable ID field.');
+$studentCoursesHtml = $render(static fn() => (new \App\Controllers\StudentPortalController())->courses());
+$assert(str_contains($studentCoursesHtml, 'Test certificate workflow')
+    && str_contains($studentCoursesHtml, 'skips course eligibility checks')
+    && str_contains($studentCoursesHtml, '/student/certificates/test-request'),
+    'An enrolled student can see a clearly labelled test button before meeting course eligibility.',
+    'The student testing button is hidden or does not explain that it is separate from eligibility.');
+$db->prepare("INSERT INTO certificate_test_requests(student_id,course_id,status) VALUES(?,?,'requested')")
+    ->execute([$studentId, $courseId]);
+$signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$adminCertificatesHtml = $render(static fn() => (new \App\Controllers\CertificateController())->adminIndex());
+$assert(str_contains($adminCertificatesHtml, 'Sample certificate workflow')
+    && str_contains($adminCertificatesHtml, 'certificate-test-request')
+    && str_contains($adminCertificatesHtml, 'certificate-test-upload-form')
+    && str_contains($adminCertificatesHtml, 'TEST ONLY')
+    && str_contains($adminCertificatesHtml, '/admin/certificates/test-issue')
+    && str_contains($adminCertificatesHtml, '/admin/certificates/test-clear'),
+    'The admin can see the isolated test queue, upload a sample and clear the test workflow.',
+    'The admin test queue, upload form or clear-all control is missing.');
+$assert((int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
+    'Creating a test request did not create an official certificate record.',
+    'A test-only request leaked into the official certificate register.');
+$db->exec('DELETE FROM certificate_test_requests WHERE student_id = ' . (int) $studentId);
+$signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
 
 /* ------------------------------------------------------------------- catalogue call to action */
 // The catalogue is the one page a signed-in student and a visitor must not see the same way: the

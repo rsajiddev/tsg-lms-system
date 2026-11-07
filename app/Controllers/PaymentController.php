@@ -171,6 +171,7 @@ final class PaymentController
         $rows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.payment_proof_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
         $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $monthOptions = $this->revenueMonthOptions($db);
         $revenueStmt = $db->prepare("SELECT currency, COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count, COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count, COALESCE(SUM(amount),0) AS lifetime_revenue, COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
         $revenueStmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
         $revenue = $revenueStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -188,7 +189,7 @@ final class PaymentController
         if ($paymentAccounts === [] && count(array_filter($paymentValues, static fn($value): bool => trim((string)$value) !== '')) > 0) {
             $paymentAccounts[] = ['account_title'=>$paymentValues['payment_account_title'] ?? '', 'bank_name'=>$paymentValues['payment_bank_name'] ?? '', 'account_number'=>$paymentValues['payment_account_number'] ?? '', 'iban'=>$paymentValues['payment_iban'] ?? '', 'wallet_name'=>$paymentValues['payment_wallet_name'] ?? '', 'wallet_number'=>$paymentValues['payment_wallet_number'] ?? '', 'instructions'=>$paymentValues['payment_instructions'] ?? ''];
         }
-        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'paymentAccounts' => $paymentAccounts, 'revenue' => $revenue, 'revenueTotals' => $totals, 'developerSharePercent' => MailService::developerSharePercent(), 'message' => $_SESSION['_flash'] ?? null]);
+        View::render('admin/payments', ['title' => 'Revenue and payment', 'user' => $admin, 'payments' => $rows, 'approvedPayments' => $approvedRows, 'paymentValues' => $paymentValues, 'paymentAccounts' => $paymentAccounts, 'revenue' => $revenue, 'revenueTotals' => $totals, 'developerSharePercent' => MailService::developerSharePercent(), 'revenueMonthOptions' => $monthOptions, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -325,24 +326,156 @@ final class PaymentController
     {
         AuthMiddleware::requireRole('admin');
         $db = Database::connection();
-        $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
-        $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
-        $stmt = $db->prepare("SELECT currency,COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count,COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count,COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue,COALESCE(SUM(amount),0) AS lifetime_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
-        $stmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
-        $totals = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'")->fetch(PDO::FETCH_ASSOC) ?: [];
-        $report = ['period' => gmdate('F Y'), 'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC', 'student_count' => (int) ($totals['student_count'] ?? 0), 'payment_count' => (int) ($totals['payment_count'] ?? 0), 'rates' => []];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $row['developer_share'] = MailService::developerShareOf((float) $row['monthly_revenue']);
-            $row['lifetime_developer_share'] = MailService::developerShareOf((float) $row['lifetime_revenue']);
-            $report['rates'][] = $row;
+        $requestedPeriod = $_GET['period'] ?? '';
+        if (!is_string($requestedPeriod)) {
+            http_response_code(400);
+            return;
         }
-        $document = DocumentPdf::revenue($report);
+        $period = trim($requestedPeriod);
+        if ($period === 'six-months') {
+            $report = $this->sixMonthRevenueReport($db);
+            $document = DocumentPdf::revenueHistory($report);
+            $filename = 'TSG-revenue-last-6-months-' . gmdate('Y-m') . '.pdf';
+        } else {
+            if ($period === '') {
+                $period = gmdate('Y-m');
+            }
+            if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D', $period) !== 1) {
+                http_response_code(400);
+                return;
+            }
+            $monthStart = new \DateTimeImmutable($period . '-01 00:00:00', new \DateTimeZone('UTC'));
+            $currentMonth = new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC'));
+            if ($monthStart > $currentMonth) {
+                http_response_code(400);
+                return;
+            }
+            $nextMonth = $monthStart->modify('+1 month');
+            $stmt = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
+            $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
+            $rates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rates as &$row) {
+                $row['developer_share'] = MailService::developerShareOf((float) $row['monthly_revenue']);
+            }
+            unset($row);
+            $counts = $db->prepare("SELECT COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
+            $counts->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
+            $totals = $counts->fetch(PDO::FETCH_ASSOC) ?: ['payment_count' => 0, 'student_count' => 0];
+            $report = [
+                'period' => $monthStart->format('F Y'),
+                'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC',
+                'student_count' => (int) $totals['student_count'],
+                'payment_count' => (int) $totals['payment_count'],
+                'currency_totals' => array_map(static fn(array $rate): array => [
+                    'currency' => $rate['currency'],
+                    'revenue' => $rate['monthly_revenue'],
+                    'payment_count' => $rate['payment_count'],
+                    'student_count' => $rate['student_count'],
+                    'developer_share' => $rate['developer_share'],
+                ], $rates),
+                'months' => [[
+                    'label' => $monthStart->format('F Y'),
+                    'payment_count' => (int) $totals['payment_count'],
+                    'student_count' => (int) $totals['student_count'],
+                    'rates' => $rates,
+                ]],
+            ];
+            $document = DocumentPdf::revenueHistory($report);
+            $filename = 'TSG-revenue-' . $period . '.pdf';
+        }
         header('Content-Type: application/pdf');
         header('Content-Length: ' . strlen($document));
-        header('Content-Disposition: attachment; filename="TSG-revenue-' . gmdate('Y-m') . '.pdf"');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
         echo $document;
+    }
+
+    /**
+     * List every month from the first approved payment through the current UTC month.
+     * Including empty months lets administrators export a complete chronological series.
+     *
+     * @return list<array{value:string,label:string}>
+     */
+    private function revenueMonthOptions(PDO $db): array
+    {
+        $firstPayment = $db->query("SELECT MIN(COALESCE(reviewed_at,created_at)) FROM payments WHERE status='approved'")->fetchColumn();
+        $current = new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC'));
+        $first = is_string($firstPayment) && $firstPayment !== ''
+            ? (new \DateTimeImmutable($firstPayment, new \DateTimeZone('UTC')))->modify('first day of this month')->setTime(0, 0)
+            : $current;
+        if ($first > $current) {
+            $first = $current;
+        }
+        $options = [];
+        for ($month = $first; $month <= $current; $month = $month->modify('+1 month')) {
+            $options[] = ['value' => $month->format('Y-m'), 'label' => $month->format('F Y')];
+        }
+        return array_reverse($options);
+    }
+
+    /** Build the six-month overview and one currency-aware summary row for each month. */
+    private function sixMonthRevenueReport(PDO $db): array
+    {
+        $zone = new \DateTimeZone('UTC');
+        $current = new \DateTimeImmutable('first day of this month 00:00:00', $zone);
+        $start = $current->modify('-5 months');
+        $end = $current->modify('+1 month');
+        $startValue = $start->format('Y-m-d H:i:s');
+        $endValue = $end->format('Y-m-d H:i:s');
+
+        $byMonthCurrency = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key,currency ORDER BY period_key,currency");
+        $byMonthCurrency->execute([$startValue, $endValue]);
+        $currencyRows = $byMonthCurrency->fetchAll(PDO::FETCH_ASSOC);
+
+        $byMonth = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key");
+        $byMonth->execute([$startValue, $endValue]);
+        $monthTotals = [];
+        foreach ($byMonth->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $monthTotals[$row['period_key']] = [
+                'payment_count' => (int) $row['payment_count'],
+                'student_count' => (int) $row['student_count'],
+            ];
+        }
+
+        $overall = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
+        $overall->execute([$startValue, $endValue]);
+        $currencyTotals = [];
+        foreach ($overall->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $row['developer_share'] = MailService::developerShareOf((float) $row['revenue']);
+            $currencyTotals[] = $row;
+        }
+
+        $months = [];
+        for ($month = $start; $month < $end; $month = $month->modify('+1 month')) {
+            $key = $month->format('Y-m');
+            $months[$key] = [
+                'key' => $key,
+                'label' => $month->format('F Y'),
+                'payment_count' => $monthTotals[$key]['payment_count'] ?? 0,
+                'student_count' => $monthTotals[$key]['student_count'] ?? 0,
+                'rates' => [],
+            ];
+        }
+        foreach ($currencyRows as $row) {
+            $row['developer_share'] = MailService::developerShareOf((float) $row['monthly_revenue']);
+            $months[$row['period_key']]['rates'][] = $row;
+        }
+
+        $periodPaymentCount = array_sum(array_column($monthTotals, 'payment_count'));
+        $distinctStudents = $db->prepare("SELECT COUNT(DISTINCT student_id) FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
+        $distinctStudents->execute([$startValue, $endValue]);
+
+        return [
+            'period' => $start->format('F Y') . ' – ' . $current->format('F Y'),
+            'start' => $start,
+            'end' => $end->modify('-1 day'),
+            'generated_at' => gmdate('Y-m-d H:i:s') . ' UTC',
+            'payment_count' => $periodPaymentCount,
+            'student_count' => (int) $distinctStudents->fetchColumn(),
+            'currency_totals' => $currencyTotals,
+            'months' => array_values($months),
+        ];
     }
 
     public function notifyDeveloper(): void

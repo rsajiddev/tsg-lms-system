@@ -184,7 +184,7 @@ final class DashboardController
 
     private function certificates(PDO $db): array
     {
-        $split = ['requested' => 0, 'issued' => 0, 'rejected' => 0];
+        $split = ['requested' => 0, 'issued' => 0, 'rejected' => 0, 'revoked' => 0];
         foreach ($this->rows($db, 'SELECT status, COUNT(*) AS total FROM certificates GROUP BY status') as $row) {
             $key = (string) $row['status'];
             if (array_key_exists($key, $split)) $split[$key] = (int) $row['total'];

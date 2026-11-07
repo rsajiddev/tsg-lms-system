@@ -5,6 +5,8 @@ use App\Core\Security;
 /**
  * View::render() injects these values from CertificateController.
  * @var array<int, array<string, mixed>> $certificates
+ * @var array<int, array<string, mixed>> $testRequests
+ * @var bool $testRequestsAvailable
  * @var array<string, int> $counts
  * @var string $status
  * @var string $search
@@ -18,13 +20,15 @@ use App\Core\Security;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $certificates = is_array($certificates ?? null) ? $certificates : [];
+$testRequests = is_array($testRequests ?? null) ? $testRequests : [];
+$testRequestsAvailable = (bool) ($testRequestsAvailable ?? false);
 $counts = is_array($counts ?? null) ? $counts : [];
 $status = is_string($status ?? null) ? $status : 'all';
 $search = is_string($search ?? null) ? $search : '';
 $schemaAvailable = (bool) ($schemaAvailable ?? true);
 $contactAddress = is_string($contactAddress ?? null) && $contactAddress !== '' ? $contactAddress : 'info@techsgstudio.com';
 $certificateValues = is_array($certificateValues ?? null) ? $certificateValues : [];
-$criteria = is_array($criteria ?? null) ? $criteria : ['grade' => 50, 'attendance' => 75, 'validDays' => 15];
+$criteria = is_array($criteria ?? null) ? $criteria : ['grade' => 60, 'attendance' => 75, 'validDays' => 15];
 $message = is_string($message ?? null) && $message !== '' ? $message : null;
 $error = is_string($error ?? null) && $error !== '' ? $error : null;
 $label = static function (?string $value): string {
@@ -43,6 +47,7 @@ $filters = [
     'issued' => 'Valid',
     'expired' => 'Expired',
     'rejected' => 'Rejected',
+    'revoked' => 'Revoked',
 ];
 ?>
 <section class="dashboard-page certificate-admin-page" data-reveal>
@@ -60,7 +65,7 @@ $filters = [
         <div>
             <p class="eyebrow">ADMIN WORKSPACE</p>
             <h1>Certificates</h1>
-            <p>Review student certificate requests, issue signed JPG certificates, publish public verification, and set the identifier rules below.</p>
+            <p>Review official student certificate requests, issue signed JPG or PDF certificates, publish public verification, and set the identifier rules below.</p>
         </div>
         <a class="button button-secondary" href="<?= $escape($baseUrl) ?>/admin/settings">Security settings</a>
     </header>
@@ -74,9 +79,9 @@ $filters = [
                 <p class="eyebrow">ELIGIBILITY REQUIREMENTS</p>
                 <h2 id="certificate-eligibility-title">How a certificate is earned</h2>
             </div>
-            <span>Applies to every request</span>
+            <span>Official certificates only</span>
         </div>
-        <p class="certificate-eligibility-lead">A request is accepted only when a student clears all three bars. The same rules are published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page, so nobody has to guess.</p>
+        <p class="certificate-eligibility-lead">An official certificate request is accepted only when the student clears the course requirements. The separate TEST ONLY workflow below does not create an official request. The rules are also published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page.</p>
         <div class="certificate-eligibility-grid">
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value"><?= (int) $criteria['grade'] ?>%</span>
@@ -86,7 +91,7 @@ $filters = [
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value"><?= (int) $criteria['attendance'] ?>%</span>
                 <strong>Attendance</strong>
-                <small>Days marked present, as a share of decided days since access was granted, must reach <?= (int) $criteria['attendance'] ?>%. Days still pending are ignored.</small>
+                <small>Live + Recorded plans require <?= (int) $criteria['attendance'] ?>% attendance, calculated from decided days since access was granted. Recorded-only plans have no live attendance requirement.</small>
             </article>
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value">100%</span>
@@ -99,6 +104,75 @@ $filters = [
     <?php if (!$schemaAvailable): ?>
         <div class="student-schema-notice" role="status"><strong>The certificates table is not installed yet.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. Requests and issued certificates appear here straight after.</span></div>
     <?php else: ?>
+
+        <section class="dashboard-panel certificate-test-panel" aria-label="Test certificate requests">
+            <div class="dashboard-panel-heading certificate-list-heading">
+                <div>
+                    <p class="eyebrow">TEST ONLY · NOT THE OFFICIAL REGISTER</p>
+                    <h2>Sample certificate workflow</h2>
+                </div>
+                <?php if ($testRequestsAvailable && $testRequests !== []): ?>
+                    <form method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/test-clear" onsubmit="return confirm('Clear every test-only request and permanently delete its uploaded sample files? Official certificates will not be changed.')">
+                        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                        <button class="student-action-button is-block" type="submit">Clear all test requests</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            <p class="certificate-test-warning">Student test requests bypass lesson, grade and attendance eligibility only inside this separate queue. They never create or modify official certificate records. Upload only a clearly marked sample JPG or PDF (max 5 MB). Clearing this test queue removes its sample files and lets students start again.</p>
+            <?php if (!$testRequestsAvailable): ?>
+                <div class="student-schema-notice" role="status"><strong>The isolated testing table is not installed yet.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code>, then reload this page.</span></div>
+            <?php elseif ($testRequests === []): ?>
+                <div class="dashboard-empty"><div><h3>No test requests</h3><p>Students can start a TEST ONLY workflow from My courses. It does not change their official eligibility or certificates.</p></div></div>
+            <?php else: ?>
+                <div class="certificate-test-list">
+                    <?php foreach ($testRequests as $testRequest): ?>
+                        <?php $testStatus = (string) $testRequest['status']; ?>
+                        <article class="certificate-test-request">
+                            <div class="certificate-test-request-student">
+                                <span class="certificate-test-field-label">Student</span>
+                                <strong><?= $escape($testRequest['student_name']) ?></strong>
+                                <span><?= $escape($testRequest['student_email']) ?></span>
+                                <small>ID: <?= $escape($testRequest['account_reference'] ?? '') ?></small>
+                            </div>
+                            <div class="certificate-test-request-course">
+                                <span class="certificate-test-field-label">Course</span>
+                                <strong><?= $escape($testRequest['course_title']) ?></strong>
+                            </div>
+                            <div class="certificate-test-request-status">
+                                <span class="certificate-test-field-label">Request</span>
+                                <span class="certificate-status certificate-status-<?= $escape($testStatus) ?>"><?= $escape(ucfirst($testStatus)) ?></span>
+                                <span><?= $escape($label((string) $testRequest['requested_at'])) ?></span>
+                                <span class="certificate-test-badge">TEST ONLY</span>
+                            </div>
+                            <div class="certificate-test-request-sample">
+                                <span class="certificate-test-field-label">Sample</span>
+                                <?php if ($testStatus === 'issued'): ?>
+                                    <strong>Sample uploaded</strong>
+                                    <span><?= $escape($label((string) $testRequest['issued_at'])) ?> · <?= $escape(strtoupper((string) $testRequest['file_type'])) ?></span>
+                                <?php else: ?>
+                                    <strong>Waiting for admin upload</strong>
+                                    <span>Use a clearly marked sample file.</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="certificate-test-request-actions<?= $testStatus === 'issued' ? ' is-issued' : '' ?>">
+                                <?php if ($testStatus === 'requested'): ?>
+                                    <form class="certificate-test-upload-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/test-issue" enctype="multipart/form-data">
+                                        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                        <input type="hidden" name="test_request_id" value="<?= (int) $testRequest['id'] ?>">
+                                        <label class="admin-label" for="test-certificate-file-<?= (int) $testRequest['id'] ?>">Choose sample file <small>Clearly marked JPG or PDF · max 5 MB</small></label>
+                                        <input class="admin-input certificate-file-input" id="test-certificate-file-<?= (int) $testRequest['id'] ?>" type="file" name="certificate_file" accept="image/jpeg,application/pdf" required>
+                                        <button class="button button-secondary certificate-button" type="submit">Upload test sample</button>
+                                    </form>
+                                <?php else: ?>
+                                    <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/test-download?test_id=<?= (int) $testRequest['id'] ?>">Download sample <span aria-hidden="true">↓</span></a>
+                                    <a class="certificate-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode((string) ($testRequest['account_reference'] ?: $testRequest['student_name']))) ?>" target="_blank" rel="noopener">Public test lookup →</a>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
 
         <section class="dashboard-panel certificate-list-panel" aria-label="Certificate requests">
             <div class="dashboard-panel-heading certificate-list-heading">
@@ -172,6 +246,10 @@ $filters = [
                                                 <small>Valid until <?= $escape($label((string) ($certificate['expires_at'] ?? ''))) ?></small>
                                             <?php endif; ?>
                                             <?php if (!empty($certificate['admin_remarks'])): ?><small class="certificate-admin-remark"><?= $escape($certificate['admin_remarks']) ?></small><?php endif; ?>
+                                            <?php if ($rowStatus === 'revoked'): ?>
+                                                <small>Revoked <?= $escape($label((string) ($certificate['revoked_at'] ?? ''))) ?><?= !empty($certificate['revoked_by_name']) ? ' by ' . $escape($certificate['revoked_by_name']) : '' ?></small>
+                                                <?php if (!empty($certificate['revoked_reason'])): ?><small class="certificate-admin-remark"><?= $escape($certificate['revoked_reason']) ?></small><?php endif; ?>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                     <td class="certificate-row-actions" data-label="Actions">
@@ -180,9 +258,33 @@ $filters = [
                                                 <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/certificate/download?cert_id=<?= $escape(rawurlencode($publicId)) ?>&course_id=<?= (int) ($certificate['course_id'] ?? 0) ?>">Download <?= $escape($certFormat) ?> <span aria-hidden="true">↓</span></a>
                                             <?php endif; ?>
                                             <a class="student-activity-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode($publicId)) ?>" target="_blank" rel="noopener">View public record <span aria-hidden="true">→</span></a>
+                                            <details class="certificate-review certificate-revoke">
+                                                <summary>Revoke certificate</summary>
+                                                <form class="certificate-review-form certificate-reject-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/revoke" onsubmit="return confirm('Revoke this certificate? The student will be notified and public verification will show it as revoked.')">
+                                                    <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                                    <input type="hidden" name="certificate_id" value="<?= (int) $certificate['id'] ?>">
+                                                    <label class="admin-label" for="certificate-revoke-reason-<?= (int) $certificate['id'] ?>">Reason for revocation</label>
+                                                    <textarea class="admin-textarea" id="certificate-revoke-reason-<?= (int) $certificate['id'] ?>" name="revoked_reason" rows="2" maxlength="1000" required placeholder="Explain why this certificate is being revoked"></textarea>
+                                                    <div class="certificate-review-actions"><button class="student-action-button is-block" type="submit">Revoke certificate</button></div>
+                                                </form>
+                                            </details>
+                                        <?php elseif ($rowStatus === 'revoked'): ?>
+                                            <span class="certificate-note">Public verification identifies this certificate as revoked.</span>
+                                            <details class="certificate-review">
+                                                <summary>Reissue certificate</summary>
+                                                <form class="certificate-review-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/issue" enctype="multipart/form-data" onsubmit="return confirm('Reissue this certificate? The current revocation will be cleared and the student will be notified.')">
+                                                    <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                                    <input type="hidden" name="certificate_id" value="<?= (int) $certificate['id'] ?>">
+                                                    <label class="admin-label" for="certificate-file-<?= (int) $certificate['id'] ?>">Replacement certificate (JPG image or PDF, max 5 MB)</label>
+                                                    <input class="admin-input certificate-file-input" id="certificate-file-<?= (int) $certificate['id'] ?>" type="file" name="certificate_file" accept="image/jpeg,application/pdf" required>
+                                                    <label class="admin-label" for="certificate-issue-remarks-<?= (int) $certificate['id'] ?>">Remarks shown on the public record (optional)</label>
+                                                    <textarea class="admin-textarea" id="certificate-issue-remarks-<?= (int) $certificate['id'] ?>" name="admin_remarks" rows="2" maxlength="1000" placeholder="For example: reissued after review."></textarea>
+                                                    <div class="certificate-review-actions"><button class="button certificate-button" type="submit">Reissue certificate</button></div>
+                                                </form>
+                                            </details>
                                         <?php else: ?>
                                             <details class="certificate-review">
-                                                <summary>Review request</summary>
+                                                <summary><?= $rowStatus === 'rejected' ? 'Review new request' : 'Review request' ?></summary>
                                                 <form class="certificate-review-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/issue" enctype="multipart/form-data">
                                                     <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                                                     <input type="hidden" name="certificate_id" value="<?= (int) $certificate['id'] ?>">
@@ -213,7 +315,7 @@ $filters = [
                     </table>
                 </div>
             <?php endif; ?>
-            <p class="student-privacy-note">Certificate images are stored outside the web root and served only through the verification page. Requests and decisions are recorded in the audit log. For delivery issues, contact <?= $escape($contactAddress) ?>.</p>
+            <p class="student-privacy-note">Certificate files are stored outside the web root and served only through the verification page while valid. Requests, issues, reissues and revocations are recorded in the audit log. For delivery issues, contact <?= $escape($contactAddress) ?>.</p>
         </section>
 
     <?php endif; ?>

@@ -11,8 +11,9 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $user = isset($user) && is_array($user) ? $user : [];
 $courses = is_array($courses ?? null) ? $courses : [];
-$certificateCriteria = is_array($certificateCriteria ?? null) ? $certificateCriteria : ['grade' => 50, 'attendance' => 75];
+$certificateCriteria = is_array($certificateCriteria ?? null) ? $certificateCriteria : ['grade' => 60, 'attendance' => 75];
 $certificatesAvailable = (bool) ($certificatesAvailable ?? false);
+$testCertificatesAvailable = (bool) ($testCertificatesAvailable ?? false);
 $gradesAvailable = (bool) ($gradesAvailable ?? false);
 $flashMessage = is_string($message ?? null) && $message !== '' ? $message : null;
 $flashError = is_string($error ?? null) && $error !== '' ? $error : null;
@@ -45,7 +46,7 @@ $grantedLabel = static function (?string $value): string {
     <?php if ($certificatesAvailable): ?>
         <details class="dashboard-panel certificate-criteria-panel">
             <summary>
-                <span class="certificate-criteria-summary"><strong>What you need for a certificate</strong><small>Three requirements per course — click to see the exact bars</small></span>
+                <span class="certificate-criteria-summary"><strong>What you need for a certificate</strong><small>Course completion and grade; attendance also applies to Live + Recorded plans</small></span>
                 <span class="certificate-criteria-toggle" aria-hidden="true">＋</span>
             </summary>
             <div class="certificate-criteria-grid">
@@ -57,7 +58,7 @@ $grantedLabel = static function (?string $value): string {
                 <article class="certificate-criteria-item">
                     <span class="certificate-criteria-value"><?= (int) $certificateCriteria['attendance'] ?>%</span>
                     <strong>Attendance</strong>
-                    <small>Present days as a share of the days decided since your access was granted.</small>
+                    <small>For Live + Recorded plans only: present days as a share of decided days since access was granted. Recorded-only plans have no live attendance requirement.</small>
                 </article>
                 <article class="certificate-criteria-item">
                     <span class="certificate-criteria-value">100%</span>
@@ -65,7 +66,7 @@ $grantedLabel = static function (?string $value): string {
                     <small>Every published lesson in the course must be marked complete.</small>
                 </article>
             </div>
-            <p class="certificate-criteria-note">Request the certificate from the course card below once all three are met. The academy reviews each request before issuing.</p>
+            <p class="certificate-criteria-note">Request the certificate from the course card below once the applicable requirements are met. The academy reviews each request before issuing.</p>
         </details>
     <?php endif; ?>
 
@@ -93,8 +94,12 @@ $grantedLabel = static function (?string $value): string {
                     $certificateStatus = (string) ($course['certificate_status'] ?? '');
                     $certificateNumber = (string) ($course['certificate_id'] ?? '');
                     $certificateRemarks = (string) ($course['admin_remarks'] ?? '');
+                    $certificateRevokedReason = (string) ($course['certificate_revoked_reason'] ?? '');
                     $certificateExpiry = $course['certificate_expires_at'] ?? null;
                     $certificateExpired = $certificateStatus === 'issued' && $certificateExpiry && strtotime((string) $certificateExpiry . ' UTC') <= time();
+                    $testCertificateId = (int) ($course['test_certificate_id'] ?? 0);
+                    $testCertificateStatus = (string) ($course['test_certificate_status'] ?? '');
+                    $testCertificateFileType = strtolower((string) ($course['test_certificate_file_type'] ?? ''));
                     $courseComplete = $lessons > 0 && $completed >= $lessons;
                     $accessStatus = (string) ($course['access_status'] ?? 'active');
                     $statusMap = [
@@ -132,6 +137,9 @@ $grantedLabel = static function (?string $value): string {
                                 <?php elseif ($certificateStatus === 'requested'): ?>
                                     <span class="certificate-chip certificate-chip-pending"><span aria-hidden="true">⏳</span> Awaiting review</span>
                                     <p class="certificate-note">Your request is with the academy team. You will get an email once the certificate is issued.</p>
+                                <?php elseif ($certificateStatus === 'revoked'): ?>
+                                    <span class="certificate-chip certificate-chip-revoked"><span aria-hidden="true">×</span> Certificate revoked</span>
+                                    <p class="certificate-note"><?= $certificateRevokedReason !== '' ? $escape($certificateRevokedReason) : 'This certificate is no longer valid. Contact the academy team if you have questions.' ?></p>
                                 <?php elseif ($certificateStatus === 'rejected'): ?>
                                     <span class="certificate-chip certificate-chip-rejected"><span aria-hidden="true">✕</span> Request declined</span>
                                     <?php if ($certificateRemarks !== ''): ?><p class="certificate-note"><?= $escape($certificateRemarks) ?></p><?php endif; ?>
@@ -158,6 +166,26 @@ $grantedLabel = static function (?string $value): string {
                                     </details>
                                 <?php else: ?>
                                     <p class="certificate-note certificate-note-muted">Complete all <?= number_format($lessons) ?> published lessons to unlock your certificate.</p>
+                                <?php endif; ?>
+                                <?php if ($testCertificatesAvailable): ?>
+                                    <div class="certificate-test-only">
+                                        <span class="certificate-chip certificate-chip-test">TEST ONLY · SAMPLE WORKFLOW</span>
+                                        <p class="certificate-note">For company testing only. This test request skips course eligibility checks, creates no official certificate, and does not change your grades, attendance, lesson progress or certificate rules.</p>
+                                        <?php if ($testCertificateStatus === 'requested'): ?>
+                                            <p class="certificate-note"><strong>Test request sent.</strong> The admin will upload a clearly marked sample file. This is not an official certificate.</p>
+                                        <?php elseif ($testCertificateStatus === 'issued' && $testCertificateId > 0): ?>
+                                            <div class="certificate-actions">
+                                                <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/test-download?test_id=<?= $testCertificateId ?>">Download test sample <?= $testCertificateFileType === 'pdf' ? 'PDF' : 'JPG' ?></a>
+                                                <a class="certificate-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode((string) ($course['student_reference'] ?: ($user['name'] ?? '')))) ?>" target="_blank" rel="noopener">Public test lookup →</a>
+                                            </div>
+                                        <?php else: ?>
+                                            <form method="post" action="<?= $escape($baseUrl) ?>/student/certificates/test-request" class="certificate-request-form">
+                                                <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                                                <input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
+                                                <button class="button button-secondary certificate-button" type="submit">Test certificate workflow</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
