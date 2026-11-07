@@ -28,6 +28,7 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
     </header>
 
     <?php \App\Core\View::toast('success', $message ?? null); ?>
+    <?php \App\Core\View::toast('error', $error ?? null); ?>
 
     <section class="danger-guidelines" role="note" aria-labelledby="danger-guidelines-title">
         <div class="danger-guidelines-head">
@@ -162,6 +163,7 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
             </div>
             <form method="post" action="<?= $escape($baseUrl) ?>/admin/settings/reset-counter" class="admin-form" data-purge-form>
                 <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+                <input type="hidden" name="return_to" value="/admin/danger-zone">
                 <div class="admin-grid-2">
                     <div class="admin-field">
                         <label class="admin-label" for="reset-id-start">New starting serial number</label>

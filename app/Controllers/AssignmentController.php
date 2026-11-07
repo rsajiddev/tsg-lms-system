@@ -220,7 +220,7 @@ final class AssignmentController
             $this->performPurgeAll($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/assignments');
+            $this->redirect(PurgeGuard::returnPath('/admin/assignments'));
         }
     }
 
@@ -235,7 +235,7 @@ final class AssignmentController
         $assignmentIds = array_map('intval', array_column($list->fetchAll(), 'id'));
         if ($assignmentIds === []) {
             $_SESSION['_flash'] = 'There are no assignments left to delete.';
-            $this->redirect('/admin/assignments');
+            $this->redirect(PurgeGuard::returnPath('/admin/assignments'));
         }
         $in = implode(',', array_fill(0, count($assignmentIds), '?'));
         $submitted = $db->prepare("SELECT id,file_path FROM assignment_submissions WHERE assignment_id IN ($in)");
@@ -271,7 +271,7 @@ final class AssignmentController
             count($submissions),
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );
-        $this->redirect('/admin/assignments');
+        $this->redirect(PurgeGuard::returnPath('/admin/assignments'));
     }
 
     public function file(): void

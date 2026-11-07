@@ -258,7 +258,7 @@ final class QuizController
             $this->performPurgeAll($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/quizzes');
+            $this->redirect(PurgeGuard::returnPath('/admin/quizzes'));
         }
     }
 
@@ -273,7 +273,7 @@ final class QuizController
         $quizIds = array_map('intval', $list->fetchAll(PDO::FETCH_COLUMN));
         if ($quizIds === []) {
             $_SESSION['_flash'] = 'There are no quizzes left to delete.';
-            $this->redirect('/admin/quizzes');
+            $this->redirect(PurgeGuard::returnPath('/admin/quizzes'));
         }
         $in = implode(',', array_fill(0, count($quizIds), '?'));
         $attemptStmt = $db->prepare("SELECT qa.id, qa.student_id, q.course_id FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id WHERE qa.quiz_id IN ($in)");
@@ -332,7 +332,7 @@ final class QuizController
             $questionCount,
             count($attempts)
         );
-        $this->redirect('/admin/quizzes');
+        $this->redirect(PurgeGuard::returnPath('/admin/quizzes'));
     }
 
     public function saveQuestion(): void

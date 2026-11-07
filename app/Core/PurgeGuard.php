@@ -16,6 +16,13 @@ use RuntimeException;
  */
 final class PurgeGuard
 {
+    public static function returnPath(string $fallback): string
+    {
+        return ($_POST['return_to'] ?? null) === '/admin/danger-zone'
+            ? '/admin/danger-zone'
+            : $fallback;
+    }
+
     public static function assertConfirmed(string $expectedPhrase): void
     {
         $typed = strtoupper(trim((string)($_POST['confirm_phrase'] ?? '')));

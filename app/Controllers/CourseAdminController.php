@@ -589,7 +589,7 @@ final class CourseAdminController
             $this->performPurgeLessons($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/lessons');
+            $this->redirect(PurgeGuard::returnPath('/admin/lessons'));
         }
     }
 
@@ -604,7 +604,7 @@ final class CourseAdminController
         $lessonIds = array_map('intval', $list->fetchAll(PDO::FETCH_COLUMN));
         if ($lessonIds === []) {
             $_SESSION['_flash'] = 'There are no lessons left to delete.';
-            $this->redirect('/admin/lessons');
+            $this->redirect(PurgeGuard::returnPath('/admin/lessons'));
         }
         $in = implode(',', array_fill(0, count($lessonIds), '?'));
         $progress = $db->prepare("SELECT lp.student_id, cm.course_id, COUNT(*) AS c FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id WHERE lp.lesson_id IN ($in) GROUP BY lp.student_id, cm.course_id");
@@ -647,7 +647,7 @@ final class CourseAdminController
             count($lessonIds),
             $progressRows
         );
-        $this->redirect('/admin/lessons');
+        $this->redirect(PurgeGuard::returnPath('/admin/lessons'));
     }
 
     private function csrf(): void

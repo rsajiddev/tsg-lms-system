@@ -47,6 +47,7 @@ $purgeId = substr(md5($purgeAction), 0, 8);
     </div>
     <form method="post" action="<?= $escape($baseUrl . $purgeAction) ?>" class="admin-form" data-purge-form>
         <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+        <input type="hidden" name="return_to" value="/admin/danger-zone">
         <?php if ($purgeScopeCourses !== []): ?>
             <div class="admin-field"><label class="admin-label" for="purge-course-<?= $escape($purgeId) ?>">Course</label><select class="admin-select" id="purge-course-<?= $escape($purgeId) ?>" name="course_id">
                     <option value="0">All courses</option>

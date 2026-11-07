@@ -186,8 +186,8 @@ final class AdminManagementController
         $danger['idPreview'] = AccountIdentity::preview($scheme, $next);
         $danger['idPrefix'] = (string) $scheme['prefix'];
         $danger['idWithYear'] = !empty($scheme['include_year']);
-        View::render('admin/danger-zone', ['title' => 'Danger Zone', 'user' => $admin, 'danger' => $danger, 'message' => $_SESSION['_flash'] ?? null]);
-        unset($_SESSION['_flash']);
+        View::render('admin/danger-zone', ['title' => 'Danger Zone', 'user' => $admin, 'danger' => $danger, 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
+        unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }
 
     public function saveSettings(): void
@@ -272,9 +272,9 @@ final class AdminManagementController
         $this->backToSettings();
     }
 
-    private function backToSettings(): never
+    private function backToSettings(string $path = '/admin/settings'): never
     {
-        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/settings');
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . $path);
         exit;
     }
 
@@ -297,7 +297,7 @@ final class AdminManagementController
             $this->performClearAllData($admin);
         } catch (Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->backToSettings();
+            $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
         }
     }
 
@@ -311,7 +311,7 @@ final class AdminManagementController
         $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
         if ($total === 0) {
             $_SESSION['_flash'] = 'There is no student data to clear. The directory is already empty.';
-            $this->backToSettings();
+            $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
         }
         $students = "(SELECT id FROM users WHERE role='student')";
         $paths = $db->query("SELECT file_path FROM assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
@@ -398,7 +398,7 @@ final class AdminManagementController
             $deleted['accounts'],
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );
-        $this->backToSettings();
+        $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
     }
 
     /**
@@ -417,7 +417,7 @@ final class AdminManagementController
             $this->performResetCounter($admin);
         } catch (Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->backToSettings();
+            $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
         }
     }
 
@@ -466,7 +466,7 @@ final class AdminManagementController
         $_SESSION['_flash'] = 'ID counter reset. The next new ID will be ' . AccountIdentity::preview($scheme, $start)
             . ($clashed > 0 ? ' (' . $clashed . ' number(s) already in use were skipped - no existing record was touched).' : '.')
             . ' Existing students and issued certificates keep their IDs.';
-        $this->backToSettings();
+        $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
     }
 
     public function savePaymentDetails(): void

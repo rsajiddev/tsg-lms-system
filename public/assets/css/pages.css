@@ -21531,29 +21531,25 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
 }
 
 /* ---------------------------------------------------------------------------
-   Danger Zone - the single page that gathers every permanent, bulk delete.
-   Everything is scoped to .danger-zone-page so the shared .button-danger style
-   used by the chat and account screens keeps its original light-red look. The
-   cards themselves still inherit the rose theming of .admin-card-testing from
-   app.css; these rules only sharpen that into an unmistakable danger area.
+   Danger Zone - refined admin surface for permanent, bulk-delete actions.
+   Everything is scoped here so shared danger controls elsewhere are unchanged.
    --------------------------------------------------------------------------- */
 .danger-zone-page .danger-zone-eyebrow {
-  color: #b42318;
+  color: #64748b;
 }
 
 .danger-zone-page .danger-zone-header h1 {
-  color: #7f1d1d;
+  color: #0f172a;
 }
 
-/* Mandatory read-before-you-delete notice: a bordered amber/red panel above the cards. */
 .danger-guidelines {
-  border: 1px solid #fda4af;
-  border-left: 5px solid #dc2626;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #dc2626;
   border-radius: 16px;
-  background: linear-gradient(180deg, #fff1f2, #fff7f7);
-  padding: 22px 24px;
-  margin-bottom: 28px;
-  box-shadow: 0 6px 22px -6px rgba(190, 18, 60, 0.14);
+  background: #f8fafc;
+  padding: 24px 26px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
 .danger-guidelines-head {
@@ -21570,7 +21566,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: #fee2e2;
+  background: #fff1f2;
   color: #b42318;
 }
 
@@ -21583,7 +21579,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: #7f1d1d;
+  color: #b42318;
 }
 
 .danger-guidelines-list {
@@ -21592,18 +21588,17 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  color: #4b1220;
+  color: #475569;
   font-size: 14px;
   line-height: 1.5;
 }
 
 .danger-guidelines-list strong {
-  color: #7f1d1d;
+  color: #1e293b;
 }
 
-/* One card plus its caption header; the caption names the workspace the tool came from. */
 .danger-card-group {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .danger-card-category {
@@ -21611,7 +21606,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .danger-category-label {
@@ -21619,8 +21614,8 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   align-items: center;
   padding: 5px 12px;
   border-radius: 999px;
-  background: #fee2e2;
-  color: #9f1239;
+  background: #f1f5f9;
+  color: #475569;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -21639,19 +21634,35 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   text-decoration: underline;
 }
 
-/* Reinforce the shared testing card with a red rail so each delete action reads as dangerous. */
 .danger-zone-page .danger-card {
-  border-left: 5px solid #dc2626;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.045);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.danger-zone-page .danger-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.danger-zone-page .danger-card .admin-card-titles h2 {
+  color: #1e293b;
+}
+
+.danger-zone-page .danger-card .admin-card-titles p {
+  color: #64748b;
+  line-height: 1.6;
 }
 
 .danger-zone-page .danger-card .admin-card-icon.danger {
-  background: #fee2e2;
+  background: #fff1f2;
   color: #b42318;
 }
 
-/* The Reset ID Counter is not a deletion, so its card and icon use an amber caution tint. */
 .danger-zone-page .danger-card-caution {
-  border-left-color: #d97706;
+  border-color: #e2e8f0;
 }
 
 .danger-zone-page .danger-card-caution .admin-card-icon.caution {
@@ -21659,13 +21670,11 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   color: #b45309;
 }
 
-/* Delete button: dim red while locked (disabled), solid red once armed, brighter red with a
-   soft glow on hover, and white text throughout. */
 .danger-zone-page .button.button-danger {
   background: #dc2626;
   border: 1px solid #dc2626;
   color: #fff;
-  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.18);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.16);
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
 }
 
@@ -21673,14 +21682,14 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   background: #b91c1c;
   border-color: #b91c1c;
   color: #fff;
-  box-shadow: 0 10px 26px rgba(220, 38, 38, 0.45);
+  box-shadow: 0 7px 18px rgba(220, 38, 38, 0.28);
 }
 
 .danger-zone-page .button.button-danger:active:not(:disabled) {
   background: #991b1b;
   border-color: #991b1b;
   color: #fff;
-  box-shadow: 0 6px 16px rgba(153, 27, 27, 0.5);
+  box-shadow: 0 4px 12px rgba(153, 27, 27, 0.24);
 }
 
 .danger-zone-page .button.button-danger:focus-visible {
@@ -21697,10 +21706,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   cursor: not-allowed;
 }
 
-/* One-line pointer left on each source page after its card moved here. */
 .danger-moved-note {
   border-left: 4px solid #dc2626;
-  background: #fff7f7;
+  background: #f8fafc;
 }
 
 /* Keep reports and the developer notification together in one compact, vertical action card. */

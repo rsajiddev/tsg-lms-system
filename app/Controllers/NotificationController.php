@@ -272,7 +272,7 @@ final class NotificationController
             $this->performClearActivity($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/activity');
+            $this->redirect(PurgeGuard::returnPath('/admin/activity'));
         }
     }
 
@@ -294,7 +294,7 @@ final class NotificationController
             $_SESSION['_flash'] = $emails > 0
                 ? 'Cleared ' . number_format($emails) . ' e-mail delivery record(s).'
                 : 'Recent activity was already empty.';
-            $this->redirect('/admin/activity');
+            $this->redirect(PurgeGuard::returnPath('/admin/activity'));
         }
         $in = implode(',', array_fill(0, count($ids), '?'));
         $db->beginTransaction();
@@ -333,7 +333,7 @@ final class NotificationController
             $replies,
             $emails
         );
-        $this->redirect('/admin/activity');
+        $this->redirect(PurgeGuard::returnPath('/admin/activity'));
     }
 
     /**
@@ -352,7 +352,7 @@ final class NotificationController
             $this->performPurgeAll($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/announcements');
+            $this->redirect(PurgeGuard::returnPath('/admin/announcements'));
         }
     }
 
@@ -364,7 +364,7 @@ final class NotificationController
         $ids = array_map('intval', $db->query('SELECT id FROM notifications ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
         if ($ids === []) {
             $_SESSION['_flash'] = 'The announcement board is already empty.';
-            $this->redirect('/admin/announcements');
+            $this->redirect(PurgeGuard::returnPath('/admin/announcements'));
         }
         $in = implode(',', array_fill(0, count($ids), '?'));
         $db->beginTransaction();
@@ -395,7 +395,7 @@ final class NotificationController
             $recipients,
             $replies
         );
-        $this->redirect('/admin/announcements');
+        $this->redirect(PurgeGuard::returnPath('/admin/announcements'));
     }
 
     public function studentIndex(): void

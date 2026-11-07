@@ -280,7 +280,7 @@ final class StudentManagementController
             $this->performPurgeAll($admin);
         } catch (\Throwable $exception) {
             $_SESSION['_flash_error'] = $exception->getMessage();
-            $this->redirect('/admin/students');
+            $this->redirect(PurgeGuard::returnPath('/admin/students'));
         }
     }
 
@@ -294,7 +294,7 @@ final class StudentManagementController
         $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
         if ($total === 0) {
             $_SESSION['_flash'] = 'There are no student accounts to delete.';
-            $this->redirect('/admin/students');
+            $this->redirect(PurgeGuard::returnPath('/admin/students'));
         }
         // Every child row is written against this subquery instead of a placeholder list, so a
         // directory with thousands of test accounts purges in one statement per table.
@@ -387,7 +387,7 @@ final class StudentManagementController
             $deleted['accounts'],
             $files > 0 ? ' ' . $files . ' uploaded file(s) were removed from storage.' : ''
         );
-        $this->redirect('/admin/students');
+        $this->redirect(PurgeGuard::returnPath('/admin/students'));
     }
 
     private function redirect(string $path): never
