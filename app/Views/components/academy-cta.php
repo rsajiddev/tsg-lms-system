@@ -16,9 +16,10 @@ $ctaPrimaryHref = isset($ctaPrimaryHref) && is_string($ctaPrimaryHref) ? $ctaPri
     <div class="cta-content">
         <p class="cta-kicker"><span aria-hidden="true"></span><?= Security::escape($ctaKicker) ?></p>
         <h2><?= Security::escape($ctaTitle) ?></h2>
-        <p><?= Security::escape($ctaDescription) ?></p>
+        <p class="cta-description"><?= Security::escape($ctaDescription) ?></p>
         <div class="cta-actions">
             <a class="cta-primary" href="<?= Security::escape($ctaPrimaryHref) ?>"><?= Security::escape($ctaPrimaryLabel) ?> <span class="cta-arrow" aria-hidden="true">→</span></a>
         </div>
+        <p class="cta-signature">TECH SG ACADEMY <span aria-hidden="true">·</span> LEARN · BUILD · GROW</p>
     </div>
 </section>

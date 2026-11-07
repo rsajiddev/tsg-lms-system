@@ -3884,138 +3884,170 @@ html.js [data-reveal].is-visible.dash-card:hover {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  margin: 64px auto 34px;
-  padding: clamp(38px, 6vw, 66px) clamp(24px, 5vw, 70px);
-  width: min(1120px, calc(100% - 40px));
-  border: 0;
-  border-radius: 26px;
-  background: linear-gradient(122deg, #002147 0%, #123a75 55%, #2b5aa6 100%);
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  margin: 64px 0 34px;
+  padding: clamp(42px, 6vw, 68px) clamp(20px, 5vw, 72px);
+  width: 100%;
+  border: 1px solid #ffffff26;
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 74% 100%, #1762b9 0, transparent 48%),
+    linear-gradient(125deg, #071b36 0%, #002b60 52%, #0750a2 100%);
   color: #fff;
-  text-align: left;
-  box-shadow: 0 24px 60px #00214726
+  text-align: center;
+  box-shadow: 0 22px 54px #00214725
 }
 
-/* Soft translucent wave sweeping in from the right edge, as a blurred ribbon. */
 .cta-banner::before {
   content: "";
   position: absolute;
   z-index: 0;
-  top: 50%;
-  right: -7%;
-  width: 46%;
-  aspect-ratio: 1.5;
-  transform: translateY(-50%) rotate(-36deg);
-  border-radius: 46% 54% 46% 54% / 54% 46% 54% 46%;
-  border-top: 3px solid #ffffffb3;
-  border-bottom: 3px solid #ffffff40;
-  background: linear-gradient(180deg, #ffffff2e, #ffffff08);
-  filter: blur(16px)
+  top: -34%;
+  left: -9%;
+  width: min(48%, 470px);
+  aspect-ratio: 1;
+  border: 1px solid #ffffff17;
+  border-radius: 50%;
+  background: #ffffff08;
+  box-shadow: 0 0 0 40px #ffffff05, 0 0 0 82px #ffffff04;
+  pointer-events: none
 }
 
-/* Faint glow escaping from the top-right corner. */
 .cta-banner::after {
   content: "";
   position: absolute;
   z-index: 0;
-  top: -170px;
-  right: -110px;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #ffffff26 0%, #ffffff00 70%)
+  inset: 0 0 0 auto;
+  width: min(43%, 440px);
+  background:
+    radial-gradient(circle, #ffffff30 1px, transparent 1.6px) 0 0 / 13px 13px,
+    radial-gradient(ellipse at 100% 50%, #ffffff16 0, transparent 68%);
+  opacity: .48;
+  mask-image: linear-gradient(90deg, transparent, #000 48%);
+  pointer-events: none
 }
 
 .cta-content {
   position: relative;
   z-index: 1;
   min-width: 0;
-  max-width: 620px
+  width: min(100%, 720px);
+  margin: 0 auto
 }
 
 .cta-kicker {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 18px;
-  color: #b9cde8;
-  font-size: 11px;
+  margin: 0 0 17px;
+  color: #c1d5ef;
+  font-size: 10px;
   font-weight: 850;
-  letter-spacing: .22em
+  letter-spacing: .2em
 }
 
 .cta-kicker span {
-  width: 26px;
-  height: 2px;
-  border-radius: 2px;
-  background: #ffffff8c
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f7c96a;
+  box-shadow: 0 0 0 5px #f7c96a22
 }
 
 .cta-banner h2 {
   margin: 0;
   color: #fff;
-  font-size: clamp(32px, 4.4vw, 48px);
-  font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -.035em
+  font-size: clamp(36px, 5vw, 58px);
+  font-weight: 850;
+  line-height: 1.06;
+  letter-spacing: -.05em;
+  text-wrap: balance
 }
 
-.cta-content>p:not(.cta-kicker) {
-  max-width: 480px;
-  margin: 16px 0 0;
-  color: #c3cee2;
-  font-size: 15px;
+.cta-description {
+  max-width: 560px;
+  margin: 14px auto 0;
+  color: #d3e1f3;
+  font-size: 14px;
   line-height: 1.75
 }
 
 .cta-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 11px;
-  margin-top: 28px
+  margin-top: 24px
 }
 
 .cta-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 0 22px;
-  border: 1px solid #fff;
+  gap: 16px;
+  min-height: 58px;
+  padding: 7px 8px 7px 22px;
+  border: 1px solid #ffffffa8;
   border-radius: 999px;
-  background: #f4f7fd;
-  color: #002147;
+  background: #f7faff;
+  color: #102b4b;
+  font-size: 13px;
   font-weight: 800;
   text-decoration: none;
-  box-shadow: 0 12px 28px #07152f30;
-  transition: background .2s ease, box-shadow .2s ease
+  box-shadow: 0 10px 28px #061a3540;
+  transition: background .2s ease, box-shadow .2s ease, transform .2s ease
 }
 
 .cta-primary:hover {
+  transform: translateY(-2px);
   background: #fff;
-  box-shadow: 0 16px 38px #07152f5c
+  box-shadow: 0 14px 32px #061a355c
 }
 
 .cta-arrow {
-  font-size: 17px;
-  transition: transform .2s ease
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #0c2e55;
+  color: #fff;
+  font-size: 18px;
+  transition: transform .2s ease, background .2s ease
 }
 
 .cta-primary:hover .cta-arrow {
-  transform: translateX(3px)
+  transform: translateX(2px);
+  background: #164b82
+}
+
+.cta-signature {
+  margin: 27px 0 0;
+  color: #c4d5e9;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .18em
 }
 
 @media(max-width:760px) {
   .cta-banner {
-    margin-block: 44px 28px;
-    padding-block: clamp(30px, 8vw, 44px)
+    min-height: 330px;
+    margin-block: 48px 28px;
+    padding-block: clamp(38px, 8vw, 54px)
   }
 
   .cta-banner::before {
-    width: 74%;
-    right: -16%;
+    top: -25%;
+    left: -22%;
+    width: 68%;
     opacity: .8
+  }
+
+  .cta-banner::after {
+    width: 58%
   }
 }
 
@@ -22528,7 +22560,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   overflow: hidden;
   width: 100vw;
   margin: 8px calc(50% - 50vw) 0;
-  border-radius: 0 0 24px 24px;
+  border-radius: 0;
   background: #10243b;
   color: #fff
 }
@@ -23437,7 +23469,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
 @media(max-width:760px) {
   .about-page .about-hero {
     min-height: 660px;
-    border-radius: 0 0 18px 18px
+    border-radius: 0
   }
 
   .about-hero-content {
@@ -23509,7 +23541,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   .about-page .about-hero {
     min-height: 620px;
     margin-top: 4px;
-    border-radius: 0 0 15px 15px
+    border-radius: 0
   }
 
   .about-hero-image {
@@ -23764,8 +23796,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   }
 
   .about-page .cta-banner {
-    margin-top: 44px;
-    border-radius: 18px
+    margin-top: 44px
   }
 }
 
