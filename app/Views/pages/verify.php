@@ -27,20 +27,30 @@ $formatDate = static function (?string $value): string {
     return $timestamp === false ? '—' : gmdate('j F Y', $timestamp);
 };
 ?>
-<section class="verify-hero">
+<div class="verify-page">
+<section class="verify-hero" aria-labelledby="verify-page-title">
+    <div class="verify-hero-wordmark" aria-hidden="true"><span>TSG</span><span>ACADEMY</span></div>
     <div class="verify-hero-inner">
-        <p class="verify-eyebrow"><span aria-hidden="true">🔍</span> Certificate verification</p>
-        <h1>Verify a <span>Certificate</span></h1>
+        <p class="verify-eyebrow"><span aria-hidden="true">01</span> TECH SG ACADEMY · CERTIFICATE REGISTER</p>
+        <h1 id="verify-page-title">Verify a <span>Certificate</span></h1>
         <p>Check official Tech SG Academy certificates or clearly marked test-only samples — instantly, with no email and no waiting.</p>
     </div>
 </section>
 
 <section class="verify-search-section">
     <form class="verify-search-card" method="get" action="<?= $escape($baseUrl) ?>/verify" role="search">
-        <label class="sr-only" for="cert-id">Academy ID or exact name</label>
+        <div class="verify-search-heading">
+            <div>
+                <p class="verify-section-kicker">INSTANT RECORD LOOKUP</p>
+                <h2>Search the certificate register</h2>
+            </div>
+            <span class="verify-search-badge">PUBLIC LOOKUP</span>
+        </div>
+        <label class="verify-search-label" for="cert-id">Academy ID or exact student name</label>
         <div class="verify-search-field">
-            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="Academy ID or exact name" autocomplete="off" spellcheck="false" maxlength="120" required>
-            <button class="button verify-search-button" type="submit">Verify</button>
+            <span class="verify-search-icon" aria-hidden="true"></span>
+            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="e.g. TSG-CER-001" autocomplete="off" spellcheck="false" maxlength="120" required>
+            <button class="button verify-search-button" type="submit">Verify certificate <span aria-hidden="true">→</span></button>
         </div>
         <p class="verify-search-hint">Search official certificates with the student's Academy ID, for example <strong>TSG-CER-001</strong>. Test-only sample certificates can also be found by the student's exact full name; those results are clearly marked and are not official certificates.</p>
     </form>
@@ -48,10 +58,14 @@ $formatDate = static function (?string $value): string {
 
 <section class="verify-result-section">
     <?php if ($state === 'empty'): ?>
+        <div class="verify-stats-heading">
+            <p class="verify-section-kicker">CLEAR · SIMPLE · ACCESSIBLE</p>
+            <h2>Verification you can trust</h2>
+        </div>
         <div class="verify-stats">
-            <article><strong>Instant</strong><span>Online verification</span></article>
-            <article><strong>Courses &amp; workshops</strong><span>Both verified here</span></article>
-            <article><strong>Free</strong><span>For everyone</span></article>
+            <article><span class="verify-stat-number">01</span><strong>Instant</strong><span>Online verification</span></article>
+            <article><span class="verify-stat-number">02</span><strong>Courses &amp; workshops</strong><span>Both verified here</span></article>
+            <article><span class="verify-stat-number">03</span><strong>Free</strong><span>For everyone</span></article>
         </div>
     <?php elseif (in_array($state, ['valid', 'expired', 'revoked'], true) && $certificates !== []): ?>
         <?php if (count($certificates) > 1): ?>
@@ -163,11 +177,13 @@ $formatDate = static function (?string $value): string {
 </section>
 
 <section class="verify-how">
+    <p class="verify-section-kicker">A SIMPLE, TRANSPARENT PROCESS</p>
     <h2>How verification works</h2>
+    <p class="verify-how-intro">Every certificate is checked against the Academy's records, so anyone can confirm its details with confidence.</p>
     <div class="verify-how-grid">
-        <article><span class="verify-step" aria-hidden="true">1</span><h3>Finish your course</h3><p>Complete every published lesson, then request your certificate from <strong>My courses</strong> in your student workspace.</p></article>
-        <article><span class="verify-step" aria-hidden="true">2</span><h3>The academy issues it</h3><p>An admin reviews the request and publishes a signed certificate under your Academy ID, with its own validity period.</p></article>
-        <article><span class="verify-step" aria-hidden="true">3</span><h3>Anyone can confirm it</h3><p>Share your Academy ID or the verification link — employers and institutions can check every certificate behind it here without an account.</p></article>
+        <article><span class="verify-step" aria-hidden="true">01</span><h3>Finish your course</h3><p>Complete every published lesson, then request your certificate from <strong>My courses</strong> in your student workspace.</p></article>
+        <article><span class="verify-step" aria-hidden="true">02</span><h3>The academy issues it</h3><p>An admin reviews the request and publishes a signed certificate under your Academy ID, with its own validity period.</p></article>
+        <article><span class="verify-step" aria-hidden="true">03</span><h3>Anyone can confirm it</h3><p>Share your Academy ID or the verification link — employers and institutions can check every certificate behind it here without an account.</p></article>
     </div>
 </section>
 <?php
@@ -178,3 +194,4 @@ $ctaPrimaryLabel = 'Browse courses';
 $ctaPrimaryHref = $baseUrl . '/courses';
 require BASE_PATH . '/app/Views/components/academy-cta.php';
 ?>
+</div>

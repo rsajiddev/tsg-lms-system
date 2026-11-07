@@ -77,11 +77,31 @@ $faqIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="
         </div>
     </div>
 </section>
-<section class="stats-band" data-reveal aria-label="Academy highlights">
-    <div class="stat-card"><span class="stat-num" data-count="13" data-suffix="+">13+</span><span class="stat-label">Projects delivered by our team</span></div>
-    <div class="stat-card"><span class="stat-num" data-count="5" data-suffix="+">5+</span><span class="stat-label">Countries served worldwide</span></div>
-    <div class="stat-card"><span class="stat-num" data-count="100" data-suffix="%">100%</span><span class="stat-label">Practical, project-based learning</span></div>
-    <div class="stat-card"><span class="stat-num" data-count="2" data-suffix="h">2h</span><span class="stat-label">Average response time</span></div>
+<section class="stats-band home-stats-band" data-reveal aria-labelledby="home-stats-title">
+    <header class="home-stats-heading">
+        <p class="eyebrow">TRACK RECORD</p>
+        <h2 id="home-stats-title">Our Project Experience</h2>
+    </header>
+    <div class="home-stats-grid">
+        <article class="stat-card home-stat-card home-stat-projects" data-step="01">
+            <strong class="stat-num" data-count="13" data-suffix="+">13+</strong>
+            <h3 class="stat-label">Projects delivered</h3>
+            <p>Successfully delivered by our team</p>
+            <span class="home-stat-step">STEP 01 <span aria-hidden="true">•</span></span>
+        </article>
+        <article class="stat-card home-stat-card home-stat-countries" data-step="02">
+            <strong class="stat-num" data-count="5" data-suffix="+">5+</strong>
+            <h3 class="stat-label">Countries served</h3>
+            <p>Working with clients around the world</p>
+            <span class="home-stat-step">STEP 02 <span aria-hidden="true">•</span></span>
+        </article>
+        <article class="stat-card home-stat-card home-stat-learning" data-step="03">
+            <strong class="stat-num" data-count="100" data-suffix="%">100%</strong>
+            <h3 class="stat-label">Practical learning</h3>
+            <p>Project-based training from day one</p>
+            <span class="home-stat-step">STEP 03 <span aria-hidden="true">•</span></span>
+        </article>
+    </div>
 </section>
 <section class="home-courses" data-reveal>
     <div class="section-heading">
