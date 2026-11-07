@@ -47,6 +47,7 @@ foreach (
         '/app/Services/AttendanceService.php',
         '/app/Services/LessonProtection.php',
         '/app/Services/SessionRegistry.php',
+        '/app/Services/ReportSharing.php',
         '/app/Controllers/DashboardController.php',
         '/app/Controllers/AdminManagementController.php',
         '/app/Controllers/NotificationController.php',
@@ -59,6 +60,7 @@ foreach (
         '/app/Controllers/StudentManagementController.php',
         '/app/Controllers/StudentPortalController.php',
         '/app/Controllers/CertificateController.php',
+        '/app/Controllers/ReportsController.php',
     ] as $file
 ) {
     require BASE_PATH . $file;
@@ -78,12 +80,14 @@ use App\Controllers\StudentManagementController;
 use App\Controllers\DashboardController;
 use App\Controllers\NotificationController;
 use App\Controllers\QuizController;
+use App\Controllers\ReportsController;
 use App\Services\AccessPlan;
 use App\Services\AccountIdentity;
 use App\Services\AdminAttention;
 use App\Services\ChatService;
 use App\Services\LessonProtection;
 use App\Services\NotificationService;
+use App\Services\ReportSharing;
 use App\Services\SessionRegistry;
 
 Env::load(BASE_PATH . '/.env');
@@ -171,7 +175,7 @@ $hasColumn = static function (string $table, string $column) use ($mysql, $crede
         . "' AND table_name='" . $table . "' AND column_name='" . $column . "'"
     ))) === '1';
 };
-$liveColumns = [['lessons', 'meeting_url'], ['lessons', 'meeting_at'], ['payments', 'plan_code'], ['student_course_access', 'plan_code']];
+$liveColumns = [['lessons', 'meeting_url'], ['lessons', 'meeting_platform'], ['lessons', 'meeting_at'], ['payments', 'plan_code'], ['student_course_access', 'plan_code']];
 $names = static fn(array $pairs): string => implode(', ', array_map(static fn(array $pair): string => $pair[0] . '.' . $pair[1], $pairs));
 $missingColumns = array_values(array_filter($liveColumns, static fn(array $pair): bool => !$hasColumn($pair[0], $pair[1])));
 if ($missingColumns !== []) {
@@ -297,6 +301,7 @@ $insertUser->execute(['Render Smoke Admin', $adminEmail, 'unusable-hash', 'admin
 $adminId = (int) $db->lastInsertId();
 $insertUser->execute(['Render Smoke Student', $studentEmail, 'unusable-hash', 'student']);
 $studentId = (int) $db->lastInsertId();
+$db->prepare("UPDATE users SET created_at='2026-09-01 00:00:00' WHERE id=?")->execute([$studentId]);
 $db->prepare("INSERT INTO courses(title,slug,visibility,created_by) VALUES('Render Smoke Course','render-smoke-course','published',?)")->execute([$adminId]);
 $courseId = (int) $db->lastInsertId();
 $db->prepare('INSERT INTO course_modules(course_id,title) VALUES(?,?)')->execute([$courseId, 'Smoke module']);
@@ -309,6 +314,38 @@ $db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,c
 $quizId = (int) $db->lastInsertId();
 $db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")->execute([$courseId, 'Smoke assignment', $adminId]);
 $assignmentId = (int) $db->lastInsertId();
+$db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at,marked_at) VALUES(?,'2026-10-31','present','2026-10-31 08:00:00','2026-10-31 08:05:00','2026-10-31 08:01:00')")
+    ->execute([$studentId]);
+$reportMethod = new ReflectionMethod(ReportsController::class, 'reports');
+$reportMethod->setAccessible(true);
+$studentReports = $reportMethod->invoke(new ReportsController(), $db, [
+    'key' => 'monthly', 'label' => 'Monthly', 'start' => '2026-10-01 00:00:00', 'end' => '2026-11-01 00:00:00',
+    'start_date' => 'Oct 1, 2026', 'end_date' => 'Oct 31, 2026',
+]);
+$attendanceRow = array_values(array_filter(
+    $studentReports['students']['rows'],
+    static fn(array $row): bool => $row[0] === 'Render Smoke Student'
+))[0] ?? null;
+$assert(is_array($attendanceRow) && $attendanceRow[4] === '1' && $attendanceRow[5] === '30' && $attendanceRow[6] === '3.2%',
+    'A single present day in October is reported as 1/31, not 100%.',
+    'The monthly report did not divide the present mark by 31 elapsed calendar days.');
+$sharedStudentReport = ReportSharing::studentReport($db, [
+    'id' => 1, 'report_type' => 'students', 'period_key' => 'monthly',
+    'period_start' => '2026-10-01 00:00:00', 'period_end' => '2026-11-01 00:00:00',
+], $studentId);
+$sharedAttendanceRow = $sharedStudentReport['rows'][0] ?? null;
+$assert(is_array($sharedAttendanceRow) && is_array($attendanceRow) && $sharedAttendanceRow[1] === $attendanceRow[1]
+    && $sharedAttendanceRow[4] === '1' && $sharedAttendanceRow[5] === '30' && $sharedAttendanceRow[6] === '3.2%',
+    'A shared activity report uses the same Academy ID and 1/31 attendance ratio.',
+    'The shared activity report diverged from the admin attendance calculation or account ID.');
+$sharedDailyReport = ReportSharing::studentReport($db, [
+    'id' => 2, 'report_type' => 'attendance', 'period_key' => 'monthly',
+    'period_start' => '2026-10-01 00:00:00', 'period_end' => '2026-11-01 00:00:00',
+], $studentId);
+$assert(count($sharedDailyReport['rows']) === 31 && $sharedDailyReport['rows'][0][3] === 'Present'
+    && $sharedDailyReport['rows'][1][3] === 'Absent' && $sharedDailyReport['metrics'][2]['value'] === '30',
+    'A shared daily attendance report includes unmarked past calendar days as absent.',
+    'A shared daily attendance report omitted inferred absences.');
 
 $notifier = new NotificationService($db);
 // Links are written exactly as the controllers write them, because the badge a student sees is
@@ -381,6 +418,9 @@ $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $checkPage('Admin dashboard', '/dashboard', static fn() => (new DashboardController())->show(), [
     'dashboard-side-nav',
     'My account',
+    'Today’s attendance &amp; student progress',
+    'Attendance by student',
+    'Present today',
 ]);
 // The board is publishing only now: the reports it used to carry have their own page, and the
 // messages have theirs, so a reader is handed a link rather than a second table.
@@ -474,6 +514,7 @@ $_GET = [];
 $assert(str_contains($detailHtml, 'ID TSG-CER-2026-001'), 'The student detail card prints the ID the row prints.',
     'The detail card shows a different number from the directory row it came from.');
 $db->exec('UPDATE users SET account_reference = NULL WHERE id = ' . (int) $studentId);
+AccountIdentity::forget($studentId);
 $checkPage('Admin account settings', '/admin/account', static fn() => (new AccountController())->adminSettings(), [
     'Admin ID',
     'current_password',
@@ -496,7 +537,20 @@ $checkPage('Student dashboard badges', '/dashboard', static fn() => (new Dashboa
     'Notifications',
     'Account settings',
     '/student/settings',
+    'attendance-rate-ring',
+    'Attendance rate over the last 30 days',
+    'Last 30 days',
 ]);
+$db->prepare("UPDATE student_course_access SET status='revoked', revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=?")
+    ->execute([$studentId, $courseId]);
+$ineligibleAttendanceHtml = $render(static fn() => (new DashboardController())->show());
+$assert(str_contains($ineligibleAttendanceHtml, 'Unlocks with course access')
+    && !str_contains($ineligibleAttendanceHtml, 'attendance-rate-ring')
+    && !str_contains($ineligibleAttendanceHtml, 'Mark me present'),
+    'A student without current course access sees no attendance progress or mark action.',
+    'Attendance controls are visible after course access has been revoked.');
+$db->prepare("UPDATE student_course_access SET status='active', revoked_at=NULL WHERE student_id=? AND course_id=?")
+    ->execute([$studentId, $courseId]);
 $checkPage('Student inbox', '/notifications', static fn() => (new NotificationController())->studentIndex(), [
     'Assignment graded',
     'Payment approved',
@@ -527,12 +581,14 @@ $assert(!str_contains($unreadAgainHtml, '/chats/clear') && !str_contains($unread
     'A conversation action leaked onto the notifications page.');
 $checkPage('Student account settings', '/student/settings', static fn() => (new AccountController())->studentSettings(), [
     'Student ID',
-    'TSG-STU-',
     'new_password',
     'readonly',
     'account-settings-page',
 ]);
 $html = $render(static fn() => (new AccountController())->studentSettings());
+$studentReference = trim((string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn());
+$assert($studentReference !== '' && str_contains($html, $studentReference), 'Student account settings show the stored admin-formatted ID.',
+    'Student account settings did not show the stored admin-formatted ID.');
 $assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered the ID scheme card.',
     'The student settings page exposes the scheme an admin owns.');
 $assert(stripos($html, 'account-id-input') === false, 'A student sees their ID as read-only text.',
@@ -931,14 +987,18 @@ $classStart = gmdate('Y-m-d H:i:s', (time() + 30 * 86400));
 // moves the class by the admin's or the student's own timezone.
 $classLabel = gmdate('M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
 $classSpelling = gmdate('D, M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
-$db->prepare('UPDATE lessons SET meeting_url = ?, meeting_at = ? WHERE id = ?')->execute([$meetingAddress, $classStart, $lessonId]);
+$db->prepare('UPDATE lessons SET meeting_url = ?, meeting_platform = ?, meeting_at = ? WHERE id = ?')->execute([$meetingAddress, 'google_meet', $classStart, $lessonId]);
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $lessonsHtml = $render(static fn() => (new CourseAdminController())->lessons());
 foreach ([
     'name="meeting_url"',
+    'name="meeting_platform"',
     'name="meeting_at"',
-    'Live class link',
+    'Live meeting platform',
+    'Live meeting URL (optional)',
+    'Recorded video URL (optional)',
+    'Video length (optional)',
     'Class date &amp; time (UTC)',
     'https://zoom.us/j/... or https://meet.google.com/abc-defg-hij',
     'cannot follow a student into a Zoom',
@@ -948,8 +1008,8 @@ foreach ([
 }
 // The same two fields belong in the inline editor as well, or an admin could set a link once and
 // never change it. Two of each control, and the stored address prefilled in the editor.
-$assert(substr_count($lessonsHtml, 'name="meeting_url"') === 2 && substr_count($lessonsHtml, 'name="meeting_at"') === 2,
-    'Add card and inline editor each carry one link field and one class time field.',
+$assert(substr_count($lessonsHtml, 'name="video_url"') === 2 && substr_count($lessonsHtml, 'name="video_duration"') === 2 && substr_count($lessonsHtml, 'name="meeting_url"') === 2 && substr_count($lessonsHtml, 'name="meeting_platform"') === 2 && substr_count($lessonsHtml, 'name="meeting_at"') === 2,
+    'Add card and inline editor each carry distinct recorded-video and meeting fields.',
     'The library renders ' . substr_count($lessonsHtml, 'name="meeting_url"') . ' link fields; both the add card and the editor need one.');
 $assert(str_contains($lessonsHtml, 'value="' . $meetingAddress . '"'), 'The editor opens with the address the lesson already holds.',
     'The inline editor does not prefill ' . $meetingAddress . '.');
@@ -985,11 +1045,14 @@ $liveHtml = $render(static fn() => \App\Core\View::render('learning/lesson', [
     'title' => 'Smoke lesson',
     'user' => ['id' => $studentId, 'name' => 'Render Smoke Student', 'email' => $studentEmail, 'role' => 'student'],
     'lesson' => $lessonRow,
-    'liveClass' => ['url' => $meetingAddress, 'at' => $classStart],
+    'liveClass' => ['url' => $meetingAddress, 'at' => $classStart, 'platform' => 'google_meet'],
 ]));
-$assert(str_contains($liveHtml, 'href="' . $meetingAddress . '"') && str_contains($liveHtml, 'Open live class'),
+$assert(str_contains($liveHtml, 'href="' . $meetingAddress . '"') && str_contains($liveHtml, 'Open live class') && str_contains($liveHtml, 'GOOGLE MEET LIVE CLASS'),
     'A lesson page handed the class prints the address and a button to open it.',
     'The live class card did not render the address it was given.');
+$assert(!str_contains($liveHtml, 'lesson-player') && !str_contains($liveHtml, 'recording below'),
+    'A live-only lesson has neither an empty player nor copy implying a recording exists.',
+    'The live-only lesson rendered a player or promised a missing recording.');
 $assert(str_contains($liveHtml, 'rel="noopener noreferrer"') && str_contains($liveHtml, 'target="_blank"'),
     'The meeting opens in its own tab, cut off from the lesson page that sent the student there.',
     'The live class button opens without noopener, so the meeting window can reach back to the LMS.');
@@ -1010,7 +1073,7 @@ foreach ([$meetingAddress, 'meet.google.com', 'Open live class', 'lesson-live-cl
 }
 $assert(str_contains($closedHtml, 'Lesson body.'), 'The recording and the lesson text are untouched for that student.',
     'Closing the live class took the lesson page down with it.');
-$db->prepare('UPDATE lessons SET meeting_url = NULL, meeting_at = NULL WHERE id = ?')->execute([$lessonId]);
+$db->prepare('UPDATE lessons SET meeting_url = NULL, meeting_platform = NULL, meeting_at = NULL WHERE id = ?')->execute([$lessonId]);
 
 /* ------------------------------------------------------- work waiting on the Academy */
 // A student can leave six kinds of work sitting on the Academy. Each has to be countable straight

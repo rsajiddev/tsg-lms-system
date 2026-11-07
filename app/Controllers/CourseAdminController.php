@@ -48,6 +48,7 @@ final class CourseAdminController
         $media = new LessonMedia($db);
         $videosAvailable = $this->lessonVideoColumnsAvailable($db);
         $liveClassesAvailable = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at');
+        $meetingPlatformAvailable = AccessPlan::columnStored($db, 'lessons.meeting_platform');
         $watchAvailable = $media->available();
         $search = substr(trim((string) ($_GET['q'] ?? '')), 0, 120);
         $courseId = max(0, (int) ($_GET['course_id'] ?? 0));
@@ -94,6 +95,7 @@ final class CourseAdminController
         $meetingColumns = $liveClassesAvailable
             ? 'l.meeting_url,l.meeting_at'
             : 'NULL AS meeting_url,NULL AS meeting_at';
+        $meetingPlatformColumn = $meetingPlatformAvailable ? 'l.meeting_platform' : 'NULL AS meeting_platform';
         $from = 'FROM lessons l JOIN course_modules cm ON cm.id = l.module_id JOIN courses c ON c.id = cm.course_id';
         $count = $db->prepare("SELECT COUNT(*) $from$where");
         $count->execute($params);
@@ -115,7 +117,7 @@ final class CourseAdminController
         $watchColumn = $watchAvailable
             ? '(SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
             : '0 AS watching_count';
-        $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,$meetingColumns,cm.id AS module_id,cm.title AS module_title,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,$meetingColumns,$meetingPlatformColumn,cm.id AS module_id,cm.title AS module_title,
                     c.id AS course_id,c.title AS course_title,c.visibility AS course_visibility,
                     (SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
                     (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
@@ -135,6 +137,7 @@ final class CourseAdminController
             'metrics' => $metrics,
             'videosAvailable' => $videosAvailable,
             'liveClassesAvailable' => $liveClassesAvailable,
+            'meetingPlatformAvailable' => $meetingPlatformAvailable,
             'watchAvailable' => $watchAvailable,
             'watchPercent' => $media->watchPercent(),
             'watchMinPercent' => LessonMedia::MIN_PERCENT,
@@ -319,9 +322,11 @@ final class CourseAdminController
         $videoInput = trim((string)($_POST['video_url'] ?? ''));
         $durationInput = trim((string)($_POST['video_duration'] ?? ''));
         $meetingInput = trim((string)($_POST['meeting_url'] ?? ''));
+        $meetingPlatformInput = $_POST['meeting_platform'] ?? '';
         $meetingTimeInput = trim((string)($_POST['meeting_at'] ?? ''));
         if ($courseId < 1 || mb_strlen($moduleTitle) < 2 || mb_strlen($lessonTitle) < 2 || mb_strlen($lessonTitle) > 200 || !in_array($status, ['draft', 'published'], true) || mb_strlen($body) > 500000) throw new RuntimeException('Enter a valid module and lesson title, content, and publishing status.');
         $videoColumns = $this->lessonVideoColumnsAvailable($db);
+        $meetingPlatformAvailable = AccessPlan::columnStored($db, 'lessons.meeting_platform');
         $videoUrl = LessonMedia::normaliseUrl($videoInput);
         $videoDuration = LessonMedia::parseDuration($durationInput);
         if (mb_strlen($videoInput) > 600) throw new RuntimeException('The lesson video link must stay under 600 characters.');
@@ -336,6 +341,13 @@ final class CourseAdminController
         // The live class link is validated even on a database that has not been re-imported, so an
         // admin who pastes a javascript: address is refused now instead of after the next import.
         $meetingUrl = LessonMedia::normaliseMeetingUrl($meetingInput);
+        $meetingPlatform = LessonMedia::normaliseMeetingPlatform($meetingPlatformInput);
+        if ($meetingUrl !== null && $meetingPlatform === null) {
+            $meetingPlatform = LessonMedia::detectMeetingPlatform($meetingUrl);
+        }
+        if ($meetingUrl !== null && $meetingPlatform === null) {
+            throw new RuntimeException('Choose Google Meet or Zoom as the platform for this live meeting.');
+        }
         $meetingAt = LessonMedia::parseMeetingTime($meetingTimeInput);
         $meetingColumns = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at');
         if ($meetingUrl === null && $meetingAt !== null) {
@@ -372,6 +384,10 @@ final class CourseAdminController
                     $params[] = $meetingUrl;
                     $params[] = $meetingUrl === null ? null : $meetingAt;
                 }
+                if ($meetingPlatformAvailable) {
+                    $assignments .= ',meeting_platform=?';
+                    $params[] = $meetingUrl === null ? null : $meetingPlatform;
+                }
                 $params[] = $lessonId;
                 $params[] = $moduleId;
                 $update = $db->prepare("UPDATE lessons SET $assignments WHERE id=? AND module_id=?");
@@ -401,6 +417,11 @@ final class CourseAdminController
                     $placeholders .= ',?,?';
                     $params[] = $meetingUrl;
                     $params[] = $meetingUrl === null ? null : $meetingAt;
+                }
+                if ($meetingPlatformAvailable) {
+                    $columns .= ',meeting_platform';
+                    $placeholders .= ',?';
+                    $params[] = $meetingUrl === null ? null : $meetingPlatform;
                 }
                 $columns .= ',sort_order';
                 $placeholders .= ',(SELECT COALESCE(MAX(sort_order),0)+1 FROM lessons existing WHERE existing.module_id=?)';

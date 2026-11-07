@@ -8,6 +8,8 @@ use App\Core\AuthMiddleware;
 use App\Core\Database;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\AccountIdentity;
+use App\Services\AttendanceService;
 use App\Services\DocumentPdf;
 use App\Services\NotificationService;
 use App\Services\ReportSharing;
@@ -24,7 +26,13 @@ final class ReportsController
         $period = $this->period($_GET['period'] ?? 'monthly');
         $reports = $this->reports($db, $period);
         // The send panel needs someone to send to, and the admin likes to see what already went out.
-        $students = $db->query("SELECT id, full_name, email FROM users WHERE role = 'student' AND status = 'active' ORDER BY full_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        $students = $db->query("SELECT id, full_name, email, account_reference FROM users WHERE role = 'student' AND status = 'active' ORDER BY full_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($students as &$student) {
+            if (trim((string) ($student['account_reference'] ?? '')) === '') {
+                $student['account_reference'] = AccountIdentity::ensure($db, (int) $student['id']);
+            }
+        }
+        unset($student);
         View::render('admin/reports', [
             'title' => 'Reports', 'user' => $admin, 'period' => $period,
             'reports' => $reports, 'students' => $students, 'shares' => ReportSharing::recent($db, 5),
@@ -200,31 +208,72 @@ final class ReportsController
     private function reports(PDO $db, array $period): array
     {
         $from = $period['start']; $until = $period['end'];
+        (new AttendanceService($db))->closeExpired();
         $attendanceSummary = $db->prepare("SELECT COUNT(*) AS total, SUM(status='present') AS present, SUM(status='absent') AS absent, SUM(status='pending') AS pending FROM attendance_records WHERE attendance_date>=DATE(?) AND attendance_date<DATE(?)");
         $attendanceSummary->execute([$from, $until]);
         $attendanceTotals = $attendanceSummary->fetch(PDO::FETCH_ASSOC) ?: [];
-        $studentRows = $db->prepare("SELECT u.full_name,u.email,u.status,u.last_login_at,COUNT(a.id) AS marked_days,SUM(a.status='present') AS present_days,ROUND(100*SUM(a.status='present')/NULLIF(COUNT(a.id),0),1) AS attendance_rate FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' GROUP BY u.id ORDER BY attendance_rate DESC,u.full_name ASC LIMIT 60");
+        $studentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,u.email,u.status,u.last_login_at,DATE(u.created_at) AS created_date,COALESCE(SUM(a.status='present'),0) AS present_days,MAX(CASE WHEN a.attendance_date=UTC_DATE() THEN a.status ELSE NULL END) AS today_status FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' GROUP BY u.id");
         $studentRows->execute([$from, $until]);
         $studentTotal = (int)$db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
         $studentStatusCounts = $db->query("SELECT status,COUNT(*) AS total FROM users WHERE role='student' GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
-        $attendanceRows = $db->prepare("SELECT a.attendance_date,u.full_name,a.status,a.first_login_at,a.marked_at FROM attendance_records a JOIN users u ON u.id=a.student_id WHERE a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) ORDER BY a.attendance_date DESC,u.full_name LIMIT 60");
+        $attendanceRows = $db->prepare("SELECT a.attendance_date,u.id AS student_id,u.account_reference AS student_reference,u.full_name,a.status,a.first_login_at,a.marked_at FROM attendance_records a JOIN users u ON u.id=a.student_id WHERE a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) ORDER BY a.attendance_date DESC,u.full_name LIMIT 60");
         $attendanceRows->execute([$from, $until]);
-        $quizRows = $db->prepare("SELECT u.full_name,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM quiz_attempts qa JOIN users u ON u.id=qa.student_id JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id WHERE qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
+        $quizRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM quiz_attempts qa JOIN users u ON u.id=qa.student_id JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id WHERE qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
         $quizRows->execute([$from, $until]);
-        $assignmentRows = $db->prepare("SELECT u.full_name,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM assignment_submissions s JOIN users u ON u.id=s.student_id JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id WHERE s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60");
+        $assignmentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM assignment_submissions s JOIN users u ON u.id=s.student_id JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id WHERE s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60");
         $assignmentRows->execute([$from, $until]);
         $quizData = $quizRows->fetchAll(PDO::FETCH_ASSOC);
         $assignmentData = $assignmentRows->fetchAll(PDO::FETCH_ASSOC);
         $studentData = $studentRows->fetchAll(PDO::FETCH_ASSOC);
         $attendanceData = $attendanceRows->fetchAll(PDO::FETCH_ASSOC);
+        $startDate = substr($from, 0, 10);
+        $endDate = substr($until, 0, 10);
+        foreach ($studentData as &$row) {
+            $row['present_days'] = (int) $row['present_days'];
+            $row['expected_days'] = AttendanceService::expectedDays(
+                $startDate,
+                $endDate,
+                (string) $row['created_date'],
+                is_string($row['today_status'] ?? null) ? $row['today_status'] : null
+            );
+            $row['absent_days'] = max(0, $row['expected_days'] - $row['present_days']);
+            $row['attendance_rate'] = $row['expected_days'] > 0
+                ? round($row['present_days'] / $row['expected_days'] * 100, 1)
+                : null;
+        }
+        unset($row);
+        usort($studentData, static function (array $left, array $right): int {
+            if ($left['attendance_rate'] === null) return $right['attendance_rate'] === null ? strcmp($left['full_name'], $right['full_name']) : 1;
+            if ($right['attendance_rate'] === null) return -1;
+            return ((float) $right['attendance_rate'] <=> (float) $left['attendance_rate'])
+                ?: strcmp($left['full_name'], $right['full_name']);
+        });
+        $expectedStudentDays = array_sum(array_column($studentData, 'expected_days'));
+        $presentStudentDays = array_sum(array_column($studentData, 'present_days'));
+        $studentData = $this->ensureStudentReferences($db, array_slice($studentData, 0, 60));
+        $attendanceData = $this->ensureStudentReferences($db, $attendanceData);
+        $quizData = $this->ensureStudentReferences($db, $quizData);
+        $assignmentData = $this->ensureStudentReferences($db, $assignmentData);
         $passCount = count(array_filter($quizData, static fn($row): bool => ($row['result'] ?? '') === 'pass'));
         $assignmentReviewed = count(array_filter($assignmentData, static fn($row): bool => ($row['status'] ?? '') === 'reviewed'));
         $dateLabel = $period['start_date'] . ' – ' . $period['end_date'];
         return [
-            'students' => ['type'=>'students','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Student activity and attendance','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Student accounts','value'=>(string)$studentTotal],['label'=>'Present days','value'=>(string)(int)($attendanceTotals['present'] ?? 0)],['label'=>'Attendance rate','value'=>((int)($attendanceTotals['total'] ?? 0) ? number_format(100*(int)($attendanceTotals['present'] ?? 0)/(int)$attendanceTotals['total'],1).'%' : '—')]],'chart'=>array_map(static fn($state,$count)=>['label'=>ucfirst((string)$state).' accounts','value'=>(float)$count],array_keys($studentStatusCounts),array_values($studentStatusCounts)),'columns'=>['Student','Email','State','Present days','Attendance'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['email'],$r['status'],(string)(int)$r['present_days'],($r['attendance_rate'] ?? null) !== null ? $r['attendance_rate'].'%' : '—'],$studentData)],
-            'attendance' => ['type'=>'attendance','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Attendance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Records','value'=>(string)(int)($attendanceTotals['total'] ?? 0)],['label'=>'Present','value'=>(string)(int)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(string)(int)($attendanceTotals['absent'] ?? 0)]],'chart'=>[['label'=>'Present','value'=>(float)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(float)($attendanceTotals['absent'] ?? 0)],['label'=>'Pending','value'=>(float)($attendanceTotals['pending'] ?? 0)]],'columns'=>['Date','Student','Status','First login','Confirmed'],'rows'=>array_map(static fn($r)=>[$r['attendance_date'],$r['full_name'],ucfirst($r['status']),$r['first_login_at'],$r['marked_at'] ?: '—'],$attendanceData)],
-            'quizzes' => ['type'=>'quizzes','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Quiz performance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submitted attempts','value'=>(string)count($quizData)],['label'=>'Passed','value'=>(string)$passCount],['label'=>'Failed','value'=>(string)(count($quizData)-$passCount)]],'chart'=>[['label'=>'Passed attempts','value'=>(float)$passCount],['label'=>'Failed attempts','value'=>(float)(count($quizData)-$passCount)]],'columns'=>['Student','Course','Quiz','Score','Result'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['course_title'],$r['quiz_title'],($r['score'] ?? '—').'/'.($r['total_marks'] ?? '—'),strtoupper((string)($r['result'] ?? 'pending'))],$quizData)],
-            'assignments' => ['type'=>'assignments','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Assignment submissions report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submissions','value'=>(string)count($assignmentData)],['label'=>'Reviewed','value'=>(string)$assignmentReviewed],['label'=>'Awaiting review','value'=>(string)(count($assignmentData)-$assignmentReviewed)]],'chart'=>[['label'=>'Reviewed','value'=>(float)$assignmentReviewed],['label'=>'Awaiting review','value'=>(float)(count($assignmentData)-$assignmentReviewed)]],'columns'=>['Student','Course','Assignment','Status','Marks'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['course_title'],$r['assignment_title'],ucwords(str_replace('_',' ',$r['status'])),($r['marks_awarded'] ?? '—').'/'.$r['max_marks']],$assignmentData)],
+            'students' => ['type'=>'students','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Student activity and attendance','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Student accounts','value'=>(string)$studentTotal],['label'=>'Present days','value'=>(string)$presentStudentDays],['label'=>'Attendance rate','value'=>($expectedStudentDays > 0 ? number_format(100*$presentStudentDays/$expectedStudentDays,1).'%' : '—')]],'chart'=>array_map(static fn($state,$count)=>['label'=>ucfirst((string)$state).' accounts','value'=>(float)$count],array_keys($studentStatusCounts),array_values($studentStatusCounts)),'columns'=>['Student','Student ID','Email','State','Present days','Absent days','Attendance'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['student_reference'],$r['email'],$r['status'],(string)$r['present_days'],(string)$r['absent_days'],$r['attendance_rate'] !== null ? $r['attendance_rate'].'%' : '—'],$studentData)],
+            'attendance' => ['type'=>'attendance','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Attendance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Records','value'=>(string)(int)($attendanceTotals['total'] ?? 0)],['label'=>'Present','value'=>(string)(int)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(string)(int)($attendanceTotals['absent'] ?? 0)]],'chart'=>[['label'=>'Present','value'=>(float)($attendanceTotals['present'] ?? 0)],['label'=>'Absent','value'=>(float)($attendanceTotals['absent'] ?? 0)],['label'=>'Pending','value'=>(float)($attendanceTotals['pending'] ?? 0)]],'columns'=>['Date','Student','Student ID','Status','First login','Confirmed'],'rows'=>array_map(static fn($r)=>[$r['attendance_date'],$r['full_name'],$r['student_reference'],ucfirst($r['status']),$r['first_login_at'],$r['marked_at'] ?: '—'],$attendanceData)],
+            'quizzes' => ['type'=>'quizzes','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Quiz performance report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submitted attempts','value'=>(string)count($quizData)],['label'=>'Passed','value'=>(string)$passCount],['label'=>'Failed','value'=>(string)(count($quizData)-$passCount)]],'chart'=>[['label'=>'Passed attempts','value'=>(float)$passCount],['label'=>'Failed attempts','value'=>(float)(count($quizData)-$passCount)]],'columns'=>['Student','Student ID','Course','Quiz','Score','Result'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['student_reference'],$r['course_title'],$r['quiz_title'],($r['score'] ?? '—').'/'.($r['total_marks'] ?? '—'),strtoupper((string)($r['result'] ?? 'pending'))],$quizData)],
+            'assignments' => ['type'=>'assignments','period'=>$period['label'],'period_range'=>$dateLabel,'title'=>'Assignment submissions report','generated_at'=>date('M j, Y · g:i A T'),'metrics'=>[['label'=>'Submissions','value'=>(string)count($assignmentData)],['label'=>'Reviewed','value'=>(string)$assignmentReviewed],['label'=>'Awaiting review','value'=>(string)(count($assignmentData)-$assignmentReviewed)]],'chart'=>[['label'=>'Reviewed','value'=>(float)$assignmentReviewed],['label'=>'Awaiting review','value'=>(float)(count($assignmentData)-$assignmentReviewed)]],'columns'=>['Student','Student ID','Course','Assignment','Status','Marks'],'rows'=>array_map(static fn($r)=>[$r['full_name'],$r['student_reference'],$r['course_title'],$r['assignment_title'],ucwords(str_replace('_',' ',$r['status'])),($r['marks_awarded'] ?? '—').'/'.$r['max_marks']],$assignmentData)],
         ];
+    }
+
+    /** Fill in the admin-issued ID for older accounts before any report displays it. */
+    private function ensureStudentReferences(PDO $db, array $rows): array
+    {
+        foreach ($rows as &$row) {
+            if (trim((string) ($row['student_reference'] ?? '')) === '') {
+                $row['student_reference'] = AccountIdentity::ensure($db, (int) $row['student_id']);
+            }
+        }
+        unset($row);
+        return $rows;
     }
 }

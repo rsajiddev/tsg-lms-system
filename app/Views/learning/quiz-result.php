@@ -60,7 +60,7 @@ $resultIcon = static fn(string $name): string => match ($name) {
       </div>
     </header>
     <div class="quiz-result-identity" aria-label="Student and course details">
-      <div><span class="quiz-result-identity-icon"><?= $resultIcon('user') ?></span><div><small>Student</small><strong><?= $escape($attempt['student_name'] ?? 'Student') ?></strong><span>Student ID #<?= (int)$attempt['student_id'] ?></span></div></div>
+      <div><span class="quiz-result-identity-icon"><?= $resultIcon('user') ?></span><div><small>Student</small><strong><?= $escape($attempt['student_name'] ?? 'Student') ?></strong><span>Student ID <?= $escape($attempt['student_reference'] ?? '—') ?></span></div></div>
       <div><span class="quiz-result-identity-icon"><?= $resultIcon('book') ?></span><div><small>Course</small><strong><?= $escape($attempt['course_title']) ?></strong></div></div>
     </div><?php if ($attempt['status'] === 'timed_out'): ?><p class="quiz-result-note">The server deadline expired. Your saved answers were graded.</p><?php elseif ($attempt['status'] === 'auto_submitted'): ?><p class="quiz-result-note">This attempt was submitted when the quiz page lost focus or was hidden.</p><?php endif; ?><div class="quiz-result-actions"><a class="button" href="<?= $escape($baseUrl) ?>/learning/quizzes?course_id=<?= (int)$attempt['course_id'] ?>">Back to course quizzes</a></div>
   </section>

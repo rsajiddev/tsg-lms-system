@@ -141,7 +141,7 @@ final class CourseGrading
     }
 
     /**
-     * Attendance as a share of decided days (present vs absent) since the student got access.
+     * Attendance as a share of elapsed calendar days since the student got access.
      * Returns null while nothing is decided yet, so eligibility does not punish a brand-new joiner.
      */
     public function attendancePercent(int $studentId, ?string $sinceUtc): ?float
@@ -150,22 +150,30 @@ final class CourseGrading
             return null;
         }
         try {
+            (new AttendanceService($this->db))->closeExpired();
             $stmt = $this->db->prepare(
                 "SELECT
                     SUM(status = 'present') AS present,
-                    SUM(status = 'absent') AS absent
+                    MAX(CASE WHEN attendance_date = UTC_DATE() THEN status ELSE NULL END) AS today_status
                  FROM attendance_records
-                 WHERE student_id = ? AND attendance_date >= DATE(?)"
+                 WHERE student_id = ? AND attendance_date >= DATE(?)
+                   AND attendance_date < DATE_ADD(UTC_DATE(), INTERVAL 1 DAY)"
             );
             $stmt->execute([$studentId, $sinceUtc]);
             $row = $stmt->fetch();
             $present = (int) ($row['present'] ?? 0);
-            $absent = (int) ($row['absent'] ?? 0);
-            $decided = $present + $absent;
-            if ($decided < 1) {
+            $today = new \DateTimeImmutable('today', new \DateTimeZone('UTC'));
+            $endExclusive = $today->modify('+1 day')->format('Y-m-d');
+            $expected = AttendanceService::expectedDays(
+                substr($sinceUtc, 0, 10),
+                $endExclusive,
+                null,
+                is_string($row['today_status'] ?? null) ? $row['today_status'] : null
+            );
+            if ($expected < 1) {
                 return null;
             }
-            return round($present / $decided * 100, 2);
+            return round($present / $expected * 100, 2);
         } catch (\PDOException $exception) {
             error_log('[COURSE GRADING] Attendance read failed: ' . $exception->getMessage());
             return null;

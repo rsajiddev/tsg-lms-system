@@ -1470,6 +1470,69 @@ button.button.contact-send:focus {
   box-shadow: 0 26px 64px #00214717
 }
 
+.enrol-card[id] {
+  scroll-margin-top: 24px
+}
+
+.enrol-otp-modal .admin-modal-dialog {
+  width: min(520px, 100%)
+}
+
+.enrol-otp-modal .admin-modal-header {
+  align-items: flex-start
+}
+
+.enrol-otp-modal .admin-card-titles h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 21px
+}
+
+.enrol-otp-modal .admin-card-titles p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere
+}
+
+.enrol-otp-modal .enrol-modal-close svg {
+  width: 18px;
+  height: 18px
+}
+
+.enrol-otp-form {
+  gap: 15px
+}
+
+.enrol-otp-feedback {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere
+}
+
+.enrol-otp-feedback.is-success {
+  border-color: #b7e3c4;
+  background: #f0fbf3;
+  color: #176534
+}
+
+.enrol-otp-feedback.is-error {
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #991b1b
+}
+
+.enrol-otp-feedback span {
+  color: inherit
+}
+
 .enrol-card-head h2 {
   margin: 0;
   color: var(--navy);
@@ -1487,10 +1550,6 @@ button.button.contact-send:focus {
 .enrol-card form {
   display: grid;
   gap: 15px
-}
-
-.enrol-card .enrol-sending {
-  margin: 0
 }
 
 .enrol-card .auth-submit {
@@ -1531,54 +1590,6 @@ button.button.contact-send:focus {
   line-height: 1.6
 }
 
-.enrol-sending {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 16px 0 0;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #f8fafc
-}
-
-.enrol-sending[hidden] {
-  display: none
-}
-
-.enrol-sending p {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-  color: var(--navy);
-  font-size: 13.5px;
-  overflow-wrap: anywhere
-}
-
-.enrol-sending small {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.55
-}
-
-.enrol-sending-live {
-  border-color: rgba(0, 33, 71, .35);
-  background: rgba(0, 33, 71, .05)
-}
-
-.enrol-spinner {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  border: 2px solid rgba(0, 33, 71, .25);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: enrol-spin .8s linear infinite
-}
-
 @keyframes enrol-spin {
   to {
     rotate: 360deg
@@ -1586,15 +1597,24 @@ button.button.contact-send:focus {
 }
 
 .otp-resend-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: center;
-  gap: 4px 8px;
+  gap: 8px;
   margin: 0;
   color: var(--muted);
   font-size: 13px;
-  text-align: center
+  text-align: left;
+  white-space: nowrap
+}
+
+.otp-resend-row button {
+  margin: 0;
+  white-space: nowrap
+}
+
+.otp-resend-row>span:first-child {
+  min-width: 0
 }
 
 .otp-resend-row button[disabled] {
@@ -1606,7 +1626,8 @@ button.button.contact-send:focus {
 .otp-resend-timer {
   color: var(--blue-dark);
   font-weight: 750;
-  font-variant-numeric: tabular-nums
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap
 }
 
 /* The timer is emptied by the script once Resend unlocks; an empty span would still take a gap. */
@@ -1614,9 +1635,55 @@ button.button.contact-send:focus {
   display: none
 }
 
-.otp-resend-divider {
-  color: #cbd5e1;
-  font-weight: 500
+.enrol-otp-back {
+  margin: -7px 0 0;
+  text-align: center
+}
+
+.submit-progress-overlay {
+  position: fixed;
+  z-index: 500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px)
+}
+
+.submit-progress-overlay[hidden] {
+  display: none
+}
+
+.submit-progress-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45)
+}
+
+.submit-progress-card p {
+  margin: 0;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.55
+}
+
+.submit-progress-spinner {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(0, 33, 71, .2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: enrol-spin .8s linear infinite
 }
 
 .enrol-edit-email {
@@ -11609,10 +11676,10 @@ html.admin-modal-js .admin-modal.is-open {
 /* Course catalogue hero, shared public course cards, and course benefits. */
 .catalog-hero {
   display: grid;
-  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
   align-items: center;
-  gap: clamp(32px, 6vw, 82px);
-  padding: clamp(38px, 6vw, 78px) 0 clamp(52px, 7vw, 94px);
+  gap: clamp(30px, 5vw, 68px);
+  padding: clamp(38px, 5vw, 64px) 0 clamp(42px, 5vw, 64px);
 }
 
 .catalog-hero-copy {
@@ -11624,10 +11691,10 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .catalog-hero-copy h1 {
-  max-width: 660px;
+  max-width: 590px;
   margin: 0;
   color: var(--navy);
-  font-size: clamp(42px, 4.3vw, 62px);
+  font-size: clamp(42px, 4.5vw, 64px);
   line-height: 1.02;
   letter-spacing: -.055em
 }
@@ -11655,29 +11722,79 @@ html.admin-modal-js .admin-modal.is-open {
 
 .catalog-hero-lead {
   max-width: 570px;
-  margin: 22px 0 0;
+  margin: 18px 0 0;
   color: var(--muted);
-  font-size: clamp(16px, 1.6vw, 19px);
-  line-height: 1.75
+  font-size: clamp(15px, 1.3vw, 17px);
+  line-height: 1.7
+}
+
+.catalog-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  max-width: 530px;
+  margin-top: 24px;
+  padding: 7px;
+  border: 1px solid #dfe7f1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 30px #172b4d0d
+}
+
+.catalog-search input {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-size: 14px
+}
+
+.catalog-search input::placeholder {
+  color: #78889d
+}
+
+.catalog-search:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #1f4f8f1c, 0 12px 30px #172b4d0d
+}
+
+.catalog-search .button {
+  min-height: 48px;
+  padding: 12px 19px;
+  border-radius: 10px
 }
 
 .catalog-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 28px
+  gap: 22px;
+  margin-top: 17px
 }
 
-.catalog-hero-actions .button {
+.catalog-hero-link {
   display: inline-flex;
   align-items: center;
-  gap: 10px
+  gap: 10px;
+  color: var(--blue-dark);
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none
+}
+
+.catalog-hero-link:hover {
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 4px
 }
 
 .catalog-hero-art {
   position: relative;
   min-width: 0;
-  padding: 14px 8px 34px
+  padding: 14px 8px 24px
 }
 
 .catalog-hero-dot-grid {
@@ -11728,16 +11845,19 @@ html.admin-modal-js .admin-modal.is-open {
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  height: clamp(320px, 34vw, 430px)
 }
 
 .catalog-hero-tile {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 3/4;
+  min-width: 0;
+  min-height: 0;
   margin: 0;
   border: 1px solid #dfe7f2;
-  border-radius: 999px 999px 28px 28px;
+  border-radius: 18px;
   background: #eef3fb;
   box-shadow: 0 18px 46px #172b4d14;
   transition: transform .3s ease, box-shadow .3s ease
@@ -11764,16 +11884,16 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 .catalog-hero-tile-2 {
-  transform: translateY(26px)
+  transform: translateY(14px)
 }
 
 .catalog-hero-tile-5 {
-  transform: translateY(26px)
+  transform: translateY(14px)
 }
 
 .catalog-hero-tile-2:hover,
 .catalog-hero-tile-5:hover {
-  transform: translateY(20px)
+  transform: translateY(8px)
 }
 
 .catalog-hero-tile img {
@@ -11792,8 +11912,29 @@ html.admin-modal-js .admin-modal.is-open {
   transform: scale(1)
 }
 
+.catalog-search-empty {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-weight: 650
+}
+
 .catalog-courses {
-  padding: clamp(8px, 1.6vw, 18px) 0 8px
+  margin-inline: calc(50% - 50vw);
+  padding: 34px max(20px, calc((100vw - 1120px)/2)) calc(42px + clamp(56px, 8vw, 104px));
+  background-color: #f5f8ff;
+  background-image: radial-gradient(#bdcdeb 1.5px, transparent 1.5px);
+  background-size: 48px 48px;
+  animation: catalog-dots-pan 6s linear infinite alternate
+}
+
+@keyframes catalog-dots-pan {
+  from {
+    background-position: 0 0
+  }
+
+  to {
+    background-position: 48px 0
+  }
 }
 
 .catalog-courses .section-heading {
@@ -12145,7 +12286,8 @@ html.admin-modal-js .admin-modal.is-open {
   }
 
   .catalog-hero-gallery {
-    gap: 11px
+    gap: 10px;
+    height: clamp(300px, 38vw, 370px)
   }
 
   .course-benefit-grid {
@@ -12173,6 +12315,12 @@ html.admin-modal-js .admin-modal.is-open {
     padding: 6px 4px 22px
   }
 
+  .catalog-hero-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    height: clamp(410px, 110vw, 520px)
+  }
+
   .catalog-hero-dot-grid-two {
     left: -4px
   }
@@ -12185,17 +12333,17 @@ html.admin-modal-js .admin-modal.is-open {
   }
 
   .catalog-hero-tile {
-    border-radius: 999px 999px 20px 20px
+    border-radius: 16px
   }
 
   .catalog-hero-tile-2,
   .catalog-hero-tile-5 {
-    transform: translateY(16px)
+    transform: none
   }
 
   .catalog-hero-tile-2:hover,
   .catalog-hero-tile-5:hover {
-    transform: translateY(10px)
+    transform: translateY(-4px)
   }
 
   .catalog-courses {
@@ -12220,13 +12368,22 @@ html.admin-modal-js .admin-modal.is-open {
 }
 
 @media(max-width:480px) {
-  .catalog-hero-actions {
-    display: grid;
-    grid-template-columns: 1fr
+  .catalog-search {
+    gap: 4px;
+    padding: 5px
   }
 
-  .catalog-hero-actions .button {
-    justify-content: center
+  .catalog-search input {
+    padding: 0 8px;
+    font-size: 13px
+  }
+
+  .catalog-search .button {
+    padding: 11px 13px
+  }
+
+  .catalog-hero-actions {
+    gap: 16px
   }
 
   .catalog-hero-art {
@@ -12238,12 +12395,12 @@ html.admin-modal-js .admin-modal.is-open {
   }
 
   .catalog-hero-tile {
-    border-radius: 999px 999px 16px 16px
+    border-radius: 16px
   }
 
   .catalog-hero-tile-2,
   .catalog-hero-tile-5 {
-    transform: translateY(10px)
+    transform: none
   }
 
   .catalog-hero-dot-grid {
@@ -12297,6 +12454,10 @@ html.admin-modal-js .admin-modal.is-open {
     animation: none
   }
 
+  .catalog-courses {
+    animation: none
+  }
+
   .course-card.course-card-unified,
   .course-card-image-media,
   .catalog-hero-tile,
@@ -12304,6 +12465,7 @@ html.admin-modal-js .admin-modal.is-open {
   .course-benefit-card {
     transition: none
   }
+
 }
 
 /* Public course detail page. The curriculum list is not printed here: module and lesson titles
@@ -15711,7 +15873,11 @@ html.admin-modal-js .admin-modal.is-open {
 .certificate-chip-test,
 .certificate-test-badge {
   border: 1px solid #f1d59d;
-  background: #fff1ce;
+  Redesign Danger Zone with clean,
+  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
+  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
+  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
+  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges background: #fff1ce;
   color: #805600
 }
 
@@ -17420,6 +17586,248 @@ html.admin-modal-js .admin-modal.is-open {
   grid-column: span 12
 }
 
+/* Admin attendance roster: summary, today's check-ins and individual rates share the analytics grid rhythm. */
+.attendance-roster-card .dashboard-panel-heading .dashboard-inline-link {
+  flex: 0 0 auto
+}
+
+.attendance-admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px
+}
+
+.attendance-admin-metric {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--att-border);
+  border-radius: 15px;
+  background: #f8fafc
+}
+
+.attendance-admin-metric strong {
+  color: #10243f;
+  font-size: clamp(22px, 2vw, 29px);
+  font-weight: 850;
+  line-height: 1
+}
+
+.attendance-admin-metric span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750
+}
+
+.attendance-admin-metric.metric-present strong,
+.attendance-student-status.is-present {
+  color: #047857
+}
+
+.attendance-admin-metric.metric-absent strong,
+.attendance-student-status.is-absent {
+  color: #be123c
+}
+
+.attendance-admin-metric.metric-pending strong,
+.attendance-student-status.is-pending {
+  color: #b45309
+}
+
+.attendance-admin-metric.metric-rate strong {
+  color: #1d4ed8
+}
+
+.attendance-admin-columns {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  margin-top: 16px
+}
+
+.attendance-admin-present,
+.attendance-admin-breakdown {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--att-border);
+  border-radius: 16px;
+  background: #fbfdff
+}
+
+.attendance-admin-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px
+}
+
+.attendance-admin-section-heading .eyebrow {
+  margin: 0 0 3px;
+  color: #8090a6;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .13em
+}
+
+.attendance-admin-section-heading h3 {
+  margin: 0;
+  color: #10243f;
+  font-size: 15px;
+  font-weight: 800
+}
+
+.attendance-count-pill,
+.attendance-range-label {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid #dbe5f1;
+  border-radius: 999px;
+  background: #fff;
+  color: #52627a;
+  font-size: 10px;
+  font-weight: 800
+}
+
+.attendance-count-pill {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5
+}
+
+.attendance-present-list,
+.attendance-student-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none
+}
+
+.attendance-present-list {
+  max-height: 342px;
+  overflow: auto
+}
+
+.attendance-present-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #e8eef5;
+  border-radius: 12px;
+  background: #fff
+}
+
+.attendance-student-avatar {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  background: #e8f1ff;
+  color: #2456a6;
+  font-size: 12px;
+  font-weight: 850
+}
+
+.attendance-present-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: #172b45;
+  font-size: 12px;
+  font-weight: 750;
+  overflow-wrap: anywhere
+}
+
+.attendance-student-status {
+  flex: 0 0 auto;
+  color: #718096;
+  font-size: 10px;
+  font-weight: 750
+}
+
+.attendance-student-status.is-none {
+  color: #718096
+}
+
+.attendance-student-list {
+  max-height: 342px;
+  overflow: auto;
+  padding-right: 4px
+}
+
+.attendance-student-row {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #e8eef5;
+  border-radius: 12px;
+  background: #fff
+}
+
+.attendance-student-row-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0
+}
+
+.attendance-student-row-top>strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: #172b45;
+  font-size: 11.5px;
+  overflow-wrap: anywhere
+}
+
+.attendance-student-rate {
+  flex: 0 0 auto;
+  color: #10243f;
+  font-size: 12px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums
+}
+
+.attendance-student-row-bottom {
+  display: grid;
+  grid-template-columns: 105px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 0 40px;
+  color: #718096;
+  font-size: 10px
+}
+
+.attendance-student-meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef5
+}
+
+.attendance-student-meter span {
+  display: block;
+  width: var(--attendance-width, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #34d399)
+}
+
+.attendance-admin-empty {
+  margin: 0;
+  padding: 18px 12px;
+  border: 1px dashed #d4dfeb;
+  border-radius: 12px;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center
+}
+
 /* ---------- compact stat pair inside a card ---------- */
 
 .chart-stats {
@@ -18511,42 +18919,67 @@ html.admin-modal-js .admin-modal.is-open {
   gap: 14px
 }
 
-.student-dashboard-hero .donut-wrap {
-  margin-top: 0;
-  position: relative
+.attendance-progress-layout {
+  display: grid;
+  grid-template-columns: minmax(140px, .8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 18px;
+  width: 100%
 }
 
-/* The donut hole matches the navy surface instead of the default white card background. */
-.student-dashboard-hero .donut {
+.attendance-rate-ring {
+  display: grid;
+  width: 148px;
+  height: 148px;
+  justify-self: center;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--att-emerald) 0 var(--attendance-rate, 0%), #ffffff2b var(--attendance-rate, 0%) 100%);
   box-shadow: 0 12px 26px #00000033
 }
 
-.student-dashboard-hero .donut-center {
-  width: 112px;
-  height: 112px;
-  padding: 0 8px;
-  gap: 2px;
+.attendance-rate-ring-center {
+  display: grid;
+  width: 116px;
+  height: 116px;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 50%;
   background: #002147;
   box-shadow: inset 0 0 0 1px #ffffff2b
 }
 
-.student-dashboard-hero .donut-center strong {
+.attendance-rate-ring-center strong {
   color: #fff;
   font-size: 26px
 }
 
-.student-dashboard-hero .donut-center small {
+.attendance-rate-ring-center span {
+  color: #d5e3ff;
+  font-size: 10px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums
+}
+
+.attendance-rate-ring-center small {
   color: #a9c6ea;
   font-size: 9px;
   letter-spacing: .08em;
   line-height: 1.4
 }
 
-.student-dashboard-hero .donut-legend span {
+.student-dashboard-hero .attendance-progress-layout .donut-legend {
+  width: 100%;
+  margin: 0
+}
+
+.student-dashboard-hero .attendance-progress-layout .donut-legend span {
   color: #d5e3ff
 }
 
-.student-dashboard-hero .donut-legend strong {
+.student-dashboard-hero .attendance-progress-layout .donut-legend strong {
   color: #fff
 }
 
@@ -18902,6 +19335,14 @@ html.admin-modal-js .admin-modal.is-open {
     gap: 16px
   }
 
+  .attendance-admin-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .attendance-admin-columns {
+    grid-template-columns: minmax(0, 1fr)
+  }
+
   .hero-tile {
     padding: 15px 16px
   }
@@ -18931,7 +19372,6 @@ html.admin-modal-js .admin-modal.is-open {
     font-size: 8px
   }
 
-  .student-dashboard-hero .donut,
   .donut,
   .donut-center {
     width: 132px;
@@ -18943,14 +19383,27 @@ html.admin-modal-js .admin-modal.is-open {
     height: 94px
   }
 
-  /* The navy hero keeps a slightly larger hole so the two-line label still fits. */
-  .student-dashboard-hero .donut-center {
-    width: 100px;
-    height: 100px
+  .attendance-rate-ring {
+    width: 132px;
+    height: 132px
   }
 
-  .student-dashboard-hero .donut-center strong {
+  .attendance-rate-ring-center {
+    width: 102px;
+    height: 102px
+  }
+
+  .attendance-rate-ring-center strong {
     font-size: 22px
+  }
+
+  .attendance-student-row-top {
+    flex-wrap: wrap
+  }
+
+  .attendance-student-row-bottom {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px
   }
 
   .student-dashboard-hero .attendance-form {
@@ -21175,7 +21628,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  margin: clamp(56px, 8vw, 104px) calc(50% - 50dvw) 0;
+  margin: 0 calc(50% - 50dvw);
   padding: clamp(52px, 7vw, 88px) max(20px, calc((100dvw - 1120px)/2));
   background: #f4f6fa
 }
@@ -21880,5 +22333,167 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
 @media(max-width:600px) {
   .revenue-page-header>.revenue-actions-card {
     padding: 16px;
+  }
+}
+
+.payment-review-section .payment-review-card {
+  gap: 20px;
+  padding: clamp(18px, 2.4vw, 26px);
+  border: 1px solid #dfe7f1;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fff 0%, #fbfdff 100%);
+  box-shadow: 0 12px 30px rgba(15, 35, 65, .07);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.payment-review-section .payment-review-card:hover {
+  border-color: #c9d8ea;
+  box-shadow: 0 18px 38px rgba(15, 35, 65, .11);
+  transform: translateY(-2px);
+}
+
+.payment-review-section .payment-review-card .payment-receipt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 15px;
+  border-color: #cbd9ea;
+  border-radius: 11px;
+  background: #f4f8fd;
+  color: #173c68;
+  font-weight: 750;
+  text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.payment-review-section .payment-review-card .payment-receipt-link:hover {
+  border-color: #9eb8d7;
+  background: #eaf2fb;
+  color: #0b2f59;
+}
+
+.payment-review-section .payment-decision-form {
+  gap: 16px;
+  padding-top: 20px;
+  border-color: #e4ebf3;
+}
+
+.payment-review-section .payment-review-note {
+  display: grid;
+  grid-template-columns: minmax(155px, .34fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.payment-review-section .payment-review-note .admin-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.payment-review-section .payment-review-note .admin-label span {
+  display: block;
+  margin: 4px 0 0;
+  color: #74839a;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: normal;
+}
+
+.payment-review-section .payment-review-note .admin-textarea {
+  min-width: 0;
+  min-height: 72px;
+}
+
+.payment-review-section .payment-decision-form .dashboard-actions {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.payment-review-section .payment-decision-form .payment-receipt-link,
+.payment-review-section .payment-decision-form .payment-approve-button,
+.payment-review-section .payment-decision-form .payment-reject-button {
+  flex: 0 1 auto;
+  justify-self: auto;
+  min-height: 46px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.payment-review-section .payment-decision-form .payment-approve-button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 50px;
+  padding: 12px 21px;
+  border: 1px solid #087443;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0b8c55 0%, #087443 100%);
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(8, 116, 67, .22);
+  font-size: 14px;
+  font-weight: 800;
+  transition: box-shadow .18s ease, filter .18s ease, transform .18s ease;
+}
+
+.payment-review-section .payment-decision-form .payment-reject-button {
+  border: 1px solid #dc2626;
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, .16);
+  font-weight: 750;
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
+}
+
+.payment-review-section .payment-decision-form .payment-reject-button:hover:not(:disabled) {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 7px 18px rgba(220, 38, 38, .28);
+}
+
+.payment-review-section .payment-decision-form .payment-reject-button:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+
+.payment-review-section .payment-decision-form .payment-approve-button:hover {
+  box-shadow: 0 10px 22px rgba(8, 116, 67, .3);
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.payment-review-section .payment-decision-form .payment-approve-button svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+@media(max-width:600px) {
+  .payment-review-section .payment-review-card {
+    padding: 16px;
+  }
+
+  .payment-review-section .payment-review-note {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .payment-review-section .payment-decision-form .dashboard-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .payment-review-section .payment-decision-form .dashboard-actions .button,
+  .payment-review-section .payment-decision-form .payment-receipt-link {
+    width: 100%;
+  }
+
+  .payment-review-section .payment-decision-form .payment-approve-button {
+    margin-left: 0;
   }
 }

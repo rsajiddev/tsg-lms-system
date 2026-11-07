@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS lessons (
        video_provider ENUM('none', 'file', 'youtube', 'vimeo', 'embed') NOT NULL DEFAULT 'none',
        video_duration_seconds INT UNSIGNED NULL,
        meeting_url VARCHAR(600) NULL,
+       meeting_platform ENUM('google_meet', 'zoom') NULL,
        meeting_at DATETIME NULL,
        sort_order INT UNSIGNED NOT NULL DEFAULT 0,
        status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
@@ -210,6 +211,30 @@ EXECUTE add_lesson_meeting_url_stmt;
 DEALLOCATE PREPARE add_lesson_meeting_url_stmt;
 
 SET
+       @add_lesson_meeting_platform = (
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE lessons ADD COLUMN meeting_platform ENUM(''google_meet'', ''zoom'') NULL AFTER meeting_url',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'lessons'
+                     AND COLUMN_NAME = 'meeting_platform'
+       );
+
+PREPARE add_lesson_meeting_platform_stmt
+FROM
+       @add_lesson_meeting_platform;
+
+EXECUTE add_lesson_meeting_platform_stmt;
+
+DEALLOCATE PREPARE add_lesson_meeting_platform_stmt;
+
+SET
        @add_lesson_meeting_at = (
               SELECT
                      IF(
@@ -232,6 +257,14 @@ FROM
 EXECUTE add_lesson_meeting_at_stmt;
 
 DEALLOCATE PREPARE add_lesson_meeting_at_stmt;
+
+UPDATE lessons
+SET meeting_platform = CASE
+       WHEN meeting_url LIKE '%meet.google.com%' THEN 'google_meet'
+       WHEN meeting_url LIKE '%zoom.us%' THEN 'zoom'
+       ELSE meeting_platform
+END
+WHERE meeting_platform IS NULL AND meeting_url IS NOT NULL AND meeting_url <> '';
 
 CREATE TABLE IF NOT EXISTS student_course_access (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

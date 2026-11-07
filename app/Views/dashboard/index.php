@@ -90,7 +90,9 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <h1>Welcome, <?= $escape($user['name'] ?? 'User') ?></h1>
             <p><?= $isAdmin
                     ? 'Live statistics on students, attendance, payments, assessments and course activity.'
-                    : 'Mark today\'s attendance, then track your courses, lessons and assessment progress.' ?></p>
+                    : (!empty($attendance['eligible'])
+                        ? 'Mark today\'s attendance, then track your courses, lessons and assessment progress.'
+                        : 'Track your learning progress here. Attendance becomes available after your course access is approved.') ?></p>
         </div>
         <?php if ($isAdmin): ?>
             <form class="analytics-ranges" method="get" action="<?= $escape($baseUrl) ?>/dashboard" aria-label="Statistics period">
@@ -123,6 +125,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         $attendanceToday = (array) ($attendance['today'] ?? []);
         $attendanceWindow = (array) ($attendance['window'] ?? []);
         $attendanceDays = (array) ($attendance['days'] ?? []);
+        $attendanceStudents = (array) ($attendance['studentAttendance'] ?? []);
         $paymentSplit = (array) ($payments['split'] ?? []);
         $resultSplit = ['pass' => (int) ($quizzes['passed'] ?? 0), 'fail' => (int) ($quizzes['failed'] ?? 0), 'in_progress' => (int) ($quizzes['inProgress'] ?? 0)];
         $certificateSplit = (array) ($certificates['split'] ?? []);
@@ -244,6 +247,92 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                 <span class="chart-label"><?= $escape($point['label']) ?></span>
                             </div>
                         <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="dashboard-panel chart-card chart-card-wide attendance-roster-card">
+                <div class="dashboard-panel-heading">
+                    <div>
+                        <p class="eyebrow">STUDENT ATTENDANCE</p>
+                        <h2>Today’s attendance &amp; student progress</h2>
+                        <small>Live status today · individual rates for the last <?= (int) $range ?> days</small>
+                    </div>
+                    <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">View students</a>
+                </div>
+                <?php if (empty($attendance['available'])): ?>
+                    <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
+                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording daily student attendance.</p></div>
+                    </div>
+                <?php else: ?>
+                    <div class="attendance-admin-metrics" aria-label="Attendance summary for today">
+                        <div class="attendance-admin-metric metric-present"><strong><?= $num($attendanceToday['present'] ?? 0) ?></strong><span>Present today</span></div>
+                        <div class="attendance-admin-metric metric-absent"><strong><?= $num($attendanceToday['absent'] ?? 0) ?></strong><span>Absent today</span></div>
+                        <div class="attendance-admin-metric metric-pending"><strong><?= $num($attendanceToday['pending'] ?? 0) ?></strong><span>Waiting to confirm</span></div>
+                        <div class="attendance-admin-metric metric-rate"><strong><?= number_format((float) ($attendanceWindow['rate'] ?? 0), 1) ?>%</strong><span>Academy rate · <?= (int) $range ?> days</span></div>
+                    </div>
+                    <div class="attendance-admin-columns">
+                        <section class="attendance-admin-present" aria-labelledby="attendance-present-heading">
+                            <div class="attendance-admin-section-heading">
+                                <div><p class="eyebrow">CHECKED IN</p><h3 id="attendance-present-heading">Present today</h3></div>
+                                <span class="attendance-count-pill"><?= $num($attendanceToday['present'] ?? 0) ?></span>
+                            </div>
+                            <?php $presentStudents = array_values(array_filter($attendanceStudents, static fn(array $row): bool => ($row['today_status'] ?? '') === 'present')); ?>
+                            <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
+                                <p class="attendance-admin-empty">Student attendance details are temporarily unavailable.</p>
+                            <?php elseif ($presentStudents === []): ?>
+                                <p class="attendance-admin-empty">No students have confirmed attendance today yet.</p>
+                            <?php else: ?>
+                                <ul class="attendance-present-list">
+                                    <?php foreach ($presentStudents as $presentStudent): ?>
+                                        <li>
+                                            <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $presentStudent['full_name']), 0, 1))) ?></span>
+                                            <span class="attendance-present-name"><?= $escape($presentStudent['full_name']) ?></span>
+                                            <span class="attendance-student-status is-present">Present</span>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </section>
+                        <section class="attendance-admin-breakdown" aria-labelledby="attendance-breakdown-heading">
+                            <div class="attendance-admin-section-heading">
+                                <div><p class="eyebrow">INDIVIDUAL PROGRESS</p><h3 id="attendance-breakdown-heading">Attendance by student</h3></div>
+                                <span class="attendance-range-label">Last <?= (int) $range ?> days</span>
+                            </div>
+                            <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
+                                <p class="attendance-admin-empty">Individual attendance rates could not be loaded.</p>
+                            <?php elseif ($attendanceStudents === []): ?>
+                                <p class="attendance-admin-empty">No student accounts to show yet.</p>
+                            <?php else: ?>
+                                <div class="attendance-student-list">
+                                    <?php foreach ($attendanceStudents as $attendanceStudent):
+                                        $studentRate = max(0, min(100, (float) ($attendanceStudent['rate'] ?? 0)));
+                                        $studentStatus = (string) ($attendanceStudent['today_status'] ?? 'none');
+                                        $statusLabel = match ($studentStatus) {
+                                            'present' => 'Present today',
+                                            'absent' => 'Absent today',
+                                            'pending' => 'Awaiting mark',
+                                            default => 'No sign-in today',
+                                        };
+                                    ?>
+                                        <article class="attendance-student-row">
+                                            <div class="attendance-student-row-top">
+                                                <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $attendanceStudent['full_name']), 0, 1))) ?></span>
+                                                <strong><?= $escape($attendanceStudent['full_name']) ?></strong>
+                                                <span class="attendance-student-status is-<?= $escape($studentStatus) ?>"><?= $escape($statusLabel) ?></span>
+                                                <span class="attendance-student-rate"><?= number_format($studentRate, 1) ?>%</span>
+                                            </div>
+                                            <div class="attendance-student-row-bottom">
+                                                <span><?= $num($attendanceStudent['present'] ?? 0) ?> / <?= $num($attendanceStudent['expected'] ?? 0) ?> days present</span>
+                                                <div class="attendance-student-meter" role="progressbar" aria-label="<?= $escape($attendanceStudent['full_name']) ?> attendance rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($studentRate) ?>">
+                                                    <span style="--attendance-width: <?= $studentRate ?>%"></span>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </section>
                     </div>
                 <?php endif; ?>
             </section>
@@ -626,6 +715,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         $attendanceHistory = (array) ($attendance['history'] ?? []);
         $attendanceDays = (array) ($attendance['days'] ?? []);
         $attendanceToday = (array) ($attendance['today'] ?? []);
+        $attendanceEligible = !empty($attendance['eligible']);
         $attendanceStatus = (string) ($attendanceToday['status'] ?? 'none');
         $deadlineRaw = trim((string) ($attendanceToday['mark_deadline_at'] ?? ''));
         // Stored deadlines are UTC, so the remaining time is measured against the UTC instant.
@@ -643,7 +733,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         // Today's attendance is a metric tile like the ones below, so the panel shows a value
         // instead of a sentence: the mark time when present, the state otherwise.
         $attendanceTile = [
-            'present' => ['tone' => 'emerald', 'icon' => '✓', 'label' => 'Present today', 'value' => $attendanceToday['marked_at'] ? $timeLabel((string) $attendanceToday['marked_at']) : 'Marked', 'hint' => 'Confirmed at sign-in · keep the streak going'],
+            'present' => ['tone' => 'emerald', 'icon' => '✓', 'label' => 'Present today', 'value' => !empty($attendanceToday['marked_at']) ? $timeLabel((string) $attendanceToday['marked_at']) : 'Marked', 'hint' => 'Confirmed at sign-in · keep the streak going'],
             'absent' => ['tone' => 'rose', 'icon' => '✕', 'label' => 'Absent today', 'value' => 'Not marked', 'hint' => 'The window closed before you confirmed presence'],
             'pending' => ['tone' => 'amber', 'icon' => '◔', 'label' => 'Waiting to confirm', 'value' => 'Open now', 'hint' => 'Mark present within ' . (int) ($attendance['grace_minutes'] ?? 5) . ' minutes of signing in'],
             'none' => ['tone' => 'slate', 'icon' => '◷', 'label' => 'Attendance', 'value' => 'No record', 'hint' => 'Sign in starts today\'s attendance window'],
@@ -675,25 +765,18 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         } else {
             $forecastMessage = $forecastNeeded . ' more present ' . ($forecastNeeded === 1 ? 'day' : 'days') . ' in a row lifts you to 90%.';
         }
-        // Segment metadata drives the hover tooltip; hex colours are passed through because the
-        // conic-gradient itself is built from CSS variables the script cannot resolve.
-        $donutSegments = [
-            ['label' => 'Present', 'value' => $attendanceSplit['present'], 'color' => '#059669'],
-            ['label' => 'Absent', 'value' => $attendanceSplit['absent'], 'color' => '#e11d48'],
-            ['label' => 'Waiting', 'value' => $attendanceSplit['pending'], 'color' => '#d97706'],
-            ['label' => 'No sign-in', 'value' => $attendanceSplit['none'], 'color' => '#33507a'],
-        ];
-        $donutTotal = array_sum(array_column($donutSegments, 'value'));
-        foreach ($donutSegments as $index => $segment) {
-            $donutSegments[$index]['pct'] = $donutTotal > 0 ? (int) round($segment['value'] / $donutTotal * 100) : 0;
-        }
-        $donutData = json_encode($donutSegments, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP);
         ?>
         <section class="dashboard-summary-card student-dashboard-hero" aria-label="Attendance and learning summary">
             <div class="dashboard-summary-heading"><div><p class="eyebrow">TODAY · <?= $escape($todayLabel) ?></p><h2>Attendance &amp; learning snapshot</h2></div><span>Personal overview</span></div>
             <div class="attendance-hero<?= empty($attendance['available']) ? ' attendance-hero-single' : '' ?>">
                 <div class="attendance-main">
-                    <?php if (empty($attendance['available'])): ?>
+                    <?php if (!$attendanceEligible): ?>
+                        <article class="hero-tile hero-tile-slate">
+                            <div class="hero-tile-top"><span class="hero-tile-icon" aria-hidden="true">◷</span><span class="hero-tile-label">Attendance</span></div>
+                            <strong class="hero-tile-value">Unlocks with course access</strong>
+                            <p class="hero-tile-hint">Attendance tracking will appear here after your course access is approved.</p>
+                        </article>
+                    <?php elseif (empty($attendance['available'])): ?>
                         <article class="hero-tile hero-tile-slate">
                             <div class="hero-tile-top"><span class="hero-tile-icon" aria-hidden="true">◷</span><span class="hero-tile-label">Attendance</span></div>
                             <strong class="hero-tile-value">Not enabled</strong>
@@ -722,14 +805,13 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 </div>
                 <?php if (!empty($attendance['available'])): ?>
                     <div class="attendance-chart">
-                        <div class="donut-wrap" data-donut-tooltip>
-                            <div class="donut" data-donut-segments='<?= $escape($donutData) ?>' style="--donut: <?= $escape($donut([
-                                    ['value' => $attendanceSplit['present'], 'color' => 'var(--att-emerald)'],
-                                    ['value' => $attendanceSplit['absent'], 'color' => 'var(--att-rose)'],
-                                    ['value' => $attendanceSplit['pending'], 'color' => 'var(--att-amber)'],
-                                    ['value' => $attendanceSplit['none'], 'color' => '#33507a'],
-                                ])) ?>") role="img" aria-label="Attendance mix over the last 30 days: <?= $attendanceSplit['present'] ?> present, <?= $attendanceSplit['absent'] ?> absent, <?= $attendanceSplit['pending'] ?> waiting, <?= $attendanceSplit['none'] ?> without sign-in">
-                                <span class="donut-center"><strong><?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>%</strong><small>Attendance rate</small></span>
+                        <div class="attendance-progress-layout">
+                            <div class="attendance-rate-ring" style="--attendance-rate: <?= max(0, min(100, (float) ($attendance['rate'] ?? 0))) ?>%" role="progressbar" aria-label="Attendance rate over the last 30 days" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round((float) ($attendance['rate'] ?? 0)) ?>">
+                                <div class="attendance-rate-ring-center">
+                                    <strong><?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>%</strong>
+                                    <span><?= $num($attendanceSplit['present']) ?> / <?= $num($attendanceCounted) ?> days</span>
+                                    <small>Last 30 days</small>
+                                </div>
                             </div>
                             <ul class="donut-legend">
                                 <li><i class="legend-dot legend-emerald"></i><span>Present</span><strong><?= $num($attendanceSplit['present']) ?></strong></li>
@@ -737,9 +819,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                 <li><i class="legend-dot legend-amber"></i><span>Waiting</span><strong><?= $num($attendanceSplit['pending']) ?></strong></li>
                                 <li><i class="legend-dot legend-white"></i><span>No sign-in</span><strong><?= $num($attendanceSplit['none']) ?></strong></li>
                             </ul>
-                            <div class="donut-tooltip" role="status" aria-hidden="true"></div>
                         </div>
-                        <p class="chart-footnote">Hover a slice for details · last <?= $num($attendanceWindowDays) ?> days</p>
+                        <p class="chart-footnote">Present days divided by expected days · <?= $num($attendanceWindowDays) ?>-day window</p>
                     </div>
                 <?php endif; ?>
             </div>

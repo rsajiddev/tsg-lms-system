@@ -32,7 +32,10 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
 
     <section class="danger-guidelines" role="note" aria-labelledby="danger-guidelines-title">
         <div class="danger-guidelines-head">
-            <span class="danger-guidelines-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+            <span class="danger-guidelines-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <path d="M12 9v4M12 17h.01" />
+                </svg></span>
             <h2 id="danger-guidelines-title">Read before deleting &mdash; mandatory for every admin</h2>
         </div>
         <ol class="danger-guidelines-list">
@@ -57,7 +60,7 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
             'source' => ['/admin/settings', 'Security settings'],
             'action' => '/admin/settings/clear-data',
             'phrase' => 'CLEAR ALL DATA',
-            'title' => 'Clear All Data &amp; Reset System',
+            'title' => 'Clear All Data & Reset System',
             'description' => 'Removes every test student with their enrollments, payments, quiz attempts, results, progress, submissions, attendance, certificates, messages and uploaded files, and restarts the ID counter from the saved scheme. Admin accounts, login credentials, system settings, the ID format configuration, courses and content are kept.',
             'count' => $students + $certificates,
         ],
@@ -120,7 +123,7 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
         ],
     ];
     foreach ($dangerCards as $card):
-        ?>
+    ?>
         <div class="danger-card-group">
             <div class="danger-card-category">
                 <span class="danger-category-label"><?= $card['category'] ?></span>
@@ -153,7 +156,10 @@ $courses = is_array($danger['courses'] ?? null) ? $danger['courses'] : [];
             <div class="admin-card-header">
                 <div class="admin-card-title-group">
                     <div class="admin-card-icon caution">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M23 4v6h-6" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
                     </div>
                     <div class="admin-card-titles">
                         <h2>Reset ID Counter</h2>

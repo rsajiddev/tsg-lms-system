@@ -30,9 +30,6 @@ $currentStep = $state === 'otp' ? 1 : 0;
 $eyeIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">' . $eyeIcon . '</button>';
 
-// The "sending" panel is only honest straight after a code was actually requested. A wrong-code
-// attempt re-renders this same card, and claiming an email is on its way then would be a lie.
-$isSending = $state === 'otp' && $error === null;
 ?>
 <section class="enrol-shell">
   <header class="enrol-topbar">
@@ -82,21 +79,23 @@ $isSending = $state === 'otp' && $error === null;
       </section>
     </div>
 
-    <div class="enrol-card">
+    <div class="enrol-card" id="enrol-card">
       <header class="enrol-card-head">
-        <h2><?= $state === 'otp' ? 'Enter your code' : 'Create your account' ?></h2>
+        <h2><?= $state === 'otp' ? 'Verify your OTP' : 'Create your account' ?></h2>
         <p><?= $state === 'otp'
-          ? 'One field, six digits. Use Resend if the mail is slow.'
+          ? 'We sent a six-digit verification code to ' . $value('email') . '. Enter it to continue.'
           : 'Takes about a minute. You will not have to fill any of this in again.' ?></p>
       </header>
 
       <?php /* Both messages are confirmations of the step just taken, so they float over the card
                 instead of pushing the form down the page. */ ?>
-      <?php \App\Core\View::toast('error', $error); ?>
-      <?php \App\Core\View::toast('success', $message); ?>
+      <?php if ($state === 'details'): ?>
+        <?php \App\Core\View::toast('error', $error); ?>
+        <?php \App\Core\View::toast('success', $message); ?>
+      <?php endif; ?>
 
       <?php if ($state === 'details'): ?>
-        <form method="post" action="<?= Security::escape($baseUrl) ?>/enrol" class="enrol-form" data-enrol-form>
+        <form method="post" action="<?= Security::escape($baseUrl) ?>/enrol" class="enrol-form" data-enrol-form data-submit-progress-form>
           <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
           <label class="field">Full name<span class="input-wrap"><input name="full_name" autocomplete="name" required minlength="2" maxlength="150" value="<?= $value('full_name') ?>"></span></label>
           <label class="field">Email<span class="input-wrap"><input name="email" type="email" autocomplete="email" required maxlength="190" value="<?= $value('email') ?>"></span></label>
@@ -104,29 +103,16 @@ $isSending = $state === 'otp' && $error === null;
           <label class="field">Confirm password<span class="input-wrap"><input name="password_confirmation" type="password" autocomplete="new-password" required minlength="12"><?= $eyeToggle ?></span></label>
           <p class="enrol-mail-hint">Use an address you can open right now — the verification code goes there, and the receipt and certificate are quoted against this account.</p>
           <button class="button auth-submit" type="submit"><span class="enrol-button-label">Create account and send code</span></button>
-          <div class="enrol-sending" role="status" hidden>
-            <span class="enrol-spinner" aria-hidden="true"></span>
-            <p><strong>Sending your verification code…</strong><small>This can take a few seconds while the mail server responds. Keep this page open.</small></p>
-          </div>
         </form>
         <p class="auth-links">Already enrolled? <a href="<?= Security::escape($baseUrl) ?>/login">Log in</a></p>
+        <div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Sending verification code">
+          <div class="submit-progress-card">
+            <span class="submit-progress-spinner" aria-hidden="true"></span>
+            <p data-submit-progress-message>Please wait, OTP is being sent to your Gmail.</p>
+          </div>
+        </div>
       <?php else: ?>
-        <form method="post" action="<?= Security::escape($baseUrl) ?>/enrol/verify" class="enrol-form" data-enrol-form>
-          <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
-          <input type="hidden" name="email" value="<?= $value('email') ?>">
-          <input type="hidden" name="full_name" value="<?= $value('full_name') ?>">
-          <?php if ($isSending): ?>
-            <div class="enrol-sending enrol-sending-live" role="status">
-              <span class="enrol-spinner" aria-hidden="true"></span>
-              <p><strong>Emailing the code to <?= $value('email') ?></strong><small>Nothing in your inbox after a minute? Use Resend below — you do not have to wait for the code to expire first.</small></p>
-            </div>
-          <?php endif; ?>
-          <label class="field">Six-digit code<span class="input-wrap"><input class="field-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" value="<?= $value('code') ?>"></span></label>
-          <button class="button auth-submit" type="submit"><span class="enrol-button-label">Verify and continue to payment</span></button>
-          <?php /* One centred line for both escapes: a person who did not get the code is looking
-                    for the way out, and two stacked links under the button read like an error. */ ?>
-          <p class="otp-resend-row" data-otp-countdown="<?= $resendSeconds ?>"><span>Didn’t receive code?</span> <button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/verify/resend" formnovalidate<?= $resendSeconds > 0 ? ' disabled' : '' ?>>Resend</button><span class="otp-resend-timer" aria-live="polite"></span><span class="otp-resend-divider" aria-hidden="true">|</span> <button class="text-button enrol-edit-email" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/back" formnovalidate>Wrong email? Go back</button></p>
-        </form>
+        <a class="button auth-submit" href="#enrol-otp-modal" data-admin-modal-open="enrol-otp-modal">Verify your OTP</a>
         <p class="auth-links">After this you go straight to the payment step for <strong><?= Security::escape($courseTitle) ?></strong>.</p>
       <?php endif; ?>
 
@@ -137,3 +123,35 @@ $isSending = $state === 'otp' && $error === null;
     </div>
   </div>
 </section>
+
+<?php if ($state === 'otp'): ?>
+  <div class="admin-modal enrol-otp-modal" id="enrol-otp-modal" data-admin-modal data-enrol-otp-auto-open role="dialog" aria-modal="true" aria-labelledby="enrol-otp-title">
+    <a class="admin-modal-backdrop" href="#enrol-card" data-admin-modal-close aria-label="Close OTP verification"></a>
+    <div class="admin-modal-dialog">
+      <header class="admin-modal-header">
+        <div class="admin-card-titles">
+          <h2 id="enrol-otp-title">Verify your OTP</h2>
+          <p>Enter the six-digit code sent to <?= $value('email') ?> to continue your enrollment.</p>
+        </div>
+        <a class="admin-modal-close enrol-modal-close" href="#enrol-card" data-admin-modal-close aria-label="Close OTP verification">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </a>
+      </header>
+      <form method="post" action="<?= Security::escape($baseUrl) ?>/enrol/verify" class="admin-form admin-modal-body enrol-otp-form enrol-form" data-enrol-form>
+        <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
+        <input type="hidden" name="email" value="<?= $value('email') ?>">
+        <input type="hidden" name="full_name" value="<?= $value('full_name') ?>">
+        <?php if ($error !== null): ?>
+          <p class="enrol-otp-feedback is-error" role="alert"><?= Security::escape($error) ?></p>
+        <?php elseif ($message !== null): ?>
+          <p class="enrol-otp-feedback is-success" role="status"><strong>OTP sent. Please wait for the email.</strong><span><?= Security::escape($message) ?></span></p>
+        <?php endif; ?>
+        <label class="field">Six-digit code<span class="input-wrap"><input class="field-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" value="<?= $value('code') ?>"></span></label>
+        <button class="button auth-submit" type="submit"><span class="enrol-button-label">Verify and continue to payment</span></button>
+        <?php /* Keep resend and email correction beside the code field, where both are needed. */ ?>
+        <p class="otp-resend-row" data-otp-countdown="<?= $resendSeconds ?>"><span>Didn’t receive a code?</span><button class="text-button secondary-form" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/verify/resend" formnovalidate<?= $resendSeconds > 0 ? ' disabled' : '' ?>>Resend</button><span class="otp-resend-timer" aria-live="polite"></span></p>
+        <p class="enrol-otp-back"><button class="text-button enrol-edit-email" type="submit" formaction="<?= Security::escape($baseUrl) ?>/enrol/back" formnovalidate>Wrong email? Go back</button></p>
+      </form>
+    </div>
+  </div>
+<?php endif; ?>

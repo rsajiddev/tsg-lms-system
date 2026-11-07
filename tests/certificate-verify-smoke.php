@@ -31,6 +31,7 @@ foreach (
         '/app/Services/MailService.php',
         '/app/Services/NotificationService.php',
         '/app/Services/CourseDuration.php',
+        '/app/Services/AttendanceService.php',
         '/app/Services/CourseGrading.php',
         '/app/Controllers/CertificateController.php',
     ] as $file

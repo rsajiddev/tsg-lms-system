@@ -15,7 +15,7 @@ declare(strict_types=1);
  *
  * Mail is never configured in this process (MAIL_HOST is forced empty), so registration takes the
  * "the code could not be delivered" branch on purpose: the countdown, the resend row and the
- * one-card layout are what is under test here, and real SMTP delivery is proven by
+ * OTP popup are what is under test here, and real SMTP delivery is proven by
  * auth-flow-smoke.php. Where a code is needed to finish the journey, the hash stored in email_otps
  * is replaced with a known one, which exercises the same verification path a posted code travels.
  *
@@ -247,6 +247,38 @@ try {
     $assert(str_contains($frontScript, 'form[data-enrol-form]'),
         'main.js binds an in-flight progress state to the enrolment form.',
         'main.js has no handler for the enrolment form, so the OTP wait is silent again.');
+    $assert(str_contains($frontScript, 'form[data-submit-progress-form]')
+        && str_contains($cardSource, 'Please wait, OTP is being sent to your Gmail.'),
+        'The registration request opens its OTP-sending progress popup.',
+        'The registration request has no OTP-sending progress popup.');
+    $paymentFormSource = (string) file_get_contents(BASE_PATH . '/app/Views/payments/form.php');
+    $adminPaymentSource = (string) file_get_contents(BASE_PATH . '/app/Views/admin/payments.php');
+    $paymentControllerSource = (string) file_get_contents(BASE_PATH . '/app/Controllers/PaymentController.php');
+    $assert(str_contains($paymentFormSource, 'data-submit-progress-form')
+        && str_contains($paymentFormSource, 'data-submit-progress-overlay'),
+        'Payment submission displays an in-flight progress popup.',
+        'Payment submission has no in-flight progress popup.');
+    $assert(str_contains($adminPaymentSource, 'data-progress-approval-only')
+        && str_contains($adminPaymentSource, 'Your payment is being approved. Please wait.')
+        && str_contains($adminPaymentSource, 'data-submit-progress-overlay'),
+        'Admin approval displays its progress popup without changing rejection behavior.',
+        'Admin approval has no dedicated progress popup.');
+    $proofPosition = strpos($adminPaymentSource, '>Download Submitted Proof</a>');
+    $approvePosition = strpos($adminPaymentSource, 'payment-approve-button');
+    $rejectPosition = strpos($adminPaymentSource, 'payment-reject-button');
+    $assert($proofPosition !== false && $approvePosition !== false && $rejectPosition !== false
+        && $proofPosition < $approvePosition && $approvePosition < $rejectPosition,
+        'The proof, approval and rejection actions render in the requested order.',
+        'The payment card actions are not ordered proof, approval, then rejection.');
+    $assert(str_contains($adminPaymentSource, 'Review note <span>(required to reject)</span>')
+        && str_contains($frontScript, 'Add a review note before rejecting this payment.')
+        && str_contains($paymentControllerSource, "if (\$decision === 'rejected' && \$note === '')"),
+        'Rejection requires a review note while approval keeps it optional.',
+        'The reject note requirement is not clear and enforced.');
+    $assert(str_contains($paymentControllerSource, 'Your payment approval request has been emailed to the admin.')
+        && str_contains($paymentControllerSource, 'Payment approved successfully. Course access has been granted to the student.'),
+        'Payment submission and approval return clear completion messages.',
+        'The payment submission or approval completion message is missing.');
 
     echo "\n-- a course that cannot be enrolled in goes back to the catalogue\n";
     foreach ([['unknown-slug', 'unknown'], [$slugDraft, 'unpublished'], [$slugFree, 'unpriced']] as [$slug, $label]) {
@@ -288,7 +320,7 @@ try {
         'The card lost its step list.');
     $assert($csrfOf($start['body']) !== '', 'The account step carries a CSRF token.', 'The account step rendered without a CSRF token.');
 
-    echo "\n-- the code step arrives in the same card and keeps the course\n";
+    echo "\n-- the code step opens its popup and keeps the course\n";
     $tampered = $open('POST', '/enrol', [
         '_csrf' => $csrfOf($start['body']),
         // Sent along with the real form fields to prove the handler has nothing to read it from.
@@ -298,9 +330,12 @@ try {
         'password' => 'Correct Horse Battery 9!',
         'password_confirmation' => 'Correct Horse Battery 9!',
     ]);
-    $assert($tampered['status'] === 200 && str_contains($tampered['body'], 'name="code"'),
-        'The account step returns the code field in the very same card, with no page change.',
-        'Registering did not render the code step in the same card (status ' . $tampered['status'] . ').');
+    $assert($tampered['status'] === 200
+        && str_contains($tampered['body'], 'id="enrol-otp-modal"')
+        && str_contains($tampered['body'], 'data-enrol-otp-auto-open')
+        && str_contains($tampered['body'], 'name="code"'),
+        'The account step opens the code form in the OTP verification popup.',
+        'Registering did not render the code form in its popup (status ' . $tampered['status'] . ').');
     $assert(str_contains($tampered['body'], 'could not be delivered'),
         'A code the server could not email is reported honestly instead of as a duplicate account.',
         'The undeliverable-code case is not stated on the card.');
@@ -320,14 +355,12 @@ try {
         'The code step still names the course the session holds.',
         'The code step lost the chosen course.');
 
-    echo "\n-- the code step keeps one centred escape line and one course line\n";
-    // A person who did not get the code is looking for the way out, so both escapes share the line
-    // under the fields - and main.js still finds Resend first, because that is the button it drives.
+    echo "\n-- the code step keeps resend, timer and email correction easy to reach\n";
     preg_match('/<p class="otp-resend-row"[^>]*data-otp-countdown="\d+"[^>]*>(?<row>.*?)<\/p>/s', $tampered['body'], $resendRow);
     $rowHtml = (string) ($resendRow['row'] ?? '');
-    $assert(str_contains($rowHtml, '>Resend</button>') && str_contains($rowHtml, 'Wrong email? Go back</button>'),
-        'Resend and the way back to the address share the centred line under the code step.',
-        'The code step does not offer both escapes on one resend line.');
+    $assert(str_contains($rowHtml, 'Didn’t receive a code?') && str_contains($rowHtml, '>Resend</button>'),
+        'The resend prompt and button share a single row.',
+        'The code step does not keep the resend prompt and button together.');
     preg_match('/<button[^>]*>(?<label>[^<]*)<\/button>/', $rowHtml, $firstButton);
     $assert(trim((string) ($firstButton['label'] ?? '')) === 'Resend',
         'Resend is the first button in the countdown row, which is the control main.js counts down on.',
@@ -335,6 +368,11 @@ try {
     $assert(str_contains($rowHtml, 'class="otp-resend-timer"'),
         'The countdown row keeps the element the remaining seconds are written into.',
         'The countdown row lost its timer element, so the wait would be silent.');
+    $assert(str_contains($tampered['body'], 'Wrong email? Go back')
+        && str_contains($cardSource, 'class="submit-progress-overlay"')
+        && str_contains($cardSource, 'data-submit-progress-form'),
+        'The email correction remains available separately and registration has a blocking progress popup.',
+        'The code step lost the email correction or registration progress popup.');
     // The summary states the course once; the category and duration beside it only repeated it.
     preg_match('/<div class="enrol-summary-main">(?<main>.*?)<\/div>/s', $tampered['body'], $summary);
     $summaryMain = trim((string) ($summary['main'] ?? ''));
@@ -384,9 +422,9 @@ try {
         'The verified student lands on the bank-details page for the course they came for.',
         'The payment step did not render for the freshly verified student (status ' . $payment['status']
             . ', Location ' . json_encode($payment['location']) . ').');
-    $assert(str_contains($payment['body'], 'Email verified'),
-        'The page says the email was confirmed, so the hand-off reads as one journey.',
-        'The payment page did not carry the verification message.');
+    $assert(!str_contains($payment['body'], 'Email verified for '),
+        'The payment page does not show the unwanted registration flash.',
+        'Successful OTP verification still leaves the registration flash on the payment page.');
     $assert(str_contains($payment['body'], 'payment_proof') && str_contains($payment['body'], 'transaction_reference'),
         'The existing payment form is reused as it is, upload field and reference field included.',
         'The payment form fields are missing from the page the journey ends on.');
@@ -500,6 +538,21 @@ try {
     echo "\n-- with nothing picked, sign-in behaves exactly as it always did\n";
     $freshVisitor();
     $loginPage = $open('GET', '/login');
+    $failedSignIn = $open('POST', '/login', [
+        '_csrf' => $csrfOf($loginPage['body']),
+        'email' => 'unregistered-' . bin2hex(random_bytes(5)) . '@gmail.com',
+        'password' => 'Incorrect Password 123!',
+    ]);
+    $assert($failedSignIn['status'] === 200
+        && str_contains($failedSignIn['body'], 'flash-toast-card is-error')
+        && str_contains($failedSignIn['body'], '<p class="flash-toast-label">Error</p>')
+        && str_contains($failedSignIn['body'], 'Email or password is incorrect.')
+        && !str_contains($failedSignIn['body'], '<p class="flash-toast-label">Success</p>'),
+        'An unregistered email gets an error-styled login validation popup.',
+        'An unregistered email did not render the login failure as an error popup.');
+
+    $freshVisitor();
+    $loginPage = $open('GET', '/login');
     $plainSignIn = $open('POST', '/login', [
         '_csrf' => $csrfOf($loginPage['body']),
         'email' => $enrolEmail,
@@ -609,6 +662,6 @@ try {
 }
 
 echo $failures === []
-    ? "\nEnrolment journey checks passed: slug intent, catalogue bounce with a flash that clears, one-card code step, resend cooldown, session-only course choice, verified hand-off to the payment step, sign-in intent and CSRF rejection.\n"
+    ? "\nEnrolment journey checks passed: slug intent, catalogue bounce with a flash that clears, OTP popup, resend cooldown, session-only course choice, verified hand-off to the payment step, sign-in intent and CSRF rejection.\n"
     : "\n" . count($failures) . " enrolment journey check(s) failed.\n";
 exit($failures === [] ? 0 : 1);

@@ -24,11 +24,16 @@ $heroImages = [
 <section class="catalog-hero" data-reveal>
     <div class="catalog-hero-copy">
         <p class="eyebrow">TECH SG ACADEMY · COURSE CATALOGUE</p>
-        <h1>Learn <span>future-ready skills.</span><br>Build your <span class="catalog-hero-highlight">career.</span></h1>
-        <p class="catalog-hero-lead">Practical, project-based learning from people who build real software. Find a course, build your skills, and put them to work.</p>
+        <h1>Find your next skill.<br><span>Build your future.</span></h1>
+        <p class="catalog-hero-lead">Explore practical courses in web development, digital marketing and design, taught by people who build real projects.</p>
+        <form class="catalog-search" action="#course-list" role="search" data-course-search-form>
+            <label class="sr-only" for="catalog-course-search">Search courses</label>
+            <input id="catalog-course-search" type="search" placeholder="What do you want to learn?" autocomplete="off" data-course-search-input>
+            <button class="button" type="submit">Search <span aria-hidden="true">→</span></button>
+        </form>
         <div class="catalog-hero-actions">
-            <a class="button" href="#course-list">Explore courses <span aria-hidden="true">→</span></a>
-            <a class="button button-secondary" href="<?= Security::escape($baseUrl) ?>/about">How we teach</a>
+            <a class="catalog-hero-link" href="#course-list">Browse all courses <span aria-hidden="true">↓</span></a>
+            <a class="catalog-hero-link" href="<?= Security::escape($baseUrl) ?>/about">How we teach <span aria-hidden="true">↗</span></a>
         </div>
     </div>
     <div class="catalog-hero-art" aria-label="Learn with Tech SG Academy">
@@ -63,6 +68,7 @@ $heroImages = [
                 <?php require BASE_PATH . '/app/Views/components/course-card.php'; ?>
             <?php endforeach; ?>
         </div>
+        <p class="catalog-search-empty" data-course-search-empty aria-live="polite" hidden>No courses match your search. Try another keyword.</p>
     </section>
     <section class="course-benefits" data-reveal aria-labelledby="course-benefits-title">
         <div class="course-benefits-intro">

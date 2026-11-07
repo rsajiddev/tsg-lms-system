@@ -124,7 +124,7 @@ $queryForPage = static function (int $targetPage) use ($search, $type, $resultFi
                         </div>
                         <div class="quiz-report-student">
                             <strong><?= $escape($attempt['student_name'] ?? 'Student') ?></strong>
-                            <span>Student ID <?= (int)($attempt['student_id'] ?? 0) ?> · <?= $escape($attempt['student_email'] ?? '') ?></span>
+                            <span>Student ID <?= $escape($attempt['student_reference'] ?? '—') ?> · <?= $escape($attempt['student_email'] ?? '') ?></span>
                         </div>
                         <div class="quiz-report-course-line"><span>Course</span><strong><?= $escape($attempt['course_title'] ?? '—') ?></strong><span class="quiz-report-week"><?= $escape($weekLabel) ?></span></div>
                         <dl class="quiz-report-details">

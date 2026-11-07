@@ -209,9 +209,8 @@ final class MailService
     }
 
     /**
-     * The ID to print for an account. It reads the stored reference, so a student sees the same
-     * number in an email that they see on their settings page and verify their certificate with;
-     * an account that predates the column still falls back to the old derived form.
+     * The ID to print for an account. It reads the stored reference, issuing the configured
+     * student format for older accounts that do not yet have one.
      */
     public static function accountReference(int $userId, string $role = 'student'): string
     {

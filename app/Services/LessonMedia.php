@@ -162,6 +162,26 @@ final class LessonMedia
         return $value;
     }
 
+    /** A meeting platform is metadata independent from both the video URL and meeting address. */
+    public static function normaliseMeetingPlatform(mixed $platform): ?string
+    {
+        $value = trim((string) $platform);
+        if ($value === '') return null;
+        if (!in_array($value, ['google_meet', 'zoom'], true)) {
+            throw new RuntimeException('Choose Google Meet or Zoom as the live meeting platform.');
+        }
+        return $value;
+    }
+
+    /** Preserve legacy forms and older records by recognising the two supported meeting hosts. */
+    public static function detectMeetingPlatform(?string $url): ?string
+    {
+        $host = strtolower((string) parse_url((string) $url, PHP_URL_HOST));
+        if ($host === 'meet.google.com' || str_ends_with($host, '.meet.google.com')) return 'google_meet';
+        if ($host === 'zoom.us' || str_ends_with($host, '.zoom.us')) return 'zoom';
+        return null;
+    }
+
     /**
      * Class instant as a UTC database timestamp, or null when no time was given.
      *

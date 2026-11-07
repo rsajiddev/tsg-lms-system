@@ -26,7 +26,7 @@ final class AccessPlan
     public const LIVE = 'live_recorded';
 
     /** The columns this feature writes, checked against the database before it uses them. */
-    private const COLUMNS = ['lessons.meeting_url', 'lessons.meeting_at', 'payments.plan_code', 'student_course_access.plan_code'];
+    private const COLUMNS = ['lessons.meeting_url', 'lessons.meeting_platform', 'lessons.meeting_at', 'payments.plan_code', 'student_course_access.plan_code'];
 
     /** @var array<string, bool> */
     private static array $columnState = [];

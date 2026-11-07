@@ -18,6 +18,7 @@ $courses = is_array($courses ?? null) ? $courses : [];
 $metrics = is_array($metrics ?? null) ? $metrics : [];
 $videosAvailable = isset($videosAvailable) && (bool) $videosAvailable;
 $liveClassesAvailable = isset($liveClassesAvailable) && (bool) $liveClassesAvailable;
+$meetingPlatformAvailable = isset($meetingPlatformAvailable) && (bool) $meetingPlatformAvailable;
 $watchAvailable = isset($watchAvailable) && (bool) $watchAvailable;
 $watchPercent = max(0, (int) ($watchPercent ?? 90));
 $watchMin = max(1, (int) ($watchMinPercent ?? 10));
@@ -191,13 +192,13 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             <?php if ($videosAvailable): ?>
                 <div class="admin-form-row">
                     <div class="admin-field">
-                        <label class="admin-label" for="lesson-video-url">Lesson video link</label>
+                        <label class="admin-label" for="lesson-video-url">Recorded video URL (optional)</label>
                         <input class="admin-input" id="lesson-video-url" name="video_url" maxlength="600" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4">
                         <span class="admin-hint">Direct .mp4 / .webm files track the playhead exactly. YouTube and Vimeo links are re-written to an embed player.</span>
                     </div>
 
                     <div class="admin-field">
-                        <label class="admin-label" for="lesson-video-duration">Video length</label>
+                        <label class="admin-label" for="lesson-video-duration">Video length (optional)</label>
                         <input class="admin-input" id="lesson-video-duration" name="video_duration" maxlength="8" placeholder="e.g. 18:30">
                         <span class="admin-hint">Needed for the watch-time rule. Accepts seconds, mm:ss or h:mm:ss.</span>
                     </div>
@@ -206,8 +207,19 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
 
             <?php if ($liveClassesAvailable): ?>
                 <div class="admin-form-row">
+                    <?php if ($meetingPlatformAvailable): ?>
+                        <div class="admin-field">
+                            <label class="admin-label" for="lesson-meeting-platform">Live meeting platform</label>
+                            <select class="admin-select" id="lesson-meeting-platform" name="meeting_platform">
+                                <option value="">Select a platform (optional)</option>
+                                <option value="google_meet">Google Meet</option>
+                                <option value="zoom">Zoom</option>
+                            </select>
+                            <span class="admin-hint">Choose Google Meet or Zoom when adding a live meeting link.</span>
+                        </div>
+                    <?php endif; ?>
                     <div class="admin-field">
-                        <label class="admin-label" for="lesson-meeting-url">Live class link</label>
+                        <label class="admin-label" for="lesson-meeting-url">Live meeting URL (optional)</label>
                         <input class="admin-input" id="lesson-meeting-url" name="meeting_url" maxlength="600" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij">
                         <span class="admin-hint">Optional. https addresses only. Students open it in a new tab, and only those enrolled on the Live + Recorded plan are ever shown it.</span>
                     </div>
@@ -376,7 +388,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                                     <?php endif; ?>
                                     <?php if ($liveClassesAvailable && $meetingUrl !== null): ?>
                                         <div class="lesson-lib-video">
-                                            <strong>Live class</strong>
+                                            <strong><?= ($lesson['meeting_platform'] ?? null) === 'zoom' ? 'Zoom' : (($lesson['meeting_platform'] ?? null) === 'google_meet' ? 'Google Meet' : 'Live class') ?></strong>
                                             <small><?= $escape($classLabel($lesson['meeting_at'] ?? null) !== '' ? $classLabel($lesson['meeting_at'] ?? null) : 'time not set') ?> · Live + Recorded only</small>
                                         </div>
                                     <?php endif; ?>
@@ -445,11 +457,22 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                             <label class="admin-label">Lesson title<input class="admin-input" name="lesson_title" required maxlength="200" value="<?= $escape($lesson['title']) ?>"></label>
                             <label class="admin-label">Lesson content<textarea class="admin-textarea" name="body" rows="5" maxlength="500000"><?= $escape($lesson['body'] ?? '') ?></textarea></label>
                             <?php if ($videosAvailable): ?>
-                                <label class="admin-label">Lesson video link<input class="admin-input" name="video_url" maxlength="600" value="<?= $escape($lesson['video_url'] ?? '') ?>" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4"></label>
-                                <label class="admin-label">Video length<input class="admin-input" name="video_duration" maxlength="8" value="<?= $escape($lesson['video_duration_seconds'] !== null && $lesson['video_duration_seconds'] !== '' ? $durationLabel((int) $lesson['video_duration_seconds']) : '') ?>" placeholder="18:30"><span class="admin-hint">Seconds, mm:ss or h:mm:ss. Leave empty when the length is unknown — the lesson then stays manually completable.</span></label>
+                                <label class="admin-label">Recorded video URL (optional)<input class="admin-input" name="video_url" maxlength="600" value="<?= $escape($lesson['video_url'] ?? '') ?>" placeholder="https://www.youtube.com/watch?v=... or https://cdn.example.com/lesson.mp4"></label>
+                                <label class="admin-label">Video length (optional)<input class="admin-input" name="video_duration" maxlength="8" value="<?= $escape($lesson['video_duration_seconds'] !== null && $lesson['video_duration_seconds'] !== '' ? $durationLabel((int) $lesson['video_duration_seconds']) : '') ?>" placeholder="18:30"><span class="admin-hint">Seconds, mm:ss or h:mm:ss. Leave empty when the length is unknown — the lesson then stays manually completable.</span></label>
                             <?php endif; ?>
                             <?php if ($liveClassesAvailable): ?>
-                                <label class="admin-label">Live class link<input class="admin-input" name="meeting_url" maxlength="600" value="<?= $escape($lesson['meeting_url'] ?? '') ?>" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij"><span class="admin-hint">https only. Shown to Live + Recorded students on the lesson page; nobody else receives the address.</span></label>
+                                <?php if ($meetingPlatformAvailable):
+                                    $meetingPlatform = is_string($lesson['meeting_platform'] ?? null) && $lesson['meeting_platform'] !== ''
+                                        ? $lesson['meeting_platform']
+                                        : \App\Services\LessonMedia::detectMeetingPlatform($lesson['meeting_url'] ?? null);
+                                ?>
+                                    <label class="admin-label">Live meeting platform<select class="admin-select" name="meeting_platform">
+                                        <option value="" <?= $meetingPlatform === null ? 'selected' : '' ?>>Select a platform (optional)</option>
+                                        <option value="google_meet" <?= $meetingPlatform === 'google_meet' ? 'selected' : '' ?>>Google Meet</option>
+                                        <option value="zoom" <?= $meetingPlatform === 'zoom' ? 'selected' : '' ?>>Zoom</option>
+                                    </select><span class="admin-hint">Google Meet or Zoom. Optional when no meeting link is set.</span></label>
+                                <?php endif; ?>
+                                <label class="admin-label">Live meeting URL (optional)<input class="admin-input" name="meeting_url" maxlength="600" value="<?= $escape($lesson['meeting_url'] ?? '') ?>" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij"><span class="admin-hint">https only. Shown to Live + Recorded students on the lesson page; nobody else receives the address.</span></label>
                                 <label class="admin-label">Class date &amp; time (UTC)<input class="admin-input" name="meeting_at" type="datetime-local" value="<?= $escape($meetingFieldValue($lesson['meeting_at'] ?? null)) ?>"><span class="admin-hint">Optional, and needs a link. Kept exactly as typed, in UTC.</span></label>
                             <?php endif; ?>
                             <label class="admin-label">Publishing status<select class="admin-select" name="status">

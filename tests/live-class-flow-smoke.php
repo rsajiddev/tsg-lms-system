@@ -175,10 +175,10 @@ foreach ([AccessPlan::RECORDED => 25000, AccessPlan::LIVE => 45000] as $code => 
 }
 $db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$courseId, 'Smoke module']);
 $moduleId = (int) $db->lastInsertId();
-$insertLesson = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status,meeting_url,meeting_at) VALUES(?,?,?,?,?,180,?,'published',?,?)");
-$insertLesson->execute([$moduleId, 'Live class lesson', 'Body', 'https://cdn.example.com/live-' . $token . '.mp4', 'file', 1, $meetingUrl, $futureAt]);
+$insertLesson = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status,meeting_url,meeting_platform,meeting_at) VALUES(?,?,?,?,?,180,?,'published',?,?,?)");
+$insertLesson->execute([$moduleId, 'Live class lesson', 'Body', 'https://cdn.example.com/live-' . $token . '.mp4', 'file', 1, $meetingUrl, 'google_meet', $futureAt]);
 $lessonIds['live'] = (int) $db->lastInsertId();
-$insertLesson->execute([$moduleId, 'Passed class lesson', 'Body', 'https://cdn.example.com/past-' . $token . '.mp4', 'file', 2, $meetingUrl, $pastAt]);
+$insertLesson->execute([$moduleId, 'Passed class lesson', 'Body', 'https://cdn.example.com/past-' . $token . '.mp4', 'file', 2, $meetingUrl, 'google_meet', $pastAt]);
 $lessonIds['past'] = (int) $db->lastInsertId();
 $insertPlain = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,180,?,'published')");
 $insertPlain->execute([$moduleId, 'Recorded only lesson', 'Body', 'https://cdn.example.com/plain-' . $token . '.mp4', 'file', 3]);
@@ -342,7 +342,7 @@ try {
     /* ---------------------------------------------------------------- the columns underneath */
     $emit("\n-- the schema the feature stands on");
     foreach ([
-        ['lessons', 'meeting_url'], ['lessons', 'meeting_at'],
+        ['lessons', 'meeting_url'], ['lessons', 'meeting_platform'], ['lessons', 'meeting_at'],
         ['payments', 'plan_code'], ['student_course_access', 'plan_code'],
     ] as [$table, $column]) {
         $assert($columnPresent($table, $column), $table . '.' . $column . ' arrived with the migration.', $table . '.' . $column . ' is missing; import database/migrations/001_initial_schema.sql.');
@@ -607,7 +607,8 @@ try {
     $emit("\n-- the two desks that set all of this");
     $adminLessons = $open('GET', '/admin/lessons', [], $jarAdmin);
     $assert($adminLessons['status'] === 200 && str_contains($adminLessons['body'], 'name="meeting_url"')
-        && str_contains($adminLessons['body'], 'name="meeting_at"') && str_contains($adminLessons['body'], 'Live class link'),
+        && str_contains($adminLessons['body'], 'name="meeting_platform"')
+        && str_contains($adminLessons['body'], 'name="meeting_at"') && str_contains($adminLessons['body'], 'Live meeting URL (optional)'),
         'The lesson library offers the class link and its time, in the add card and in the editor.', 'The lesson library has no meeting fields (status ' . $adminLessons['status'] . ').');
     $assert(str_contains($adminLessons['body'], 'table-badge live') && str_contains($adminLessons['body'], 'Live + Recorded only'),
         'A lesson that holds a class says so in the table, and says whose plan it belongs to.', 'The library did not mark the live lesson.');
@@ -621,7 +622,7 @@ try {
     /* ----------------------------------------------------------------------- the save rules */
     $emit("\n-- a link that is not a link is refused, and the lesson keeps what it had");
     $csrf = $csrfOf($adminLessons['body']);
-    $postLesson = static function (string $url, string $at) use ($open, $jarAdmin, $csrf, $courseId, $moduleId, $lessonIds, $token): array {
+    $postLesson = static function (string $url, string $at, ?string $videoUrl = null, string $duration = '', string $platform = '') use ($open, $jarAdmin, $csrf, $courseId, $moduleId, $lessonIds, $token): array {
         return $open('POST', '/admin/courses/lessons/save', [
             '_csrf' => $csrf,
             'lesson_id' => (string) $lessonIds['editable'],
@@ -631,8 +632,9 @@ try {
             'lesson_title' => 'Editable lesson',
             'body' => 'Body',
             'status' => 'published',
-            'video_url' => 'https://cdn.example.com/edit-' . $token . '.mp4',
-            'video_duration' => '3:00',
+            'video_url' => $videoUrl ?? 'https://cdn.example.com/edit-' . $token . '.mp4',
+            'video_duration' => $videoUrl === '' ? '' : ($duration !== '' ? $duration : '3:00'),
+            'meeting_platform' => $platform,
             'meeting_url' => $url,
             'meeting_at' => $at,
         ], $jarAdmin);
@@ -655,6 +657,33 @@ try {
     $stored = $readMeeting($lessonIds['editable']);
     $assert($saved['status'] === 302 && (string) $stored[0] === 'https://meet.google.com/abc-defg-hij' && (string) $stored[1] === '2026-11-08 20:00:00',
         'A real Meet address and its UTC time are stored as typed.', 'The save stored ' . json_encode($stored) . ' (status ' . $saved['status'] . ').');
+    $videoOnly = $postLesson('', '', 'https://www.youtube.com/watch?v=abc123def45');
+    $onlyVideo = $db->prepare('SELECT video_url,meeting_url FROM lessons WHERE id=?');
+    $onlyVideo->execute([$lessonIds['editable']]);
+    $onlyVideoRow = $onlyVideo->fetch(PDO::FETCH_ASSOC) ?: [];
+    $assert($videoOnly['status'] === 302 && str_contains((string) ($onlyVideoRow['video_url'] ?? ''), 'youtube.com/watch') && $onlyVideoRow['meeting_url'] === null,
+        'A recorded video saves without requiring a live meeting link.', 'The video-only save answered ' . $videoOnly['status'] . ' and stored ' . json_encode($onlyVideoRow) . '.');
+    $liveOnly = $postLesson('https://zoom.us/j/4005006007', '', '', '');
+    $onlyLive = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform FROM lessons WHERE id=?');
+    $onlyLive->execute([$lessonIds['editable']]);
+    $onlyLiveRow = $onlyLive->fetch(PDO::FETCH_ASSOC) ?: [];
+    $assert($liveOnly['status'] === 302 && $onlyLiveRow['video_url'] === null && $onlyLiveRow['video_duration_seconds'] === null
+        && $onlyLiveRow['meeting_url'] === 'https://zoom.us/j/4005006007' && $onlyLiveRow['meeting_platform'] === 'zoom',
+        'A live meeting saves independently with no recorded video or duration.', 'The live-only save answered ' . $liveOnly['status'] . ' and stored ' . json_encode($onlyLiveRow) . '.');
+    $noLinks = $postLesson('', '', '', '');
+    $emptyLinks = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform,meeting_at FROM lessons WHERE id=?');
+    $emptyLinks->execute([$lessonIds['editable']]);
+    $emptyLinksRow = $emptyLinks->fetch(PDO::FETCH_ASSOC) ?: [];
+    $assert($noLinks['status'] === 302 && $emptyLinksRow === [
+        'video_url' => null,
+        'video_duration_seconds' => null,
+        'meeting_url' => null,
+        'meeting_platform' => null,
+        'meeting_at' => null,
+    ], 'A lesson with all optional media fields empty saves cleanly.', 'The empty-link save answered ' . $noLinks['status'] . ' and stored ' . json_encode($emptyLinksRow) . '.');
+    $invalidPlatform = $postLesson('', '', '', '', 'teams');
+    $assert($invalidPlatform['status'] >= 400, 'An unsupported platform is rejected even when its optional meeting URL is blank.',
+        'The invalid platform was accepted with status ' . $invalidPlatform['status'] . '.');
     $cleared = $postLesson('', '');
     $afterClear = $readMeeting($lessonIds['editable']);
     $assert($cleared['status'] === 302 && $afterClear[0] === null && $afterClear[1] === null,
@@ -713,7 +742,7 @@ try {
 
     /* ----------------------------------------------------------- a schema that has not arrived */
     $emit("\n-- a database that has not been re-imported");
-    $runSql('ALTER TABLE lessons DROP COLUMN meeting_at, DROP COLUMN meeting_url');
+    $runSql('ALTER TABLE lessons DROP COLUMN meeting_at, DROP COLUMN meeting_platform, DROP COLUMN meeting_url');
     $runSql('ALTER TABLE student_course_access DROP INDEX idx_access_plan, DROP COLUMN plan_code');
     $runSql('ALTER TABLE payments DROP COLUMN plan_code');
     $columnsDropped = true;
@@ -777,10 +806,10 @@ try {
     }
     // The scratch database outlives this run, and the next one expects the columns to be there.
     if ($columnsDropped) {
-        $runSql('ALTER TABLE lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds, ADD COLUMN meeting_at DATETIME NULL AFTER meeting_url');
+        $runSql('ALTER TABLE lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds, ADD COLUMN meeting_platform ENUM(\'google_meet\',\'zoom\') NULL AFTER meeting_url, ADD COLUMN meeting_at DATETIME NULL AFTER meeting_platform');
         $runSql('ALTER TABLE payments ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NULL AFTER course_id');
         $runSql('ALTER TABLE student_course_access ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NOT NULL DEFAULT \'recorded_only\' AFTER status, ADD INDEX idx_access_plan(student_id, plan_code)');
-        $restored = $columnPresent('lessons', 'meeting_url') && $columnPresent('payments', 'plan_code') && $columnPresent('student_course_access', 'plan_code');
+        $restored = $columnPresent('lessons', 'meeting_url') && $columnPresent('lessons', 'meeting_platform') && $columnPresent('payments', 'plan_code') && $columnPresent('student_course_access', 'plan_code');
         $emit(($restored ? '  ok ' : '  FAIL ') . 'the four live class columns are back for the next run.');
     }
     AccessPlan::forgetColumnState();

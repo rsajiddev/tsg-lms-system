@@ -228,6 +228,33 @@
         if (image.complete) setImageState(image);
     });
 
+    const courseSearchForm = document.querySelector('[data-course-search-form]');
+    const courseSearchInput = document.querySelector('[data-course-search-input]');
+    const catalogueCards = [...document.querySelectorAll('.catalog-course-grid .course-card')];
+    const courseSearchEmpty = document.querySelector('[data-course-search-empty]');
+
+    if (courseSearchForm && courseSearchInput instanceof HTMLInputElement && catalogueCards.length) {
+        const filterCourses = () => {
+            const query = courseSearchInput.value.trim().toLocaleLowerCase();
+            let visibleCount = 0;
+
+            catalogueCards.forEach((card) => {
+                const matches = card.textContent.toLocaleLowerCase().includes(query);
+                card.hidden = !matches;
+                if (matches) visibleCount += 1;
+            });
+
+            if (courseSearchEmpty) courseSearchEmpty.hidden = visibleCount > 0;
+        };
+
+        courseSearchInput.addEventListener('input', filterCourses);
+        courseSearchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            filterCourses();
+            document.getElementById('course-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
     if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver(
             (entries) => {
@@ -764,21 +791,16 @@
             }
             const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
             const seconds = String(remaining % 60).padStart(2, '0');
-            timer.textContent = `— ${minutes}:${seconds}`;
+            timer.textContent = `${minutes}:${seconds}`;
             remaining -= 1;
             window.setTimeout(update, 1000);
         };
         update();
     });
 
-    /* Enrolment checkout. The verification code is emailed during the very request that submits    */
-    /* this form, so the wait is real and otherwise silent. The buttons are locked and the progress  */
-    /* panel is revealed while the server is still working, and everything is restored if the        */
-    /* browser hands back the stored page from the back-forward cache.                               */
+    /* Enrolment checkout. Keep its submit status in a fixed overlay while the server sends the OTP. */
 
     document.querySelectorAll('form[data-enrol-form]').forEach((form) => {
-        const sending = form.querySelector('.enrol-sending');
-        const startedHidden = sending ? sending.hidden : false;
         const buttons = Array.from(form.querySelectorAll('button'));
         const primary = buttons.find((button) => button.type === 'submit' && !button.getAttribute('formaction'));
         const label = primary ? (primary.querySelector('.enrol-button-label') || primary) : null;
@@ -792,7 +814,6 @@
             const isBack = action.indexOf('/enrol/back') !== -1;
             buttons.forEach((button) => { button.disabled = true; });
             if (isBack) return;
-            if (sending) sending.hidden = false;
             if (!label) return;
             if (isResend) {
                 label.textContent = 'Sending a new code…';
@@ -807,8 +828,48 @@
             if (!event.persisted) return;
             buttons.forEach((button) => { button.disabled = false; });
             if (label) label.textContent = originalText;
-            if (sending && startedHidden) sending.hidden = true;
         });
+    });
+
+    document.querySelectorAll('form[data-submit-progress-form]').forEach((form) => {
+        const overlay = document.querySelector('[data-submit-progress-overlay]');
+        if (!overlay) return;
+        const message = overlay.querySelector('[data-submit-progress-message]');
+        let submitting = false;
+        form.addEventListener('submit', (event) => {
+            if (event.defaultPrevented) return;
+            if (submitting) {
+                event.preventDefault();
+                return;
+            }
+            if (form.hasAttribute('data-progress-approval-only')
+                && (!event.submitter || event.submitter.value !== 'approved')) return;
+            submitting = true;
+            if (message) {
+                message.textContent = form.hasAttribute('data-progress-approval-only')
+                    ? 'Your payment is being approved. Please wait.'
+                    : form.closest('.payment-form')
+                        ? 'Your payment approval request is being sent to the admin. Please wait.'
+                        : 'Please wait, OTP is being sent to your Gmail.';
+            }
+            overlay.hidden = false;
+        });
+        window.addEventListener('pageshow', (event) => {
+            if (!event.persisted) return;
+            submitting = false;
+            overlay.hidden = true;
+        });
+    });
+
+    document.querySelectorAll('.payment-decision-form').forEach((form) => {
+        const note = form.querySelector('[name="review_note"]');
+        const reject = form.querySelector('[name="decision"][value="rejected"]');
+        if (!note || !reject) return;
+        const validateRejectionNote = () => {
+            note.setCustomValidity(note.value.trim() ? '' : 'Add a review note before rejecting this payment.');
+        };
+        reject.addEventListener('click', validateRejectionNote);
+        note.addEventListener('input', () => note.setCustomValidity(''));
     });
 
     /* Attendance grace window. The deadline is stored server side and re-checked on submit, so    */
@@ -1442,6 +1503,11 @@
                 });
             });
         });
+
+        const enrolOtpModal = document.querySelector('[data-enrol-otp-auto-open]');
+        if (enrolOtpModal) {
+            openAdminModal(enrolOtpModal);
+        }
 
         /* Deep link support: /admin/courses#course-edit-3 opens the editor. The
            fragment is spent once it has done its job, so the next refresh starts

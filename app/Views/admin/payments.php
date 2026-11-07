@@ -9,6 +9,13 @@ if ($paymentAccounts === []) $paymentAccounts[] = array_fill_keys(['account_titl
 $revenueMonthOptions = is_array($revenueMonthOptions ?? null) ? $revenueMonthOptions : [];
 $currentRevenueMonth = gmdate('Y-m');
 $payments = is_array($payments ?? null) ? $payments : [];
+$localTimezone = new DateTimeZone((string) (require BASE_PATH . '/config/app.php')['timezone']);
+$paymentSubmittedAt = static function (mixed $value) use ($localTimezone): string {
+    $utc = new DateTimeZone('UTC');
+    return (new DateTimeImmutable((string) $value, $utc))
+        ->setTimezone($localTimezone)
+        ->format('M j, Y g:i A T');
+};
 $revenue = is_array($revenue ?? null) ? $revenue : [];
 $revenueTotals = is_array($revenueTotals ?? null) ? $revenueTotals : [];
 /* The developer split shown on the card matches the same configured percentage the reports use. */
@@ -148,10 +155,26 @@ $inlineTotals = static function (array $totals): string {
       <div class="payment-review-list">
         <?php foreach ($payments as $payment): ?>
           <article class="dashboard-panel payment-review-card">
-            <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT #<?= (int) ($payment['id'] ?? 0) ?> · <?= $escape(date('M j, Y g:i A', strtotime((string) ($payment['created_at'] ?? 'now')))) ?></p><h3><?= $escape($payment['course_title'] ?? 'Course') ?></h3></div><span class="dashboard-status status-pending">Pending review</span></div>
+            <div class="dashboard-panel-heading"><div><p class="eyebrow">PAYMENT #<?= (int) ($payment['id'] ?? 0) ?> · <?= $escape($paymentSubmittedAt($payment['created_at'] ?? 'now')) ?></p><h3><?= $escape($payment['course_title'] ?? 'Course') ?></h3></div><span class="dashboard-status status-pending">Pending review</span></div>
             <div class="payment-review-meta"><div><small>Student</small><strong><?= $escape($payment['student_name'] ?? '') ?></strong><a href="mailto:<?= $escape($payment['student_email'] ?? '') ?>"><?= $escape($payment['student_email'] ?? '') ?></a></div><div><small>Submitted amount</small><strong><?= $escape($payment['currency'] ?? '') ?> <?= number_format((float) ($payment['amount'] ?? 0), 2) ?></strong></div><div><small>Transaction reference</small><strong><?= $escape($payment['transaction_reference'] ?? '') ?></strong></div></div>
-            <?php if (!empty($payment['payment_proof_path'])): ?><a class="button button-secondary payment-receipt-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>">View submitted payment proof</a><?php endif; ?>
-            <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/decision" class="payment-decision-form"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="payment_id" value="<?= (int) ($payment['id'] ?? 0) ?>"><label class="admin-label">Review note (optional)<textarea class="admin-textarea" name="review_note" rows="2" maxlength="1000" placeholder="If rejecting, explain what needs correction."></textarea></label><div class="dashboard-actions"><button class="button" type="submit" name="decision" value="approved">Verify payment &amp; grant access</button><button class="button button-secondary" type="submit" name="decision" value="rejected">Reject payment</button></div></form>
+            <form method="post" action="<?= $escape($baseUrl) ?>/admin/payments/decision" class="payment-decision-form" data-submit-progress-form data-progress-approval-only>
+              <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
+              <input type="hidden" name="payment_id" value="<?= (int) ($payment['id'] ?? 0) ?>">
+              <div class="payment-review-note">
+                <label class="admin-label" for="payment-review-note-<?= (int) ($payment['id'] ?? 0) ?>">Review note <span>(required to reject)</span></label>
+                <textarea class="admin-textarea" id="payment-review-note-<?= (int) ($payment['id'] ?? 0) ?>" name="review_note" rows="2" maxlength="1000" placeholder="Explain why this payment cannot be approved."></textarea>
+              </div>
+              <div class="dashboard-actions">
+                <?php if (!empty($payment['payment_proof_path'])): ?>
+                  <a class="button button-secondary payment-receipt-link" href="<?= $escape($baseUrl) ?>/payments/proof?payment_id=<?= (int) $payment['id'] ?>" download>Download Submitted Proof</a>
+                <?php endif; ?>
+                <button class="button payment-approve-button" type="submit" name="decision" value="approved">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+                  Verify &amp; Grant Access
+                </button>
+                <button class="button button-danger payment-reject-button" type="submit" name="decision" value="rejected">Reject</button>
+              </div>
+            </form>
           </article>
         <?php endforeach; ?>
       </div>
@@ -173,6 +196,12 @@ $inlineTotals = static function (array $totals): string {
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>
 </section>
+<div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Approving payment">
+  <div class="submit-progress-card">
+    <span class="submit-progress-spinner" aria-hidden="true"></span>
+    <p data-submit-progress-message>Your payment is being approved. Please wait.</p>
+  </div>
+</div>
 <script>
 (() => {
   const form = document.querySelector('[data-payment-accounts-form]');

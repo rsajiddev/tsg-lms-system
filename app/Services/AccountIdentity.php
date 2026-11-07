@@ -29,7 +29,7 @@ final class AccountIdentity
     public const INCLUDE_YEAR_KEY = 'student_id_include_year';
     public const DEFAULT_PREFIX = 'TSG-CER';
     public const ADMIN_PREFIX = 'TSG-ADM';
-    /** The pre-column format, kept so an account without a stored ID still shows something stable. */
+    /** The pre-column format retained for explicit legacy ID derivation. */
     public const LEGACY_STUDENT_PREFIX = 'TSG-STU-';
     public const MAX_PREFIX_LENGTH = 24;
     public const MAX_REFERENCE_LENGTH = 64;
@@ -155,7 +155,7 @@ final class AccountIdentity
         }
     }
 
-    /** The ID to show for an account: the stored one when there is one, the old derived form otherwise. */
+    /** The ID to show for an account, issuing the configured student format if an older row lacks one. */
     public static function reference(int $userId, string $role = 'student'): string
     {
         if ($userId < 1) return '—';
@@ -167,6 +167,9 @@ final class AccountIdentity
             $stored = trim((string) $stmt->fetchColumn());
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
+        }
+        if ($stored === '' && $role === 'student') {
+            $stored = self::ensure(Database::connection(), $userId);
         }
         self::$references[$userId] = $stored !== '' ? $stored : self::derived($userId, $role);
         return self::$references[$userId];
@@ -209,6 +212,12 @@ final class AccountIdentity
     {
         if ($userId < 1) return;
         self::$references[$userId] = $reference;
+    }
+
+    /** Forget a request-local value after a stored reference is changed outside this service. */
+    public static function forget(int $userId): void
+    {
+        unset(self::$references[$userId]);
     }
 
     /**

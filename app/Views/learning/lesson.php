@@ -57,14 +57,14 @@ $watermarkOverlay = static function () use ($escape, $watermark): string {
     <?php $classWhen = $classLabel($liveClass['at'] ?? null); ?>
     <article class="dashboard-panel lesson-live-class">
       <div class="lesson-live-class-copy">
-        <p class="eyebrow">LIVE CLASS</p>
+        <p class="eyebrow"><?= ($liveClass['platform'] ?? null) === 'zoom' ? 'ZOOM LIVE CLASS' : (($liveClass['platform'] ?? null) === 'google_meet' ? 'GOOGLE MEET LIVE CLASS' : 'LIVE CLASS') ?></p>
         <h2>Live session for this lesson</h2>
         <?php if ($classWhen === ''): ?>
-          <p>The Academy has not set a start time for this class, so check your course announcements for when it begins. The recording below stays available either way.</p>
+          <p>The Academy has not set a start time for this class, so check your course announcements for when it begins.<?php if ($media['has_video']): ?> The recording below stays available either way.<?php endif; ?></p>
         <?php elseif (strtotime((string) $liveClass['at'] . ' UTC') <= time()): ?>
-          <p>This class was scheduled for <?= $escape($classWhen) ?>, so its time has passed. The recording below covers what was taught in it.</p>
+          <p>This class was scheduled for <?= $escape($classWhen) ?>, so its time has passed.<?php if ($media['has_video']): ?> The recording below covers what was taught in it.<?php else: ?> Review the lesson content below.<?php endif; ?></p>
         <?php else: ?>
-          <p>This lesson runs live at <?= $escape($classWhen) ?>. The button opens the meeting in a new tab, and the recording below is waiting for you whatever time you join.</p>
+          <p>This lesson runs live at <?= $escape($classWhen) ?>. The button opens the meeting in a new tab.<?php if ($media['has_video']): ?> The recording below is waiting for you whatever time you join.<?php endif; ?></p>
         <?php endif; ?>
       </div>
       <a class="button" href="<?= $escape($liveClass['url']) ?>" target="_blank" rel="noopener noreferrer">Open live class</a>

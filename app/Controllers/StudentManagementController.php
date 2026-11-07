@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\AccountIdentity;
 use App\Services\AttendanceService;
 use App\Services\LessonProtection;
 use App\Services\NotificationService;
@@ -82,6 +83,13 @@ final class StudentManagementController
              FROM users u WHERE $whereSql ORDER BY u.created_at DESC,u.id DESC LIMIT " . self::PAGE_SIZE . ' OFFSET ' . $offset
         );
         $studentsQuery->execute($params);
+        $studentRows = $studentsQuery->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($studentRows as &$studentRow) {
+            if (trim((string) ($studentRow['account_reference'] ?? '')) === '') {
+                $studentRow['account_reference'] = AccountIdentity::ensure($db, (int) $studentRow['id']);
+            }
+        }
+        unset($studentRow);
 
         $studentId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
         $selectedStudent = null;
@@ -93,6 +101,9 @@ final class StudentManagementController
             $selectedQuery = $db->prepare("SELECT id,full_name,email,status,account_reference,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
             $selectedQuery->execute([$studentId]);
             $selectedStudent = $selectedQuery->fetch() ?: null;
+            if ($selectedStudent && trim((string) ($selectedStudent['account_reference'] ?? '')) === '') {
+                $selectedStudent['account_reference'] = AccountIdentity::ensure($db, (int) $selectedStudent['id']);
+            }
             // Read whether or not the login history exists: an open session is a live fact, not a
             // historical one, and it is the thing an admin needs when a student says the lesson will
             // not play on their laptop.
@@ -112,7 +123,7 @@ final class StudentManagementController
         View::render('admin/students', [
             'title' => 'Student management',
             'user' => $admin,
-            'students' => $studentsQuery->fetchAll(),
+            'students' => $studentRows,
             'search' => $search,
             'statusFilter' => $status,
             'page' => $page,

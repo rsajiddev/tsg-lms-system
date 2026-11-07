@@ -139,7 +139,7 @@ final class PaymentController
         // The enrolment journey ends here, so the remembered course is dropped. Leaving it behind
         // would pull a later sign-in back into a checkout that has already been completed.
         unset($_SESSION['enrol_course_id'], $_SESSION['enrol_course_slug'], $_SESSION['enrol_course_title']);
-        (new MailService($db))->sendPaymentSubmitted([
+        $paymentEmailSent = (new MailService($db))->sendPaymentSubmitted([
             'student_id' => (int) $student['id'],
             'student_name' => (string) $student['name'],
             'student_email' => (string) $student['email'],
@@ -160,7 +160,12 @@ final class PaymentController
             '/student/payments',
             (int) $student['id']
         );
-        $_SESSION['_flash'] = ['type' => 'success', 'text' => 'Payment details submitted. Course access will be enabled after admin verification.'];
+        $_SESSION['_flash'] = [
+            'type' => $paymentEmailSent ? 'success' : 'error',
+            'text' => $paymentEmailSent
+                ? 'Your payment approval request has been emailed to the admin. You will receive a confirmation soon.'
+                : 'Your payment was submitted, but we could not confirm the admin email delivery. The request is in the review queue and you will be notified after verification.',
+        ];
         $this->redirect('/payments/new?course_id=' . $courseId);
     }
 
@@ -201,6 +206,7 @@ final class PaymentController
         $decision = (string) ($_POST['decision'] ?? '');
         $note = trim((string) ($_POST['review_note'] ?? ''));
         if ($paymentId < 1 || !in_array($decision, ['approved', 'rejected'], true) || mb_strlen($note) > 1000) throw new RuntimeException('Choose a valid payment decision and keep the note under 1,000 characters.');
+        if ($decision === 'rejected' && $note === '') throw new RuntimeException('Add a review note before rejecting this payment.');
         $db = Database::connection();
         $db->beginTransaction();
         try {
@@ -274,7 +280,9 @@ final class PaymentController
             $decision === 'approved' ? '/student/courses' : '/payments/new?course_id=' . (int) $payment['course_id'],
             (int) $admin['id']
         );
-        $_SESSION['_flash'] = $decision === 'approved' ? 'Payment approved. Course access is active until ' . $expiresAt . ' UTC.' : 'Payment rejected; the student can submit corrected payment details.';
+        $_SESSION['_flash'] = $decision === 'approved'
+            ? 'Payment approved successfully. Course access has been granted to the student.'
+            : 'Payment rejected; the student can submit corrected payment details.';
         $this->redirect('/admin/payments');
     }
 

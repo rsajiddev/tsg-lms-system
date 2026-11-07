@@ -112,7 +112,7 @@ final class AuthController
                 ? '/payments/new?course_id=' . $intent
                 : '/dashboard');
         } catch (RuntimeException $exception) {
-            $this->page('login', ['email' => (string) ($_POST['email'] ?? '')], $exception->getMessage());
+            $this->page('login', ['email' => (string) ($_POST['email'] ?? '')], $exception->getMessage(), 'error');
         }
     }
 

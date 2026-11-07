@@ -42,7 +42,7 @@ foreach ($payments as $payment) {
       <?php if ($hasPendingPayment): ?><div class="dashboard-empty"><div><h3>Payment is awaiting review</h3><p><?php if ($pendingPayment !== null): ?>We have your submission of <?= $escape($course['currency']) ?> <?= number_format((float) $pendingPayment['amount'], 2) ?> against reference <?= $escape($pendingPayment['transaction_reference']) ?>.<?php else: ?>Your submission is with the Academy team<?php endif; ?> An administrator checks the transfer against the bank statement, usually within 24 hours. Course access opens as soon as it is approved, and you get an email and a notification here.</p><p>Nothing else to do in the meantime — sending the payment twice only delays the review.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/payments">Track all your payments →</a></div></div>
       <?php elseif ($options === []): ?><div class="dashboard-empty"><div><h3>Pricing is not available</h3><p>Please contact the Academy team to confirm course pricing.</p></div></div>
       <?php else: ?>
-        <form method="post" action="<?= $escape($baseUrl) ?>/payments" enctype="multipart/form-data" class="payment-form">
+        <form method="post" action="<?= $escape($baseUrl) ?>/payments" enctype="multipart/form-data" class="payment-form" data-submit-progress-form>
           <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="course_id" value="<?= (int) $course['id'] ?>">
           <label class="admin-label" for="payment-option">Learning option<select class="admin-select" id="payment-option" name="option_code" required><?php foreach ($options as $option): ?><option value="<?= $escape($option['code']) ?>"><?= $escape($option['label']) ?> — <?= $escape($course['currency']) ?> <?= number_format((float) $option['price'], 2) ?></option><?php endforeach; ?></select></label>
           <label class="admin-label" for="payment-reference">Transaction reference / ID<input class="admin-input" id="payment-reference" name="transaction_reference" required minlength="3" maxlength="190" autocomplete="off"></label>
@@ -57,3 +57,9 @@ foreach ($payments as $payment) {
     </section>
   </div>
 </section>
+<div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Submitting payment">
+  <div class="submit-progress-card">
+    <span class="submit-progress-spinner" aria-hidden="true"></span>
+    <p data-submit-progress-message>Your payment approval request is being sent to the admin. Please wait.</p>
+  </div>
+</div>

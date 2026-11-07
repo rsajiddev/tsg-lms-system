@@ -10,6 +10,7 @@ use App\Core\PrivateStorage;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\AccountIdentity;
 use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
@@ -25,7 +26,13 @@ final class AssignmentController
         $courses = $db->query("SELECT id,title FROM courses WHERE visibility IN ('published','draft','hidden') ORDER BY title")->fetchAll();
         $modules = $db->query('SELECT id,course_id,title,sort_order FROM course_modules ORDER BY course_id,sort_order,id')->fetchAll();
         $assignments = $db->query('SELECT a.*,c.title AS course_title,m.title AS module_title,(SELECT COUNT(*) FROM assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM assignments a JOIN courses c ON c.id=a.course_id LEFT JOIN course_modules m ON m.id=a.module_id ORDER BY a.id DESC')->fetchAll();
-        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.full_name AS student_name,u.email AS student_email FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll();
+        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.id AS student_id,u.full_name AS student_name,u.email AS student_email,u.account_reference AS student_reference FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($submissions as &$submission) {
+            if (trim((string) ($submission['student_reference'] ?? '')) === '') {
+                $submission['student_reference'] = AccountIdentity::ensure($db, (int) $submission['student_id']);
+            }
+        }
+        unset($submission);
         View::render('admin/assignments', ['title' => 'Assignment management', 'user' => $admin, 'courses' => $courses, 'modules' => $modules, 'assignments' => $assignments, 'submissions' => $submissions, 'message' => $_SESSION['_flash'] ?? null, 'error' => $_SESSION['_flash_error'] ?? null]);
         unset($_SESSION['_flash'], $_SESSION['_flash_error']);
     }

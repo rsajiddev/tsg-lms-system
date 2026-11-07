@@ -63,6 +63,7 @@ $rangeLabel = $reports['students']['period_range'] ?? '';
       <article class="admin-card admin-report-card">
         <header><div><p class="eyebrow"><?= $escape($period['label']) ?> REPORT</p><h2><?= $escape($label) ?></h2><p><?= $escape($report['period_range'] ?? '') ?></p></div><a class="button admin-report-download" href="<?= $escape($baseUrl) ?>/admin/reports/download?type=<?= $escape($type) ?>&amp;period=<?= $escape($period['key']) ?>" download>Download PDF</a></header>
         <div class="admin-report-metrics"><?php foreach (($report['metrics'] ?? []) as $metric): ?><div><span><?= $escape($metric['label']) ?></span><strong><?= $escape($metric['value']) ?></strong></div><?php endforeach; ?></div>
+        <?php if ($type === 'students'): ?><p class="admin-report-all-note">Attendance uses elapsed calendar days from each student's registration. Days without a present mark count as absent; today's pending mark and future days are not counted yet.</p><?php endif; ?>
         <?php if (($report['rows'] ?? []) === []): ?><p class="admin-report-empty">No <?= $escape(strtolower($label)) ?> records for this period yet.</p>
         <?php else: ?><div class="admin-report-preview" aria-label="Recent <?= $escape(strtolower($label)) ?> records">
           <?php foreach (array_slice($report['rows'], 0, 6) as $row): ?><div class="admin-report-row"><?php foreach (($report['columns'] ?? []) as $index => $column): ?><div><span><?= $escape($column) ?></span><strong><?= $escape($row[$index] ?? '—') ?></strong></div><?php endforeach; ?></div><?php endforeach; ?>

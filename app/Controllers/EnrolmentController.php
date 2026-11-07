@@ -129,11 +129,7 @@ final class EnrolmentController
         }
         $this->signIn($account);
 
-        $_SESSION['_flash'] = [
-            'type' => 'success',
-            'text' => 'Email verified for ' . $email . '. Add your payment details for '
-                . (string) $course['title'] . ' to finish the enrollment.',
-        ];
+        unset($_SESSION['_flash']);
         $this->redirect('/payments/new?course_id=' . (int) $course['id']);
     }
 
@@ -151,13 +147,18 @@ final class EnrolmentController
         $name = trim((string) ($_POST['full_name'] ?? ''));
         try {
             $sent = $this->auth->resendVerification($email);
-            $message = $sent
-                ? 'A new code is on its way to ' . $email . '.'
-                : 'We could not send a code to that address. Check the spelling and try again.';
+            if ($sent) {
+                $message = 'A new code is on its way to ' . $email . '.';
+                $error = null;
+            } else {
+                $message = null;
+                $error = 'We could not send a code to that address. Check the spelling and try again.';
+            }
         } catch (RuntimeException $exception) {
-            $message = $exception->getMessage();
+            $message = null;
+            $error = $exception->getMessage();
         }
-        $this->checkout('otp', $course, ['full_name' => $name, 'email' => $email], $message);
+        $this->checkout('otp', $course, ['full_name' => $name, 'email' => $email], $error, $message);
     }
 
     /** POST /enrol/back — return to the details step without losing the name and address typed. */

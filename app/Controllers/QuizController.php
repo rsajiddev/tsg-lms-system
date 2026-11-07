@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Core\PurgeGuard;
 use App\Core\Security;
 use App\Core\View;
+use App\Services\AccountIdentity;
 use App\Services\NotificationService;
 use PDO;
 use RuntimeException;
@@ -21,7 +22,13 @@ final class QuizController
         $db = Database::connection();
         $courses = $db->query("SELECT id,title FROM courses WHERE visibility IN ('published','draft','hidden') ORDER BY title")->fetchAll();
         $quizzes = $db->query("SELECT q.*,c.title AS course_title,(SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id=q.id) AS actual_question_count,(SELECT COUNT(*) FROM quiz_attempts qa WHERE qa.quiz_id=q.id) AS attempt_count FROM quizzes q JOIN courses c ON c.id=q.course_id ORDER BY q.updated_at DESC,q.id DESC")->fetchAll();
-        $retakeRequests = $db->query("SELECT ra.id,ra.quiz_id,ra.student_id,ra.student_note,ra.student_requested_at,q.title AS quiz_title,q.course_id,c.title AS course_title,u.full_name AS student_name,u.email AS student_email FROM quiz_retake_approvals ra JOIN quizzes q ON q.id=ra.quiz_id JOIN courses c ON c.id=q.course_id JOIN users u ON u.id=ra.student_id WHERE ra.request_status='pending' AND ra.used_at IS NULL ORDER BY ra.student_requested_at,ra.id")->fetchAll();
+        $retakeRequests = $db->query("SELECT ra.id,ra.quiz_id,ra.student_id,ra.student_note,ra.student_requested_at,q.title AS quiz_title,q.course_id,c.title AS course_title,u.full_name AS student_name,u.email AS student_email,u.account_reference AS student_reference FROM quiz_retake_approvals ra JOIN quizzes q ON q.id=ra.quiz_id JOIN courses c ON c.id=q.course_id JOIN users u ON u.id=ra.student_id WHERE ra.request_status='pending' AND ra.used_at IS NULL ORDER BY ra.student_requested_at,ra.id")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($retakeRequests as &$request) {
+            if (trim((string) ($request['student_reference'] ?? '')) === '') {
+                $request['student_reference'] = AccountIdentity::ensure($db, (int) $request['student_id']);
+            }
+        }
+        unset($request);
         $questions = $db->query('SELECT qq.id,qq.quiz_id,qq.question_text,qq.explanation,qq.marks,qq.sort_order,q.title AS quiz_title,q.quiz_type FROM quiz_questions qq JOIN quizzes q ON q.id=qq.quiz_id ORDER BY q.id,qq.sort_order,qq.id')->fetchAll();
         $optionStmt = $db->prepare('SELECT option_text,is_correct FROM quiz_options WHERE question_id=? ORDER BY sort_order,id');
         foreach ($questions as &$question) {
@@ -76,7 +83,7 @@ final class QuizController
         $summary = $summaryStmt->fetch() ?: [];
         $stmt = $db->prepare("SELECT qa.id,qa.started_at,qa.submitted_at,qa.status,qa.score,qa.total_marks,qa.percentage,qa.correct_count,qa.result,qa.submission_reason,
                                      TIMESTAMPDIFF(SECOND,qa.started_at,qa.submitted_at) AS duration_seconds,
-                                     u.id AS student_id,u.full_name AS student_name,u.email AS student_email,
+                                     u.id AS student_id,u.full_name AS student_name,u.email AS student_email,u.account_reference AS student_reference,
                                      q.title AS quiz_title,q.week_number,q.quiz_type,q.pass_mark_percent,
                                      COALESCE(NULLIF((SELECT COUNT(*) FROM quiz_attempt_questions qat WHERE qat.attempt_id=qa.id),0),q.question_count) AS question_count,
                                      c.title AS course_title
@@ -89,8 +96,16 @@ final class QuizController
                               LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
 
+        $attempts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($attempts as &$attempt) {
+            if (trim((string) ($attempt['student_reference'] ?? '')) === '') {
+                $attempt['student_reference'] = AccountIdentity::ensure($db, (int) $attempt['student_id']);
+            }
+        }
+        unset($attempt);
+
         View::render('admin/quiz-reports', [
-            'title' => 'Quiz reports', 'user' => $admin, 'attempts' => $stmt->fetchAll(),
+            'title' => 'Quiz reports', 'user' => $admin, 'attempts' => $attempts,
             'search' => $search, 'type' => $type, 'resultFilter' => $result,
             'total' => $total, 'page' => $page, 'pages' => $pages,
             'summary' => $summary,
@@ -580,6 +595,9 @@ final class QuizController
             View::render('errors/404', ['title' => 'Quiz result unavailable', 'user' => $student]);
             return;
         }
+        if (trim((string) ($attempt['student_reference'] ?? '')) === '') {
+            $attempt['student_reference'] = AccountIdentity::ensure($db, (int) $attempt['student_id']);
+        }
         if ($attempt['status'] === 'in_progress') $this->redirect('/learning/quiz/attempt?attempt_id=' . $attemptId);
         $answers = $db->prepare('SELECT q.id,q.question_text,q.explanation,a.selected_option_id,a.awarded_marks,q.marks,(SELECT o.id FROM quiz_options o WHERE o.question_id=q.id AND o.is_correct=1 LIMIT 1) AS correct_option_id,(SELECT o.option_text FROM quiz_options o WHERE o.question_id=q.id AND o.is_correct=1 LIMIT 1) AS correct_option_text,selected.option_text AS selected_option_text FROM quiz_answers a JOIN quiz_questions q ON q.id=a.question_id LEFT JOIN quiz_options selected ON selected.id=a.selected_option_id WHERE a.attempt_id=? ORDER BY (SELECT aq.sort_order FROM quiz_attempt_questions aq WHERE aq.attempt_id=a.attempt_id AND aq.question_id=a.question_id)');
         $answers->execute([$attemptId]);
@@ -704,7 +722,7 @@ final class QuizController
     private function ownedAttempt(PDO $db, int $attemptId, int $studentId, bool $lock = false, bool $requireCurrentAccess = false): ?array
     {
         $accessJoin = $requireCurrentAccess ? " JOIN student_course_access a ON a.student_id=qa.student_id AND a.course_id=q.course_id AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP())" : '';
-        $stmt = $db->prepare('SELECT qa.*,q.title,q.week_number,q.course_id,q.quiz_type,q.time_limit_seconds,q.question_count,q.pass_mark_percent,c.title AS course_title,u.full_name AS student_name FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id JOIN users u ON u.id=qa.student_id' . $accessJoin . ' WHERE qa.id=? AND qa.student_id=?' . ($lock ? ' FOR UPDATE' : ''));
+        $stmt = $db->prepare('SELECT qa.*,q.title,q.week_number,q.course_id,q.quiz_type,q.time_limit_seconds,q.question_count,q.pass_mark_percent,c.title AS course_title,u.full_name AS student_name,u.account_reference AS student_reference FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id JOIN users u ON u.id=qa.student_id' . $accessJoin . ' WHERE qa.id=? AND qa.student_id=?' . ($lock ? ' FOR UPDATE' : ''));
         $stmt->execute([$attemptId, $studentId]);
         return $stmt->fetch() ?: null;
     }

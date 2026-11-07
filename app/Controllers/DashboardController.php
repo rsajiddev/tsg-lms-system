@@ -370,8 +370,8 @@ final class DashboardController
     private function studentOverview(PDO $db, int $studentId): array
     {
         $attendanceService = new AttendanceService($db);
-        // A session can outlive the day it started on, so opening today's record here as well keeps
-        // a continuously signed-in student countable instead of silently absent.
+        // A session can outlive the day it started on; the service verifies current course access
+        // before opening today's record.
         $attendanceService->openDailySession($studentId);
         $attendance = $attendanceService->studentSummary($studentId, 30);
         $imageColumn = $this->courseImageColumnAvailable($db) ? 'c.image_path' : 'NULL AS image_path';
