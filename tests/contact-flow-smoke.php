@@ -214,15 +214,23 @@ $assert(in_array('academy@example.test', $recipients, true), 'The company inbox 
 
 // Both attempts must be recorded in email_logs, both as sent, tied to the contact templates.
 $logs = [];
+$savedMessages = [];
 try {
     $pdo = new \PDO('mysql:unix_socket=' . $socket . ';dbname=' . $dbName . ';charset=utf8mb4', 'root', '', [
         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
         \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
     ]);
     $logs = $pdo->query("SELECT template_key, status FROM email_logs WHERE template_key LIKE 'contact.%' ORDER BY id")->fetchAll();
+    $savedMessages = $pdo->query('SELECT sender_name,sender_email,phone,subject,message FROM contact_messages ORDER BY id DESC LIMIT 1')->fetchAll();
 } catch (\Throwable $exception) {
-    $assert(false, 'email_logs could be read: ' . $exception->getMessage());
+    $assert(false, 'Contact submission records could be read: ' . $exception->getMessage());
 }
+$savedMessage = $savedMessages[0] ?? [];
+$assert(($savedMessage['sender_name'] ?? '') === 'Ayesha Khan'
+    && ($savedMessage['sender_email'] ?? '') === 'visitor@example.test'
+    && ($savedMessage['subject'] ?? '') === 'Live batch fee'
+    && ($savedMessage['message'] ?? '') === 'Please share the fee and schedule for the next live batch.',
+    'The submitted contact details and message are saved for the admin inbox.');
 $keys = array_column($logs, 'template_key');
 $assert(in_array('contact.admin', $keys, true), 'The admin alert is recorded in email_logs.');
 $assert(in_array('contact.acknowledgement', $keys, true), 'The sender acknowledgement is recorded in email_logs.');

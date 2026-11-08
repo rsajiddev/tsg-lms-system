@@ -842,12 +842,28 @@
                 event.preventDefault();
                 return;
             }
-            if (form.hasAttribute('data-progress-approval-only')
-                && (!event.submitter || event.submitter.value !== 'approved')) return;
+            const decision = event.submitter ? event.submitter.value : '';
+            if (form.hasAttribute('data-progress-approval-only') && decision === 'rejected') {
+                if (form.dataset.rejectionConfirmed !== 'true'
+                    && !window.confirm('Are you sure you want to reject this payment? The student will be notified.')) {
+                    event.preventDefault();
+                    return;
+                }
+                delete form.dataset.rejectionConfirmed;
+                overlay.setAttribute('aria-label', 'Rejecting payment');
+            } else if (form.hasAttribute('data-progress-approval-only') && decision !== 'approved') {
+                return;
+            } else if (form.hasAttribute('data-progress-approval-only')) {
+                overlay.setAttribute('aria-label', 'Approving payment');
+            }
             submitting = true;
             if (message) {
                 message.textContent = form.hasAttribute('data-progress-approval-only')
-                    ? 'Your payment is being approved. Please wait.'
+                    ? (decision === 'rejected'
+                        ? 'Your payment rejection is being processed. Please wait.'
+                        : 'Your payment is being approved. Please wait.')
+                    : form.hasAttribute('data-contact-submit-form')
+                        ? 'Your message is being sent. Please wait.'
                     : form.closest('.payment-form')
                         ? 'Your payment approval request is being sent to the admin. Please wait.'
                         : 'Please wait, OTP is being sent to your Gmail.';
@@ -868,7 +884,15 @@
         const validateRejectionNote = () => {
             note.setCustomValidity(note.value.trim() ? '' : 'Add a review note before rejecting this payment.');
         };
-        reject.addEventListener('click', validateRejectionNote);
+        reject.addEventListener('click', (event) => {
+            if (!window.confirm('Are you sure you want to reject this payment? The student will be notified.')) {
+                delete form.dataset.rejectionConfirmed;
+                event.preventDefault();
+                return;
+            }
+            form.dataset.rejectionConfirmed = 'true';
+            validateRejectionNote();
+        });
         note.addEventListener('input', () => note.setCustomValidity(''));
     });
 

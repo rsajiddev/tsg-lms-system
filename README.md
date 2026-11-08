@@ -198,6 +198,7 @@ Admin announcement in logon ke liye send kar sakta hai:
 * Revenue aur payment records manage kar sakta hai.
 * Admin apne bank account aur bank cards add kar sakta hai.
 * Payment summaries aur related notifications available hongi.
+* Payment reject karne se pehle OK/Cancel confirmation aati hai; OK ke baad processing state dikhai deti hai.
 
 ### 15\. Notifications
 * Admin ko important dashboard notifications receive hongi.
@@ -394,7 +395,9 @@ Submission Process:
 * Form submit hone par do professional emails jate hain, dono same company mailbox (`MAIL_FROM_ADDRESS`) se:
   * **Admin/Company inbox** par enquiry ki full details (naam, email, phone, subject, message) — reply karne ke liye.
   * **Sender** ko acknowledgement — "aapka message receive ho gaya, hamari team jald contact karegi".
-* Message ka content database me save nahi hota; sirf emails me jata hai. `email_logs` table me delivery trace (template, recipient, subject, status, time) record hota hai, body nahi.
+* Enquiry ki details `contact_messages` table me bhi save hoti hain aur Admin Dashboard ke **Review moderation → Contact messages** section me sender details, subject aur message ke saath dikhai deti hain.
+* Submit karte waqt visitor ko sending loader milta hai; request complete hone par success confirmation dikhai jati hai. Review moderation inbox se admin confirmation ke baad saved contact messages clear kar sakta hai.
+* `email_logs` table me delivery trace (template, recipient, subject, status, time) record hota hai, body nahi.
 * Submission par CSRF check, field validation aur IP-based throttle (RateLimiter, 5 per hour) lagta hai, taake spam na ho.
 * Handover par company sirf `MAIL_USERNAME`, `MAIL_PASSWORD` aur `MAIL_FROM_ADDRESS` badle to enquiry usi ki mailbox par aayengi, koi code edit ki zaroorat nahi.
 
@@ -450,7 +453,7 @@ database. Every test cleans up the rows and files it creates, and restores any s
 | --- | --- |
 | `auth-flow-smoke.php` | Registration, OTP verification and resend throttle, activation (with one-time token revoke and replay rejection), successful/failed login, password reset, duplicate handling, and the OTP/reset rows written to `email_logs`. |
 | `enrol-flow-smoke.php` | Course-first checkout: enrolment, access plans and the enrolment intent/checkout flow. |
-| `contact-flow-smoke.php` | Public contact form: visitor enquiry sends both the company notification and the sender acknowledgement, carries the right recipients, survives CSRF/field validation, and is logged in `email_logs`. |
+| `contact-flow-smoke.php` | Public contact form: visitor enquiry sends both emails, saves the enquiry for the admin inbox, carries the right recipients, survives CSRF/field validation, and is logged in `email_logs`. |
 | `email-notification-smoke.php` | All thirteen email templates render as real HTML + plain-text alternatives, with correct recipient routing (OTP, payment, certificate including test-only requests, contact, admin alerts) and the in-app notification badge counts. |
 | `interface-render-smoke.php` | Renders every admin and student surface against seeded fixtures (no PHP notices, no failed reads), asserts the sidebar unread/due badges, and checks the `.env` handover surface so the mail keys stay consistent with the code that reads them. |
 | `attendance-flow-smoke.php` | Daily attendance rows, the confirmation window and grace minutes, present/absent sweeps, and admin/student summary consistency. |

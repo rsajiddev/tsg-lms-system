@@ -678,7 +678,7 @@ a.contact-fact-value:hover {
 .contact-form {
   display: grid;
   gap: 22px;
-  margin-top: auto
+  margin-top: 0
 }
 
 .contact-form-grid {
@@ -701,6 +701,15 @@ a.contact-fact-value:hover {
   font-weight: 500
 }
 
+.contact-field-label {
+  display: block;
+  min-height: 21px
+}
+
+.contact-field-label small {
+  margin-left: 4px
+}
+
 .contact-field input,
 .contact-field textarea {
   width: 100%;
@@ -715,7 +724,10 @@ a.contact-fact-value:hover {
 }
 
 .contact-field textarea {
-  min-height: 96px;
+  min-height: 140px;
+  padding: 14px;
+  border: 1px solid #64748b;
+  border-radius: 12px;
   resize: vertical
 }
 
@@ -728,6 +740,11 @@ a.contact-fact-value:hover {
 .contact-field textarea:focus {
   outline: none;
   border-bottom-color: #93c5fd
+}
+
+.contact-field textarea:focus {
+  border: 2px solid #93c5fd;
+  padding: 13px
 }
 
 /* The send button sits on the navy panel, so it inverts the global .button fill: white surface,
@@ -4645,6 +4662,88 @@ html.js [data-reveal].is-visible.dash-card:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 13px
+}
+
+.contact-inbox {
+  margin-top: 22px
+}
+
+.contact-inbox-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px
+}
+
+.contact-message-card {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid #e8eef6;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff, #f9fbff)
+}
+
+.contact-message-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px
+}
+
+.contact-message-heading .eyebrow {
+  margin: 0 0 5px;
+  overflow-wrap: anywhere
+}
+
+.contact-message-heading h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 17px;
+  overflow-wrap: anywhere
+}
+
+.contact-message-heading time {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px
+}
+
+.contact-message-sender {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere
+}
+
+.contact-message-content {
+  margin: 14px 0 0;
+  color: #475569;
+  line-height: 1.65;
+  overflow-wrap: anywhere
+}
+
+.contact-inbox-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px
+}
+
+.contact-inbox-actions form {
+  margin: 0
+}
+
+@media (max-width: 600px) {
+  .contact-inbox-list {
+    grid-template-columns: minmax(0, 1fr)
+  }
+
+  .contact-message-heading {
+    flex-direction: column;
+    gap: 5px
+  }
 }
 
 .dashboard-course-card {

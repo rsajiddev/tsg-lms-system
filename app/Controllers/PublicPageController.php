@@ -38,11 +38,7 @@ final class PublicPageController
         ]);
     }
 
-    /**
-     * Receives a public contact form submission. The message is never stored in its own table:
-     * it is emailed to the company inbox and acknowledged back to the sender, and MailService
-     * records both attempts in email_logs, so the admin email log already shows the enquiry.
-     */
+    /** Receives a public contact form submission and makes it available in the admin inbox. */
     public function submitContact(): void
     {
         $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
@@ -78,6 +74,9 @@ final class PublicPageController
             $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
             $limiter->assertAllowed('contact', [$ip], 5, 3600);
             $limiter->record('contact', [$ip]);
+
+            $save = $connection->prepare('INSERT INTO contact_messages (sender_name,sender_email,phone,subject,message,submitted_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
+            $save->execute([$values['name'], $values['email'], $values['phone'], $values['subject'], $values['message']]);
 
             $delivered = (new MailService($connection))->sendContactReceived([
                 'name' => $values['name'],

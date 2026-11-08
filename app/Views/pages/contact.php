@@ -47,19 +47,19 @@ $old = static fn(string $key): string => Security::escape((string) ($values[$key
         <?php if ($sent): ?><?php \App\Core\View::toast('success', 'Thank you! Your message has been received — a member of our team will email you shortly.'); ?><?php endif; ?>
         <?php \App\Core\View::toast('error', $error); ?>
 
-        <form method="post" action="<?= Security::escape($baseUrl) ?>/contact" class="contact-form" novalidate>
+        <form method="post" action="<?= Security::escape($baseUrl) ?>/contact" class="contact-form" data-submit-progress-form data-contact-submit-form novalidate>
             <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
             <div class="contact-form-grid">
-                <label class="contact-field">Name
+                <label class="contact-field"><span class="contact-field-label">Name</span>
                     <input name="name" type="text" required minlength="2" maxlength="150" autocomplete="name" value="<?= $old('name') ?>">
                 </label>
-                <label class="contact-field">Email
+                <label class="contact-field"><span class="contact-field-label">Email</span>
                     <input name="email" type="email" required maxlength="190" autocomplete="email" value="<?= $old('email') ?>">
                 </label>
-                <label class="contact-field">Phone <small>(optional)</small>
+                <label class="contact-field"><span class="contact-field-label">Phone <small>(optional)</small></span>
                     <input name="phone" type="text" maxlength="40" autocomplete="tel" value="<?= $old('phone') ?>">
                 </label>
-                <label class="contact-field">Subject
+                <label class="contact-field"><span class="contact-field-label">Subject</span>
                     <input name="subject" type="text" required minlength="2" maxlength="150" value="<?= $old('subject') ?>">
                 </label>
             </div>
@@ -71,6 +71,13 @@ $old = static fn(string $key): string => Security::escape((string) ($values[$key
         </form>
     </div>
 </section>
+
+<div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Sending contact message">
+    <div class="submit-progress-card">
+        <span class="submit-progress-spinner" aria-hidden="true"></span>
+        <p data-submit-progress-message>Your message is being sent. Please wait.</p>
+    </div>
+</div>
 
 <section class="contact-note" data-reveal>
     <p><strong>Tech SG Studio (SMC-Pvt.) Ltd.</strong> — registered with the Securities &amp; Exchange Commission of Pakistan, serving clients in Pakistan, the UK, the USA, the UAE and Europe. <a href="https://techsgstudio.com" target="_blank" rel="noopener noreferrer">Visit the company website ↗</a></p>

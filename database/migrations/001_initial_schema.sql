@@ -1650,6 +1650,17 @@ CREATE TABLE IF NOT EXISTS reviews (
        INDEX idx_reviews_recent_ip(ip_address, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS contact_messages (
+       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       sender_name VARCHAR(150) NOT NULL,
+       sender_email VARCHAR(190) NOT NULL,
+       phone VARCHAR(40) NOT NULL DEFAULT '',
+       subject VARCHAR(150) NOT NULL,
+       message TEXT NOT NULL,
+       submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       INDEX idx_contact_messages_submitted(submitted_at, id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 -- Seed the published Academy catalogue and its two delivery-mode prices.
 INSERT INTO
        courses (

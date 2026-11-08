@@ -246,6 +246,7 @@ $router->post('/admin/settings/reset-counter', [\App\Controllers\AdminManagement
 $router->get('/admin/danger-zone', [\App\Controllers\AdminManagementController::class, 'dangerZone']);
 $router->get('/admin/reviews', [\App\Controllers\AdminManagementController::class, 'reviews']);
 $router->post('/admin/reviews/decision', [\App\Controllers\AdminManagementController::class, 'reviewDecision']);
+$router->post('/admin/reviews/contact-messages/clear', [\App\Controllers\AdminManagementController::class, 'clearContactInbox']);
 $router->get('/admin/payments', [\App\Controllers\PaymentController::class, 'adminIndex']);
 $router->get('/admin/reports', [\App\Controllers\ReportsController::class, 'index']);
 $router->get('/admin/reports/download', [\App\Controllers\ReportsController::class, 'download']);

@@ -647,8 +647,25 @@ $checkPage('Public contact page', '/contact', static fn() => (new PublicPageCont
     'action="',
     'name="_csrf"',
     'name="message"',
+    'data-contact-submit-form',
+    'data-submit-progress-overlay',
+    'Your message is being sent. Please wait.',
     'Send to us',
 ]);
+$contactSentHtml = $render(static function (): void {
+    $_SESSION['_contact_sent'] = true;
+    (new PublicPageController())->contact();
+});
+$assert(str_contains($contactSentHtml, 'Your message is being sent. Please wait.')
+    && str_contains($contactSentHtml, 'Thank you! Your message has been received'),
+    'Contact submission has an in-flight loader and a post-submit success confirmation.',
+    'The contact form is missing its loader or success confirmation.');
+$_SESSION = [];
+$reviewRoutes = (string) file_get_contents(BASE_PATH . '/public/index.php');
+$assert(str_contains($reviewRoutes, "\$router->post('/admin/reviews/contact-messages/clear'")
+    && str_contains($reviewRoutes, "AdminManagementController::class, 'clearContactInbox'"),
+    'The inbox clear action has a registered admin POST route.',
+    'The inbox clear action route is not registered.');
 
 /* ------------------------------------------------------------------------ badge wiring */
 echo "\n-- sidebar badge wiring\n";
@@ -1092,6 +1109,8 @@ $paymentId = (int) $db->lastInsertId();
 $db->prepare("INSERT INTO reviews(reviewer_type,full_name,rating,content,status) VALUES('student','Render Smoke Student',5,'The course was worth it.','pending')")
     ->execute();
 $reviewId = (int) $db->lastInsertId();
+$db->prepare("INSERT INTO contact_messages(sender_name,sender_email,phone,subject,message,submitted_at) VALUES('Render Smoke Visitor','visitor@example.test','+923001234567','Render smoke enquiry','I would like details about the next batch.','2026-01-02 03:04:05')")
+    ->execute();
 // The messages badge counts conversations, not rows, so this fixture opens the student's own line and
 // writes the newest half of it - the one state the chat desk is meant to surface on its own.
 $chats = new ChatService($db);
@@ -1117,6 +1136,15 @@ $assert(($ungraded['quizzes'] ?? 0) - ($before['quizzes'] ?? 0) === 1, 'quizzes 
 // careful administrator would have to remember to dismiss. That happens below, once the sidebar
 // has been rendered with the message still waiting.
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
+$reviewsHtml = $render(static fn() => (new AdminManagementController())->reviews());
+$assert(str_contains($reviewsHtml, 'Contact messages')
+    && str_contains($reviewsHtml, 'Render smoke enquiry')
+    && str_contains($reviewsHtml, 'I would like details about the next batch.')
+    && str_contains($reviewsHtml, 'mailto:visitor@example.test')
+    && str_contains($reviewsHtml, 'Clear inbox')
+    && str_contains($reviewsHtml, '/admin/reviews/contact-messages/clear'),
+    'The Review moderation page displays saved contact messages and the clear inbox action.',
+    'Saved contact messages or the clear inbox action are missing from the Review moderation page.');
 $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
 $html = $render(static fn() => (new DashboardController())->show());
 foreach ([

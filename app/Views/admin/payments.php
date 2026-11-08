@@ -196,7 +196,7 @@ $inlineTotals = static function (array $totals): string {
   require BASE_PATH . '/app/Views/components/usage-guide.php';
   ?>
 </section>
-<div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Approving payment">
+<div class="submit-progress-overlay" data-submit-progress-overlay hidden role="dialog" aria-modal="true" aria-live="polite" aria-label="Processing payment decision">
   <div class="submit-progress-card">
     <span class="submit-progress-spinner" aria-hidden="true"></span>
     <p data-submit-progress-message>Your payment is being approved. Please wait.</p>

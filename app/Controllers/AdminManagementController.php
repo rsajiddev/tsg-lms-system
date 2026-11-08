@@ -523,9 +523,38 @@ final class AdminManagementController
     public function reviews(): void
     {
         $admin = AuthMiddleware::requireRole('admin');
-        $rows = Database::connection()->query("SELECT id,reviewer_type,full_name,context_label,rating,content,status,created_at FROM reviews WHERE status='pending' ORDER BY created_at ASC,id ASC")->fetchAll();
-        View::render('admin/reviews', ['title' => 'Review moderation', 'user' => $admin, 'reviews' => $rows, 'message' => $_SESSION['_flash'] ?? null]);
+        $db = Database::connection();
+        $rows = $db->query("SELECT id,reviewer_type,full_name,context_label,rating,content,status,created_at FROM reviews WHERE status='pending' ORDER BY created_at ASC,id ASC")->fetchAll();
+        $contactMessages = $db->query('SELECT id,sender_name,sender_email,phone,subject,message,submitted_at FROM contact_messages ORDER BY submitted_at DESC,id DESC')->fetchAll();
+        View::render('admin/reviews', ['title' => 'Review moderation', 'user' => $admin, 'reviews' => $rows, 'contactMessages' => $contactMessages, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
+    }
+
+    public function clearContactInbox(): void
+    {
+        $admin = AuthMiddleware::requireRole('admin');
+        if (!Security::verifyCsrf($_POST['_csrf'] ?? null)) {
+            http_response_code(419);
+            return;
+        }
+
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $deleted = (int) $db->exec('DELETE FROM contact_messages');
+            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'contact_inbox.cleared', 'contact_message', JSON_OBJECT('deleted_rows', ?))")
+                ->execute([(int) $admin['id'], $deleted]);
+            $db->commit();
+            $_SESSION['_flash'] = $deleted > 0
+                ? 'Cleared ' . number_format($deleted) . ' contact message(s) from the inbox.'
+                : 'The contact inbox was already empty.';
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+
+        header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/admin/reviews');
+        exit;
     }
 
     public function reviewDecision(): void

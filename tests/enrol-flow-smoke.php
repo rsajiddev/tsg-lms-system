@@ -263,6 +263,11 @@ try {
         && str_contains($adminPaymentSource, 'data-submit-progress-overlay'),
         'Admin approval displays its progress popup without changing rejection behavior.',
         'Admin approval has no dedicated progress popup.');
+    $assert(str_contains($frontScript, "window.confirm('Are you sure you want to reject this payment? The student will be notified.')")
+        && str_contains($frontScript, 'Your payment rejection is being processed. Please wait.')
+        && str_contains($adminPaymentSource, 'Processing payment decision'),
+        'Payment rejection asks for confirmation and displays its own in-flight message after confirmation.',
+        'Payment rejection is missing confirmation or its in-flight message.');
     $proofPosition = strpos($adminPaymentSource, '>Download Submitted Proof</a>');
     $approvePosition = strpos($adminPaymentSource, 'payment-approve-button');
     $rejectPosition = strpos($adminPaymentSource, 'payment-reject-button');
