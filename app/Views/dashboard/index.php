@@ -63,7 +63,10 @@ $sparkline = static function (array $series): array {
 $smoothLine = static function (array $pts): string {
     $path = '';
     foreach ($pts as $index => $p) {
-        if ($index === 0) { $path .= 'M' . $p['x'] . ',' . $p['y']; continue; }
+        if ($index === 0) {
+            $path .= 'M' . $p['x'] . ',' . $p['y'];
+            continue;
+        }
         $prev = $pts[$index - 1];
         $cx = ($p['x'] - $prev['x']) * 0.28;
         $path .= sprintf(' C%.*F,%.*F %.*F,%.*F %.*F,%.*F', 2, $prev['x'] + $cx, 2, $prev['y'], 2, $p['x'] - $cx, 2, $p['y'], 2, $p['x'], 2, $p['y']);
@@ -80,7 +83,9 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         <div class="dashboard-breadcrumb"><span>Workspace</span><i>/</i><strong><?= $isAdmin ? 'Admin dashboard' : 'Student dashboard' ?></strong></div>
         <div class="dashboard-search-wrap" data-dashboard-search-wrap data-search-url="<?= $escape($baseUrl) ?>/dashboard/search" data-search-base="<?= $escape($baseUrl) ?>">
             <label class="dashboard-search"><span aria-hidden="true">⌕</span><input type="search" data-dashboard-search autocomplete="off" placeholder="Search courses, students, payments…" aria-label="Search across dashboard data" aria-controls="dashboard-search-results" aria-expanded="false"></label>
-            <div class="dashboard-search-results" id="dashboard-search-results" role="listbox" hidden><p class="dashboard-search-hint">Type at least two characters to search your dashboard.</p></div>
+            <div class="dashboard-search-results" id="dashboard-search-results" role="listbox" hidden>
+                <p class="dashboard-search-hint">Type at least two characters to search your dashboard.</p>
+            </div>
         </div>
     </div>
 
@@ -165,547 +170,590 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         $trendSpan = max(1, $trendCount);
         ?>
         <section class="dashboard-summary-card admin-dashboard-snapshot" aria-label="Key statistics">
-        <div class="dashboard-summary-heading">
-            <div><p class="eyebrow">ACADEMY AT A GLANCE</p><h2>Performance snapshot</h2></div>
-            <span class="snapshot-range">Daily activity · last <?= $trendSpan ?> days</span>
-        </div>
-        <div class="snapshot-split">
-            <div class="snapshot-chart">
-                <?php if (!$trendHasData): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">📊</span>
-                        <div><h3>No activity in this window</h3><p>Trend lines fill in as students register, attend, pay and submit over the last <?= $trendSpan ?> days.</p></div>
-                    </div>
-                <?php else: ?>
-                    <div class="snapshot-plot">
-                        <svg class="snapshot-svg" viewBox="0 0 100 74" preserveAspectRatio="none" role="img" aria-label="Daily activity trend for each headline metric over the last <?= $trendSpan ?> days">
-                            <?php for ($s = 0; $s <= $trendGrid; $s++): $gy = 60 - ($s / $trendGrid) * 50; ?>
-                                <line class="sn-grid" x1="7" y1="<?= round($gy, 2) ?>" x2="97" y2="<?= round($gy, 2) ?>" vector-effect="non-scaling-stroke"></line>
-                            <?php endfor; ?>
-                            <line class="sn-guide" x1="<?= $trendTodayX ?>" y1="10" x2="<?= $trendTodayX ?>" y2="60" vector-effect="non-scaling-stroke"></line>
-                            <?php foreach ($trendSeries as $series):
-                                $pts = [];
-                                foreach ($series['values'] as $i => $v) {
-                                    $pts[] = ['x' => round($trendX($i), 2), 'y' => round(60 - ($v / $trendMax) * 50, 2)];
-                                }
-                                if ($pts === []) continue;
-                            ?>
-                                <path class="sn-line" d="<?= $escape($smoothLine($pts)) ?>" style="stroke: <?= $escape($series['color']) ?>" vector-effect="non-scaling-stroke"></path>
+            <div class="dashboard-summary-heading">
+                <div>
+                    <p class="eyebrow">ACADEMY AT A GLANCE</p>
+                    <h2>Performance snapshot</h2>
+                </div>
+                <span class="snapshot-range">Daily activity · last <?= $trendSpan ?> days</span>
+            </div>
+            <div class="snapshot-split">
+                <div class="snapshot-chart">
+                    <?php if (!$trendHasData): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">📊</span>
+                            <div>
+                                <h3>No activity in this window</h3>
+                                <p>Trend lines fill in as students register, attend, pay and submit over the last <?= $trendSpan ?> days.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="snapshot-plot">
+                            <svg class="snapshot-svg" viewBox="0 0 100 74" preserveAspectRatio="none" role="img" aria-label="Daily activity trend for each headline metric over the last <?= $trendSpan ?> days">
+                                <?php for ($s = 0; $s <= $trendGrid; $s++): $gy = 60 - ($s / $trendGrid) * 50; ?>
+                                    <line class="sn-grid" x1="7" y1="<?= round($gy, 2) ?>" x2="97" y2="<?= round($gy, 2) ?>" vector-effect="non-scaling-stroke"></line>
+                                <?php endfor; ?>
+                                <line class="sn-guide" x1="<?= $trendTodayX ?>" y1="10" x2="<?= $trendTodayX ?>" y2="60" vector-effect="non-scaling-stroke"></line>
+                                <?php foreach ($trendSeries as $series):
+                                    $pts = [];
+                                    foreach ($series['values'] as $i => $v) {
+                                        $pts[] = ['x' => round($trendX($i), 2), 'y' => round(60 - ($v / $trendMax) * 50, 2)];
+                                    }
+                                    if ($pts === []) continue;
+                                ?>
+                                    <path class="sn-line" d="<?= $escape($smoothLine($pts)) ?>" style="stroke: <?= $escape($series['color']) ?>" vector-effect="non-scaling-stroke"></path>
+                                <?php endforeach; ?>
+                            </svg>
+                            <div class="snapshot-ylabels" aria-hidden="true">
+                                <?php for ($s = $trendGrid; $s >= 0; $s--): ?>
+                                    <span><?= $num(round($trendMax * $s / $trendGrid)) ?></span>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                        <div class="snapshot-xlabels" aria-hidden="true">
+                            <?php foreach ($trendDates as $i => $date):
+                                $isHi = $i === $trendCount - 1;
+                                // Always mark today; drop a periodic label that would sit right beside it.
+                                $show = $isHi || ($i % $trendLabelEvery === 0 && abs(($trendCount - 1) - $i) > 1);
+                                if (!$show) continue; ?>
+                                <span style="--px: <?= round($trendX($i), 2) ?>%" class="<?= $isHi ? 'is-active' : '' ?>"><?= $escape(date('j M', strtotime($date))) ?></span>
                             <?php endforeach; ?>
-                        </svg>
-                        <div class="snapshot-ylabels" aria-hidden="true">
-                            <?php for ($s = $trendGrid; $s >= 0; $s--): ?>
-                                <span><?= $num(round($trendMax * $s / $trendGrid)) ?></span>
-                            <?php endfor; ?>
                         </div>
-                    </div>
-                    <div class="snapshot-xlabels" aria-hidden="true">
-                        <?php foreach ($trendDates as $i => $date):
-                            $isHi = $i === $trendCount - 1;
-                            // Always mark today; drop a periodic label that would sit right beside it.
-                            $show = $isHi || ($i % $trendLabelEvery === 0 && abs(($trendCount - 1) - $i) > 1);
-                            if (!$show) continue; ?>
-                            <span style="--px: <?= round($trendX($i), 2) ?>%" class="<?= $isHi ? 'is-active' : '' ?>"><?= $escape(date('j M', strtotime($date))) ?></span>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <div class="snapshot-list" aria-label="Key statistics">
+                    <?php foreach ($kpi as $item): ?>
+                        <article class="snapshot-row" style="--tile-accent: <?= $escape($item['color']) ?>">
+                            <span class="snapshot-key"><i class="snapshot-dot" aria-hidden="true"></i><span class="snapshot-label"><?= $escape($item['label']) ?></span></span>
+                            <div class="snapshot-figure">
+                                <strong class="snapshot-value"><?= $escape($item['value']) ?></strong>
+                                <span class="snapshot-hint"><?= $escape($item['hint']) ?></span>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
             </div>
-            <div class="snapshot-list" aria-label="Key statistics">
-                <?php foreach ($kpi as $item): ?>
-                    <article class="snapshot-row" style="--tile-accent: <?= $escape($item['color']) ?>">
-                        <span class="snapshot-key"><i class="snapshot-dot" aria-hidden="true"></i><span class="snapshot-label"><?= $escape($item['label']) ?></span></span>
-                        <div class="snapshot-figure">
-                            <strong class="snapshot-value"><?= $escape($item['value']) ?></strong>
-                            <span class="snapshot-hint"><?= $escape($item['hint']) ?></span>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        </div>
         </section>
 
         <div class="overview-layout admin-overview-layout">
-        <div class="analytics-grid">
-            <section class="dashboard-panel chart-card chart-card-wide">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">GROWTH</p>
-                        <h2>New course enrollments</h2>
-                        <small>Last 6 months of access grants</small>
+            <div class="analytics-grid">
+                <section class="dashboard-panel chart-card chart-card-wide">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">GROWTH</p>
+                            <h2>New course enrollments</h2>
+                            <small>Last 6 months of access grants</small>
+                        </div>
                     </div>
-                </div>
-                <?php if ($enrolmentMax <= 1 && array_sum(array_column($enrolmentSeries, 'total')) === 0): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">📈</span>
-                        <div><h3>No enrollments recorded yet</h3><p>Grant course access after a verified payment and the chart fills automatically.</p></div>
-                    </div>
-                <?php else: ?>
-                    <div class="chart-bars" role="img" aria-label="New enrollments per month for the last six months">
-                        <?php foreach ($enrolmentSeries as $point):
-                            $height = $pct((float) $point['total'], $enrolmentMax); ?>
-                            <div class="chart-col">
-                                <span class="chart-value"><?= $num($point['total']) ?></span>
-                                <span class="chart-bar bar-blue" style="--bar-height: <?= max(4, $height) ?>%"></span>
-                                <span class="chart-label"><?= $escape($point['label']) ?></span>
+                    <?php if ($enrolmentMax <= 1 && array_sum(array_column($enrolmentSeries, 'total')) === 0): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">📈</span>
+                            <div>
+                                <h3>No enrollments recorded yet</h3>
+                                <p>Grant course access after a verified payment and the chart fills automatically.</p>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </section>
-
-            <section class="dashboard-panel chart-card chart-card-wide attendance-roster-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">STUDENT ATTENDANCE</p>
-                        <h2>Today’s attendance &amp; student progress</h2>
-                        <small>Live status today · individual rates for the last <?= (int) $range ?> days</small>
-                    </div>
-                    <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">View students</a>
-                </div>
-                <?php if (empty($attendance['available'])): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording scheduled live-class attendance.</p></div>
-                    </div>
-                <?php else: ?>
-                    <div class="attendance-admin-metrics" aria-label="Attendance summary for today">
-                        <div class="attendance-admin-metric metric-present"><strong><?= $num($attendanceToday['present'] ?? 0) ?></strong><span>Present today</span></div>
-                        <div class="attendance-admin-metric metric-absent"><strong><?= $num($attendanceToday['absent'] ?? 0) ?></strong><span>Absent today</span></div>
-                        <div class="attendance-admin-metric metric-pending"><strong><?= $num($attendanceToday['pending'] ?? 0) ?></strong><span>Waiting to confirm</span></div>
-                        <div class="attendance-admin-metric metric-rate"><strong><?= number_format((float) ($attendanceWindow['rate'] ?? 0), 1) ?>%</strong><span>Academy rate · <?= (int) $range ?> days</span></div>
-                    </div>
-                    <div class="attendance-admin-columns">
-                        <section class="attendance-admin-present" aria-labelledby="attendance-present-heading">
-                            <div class="attendance-admin-section-heading">
-                                <div><p class="eyebrow">CHECKED IN</p><h3 id="attendance-present-heading">Present today</h3></div>
-                                <span class="attendance-count-pill"><?= $num($attendanceToday['present'] ?? 0) ?></span>
-                            </div>
-                            <?php $presentStudents = array_values(array_filter($attendanceStudents, static fn(array $row): bool => ($row['today_status'] ?? '') === 'present')); ?>
-                            <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
-                                <p class="attendance-admin-empty">Student attendance details are temporarily unavailable.</p>
-                            <?php elseif ($presentStudents === []): ?>
-                                <p class="attendance-admin-empty">No students have confirmed attendance today yet.</p>
-                            <?php else: ?>
-                                <ul class="attendance-present-list">
-                                    <?php foreach ($presentStudents as $presentStudent): ?>
-                                        <li>
-                                            <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $presentStudent['full_name']), 0, 1))) ?></span>
-                                            <span class="attendance-present-name"><?= $escape($presentStudent['full_name']) ?></span>
-                                            <span class="attendance-student-status is-present">Present</span>
-                                        </li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            <?php endif; ?>
-                        </section>
-                        <section class="attendance-admin-breakdown" aria-labelledby="attendance-breakdown-heading">
-                            <div class="attendance-admin-section-heading">
-                                <div><p class="eyebrow">INDIVIDUAL PROGRESS</p><h3 id="attendance-breakdown-heading">Attendance by student</h3></div>
-                                <span class="attendance-range-label">Last <?= (int) $range ?> days</span>
-                            </div>
-                            <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
-                                <p class="attendance-admin-empty">Individual attendance rates could not be loaded.</p>
-                            <?php elseif ($attendanceStudents === []): ?>
-                                <p class="attendance-admin-empty">No student accounts to show yet.</p>
-                            <?php else: ?>
-                                <div class="attendance-student-list">
-                                    <?php foreach ($attendanceStudents as $attendanceStudent):
-                                        $studentRate = max(0, min(100, (float) ($attendanceStudent['rate'] ?? 0)));
-                                        $studentStatus = (string) ($attendanceStudent['today_status'] ?? 'none');
-                                        $statusLabel = match ($studentStatus) {
-                                            'present' => 'Present today',
-                                            'absent' => 'Absent today',
-                                            'pending' => 'Awaiting mark',
-                                            default => 'No class today',
-                                        };
-                                    ?>
-                                        <article class="attendance-student-row">
-                                            <div class="attendance-student-row-top">
-                                                <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $attendanceStudent['full_name']), 0, 1))) ?></span>
-                                                <strong><?= $escape($attendanceStudent['full_name']) ?></strong>
-                                                <span class="attendance-student-status is-<?= $escape($studentStatus) ?>"><?= $escape($statusLabel) ?></span>
-                                                <span class="attendance-student-rate"><?= number_format($studentRate, 1) ?>%</span>
-                                            </div>
-                                            <div class="attendance-student-row-bottom">
-                                                <span><?= $num($attendanceStudent['present'] ?? 0) ?> / <?= $num($attendanceStudent['expected'] ?? 0) ?> live classes present</span>
-                                                <div class="attendance-student-meter" role="progressbar" aria-label="<?= $escape($attendanceStudent['full_name']) ?> attendance rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($studentRate) ?>">
-                                                    <span style="--attendance-width: <?= $studentRate ?>%"></span>
-                                                </div>
-                                            </div>
-                                        </article>
-                                    <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="chart-bars" role="img" aria-label="New enrollments per month for the last six months">
+                            <?php foreach ($enrolmentSeries as $point):
+                                $height = $pct((float) $point['total'], $enrolmentMax); ?>
+                                <div class="chart-col">
+                                    <span class="chart-value"><?= $num($point['total']) ?></span>
+                                    <span class="chart-bar bar-blue" style="--bar-height: <?= max(4, $height) ?>%"></span>
+                                    <span class="chart-label"><?= $escape($point['label']) ?></span>
                                 </div>
-                            <?php endif; ?>
-                        </section>
-                    </div>
-                <?php endif; ?>
-            </section>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
 
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">ATTENDANCE</p>
-                        <h2>Present vs absent</h2>
-                        <small>Last <?= (int) $range ?> days</small>
+                <section class="dashboard-panel chart-card chart-card-wide attendance-roster-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">STUDENT ATTENDANCE</p>
+                            <h2>Today’s attendance &amp; student progress</h2>
+                            <small>Live status today · individual rates for the last <?= (int) $range ?> days</small>
+                        </div>
+                        <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/admin/students">View students</a>
                     </div>
-                    <span class="chart-badge"><?= $num($attendanceWindow['rate'] ?? 0) ?>% rate</span>
-                </div>
-                <?php if (empty($attendance['available'])): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording scheduled live-class attendance.</p></div>
-                    </div>
-                <?php elseif ($attendanceMax <= 1 && array_sum(array_column($attendanceDays, 'present')) + array_sum(array_column($attendanceDays, 'absent')) === 0): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>No attendance yet</h3><p>Records appear for scheduled live classes when students confirm presence or the attendance window closes.</p></div>
-                    </div>
-                <?php else: ?>
-                    <?php
-                    // Smooth SVG line chart (present per day) with gradient area, gridlines and a today tooltip.
-                    $attSeries = array_values($attendanceDays);
-                    $attCount = count($attSeries);
-                    $attStep = ($attCount - 1) > 0 ? 90 / ($attCount - 1) : 0;
-                    $attX = static fn(int $index): float => $attCount > 1 ? 7 + ($index * $attStep) : 52;
-                    $attY = static fn(float $value): float => 60 - ($pct($value, $attendanceMax) / 100 * 50);
-                    $attPts = [];
-                    foreach ($attSeries as $index => $day) {
-                        $attPts[] = ['x' => round($attX($index), 2), 'yp' => round($attY((float) $day['present']), 2), 'ya' => round($attY((float) $day['absent']), 2), 'present' => (int) $day['present'], 'absent' => (int) $day['absent'], 'date' => (string) $day['date'], 'label' => date('j M', strtotime((string) $day['date']))];
-                    }
-                    // The window always ends today, so the newest day gets the highlight band and tooltip.
-                    $attHi = $attCount > 0 ? $attCount - 1 : 0;
-                    $buildPath = static function (array $pts, string $key): string {
-                        $path = '';
-                        foreach ($pts as $index => $p) {
-                            if ($index === 0) { $path .= 'M' . $p['x'] . ',' . $p[$key]; continue; }
-                            $prev = $pts[$index - 1];
-                            $cx = ($p['x'] - $prev['x']) * 0.28;
-                            $path .= sprintf(' C%.*F,%.*F %.*F,%.*F %.*F,%.*F', 2, $prev['x'] + $cx, 2, $prev[$key], 2, $p['x'] - $cx, 2, $p[$key], 2, $p['x'], 2, $p[$key]);
-                        }
-                        return $path;
-                    };
-                    $attPath = $buildPath($attPts, 'yp');
-                    $attPathAbsent = $buildPath($attPts, 'ya');
-                    $attArea = $attPath . sprintf(' L%.2F,70 L%.2F,70 Z', $attPts[count($attPts) - 1]['x'], $attPts[0]['x']);
-                    $attGridSteps = 4;
-                    $attLabelEvery = max(1, (int) ceil($attCount / 6));
-                    ?>
-                    <div class="chart-line" role="img" aria-label="Attendance present trend for the last <?= (int) $range ?> days">
-                        <div class="chart-line-plot">
-                            <svg class="chart-line-svg" viewBox="0 0 100 74" preserveAspectRatio="none">
-                                <defs>
-                                    <linearGradient id="attLineFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stop-color="var(--att-blue)" stop-opacity=".22"></stop>
-                                        <stop offset="100%" stop-color="var(--att-blue)" stop-opacity="0"></stop>
-                                    </linearGradient>
-                                </defs>
-                                <?php for ($s = 0; $s <= $attGridSteps; $s++):
-                                    $gy = 60 - ($s / $attGridSteps) * 50; ?>
-                                    <line class="line-grid" x1="7" y1="<?= round($gy, 2) ?>" x2="97" y2="<?= round($gy, 2) ?>" vector-effect="non-scaling-stroke"></line>
-                                <?php endfor; ?>
-                                <rect class="line-band" x="<?= round($attPts[$attHi]['x'] - $attStep / 2, 2) ?>" y="10" width="<?= round(max(4, $attStep - 1.5), 2) ?>" height="60" rx="1.5"></rect>
-                                <path class="line-fill" d="<?= $escape($attArea) ?>"></path>
-                                <path class="line-stroke-secondary" d="<?= $escape($attPathAbsent) ?>" vector-effect="non-scaling-stroke"></path>
-                                <path class="line-stroke" d="<?= $escape($attPath) ?>" vector-effect="non-scaling-stroke"></path>
-                                <line class="line-guide" x1="<?= $attPts[$attHi]['x'] ?>" y1="<?= $attPts[$attHi]['yp'] ?>" x2="<?= $attPts[$attHi]['x'] ?>" y2="60" vector-effect="non-scaling-stroke"></line>
-                            </svg>
-                            <span class="line-dot" style="--px: <?= round($attPts[$attHi]['x'], 2) ?>%; --py: <?= round($attPts[$attHi]['yp'] / 74 * 100, 2) ?>%" aria-hidden="true"></span>
-                            <div class="chart-line-ylabels" aria-hidden="true">
-                                <?php for ($s = $attGridSteps; $s >= 0; $s--): ?>
-                                    <span><?= $num(round($attendanceMax * $s / $attGridSteps)) ?></span>
-                                <?php endfor; ?>
+                    <?php if (empty($attendance['available'])): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
+                            <div>
+                                <h3>Attendance is not enabled</h3>
+                                <p>Import the latest schema to start recording scheduled live-class attendance.</p>
                             </div>
                         </div>
-                        <div class="chart-line-labels" aria-hidden="true">
-                            <?php foreach ($attPts as $index => $p):
-                                $isHi = $index === $attHi;
-                                // Always mark today; drop a periodic label that would sit right beside it.
-                                $show = $isHi || ($index % $attLabelEvery === 0 && abs($attHi - $index) > 1);
-                                if (!$show) continue; ?>
-                                <span style="--px: <?= $p['x'] ?>%" title="<?= $escape($p['date']) ?>: <?= $p['present'] ?> present, <?= $p['absent'] ?> absent" class="<?= $isHi ? 'is-active' : '' ?>"><?= $escape($p['label']) ?></span>
-                            <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="attendance-admin-metrics" aria-label="Attendance summary for today">
+                            <div class="attendance-admin-metric metric-present"><strong><?= $num($attendanceToday['present'] ?? 0) ?></strong><span>Present today</span></div>
+                            <div class="attendance-admin-metric metric-absent"><strong><?= $num($attendanceToday['absent'] ?? 0) ?></strong><span>Absent today</span></div>
+                            <div class="attendance-admin-metric metric-pending"><strong><?= $num($attendanceToday['pending'] ?? 0) ?></strong><span>Waiting to confirm</span></div>
+                            <div class="attendance-admin-metric metric-rate"><strong><?= number_format((float) ($attendanceWindow['rate'] ?? 0), 1) ?>%</strong><span>Academy rate · <?= (int) $range ?> days</span></div>
+                        </div>
+                        <div class="attendance-admin-columns">
+                            <section class="attendance-admin-present" aria-labelledby="attendance-present-heading">
+                                <div class="attendance-admin-section-heading">
+                                    <div>
+                                        <p class="eyebrow">CHECKED IN</p>
+                                        <h3 id="attendance-present-heading">Present today</h3>
+                                    </div>
+                                    <span class="attendance-count-pill"><?= $num($attendanceToday['present'] ?? 0) ?></span>
+                                </div>
+                                <?php $presentStudents = array_values(array_filter($attendanceStudents, static fn(array $row): bool => ($row['today_status'] ?? '') === 'present')); ?>
+                                <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
+                                    <p class="attendance-admin-empty">Student attendance details are temporarily unavailable.</p>
+                                <?php elseif ($presentStudents === []): ?>
+                                    <p class="attendance-admin-empty">No students have confirmed attendance today yet.</p>
+                                <?php else: ?>
+                                    <ul class="attendance-present-list">
+                                        <?php foreach ($presentStudents as $presentStudent): ?>
+                                            <li>
+                                                <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $presentStudent['full_name']), 0, 1))) ?></span>
+                                                <span class="attendance-present-name"><?= $escape($presentStudent['full_name']) ?></span>
+                                                <span class="attendance-student-status is-present">Present</span>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </section>
+                            <section class="attendance-admin-breakdown" aria-labelledby="attendance-breakdown-heading">
+                                <div class="attendance-admin-section-heading">
+                                    <div>
+                                        <p class="eyebrow">INDIVIDUAL PROGRESS</p>
+                                        <h3 id="attendance-breakdown-heading">Attendance by student</h3>
+                                    </div>
+                                    <span class="attendance-range-label">Last <?= (int) $range ?> days</span>
+                                </div>
+                                <?php if (empty($attendance['studentAttendanceAvailable'])): ?>
+                                    <p class="attendance-admin-empty">Individual attendance rates could not be loaded.</p>
+                                <?php elseif ($attendanceStudents === []): ?>
+                                    <p class="attendance-admin-empty">No student accounts to show yet.</p>
+                                <?php else: ?>
+                                    <div class="attendance-student-list">
+                                        <?php foreach ($attendanceStudents as $attendanceStudent):
+                                            $studentRate = max(0, min(100, (float) ($attendanceStudent['rate'] ?? 0)));
+                                            $studentStatus = (string) ($attendanceStudent['today_status'] ?? 'none');
+                                            $statusLabel = match ($studentStatus) {
+                                                'present' => 'Present today',
+                                                'absent' => 'Absent today',
+                                                'pending' => 'Awaiting mark',
+                                                default => 'No class today',
+                                            };
+                                        ?>
+                                            <article class="attendance-student-row">
+                                                <div class="attendance-student-row-top">
+                                                    <span class="attendance-student-avatar" aria-hidden="true"><?= $escape(strtoupper(substr(trim((string) $attendanceStudent['full_name']), 0, 1))) ?></span>
+                                                    <strong><?= $escape($attendanceStudent['full_name']) ?></strong>
+                                                    <span class="attendance-student-status is-<?= $escape($studentStatus) ?>"><?= $escape($statusLabel) ?></span>
+                                                    <span class="attendance-student-rate"><?= number_format($studentRate, 1) ?>%</span>
+                                                </div>
+                                                <div class="attendance-student-row-bottom">
+                                                    <span><?= $num($attendanceStudent['present'] ?? 0) ?> / <?= $num($attendanceStudent['expected'] ?? 0) ?> live classes present</span>
+                                                    <div class="attendance-student-meter" role="progressbar" aria-label="<?= $escape($attendanceStudent['full_name']) ?> attendance rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($studentRate) ?>">
+                                                        <span style="--attendance-width: <?= $studentRate ?>%"></span>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </section>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">ATTENDANCE</p>
+                            <h2>Present vs absent</h2>
+                            <small>Last <?= (int) $range ?> days</small>
+                        </div>
+                        <span class="chart-badge"><?= $num($attendanceWindow['rate'] ?? 0) ?>% rate</span>
+                    </div>
+                    <?php if (empty($attendance['available'])): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
+                            <div>
+                                <h3>Attendance is not enabled</h3>
+                                <p>Import the latest schema to start recording scheduled live-class attendance.</p>
+                            </div>
+                        </div>
+                    <?php elseif ($attendanceMax <= 1 && array_sum(array_column($attendanceDays, 'present')) + array_sum(array_column($attendanceDays, 'absent')) === 0): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
+                            <div>
+                                <h3>No attendance yet</h3>
+                                <p>Records appear for scheduled live classes when students confirm presence or the attendance window closes.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php
+                        // Smooth SVG line chart (present per day) with gradient area, gridlines and a today tooltip.
+                        $attSeries = array_values($attendanceDays);
+                        $attCount = count($attSeries);
+                        $attStep = ($attCount - 1) > 0 ? 90 / ($attCount - 1) : 0;
+                        $attX = static fn(int $index): float => $attCount > 1 ? 7 + ($index * $attStep) : 52;
+                        $attY = static fn(float $value): float => 60 - ($pct($value, $attendanceMax) / 100 * 50);
+                        $attPts = [];
+                        foreach ($attSeries as $index => $day) {
+                            $attPts[] = ['x' => round($attX($index), 2), 'yp' => round($attY((float) $day['present']), 2), 'ya' => round($attY((float) $day['absent']), 2), 'present' => (int) $day['present'], 'absent' => (int) $day['absent'], 'date' => (string) $day['date'], 'label' => date('j M', strtotime((string) $day['date']))];
+                        }
+                        // The window always ends today, so the newest day gets the highlight band and tooltip.
+                        $attHi = $attCount > 0 ? $attCount - 1 : 0;
+                        $buildPath = static function (array $pts, string $key): string {
+                            $path = '';
+                            foreach ($pts as $index => $p) {
+                                if ($index === 0) {
+                                    $path .= 'M' . $p['x'] . ',' . $p[$key];
+                                    continue;
+                                }
+                                $prev = $pts[$index - 1];
+                                $cx = ($p['x'] - $prev['x']) * 0.28;
+                                $path .= sprintf(' C%.*F,%.*F %.*F,%.*F %.*F,%.*F', 2, $prev['x'] + $cx, 2, $prev[$key], 2, $p['x'] - $cx, 2, $p[$key], 2, $p['x'], 2, $p[$key]);
+                            }
+                            return $path;
+                        };
+                        $attPath = $buildPath($attPts, 'yp');
+                        $attPathAbsent = $buildPath($attPts, 'ya');
+                        $attArea = $attPath . sprintf(' L%.2F,70 L%.2F,70 Z', $attPts[count($attPts) - 1]['x'], $attPts[0]['x']);
+                        $attGridSteps = 4;
+                        $attLabelEvery = max(1, (int) ceil($attCount / 6));
+                        ?>
+                        <div class="chart-line" role="img" aria-label="Attendance present trend for the last <?= (int) $range ?> days">
+                            <div class="chart-line-plot">
+                                <svg class="chart-line-svg" viewBox="0 0 100 74" preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="attLineFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stop-color="var(--att-blue)" stop-opacity=".22"></stop>
+                                            <stop offset="100%" stop-color="var(--att-blue)" stop-opacity="0"></stop>
+                                        </linearGradient>
+                                    </defs>
+                                    <?php for ($s = 0; $s <= $attGridSteps; $s++):
+                                        $gy = 60 - ($s / $attGridSteps) * 50; ?>
+                                        <line class="line-grid" x1="7" y1="<?= round($gy, 2) ?>" x2="97" y2="<?= round($gy, 2) ?>" vector-effect="non-scaling-stroke"></line>
+                                    <?php endfor; ?>
+                                    <rect class="line-band" x="<?= round($attPts[$attHi]['x'] - $attStep / 2, 2) ?>" y="10" width="<?= round(max(4, $attStep - 1.5), 2) ?>" height="60" rx="1.5"></rect>
+                                    <path class="line-fill" d="<?= $escape($attArea) ?>"></path>
+                                    <path class="line-stroke-secondary" d="<?= $escape($attPathAbsent) ?>" vector-effect="non-scaling-stroke"></path>
+                                    <path class="line-stroke" d="<?= $escape($attPath) ?>" vector-effect="non-scaling-stroke"></path>
+                                    <line class="line-guide" x1="<?= $attPts[$attHi]['x'] ?>" y1="<?= $attPts[$attHi]['yp'] ?>" x2="<?= $attPts[$attHi]['x'] ?>" y2="60" vector-effect="non-scaling-stroke"></line>
+                                </svg>
+                                <span class="line-dot" style="--px: <?= round($attPts[$attHi]['x'], 2) ?>%; --py: <?= round($attPts[$attHi]['yp'] / 74 * 100, 2) ?>%" aria-hidden="true"></span>
+                                <div class="chart-line-ylabels" aria-hidden="true">
+                                    <?php for ($s = $attGridSteps; $s >= 0; $s--): ?>
+                                        <span><?= $num(round($attendanceMax * $s / $attGridSteps)) ?></span>
+                                    <?php endfor; ?>
+                                </div>
+                            </div>
+                            <div class="chart-line-labels" aria-hidden="true">
+                                <?php foreach ($attPts as $index => $p):
+                                    $isHi = $index === $attHi;
+                                    // Always mark today; drop a periodic label that would sit right beside it.
+                                    $show = $isHi || ($index % $attLabelEvery === 0 && abs($attHi - $index) > 1);
+                                    if (!$show) continue; ?>
+                                    <span style="--px: <?= $p['x'] ?>%" title="<?= $escape($p['date']) ?>: <?= $p['present'] ?> present, <?= $p['absent'] ?> absent" class="<?= $isHi ? 'is-active' : '' ?>"><?= $escape($p['label']) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="chart-legend">
+                            <span><i class="legend-dot legend-blue"></i>Present <?= $num($attendanceWindow['present'] ?? 0) ?></span>
+                            <span><i class="legend-dot legend-rose"></i>Absent <?= $num($attendanceWindow['absent'] ?? 0) ?></span>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">REVENUE</p>
+                            <h2>Approved payments</h2>
+                            <small><?= $escape($revenue['currency'] ?? 'PKR') ?> · last 6 months</small>
                         </div>
                     </div>
-                    <div class="chart-legend">
-                        <span><i class="legend-dot legend-blue"></i>Present <?= $num($attendanceWindow['present'] ?? 0) ?></span>
-                        <span><i class="legend-dot legend-rose"></i>Absent <?= $num($attendanceWindow['absent'] ?? 0) ?></span>
+                    <div class="revenue-figure">
+                        <span>Total balance</span>
+                        <strong><?= $escape($revenue['currency'] ?? 'PKR') ?> <?= number_format((float) ($revenue['lifetime'] ?? 0), 2) ?></strong>
+                        <small><?= $escape($revenue['currency'] ?? 'PKR') ?> <?= number_format((float) ($revenue['month'] ?? 0), 2) ?> approved this month</small>
                     </div>
-                <?php endif; ?>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">REVENUE</p>
-                        <h2>Approved payments</h2>
-                        <small><?= $escape($revenue['currency'] ?? 'PKR') ?> · last 6 months</small>
-                    </div>
-                </div>
-                <div class="revenue-figure">
-                    <span>Total balance</span>
-                    <strong><?= $escape($revenue['currency'] ?? 'PKR') ?> <?= number_format((float) ($revenue['lifetime'] ?? 0), 2) ?></strong>
-                    <small><?= $escape($revenue['currency'] ?? 'PKR') ?> <?= number_format((float) ($revenue['month'] ?? 0), 2) ?> approved this month</small>
-                </div>
-                <?php if (($revenue['series'] ?? []) === []): ?>
-                    <div class="chart-empty-line">No approved payments recorded yet.</div>
-                <?php else: ?>
-                    <svg class="chart-spark" viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label="Approved revenue trend for the last six months">
-                        <?php if ($revenueSpark['area'] !== ''): ?><polygon class="spark-area" points="<?= $escape($revenueSpark['area']) ?>"></polygon><?php endif; ?>
-                        <polyline class="spark-line" points="<?= $escape($revenueSpark['line']) ?>"></polyline>
-                    </svg>
-                    <div class="chart-legend chart-legend-months">
-                        <?php foreach ((array) ($revenue['series'] ?? []) as $point): ?><span><?= $escape($point['label']) ?></span><?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-                <?php if (count((array) ($revenue['currencies'] ?? [])) > 1): ?>
-                    <p class="chart-footnote">Other currencies: <?php foreach ((array) $revenue['currencies'] as $index => $bucket): if ($index === 0) continue; ?><span><?= $escape($bucket['currency']) ?> <?= number_format((float) $bucket['lifetime'], 2) ?></span><?php endforeach; ?></p>
-                <?php endif; ?>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">PAYMENTS</p>
-                        <h2>Verification status</h2>
-                        <small><?= $num($payments['total'] ?? 0) ?> submissions all time</small>
-                    </div>
-                </div>
-                <div class="donut-wrap">
-                    <div class="donut" style="--donut: <?= $escape($donut([
-                            ['value' => (int) ($paymentSplit['approved'] ?? 0), 'color' => 'var(--att-emerald)'],
-                            ['value' => (int) ($paymentSplit['pending'] ?? 0), 'color' => 'var(--att-amber)'],
-                            ['value' => (int) ($paymentSplit['rejected'] ?? 0), 'color' => 'var(--att-rose)'],
-                        ])) ?>") role="img" aria-label="Payment status distribution">
-                        <span class="donut-center"><strong><?= $num($payments['total'] ?? 0) ?></strong><small>Total</small></span>
-                    </div>
-                    <ul class="donut-legend">
-                        <li><i class="legend-dot legend-emerald"></i><span>Approved</span><strong><?= $num($paymentSplit['approved'] ?? 0) ?></strong></li>
-                        <li><i class="legend-dot legend-amber"></i><span>Pending</span><strong><?= $num($paymentSplit['pending'] ?? 0) ?></strong></li>
-                        <li><i class="legend-dot legend-rose"></i><span>Rejected</span><strong><?= $num($paymentSplit['rejected'] ?? 0) ?></strong></li>
-                    </ul>
-                </div>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">ASSESSMENTS</p>
-                        <h2>Quiz results</h2>
-                        <small>Last <?= (int) $range ?> days</small>
-                    </div>
-                </div>
-                <div class="donut-wrap">
-                    <div class="donut" style="--donut: <?= $escape($donut([
-                            ['value' => $resultSplit['pass'], 'color' => 'var(--att-emerald)'],
-                            ['value' => $resultSplit['fail'], 'color' => 'var(--att-rose)'],
-                            ['value' => $resultSplit['in_progress'], 'color' => 'var(--att-blue)'],
-                        ])) ?>") role="img" aria-label="Quiz attempt results">
-                        <span class="donut-center"><strong><?= $num(array_sum($resultSplit)) ?></strong><small>Attempts</small></span>
-                    </div>
-                    <ul class="donut-legend">
-                        <li><i class="legend-dot legend-emerald"></i><span>Passed</span><strong><?= $num($resultSplit['pass']) ?></strong></li>
-                        <li><i class="legend-dot legend-rose"></i><span>Failed</span><strong><?= $num($resultSplit['fail']) ?></strong></li>
-                        <li><i class="legend-dot legend-blue"></i><span>In progress</span><strong><?= $num($resultSplit['in_progress']) ?></strong></li>
-                    </ul>
-                </div>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">SUBMISSIONS</p>
-                        <h2>Assignments &amp; certificates</h2>
-                        <small>Against eligible enrollments</small>
-                    </div>
-                </div>
-                <div class="meter-list">
-                    <?php
-                    $meters = [
-                        ['label' => 'Assignments submitted', 'value' => (int) $assignments['submitted'], 'total' => (int) $assignments['expected'], 'tone' => 'emerald'],
-                        ['label' => 'Awaiting your review', 'value' => (int) $assignments['pendingReview'], 'total' => max(1, (int) $assignments['submitted']), 'tone' => 'amber'],
-                        ['label' => 'Quizzes released', 'value' => (int) $quizzes['released'], 'total' => max(1, (int) $quizzes['total']), 'tone' => 'blue'],
-                        ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'violet'],
-                        ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'rose'],
-                        ['label' => 'Lessons completed', 'value' => (int) $courses['lessonsCompleted'], 'total' => max(1, (int) $courses['lessonsPublished']), 'tone' => 'indigo'],
-                    ];
-                    foreach ($meters as $meter):
-                        $ratio = $meter['total'] > 0 ? min(100, (int) round($meter['value'] / $meter['total'] * 100)) : 0; ?>
-                        <div class="meter-row">
-                            <div class="meter-head"><span><?= $escape($meter['label']) ?></span><strong><?= $num($meter['value']) ?><?= $meter['label'] === 'Assignments submitted' ? ' / ' . $num($meter['total']) : '' ?> · <?= $ratio ?>%</strong></div>
-                            <div class="meter" role="progressbar" aria-label="<?= $escape($meter['label']) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ratio ?>"><span class="meter-fill meter-<?= $escape($meter['tone']) ?>" style="--meter-width: <?= $ratio ?>%"></span></div>
+                    <?php if (($revenue['series'] ?? []) === []): ?>
+                        <div class="chart-empty-line">No approved payments recorded yet.</div>
+                    <?php else: ?>
+                        <svg class="chart-spark" viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label="Approved revenue trend for the last six months">
+                            <?php if ($revenueSpark['area'] !== ''): ?><polygon class="spark-area" points="<?= $escape($revenueSpark['area']) ?>"></polygon><?php endif; ?>
+                            <polyline class="spark-line" points="<?= $escape($revenueSpark['line']) ?>"></polyline>
+                        </svg>
+                        <div class="chart-legend chart-legend-months">
+                            <?php foreach ((array) ($revenue['series'] ?? []) as $point): ?><span><?= $escape($point['label']) ?></span><?php endforeach; ?>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-                <p class="chart-footnote"><?= $num($assignments['notSubmitted'] ?? 0) ?> expected submissions still missing · <?= $num($certificateSplit['requested'] ?? 0) ?> certificate requests pending</p>
-            </section>
+                    <?php endif; ?>
+                    <?php if (count((array) ($revenue['currencies'] ?? [])) > 1): ?>
+                        <p class="chart-footnote">Other currencies: <?php foreach ((array) $revenue['currencies'] as $index => $bucket): if ($index === 0) continue; ?><span><?= $escape($bucket['currency']) ?> <?= number_format((float) $bucket['lifetime'], 2) ?></span><?php endforeach; ?></p>
+                    <?php endif; ?>
+                </section>
 
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">CATALOGUE</p>
-                        <h2>Top courses</h2>
-                        <small>Active enrollments</small>
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">PAYMENTS</p>
+                            <h2>Verification status</h2>
+                            <small><?= $num($payments['total'] ?? 0) ?> submissions all time</small>
+                        </div>
                     </div>
-                </div>
-                <?php if ($topCourses === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">📚</span>
-                        <div><h3>No courses yet</h3><p>Create a course and grant access to see the ranking.</p></div>
-                    </div>
-                <?php else: ?>
-                    <?php $courseMax = $maxOf(array_column($topCourses, 'students')); ?>
-                    <ol class="rank-list">
-                        <?php foreach ($topCourses as $index => $courseRow):
-                            $width = $pct((float) $courseRow['students'], $courseMax); ?>
-                            <li class="rank-row">
-                                <span class="rank-number"><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span>
-                                <span class="rank-copy"><strong><?= $escape($courseRow['title']) ?></strong><small><?= $num($courseRow['students']) ?> active students</small>
-                                    <span class="rank-track"><span class="rank-fill" style="--rank-width: <?= max(3, $width) ?>%"></span></span>
-                                </span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ol>
-                    <p class="chart-footnote"><?= $num($courses['published'] ?? 0) ?> published · <?= $num($courses['draft'] ?? 0) ?> draft · <?= $num($courses['hidden'] ?? 0) ?> hidden or archived</p>
-                <?php endif; ?>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">OPERATIONS</p>
-                        <h2>Needs attention</h2>
-                        <small>Live queue checks</small>
-                    </div>
-                </div>
-                <ul class="alert-list">
-                    <?php foreach ($alerts as $alert): ?>
-                        <li class="alert-row alert-<?= $escape($alert['level']) ?>">
-                            <span class="alert-dot" aria-hidden="true"></span>
-                            <span class="alert-copy"><strong><?= $escape($alert['title']) ?></strong><small><?= $escape($alert['detail']) ?></small></span>
-                            <a class="alert-link" href="<?= $escape($baseUrl . $alert['href']) ?>">Open <span aria-hidden="true">→</span></a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-                <?php if (!empty($attendance['available']) && (array) ($attendance['attention'] ?? []) !== []): ?>
-                    <div class="attention-box">
-                        <h3>Most absences this month</h3>
-                        <ul>
-                            <?php foreach ((array) $attendance['attention'] as $row): ?>
-                                <li><span><?= $escape($row['full_name']) ?></span><strong><?= $num($row['absent_total']) ?> classes</strong></li>
-                            <?php endforeach; ?>
+                    <div class="donut-wrap">
+                        <div class="donut" style="--donut: <?= $escape($donut([
+                                                                ['value' => (int) ($paymentSplit['approved'] ?? 0), 'color' => 'var(--att-emerald)'],
+                                                                ['value' => (int) ($paymentSplit['pending'] ?? 0), 'color' => 'var(--att-amber)'],
+                                                                ['value' => (int) ($paymentSplit['rejected'] ?? 0), 'color' => 'var(--att-rose)'],
+                                                            ])) ?>" ) role="img" aria-label="Payment status distribution">
+                            <span class="donut-center"><strong><?= $num($payments['total'] ?? 0) ?></strong><small>Total</small></span>
+                        </div>
+                        <ul class="donut-legend">
+                            <li><i class="legend-dot legend-emerald"></i><span>Approved</span><strong><?= $num($paymentSplit['approved'] ?? 0) ?></strong></li>
+                            <li><i class="legend-dot legend-amber"></i><span>Pending</span><strong><?= $num($paymentSplit['pending'] ?? 0) ?></strong></li>
+                            <li><i class="legend-dot legend-rose"></i><span>Rejected</span><strong><?= $num($paymentSplit['rejected'] ?? 0) ?></strong></li>
                         </ul>
                     </div>
-                <?php endif; ?>
-            </section>
+                </section>
 
-            <?php
-            $studentAwaiting = max(0, (int) ($students['total'] ?? 0) - (int) ($students['active'] ?? 0) - (int) ($students['blocked'] ?? 0));
-            $certificateTotal = array_sum($certificateSplit);
-            ?>
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">ACCOUNTS</p>
-                        <h2>Student status</h2>
-                        <small><?= $num($students['total'] ?? 0) ?> registered</small>
-                    </div>
-                </div>
-                <div class="donut-wrap">
-                    <div class="donut" style="--donut: <?= $escape($donut([
-                            ['value' => (int) ($students['active'] ?? 0), 'color' => 'var(--att-emerald)'],
-                            ['value' => $studentAwaiting, 'color' => 'var(--att-amber)'],
-                            ['value' => (int) ($students['blocked'] ?? 0), 'color' => 'var(--att-rose)'],
-                        ])) ?>") role="img" aria-label="Student account status distribution">
-                        <span class="donut-center"><strong><?= $num($students['active'] ?? 0) ?></strong><small>Active</small></span>
-                    </div>
-                    <ul class="donut-legend">
-                        <li><i class="legend-dot legend-emerald"></i><span>Active</span><strong><?= $num($students['active'] ?? 0) ?></strong></li>
-                        <li><i class="legend-dot legend-amber"></i><span>Awaiting verification</span><strong><?= $num($studentAwaiting) ?></strong></li>
-                        <li><i class="legend-dot legend-rose"></i><span>Suspended</span><strong><?= $num($students['blocked'] ?? 0) ?></strong></li>
-                    </ul>
-                </div>
-                <div class="chart-stats">
-                    <div><strong>+<?= $num($students['newThisMonth'] ?? 0) ?></strong><span>New this month</span></div>
-                    <div><strong><?= $num($students['withAccess'] ?? 0) ?></strong><span>With course access</span></div>
-                </div>
-            </section>
-
-            <section class="dashboard-panel chart-card">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">CERTIFICATES</p>
-                        <h2>Issuance pipeline</h2>
-                        <small><?= $num($certificateTotal) ?> requests all time</small>
-                    </div>
-                </div>
-                <div class="meter-list">
-                    <?php
-                    $certificateMeters = [
-                        ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'tone' => 'violet'],
-                        ['label' => 'Requests awaiting review', 'value' => (int) ($certificateSplit['requested'] ?? 0), 'tone' => 'amber'],
-                        ['label' => 'Requests rejected', 'value' => (int) ($certificateSplit['rejected'] ?? 0), 'tone' => 'rose'],
-                        ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'tone' => 'rose'],
-                    ];
-                    foreach ($certificateMeters as $meter):
-                        $ratio = $certificateTotal > 0 ? min(100, (int) round($meter['value'] / $certificateTotal * 100)) : 0; ?>
-                        <div class="meter-row">
-                            <div class="meter-head"><span><?= $escape($meter['label']) ?></span><strong><?= $num($meter['value']) ?> · <?= $ratio ?>%</strong></div>
-                            <div class="meter" role="progressbar" aria-label="<?= $escape($meter['label']) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ratio ?>"><span class="meter-fill meter-<?= $escape($meter['tone']) ?>" style="--meter-width: <?= $ratio ?>%"></span></div>
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">ASSESSMENTS</p>
+                            <h2>Quiz results</h2>
+                            <small>Last <?= (int) $range ?> days</small>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-                <p class="chart-footnote"><?= $num($certificates['expired'] ?? 0) ?> issued certificates are past their expiry date</p>
-            </section>
+                    </div>
+                    <div class="donut-wrap">
+                        <div class="donut" style="--donut: <?= $escape($donut([
+                                                                ['value' => $resultSplit['pass'], 'color' => 'var(--att-emerald)'],
+                                                                ['value' => $resultSplit['fail'], 'color' => 'var(--att-rose)'],
+                                                                ['value' => $resultSplit['in_progress'], 'color' => 'var(--att-blue)'],
+                                                            ])) ?>" ) role="img" aria-label="Quiz attempt results">
+                            <span class="donut-center"><strong><?= $num(array_sum($resultSplit)) ?></strong><small>Attempts</small></span>
+                        </div>
+                        <ul class="donut-legend">
+                            <li><i class="legend-dot legend-emerald"></i><span>Passed</span><strong><?= $num($resultSplit['pass']) ?></strong></li>
+                            <li><i class="legend-dot legend-rose"></i><span>Failed</span><strong><?= $num($resultSplit['fail']) ?></strong></li>
+                            <li><i class="legend-dot legend-blue"></i><span>In progress</span><strong><?= $num($resultSplit['in_progress']) ?></strong></li>
+                        </ul>
+                    </div>
+                </section>
 
-            <section class="dashboard-panel dashboard-searchable chart-card-wide" id="payments">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">PAYMENT ACTIVITY</p>
-                        <h2>Recent payments</h2>
-                    </div><span class="dashboard-live-label"><i></i> Live data</span>
-                </div>
-                <?php if (($admin['recentPayments'] ?? []) === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">₨</span>
-                        <div><h3>No payments yet</h3><p>Student payment submissions will appear here when they are recorded.</p></div>
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">SUBMISSIONS</p>
+                            <h2>Assignments &amp; certificates</h2>
+                            <small>Against eligible enrollments</small>
+                        </div>
                     </div>
-                <?php else: ?>
-                    <div class="dashboard-table-wrap">
-                        <table class="dashboard-table">
-                            <thead><tr><th>Student / course</th><th>Amount</th><th>Status</th><th>Received</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($admin['recentPayments'] as $payment): ?>
-                                    <tr>
-                                        <td data-label="Student"><strong><?= $escape($payment['student_name']) ?></strong><small><?= $escape($payment['course_title']) ?></small></td>
-                                        <td data-label="Amount"><?= $money($payment['amount'], $payment['currency']) ?></td>
-                                        <td data-label="Status"><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></td>
-                                        <td data-label="Received"><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
-            </section>
-
-            <section class="dashboard-panel dashboard-searchable chart-card-wide" id="quizzes">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">ASSESSMENT ACTIVITY</p>
-                        <h2>Recent quiz attempts</h2>
-                    </div>
-                </div>
-                <?php if (($admin['recentAttempts'] ?? []) === []): ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span>
-                        <div><h3>No quiz attempts yet</h3><p>Student attempts and results will show here after quizzes are available.</p></div>
-                    </div>
-                <?php else: ?>
-                    <div class="dashboard-list">
-                        <?php foreach ($admin['recentAttempts'] as $attempt):
-                            $result = (string) ($attempt['result'] ?? '');
-                            $status = $attempt['status'] === 'in_progress' ? 'pending' : ($result === 'pass' ? 'approved' : ($result === 'fail' ? 'rejected' : $attempt['status'])); ?>
-                            <article class="dashboard-list-row"><span class="dashboard-list-icon">Q</span>
-                                <div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['student_name']) ?> · <?= $escape($attempt['course_title']) ?><?= $attempt['percentage'] === null ? '' : ' · ' . number_format((float) $attempt['percentage'], 1) . '%' ?></small></div>
-                                <span class="dashboard-status status-<?= $escape($status) ?>"><?= $escape(ucwords(str_replace('_', ' ', (string) $attempt['status']))) ?></span>
-                            </article>
+                    <div class="meter-list">
+                        <?php
+                        $meters = [
+                            ['label' => 'Assignments submitted', 'value' => (int) $assignments['submitted'], 'total' => (int) $assignments['expected'], 'tone' => 'emerald'],
+                            ['label' => 'Awaiting your review', 'value' => (int) $assignments['pendingReview'], 'total' => max(1, (int) $assignments['submitted']), 'tone' => 'amber'],
+                            ['label' => 'Quizzes released', 'value' => (int) $quizzes['released'], 'total' => max(1, (int) $quizzes['total']), 'tone' => 'blue'],
+                            ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'violet'],
+                            ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'total' => max(1, array_sum($certificateSplit)), 'tone' => 'rose'],
+                            ['label' => 'Lessons completed', 'value' => (int) $courses['lessonsCompleted'], 'total' => max(1, (int) $courses['lessonsPublished']), 'tone' => 'indigo'],
+                        ];
+                        foreach ($meters as $meter):
+                            $ratio = $meter['total'] > 0 ? min(100, (int) round($meter['value'] / $meter['total'] * 100)) : 0; ?>
+                            <div class="meter-row">
+                                <div class="meter-head"><span><?= $escape($meter['label']) ?></span><strong><?= $num($meter['value']) ?><?= $meter['label'] === 'Assignments submitted' ? ' / ' . $num($meter['total']) : '' ?> · <?= $ratio ?>%</strong></div>
+                                <div class="meter" role="progressbar" aria-label="<?= $escape($meter['label']) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ratio ?>"><span class="meter-fill meter-<?= $escape($meter['tone']) ?>" style="--meter-width: <?= $ratio ?>%"></span></div>
+                            </div>
                         <?php endforeach; ?>
                     </div>
-                <?php endif; ?>
-            </section>
-        </div>
-        <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
+                    <p class="chart-footnote"><?= $num($assignments['notSubmitted'] ?? 0) ?> expected submissions still missing · <?= $num($certificateSplit['requested'] ?? 0) ?> certificate requests pending</p>
+                </section>
+
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">CATALOGUE</p>
+                            <h2>Top courses</h2>
+                            <small>Active enrollments</small>
+                        </div>
+                    </div>
+                    <?php if ($topCourses === []): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">📚</span>
+                            <div>
+                                <h3>No courses yet</h3>
+                                <p>Create a course and grant access to see the ranking.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php $courseMax = $maxOf(array_column($topCourses, 'students')); ?>
+                        <ol class="rank-list">
+                            <?php foreach ($topCourses as $index => $courseRow):
+                                $width = $pct((float) $courseRow['students'], $courseMax); ?>
+                                <li class="rank-row">
+                                    <span class="rank-number"><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span>
+                                    <span class="rank-copy"><strong><?= $escape($courseRow['title']) ?></strong><small><?= $num($courseRow['students']) ?> active students</small>
+                                        <span class="rank-track"><span class="rank-fill" style="--rank-width: <?= max(3, $width) ?>%"></span></span>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                        <p class="chart-footnote"><?= $num($courses['published'] ?? 0) ?> published · <?= $num($courses['draft'] ?? 0) ?> draft · <?= $num($courses['hidden'] ?? 0) ?> hidden or archived</p>
+                    <?php endif; ?>
+                </section>
+
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">OPERATIONS</p>
+                            <h2>Needs attention</h2>
+                            <small>Live queue checks</small>
+                        </div>
+                    </div>
+                    <ul class="alert-list">
+                        <?php foreach ($alerts as $alert): ?>
+                            <li class="alert-row alert-<?= $escape($alert['level']) ?>">
+                                <span class="alert-dot" aria-hidden="true"></span>
+                                <span class="alert-copy"><strong><?= $escape($alert['title']) ?></strong><small><?= $escape($alert['detail']) ?></small></span>
+                                <a class="alert-link" href="<?= $escape($baseUrl . $alert['href']) ?>">Open <span aria-hidden="true">→</span></a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if (!empty($attendance['available']) && (array) ($attendance['attention'] ?? []) !== []): ?>
+                        <div class="attention-box">
+                            <h3>Most absences this month</h3>
+                            <ul>
+                                <?php foreach ((array) $attendance['attention'] as $row): ?>
+                                    <li><span><?= $escape($row['full_name']) ?></span><strong><?= $num($row['absent_total']) ?> classes</strong></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <?php
+                $studentAwaiting = max(0, (int) ($students['total'] ?? 0) - (int) ($students['active'] ?? 0) - (int) ($students['blocked'] ?? 0));
+                $certificateTotal = array_sum($certificateSplit);
+                ?>
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">ACCOUNTS</p>
+                            <h2>Student status</h2>
+                            <small><?= $num($students['total'] ?? 0) ?> registered</small>
+                        </div>
+                    </div>
+                    <div class="donut-wrap">
+                        <div class="donut" style="--donut: <?= $escape($donut([
+                                                                ['value' => (int) ($students['active'] ?? 0), 'color' => 'var(--att-emerald)'],
+                                                                ['value' => $studentAwaiting, 'color' => 'var(--att-amber)'],
+                                                                ['value' => (int) ($students['blocked'] ?? 0), 'color' => 'var(--att-rose)'],
+                                                            ])) ?>" ) role="img" aria-label="Student account status distribution">
+                            <span class="donut-center"><strong><?= $num($students['active'] ?? 0) ?></strong><small>Active</small></span>
+                        </div>
+                        <ul class="donut-legend">
+                            <li><i class="legend-dot legend-emerald"></i><span>Active</span><strong><?= $num($students['active'] ?? 0) ?></strong></li>
+                            <li><i class="legend-dot legend-amber"></i><span>Awaiting verification</span><strong><?= $num($studentAwaiting) ?></strong></li>
+                            <li><i class="legend-dot legend-rose"></i><span>Suspended</span><strong><?= $num($students['blocked'] ?? 0) ?></strong></li>
+                        </ul>
+                    </div>
+                    <div class="chart-stats">
+                        <div><strong>+<?= $num($students['newThisMonth'] ?? 0) ?></strong><span>New this month</span></div>
+                        <div><strong><?= $num($students['withAccess'] ?? 0) ?></strong><span>With course access</span></div>
+                    </div>
+                </section>
+
+                <section class="dashboard-panel chart-card">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">CERTIFICATES</p>
+                            <h2>Issuance pipeline</h2>
+                            <small><?= $num($certificateTotal) ?> requests all time</small>
+                        </div>
+                    </div>
+                    <div class="meter-list">
+                        <?php
+                        $certificateMeters = [
+                            ['label' => 'Certificates issued', 'value' => (int) ($certificateSplit['issued'] ?? 0), 'tone' => 'violet'],
+                            ['label' => 'Requests awaiting review', 'value' => (int) ($certificateSplit['requested'] ?? 0), 'tone' => 'amber'],
+                            ['label' => 'Requests rejected', 'value' => (int) ($certificateSplit['rejected'] ?? 0), 'tone' => 'rose'],
+                            ['label' => 'Certificates revoked', 'value' => (int) ($certificateSplit['revoked'] ?? 0), 'tone' => 'rose'],
+                        ];
+                        foreach ($certificateMeters as $meter):
+                            $ratio = $certificateTotal > 0 ? min(100, (int) round($meter['value'] / $certificateTotal * 100)) : 0; ?>
+                            <div class="meter-row">
+                                <div class="meter-head"><span><?= $escape($meter['label']) ?></span><strong><?= $num($meter['value']) ?> · <?= $ratio ?>%</strong></div>
+                                <div class="meter" role="progressbar" aria-label="<?= $escape($meter['label']) ?>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $ratio ?>"><span class="meter-fill meter-<?= $escape($meter['tone']) ?>" style="--meter-width: <?= $ratio ?>%"></span></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="chart-footnote"><?= $num($certificates['expired'] ?? 0) ?> issued certificates are past their expiry date</p>
+                </section>
+
+                <section class="dashboard-panel dashboard-searchable chart-card-wide" id="payments">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">PAYMENT ACTIVITY</p>
+                            <h2>Recent payments</h2>
+                        </div><span class="dashboard-live-label"><i></i> Live data</span>
+                    </div>
+                    <?php if (($admin['recentPayments'] ?? []) === []): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">₨</span>
+                            <div>
+                                <h3>No payments yet</h3>
+                                <p>Student payment submissions will appear here when they are recorded.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="dashboard-table-wrap">
+                            <table class="dashboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>Student / course</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Received</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($admin['recentPayments'] as $payment): ?>
+                                        <tr>
+                                            <td data-label="Student"><strong><?= $escape($payment['student_name']) ?></strong><small><?= $escape($payment['course_title']) ?></small></td>
+                                            <td data-label="Amount"><?= $money($payment['amount'], $payment['currency']) ?></td>
+                                            <td data-label="Status"><span class="dashboard-status status-<?= $escape($payment['status']) ?>"><?= $escape(ucfirst($payment['status'])) ?></span></td>
+                                            <td data-label="Received"><?= $escape($dateLabel($payment['created_at'] ?? null)) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <section class="dashboard-panel dashboard-searchable chart-card-wide" id="quizzes">
+                    <div class="dashboard-panel-heading">
+                        <div>
+                            <p class="eyebrow">ASSESSMENT ACTIVITY</p>
+                            <h2>Recent quiz attempts</h2>
+                        </div>
+                    </div>
+                    <?php if (($admin['recentAttempts'] ?? []) === []): ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">✓</span>
+                            <div>
+                                <h3>No quiz attempts yet</h3>
+                                <p>Student attempts and results will show here after quizzes are available.</p>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="dashboard-list">
+                            <?php foreach ($admin['recentAttempts'] as $attempt):
+                                $result = (string) ($attempt['result'] ?? '');
+                                $status = $attempt['status'] === 'in_progress' ? 'pending' : ($result === 'pass' ? 'approved' : ($result === 'fail' ? 'rejected' : $attempt['status'])); ?>
+                                <article class="dashboard-list-row"><span class="dashboard-list-icon">Q</span>
+                                    <div class="dashboard-list-copy"><strong><?= $escape($attempt['quiz_title']) ?></strong><small><?= $escape($attempt['student_name']) ?> · <?= $escape($attempt['course_title']) ?><?= $attempt['percentage'] === null ? '' : ' · ' . number_format((float) $attempt['percentage'], 1) . '%' ?></small></div>
+                                    <span class="dashboard-status status-<?= $escape($status) ?>"><?= $escape(ucwords(str_replace('_', ' ', (string) $attempt['status']))) ?></span>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            </div>
+            <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
         </div>
 
         <div class="dashboard-note"><strong>Workspace overview</strong><span>Figures are calculated live from the academy database. Attendance is opened by each student sign-in and closes automatically when the grace window ends. Use the sidebar to manage courses, assessments, certificates, payments and settings.</span></div>
@@ -768,7 +816,12 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         }
         ?>
         <section class="dashboard-summary-card student-dashboard-hero" aria-label="Attendance and learning summary">
-            <div class="dashboard-summary-heading"><div><p class="eyebrow">TODAY · <?= $escape($todayLabel) ?></p><h2>Attendance &amp; learning snapshot</h2></div><span>Personal overview</span></div>
+            <div class="dashboard-summary-heading">
+                <div>
+                    <p class="eyebrow">TODAY · <?= $escape($todayLabel) ?></p>
+                    <h2>Attendance &amp; learning snapshot</h2>
+                </div><span>Personal overview</span>
+            </div>
             <div class="attendance-hero<?= empty($attendance['available']) ? ' attendance-hero-single' : '' ?>">
                 <div class="attendance-main">
                     <?php if (!$attendanceEligible): ?>
@@ -811,7 +864,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                 <div class="attendance-rate-ring-center">
                                     <strong><?= number_format((float) ($attendance['coverage_percent'] ?? 0), 1) ?>%</strong>
                                     <span><?= $num($attendance['decided_sessions'] ?? 0) ?> / <?= $num($attendance['total_sessions'] ?? 0) ?> classes</span>
-                                    <small>Schedule coverage</small>
+                                    <!-- <small>Schedule coverage</small> -->
                                 </div>
                             </div>
                             <ul class="donut-legend">
@@ -828,7 +881,10 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <?php if (!empty($attendance['available'])): ?>
                 <div class="attendance-insights">
                     <section class="insight-card insight-week" aria-label="Weekly attendance trend">
-                        <div class="insight-head"><p class="eyebrow">WEEKLY TREND</p><h3>Live classes attended per week</h3></div>
+                        <div class="insight-head">
+                            <p class="eyebrow">WEEKLY TREND</p>
+                            <h3>Live classes attended per week</h3>
+                        </div>
                         <?php if ($recentWeeks === []): ?>
                             <p class="insight-empty">No attendance recorded yet — your weekly bars fill in as scheduled live classes are marked.</p>
                         <?php else: ?>
@@ -846,7 +902,10 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         <?php endif; ?>
                     </section>
                     <section class="insight-card insight-forecast" aria-label="Attendance forecast">
-                        <div class="insight-head"><p class="eyebrow">FORECAST</p><h3>Path to 90%</h3></div>
+                        <div class="insight-head">
+                            <p class="eyebrow">FORECAST</p>
+                            <h3>Path to 90%</h3>
+                        </div>
                         <p class="forecast-lead"><?= $escape($forecastMessage) ?></p>
                         <div class="forecast-meter" role="progressbar" aria-label="Attendance rate towards the 90% goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($attendanceRate) ?>">
                             <span class="forecast-fill" style="--forecast-width: <?= min(100, $attendanceRate > 0 ? $attendanceRate / $attendanceTarget * 100 : 0) ?>%"></span>
@@ -856,81 +915,100 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 </div>
             <?php endif; ?>
             <div class="kpi-grid kpi-grid-student" aria-label="Your summary">
-                <article class="kpi-card kpi-blue"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">📚</span><span class="kpi-label">My courses</span></div><strong class="kpi-value"><?= $num($student['activeCourseCount'] ?? 0) ?></strong><p class="kpi-hint">Active access grants</p></article>
-                <article class="kpi-card kpi-emerald"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">✓</span><span class="kpi-label">Lessons completed</span></div><strong class="kpi-value"><?= $num($student['completedLessonCount'] ?? 0) ?></strong><p class="kpi-hint">Across your courses</p></article>
-                <article class="kpi-card kpi-violet"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">◎</span><span class="kpi-label">Quiz attempts</span></div><strong class="kpi-value"><?= $num($student['quizAttempts'] ?? 0) ?></strong><p class="kpi-hint">Saved on your account</p></article>
-                <article class="kpi-card kpi-indigo"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">✎</span><span class="kpi-label">Assignments</span></div><strong class="kpi-value"><?= $num($student['assignmentSubmissions'] ?? 0) ?></strong><p class="kpi-hint">Submissions recorded</p></article>
-                <article class="kpi-card kpi-amber"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">₨</span><span class="kpi-label">Pending payments</span></div><strong class="kpi-value"><?= $num($student['pendingPaymentCount'] ?? 0) ?></strong><p class="kpi-hint">Awaiting verification</p></article>
-                <article class="kpi-card kpi-rose"><div class="kpi-top"><span class="kpi-icon" aria-hidden="true">🔔</span><span class="kpi-label">Unread notices</span></div><strong class="kpi-value"><?= $num($student['unreadNotificationCount'] ?? 0) ?></strong><p class="kpi-hint">From the Academy</p></article>
+                <article class="kpi-card kpi-blue">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">📚</span><span class="kpi-label">My courses</span></div><strong class="kpi-value"><?= $num($student['activeCourseCount'] ?? 0) ?></strong>
+                    <p class="kpi-hint">Active access grants</p>
+                </article>
+                <article class="kpi-card kpi-emerald">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">✓</span><span class="kpi-label">Lessons completed</span></div><strong class="kpi-value"><?= $num($student['completedLessonCount'] ?? 0) ?></strong>
+                    <p class="kpi-hint">Across your courses</p>
+                </article>
+                <article class="kpi-card kpi-violet">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">◎</span><span class="kpi-label">Quiz attempts</span></div><strong class="kpi-value"><?= $num($student['quizAttempts'] ?? 0) ?></strong>
+                    <p class="kpi-hint">Saved on your account</p>
+                </article>
+                <article class="kpi-card kpi-indigo">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">✎</span><span class="kpi-label">Assignments</span></div><strong class="kpi-value"><?= $num($student['assignmentSubmissions'] ?? 0) ?></strong>
+                    <p class="kpi-hint">Submissions recorded</p>
+                </article>
+                <article class="kpi-card kpi-amber">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">₨</span><span class="kpi-label">Pending payments</span></div><strong class="kpi-value"><?= $num($student['pendingPaymentCount'] ?? 0) ?></strong>
+                    <p class="kpi-hint">Awaiting verification</p>
+                </article>
+                <article class="kpi-card kpi-rose">
+                    <div class="kpi-top"><span class="kpi-icon" aria-hidden="true">🔔</span><span class="kpi-label">Unread notices</span></div><strong class="kpi-value"><?= $num($student['unreadNotificationCount'] ?? 0) ?></strong>
+                    <p class="kpi-hint">From the Academy</p>
+                </article>
             </div>
         </section>
 
         <div class="overview-layout student-overview-layout">
-        <div class="dashboard-columns dashboard-student-overview">
-            <section class="dashboard-panel dashboard-searchable" id="my-courses">
-                <div class="dashboard-panel-heading">
-                    <div>
-                        <p class="eyebrow">YOUR ENROLLMENT</p>
-                        <h2>My courses</h2>
-                    </div><div class="dashboard-heading-links"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/student/lessons">All lessons →</a><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course →</a></div>
-                </div>
-                <?php if (($student['courses'] ?? []) === []): ?>
-                    <?php $pendingPayments = (int) ($student['pendingPaymentCount'] ?? 0); ?>
-                    <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>
-                        <div>
-                            <h3><?= $pendingPayments > 0 ? 'Your payment is being verified' : 'Your learning starts here' ?></h3>
-                            <?php if ($pendingPayments > 0): ?>
-                                <p>You have <?= $pendingPayments ?> payment <?= $pendingPayments === 1 ? '' : 's' ?> waiting for an administrator. Course access opens as soon as it is approved — you will get an email and a notification here, so there is nothing to buy again.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/payments">See payment status →</a>
-                            <?php else: ?>
-                                <p>You do not have a course access grant yet. Choose a course, and enrollment opens with it already picked — pay, then the Academy enables access.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course to enroll →</a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div class="dashboard-course-list">
-                        <?php foreach ($student['courses'] as $course):
-                            $lessons = (int) $course['lesson_count'];
-                            $completed = (int) $course['completed_lessons'];
-                            $progress = $lessons > 0 ? min(100, (int) round(($completed / $lessons) * 100)) : 0;
-                            $courseImageFrameClass = 'dashboard-course-image';
-                        ?>
-                            <article class="dashboard-course-card">
-                                <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
-                                <div class="dashboard-course-top"><span class="dashboard-status status-active">Access active</span></div>
-                                <p class="dashboard-course-category"><?= $escape($course['category'] ?: 'Academy course') ?></p>
-                                <h3><?= $escape($course['title']) ?></h3>
-                                <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>
-                                <div class="dashboard-progress-label"><span>Lesson progress</span><strong><?= $lessons > 0 ? $progress . '%' : 'Not started' ?></strong></div>
-                                <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
-                                <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?></small>
-                                <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $course['id'] ?>">Open course →</a>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </section>
-
-            <?php if ($attendanceHistory !== []): ?>
-                <section class="dashboard-panel" id="attendance-history">
+            <div class="dashboard-columns dashboard-student-overview">
+                <section class="dashboard-panel dashboard-searchable" id="my-courses">
                     <div class="dashboard-panel-heading">
                         <div>
-                            <p class="eyebrow">RECORD</p>
-                            <h2>Recent attendance</h2>
+                            <p class="eyebrow">YOUR ENROLLMENT</p>
+                            <h2>My courses</h2>
                         </div>
+                        <div class="dashboard-heading-links"><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/student/lessons">All lessons →</a><a class="dashboard-text-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course →</a></div>
                     </div>
-                    <ul class="attendance-history">
-                        <?php foreach ($attendanceHistory as $record): ?>
-                            <li>
-                                <span><?= $escape($dateLabel((string) $record['attendance_date'])) ?> · <?= $escape($record['course_title'] ?? '') ?></span>
-                                <em class="attendance-chip chip-<?= $escape($record['status']) ?>"><?= $escape(ucfirst((string) $record['status'])) ?></em>
-                                <small><?= $escape($record['lesson_title'] ?? 'Live class') ?> · class at <?= $escape($timeLabel($record['meeting_at'] ?? null)) ?> UTC<?= $record['status'] === 'present' ? ' · marked ' . $escape($timeLabel($record['marked_at'] ?? null)) : '' ?></small>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <?php if (($student['courses'] ?? []) === []): ?>
+                        <?php $pendingPayments = (int) ($student['pendingPaymentCount'] ?? 0); ?>
+                        <div class="dashboard-empty"><span class="dashboard-empty-icon">＋</span>
+                            <div>
+                                <h3><?= $pendingPayments > 0 ? 'Your payment is being verified' : 'Your learning starts here' ?></h3>
+                                <?php if ($pendingPayments > 0): ?>
+                                    <p>You have <?= $pendingPayments ?> payment <?= $pendingPayments === 1 ? '' : 's' ?> waiting for an administrator. Course access opens as soon as it is approved — you will get an email and a notification here, so there is nothing to buy again.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/payments">See payment status →</a>
+                                <?php else: ?>
+                                    <p>You do not have a course access grant yet. Choose a course, and enrollment opens with it already picked — pay, then the Academy enables access.</p><a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/courses">Choose a course to enroll →</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="dashboard-course-list">
+                            <?php foreach ($student['courses'] as $course):
+                                $lessons = (int) $course['lesson_count'];
+                                $completed = (int) $course['completed_lessons'];
+                                $progress = $lessons > 0 ? min(100, (int) round(($completed / $lessons) * 100)) : 0;
+                                $courseImageFrameClass = 'dashboard-course-image';
+                            ?>
+                                <article class="dashboard-course-card">
+                                    <?php require BASE_PATH . '/app/Views/components/course-image.php'; ?>
+                                    <div class="dashboard-course-top"><span class="dashboard-status status-active">Access active</span></div>
+                                    <p class="dashboard-course-category"><?= $escape($course['category'] ?: 'Academy course') ?></p>
+                                    <h3><?= $escape($course['title']) ?></h3>
+                                    <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>
+                                    <div class="dashboard-progress-label"><span>Lesson progress</span><strong><?= $lessons > 0 ? $progress . '%' : 'Not started' ?></strong></div>
+                                    <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
+                                    <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?></small>
+                                    <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $course['id'] ?>">Open course →</a>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </section>
-            <?php endif; ?>
-        </div>
-        <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
+
+                <?php if ($attendanceHistory !== []): ?>
+                    <section class="dashboard-panel" id="attendance-history">
+                        <div class="dashboard-panel-heading">
+                            <div>
+                                <p class="eyebrow">RECORD</p>
+                                <h2>Recent attendance</h2>
+                            </div>
+                        </div>
+                        <ul class="attendance-history">
+                            <?php foreach ($attendanceHistory as $record): ?>
+                                <li>
+                                    <span><?= $escape($dateLabel((string) $record['attendance_date'])) ?> · <?= $escape($record['course_title'] ?? '') ?></span>
+                                    <em class="attendance-chip chip-<?= $escape($record['status']) ?>"><?= $escape(ucfirst((string) $record['status'])) ?></em>
+                                    <small><?= $escape($record['lesson_title'] ?? 'Live class') ?> · class at <?= $escape($timeLabel($record['meeting_at'] ?? null)) ?> UTC<?= $record['status'] === 'present' ? ' · marked ' . $escape($timeLabel($record['marked_at'] ?? null)) : '' ?></small>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </section>
+                <?php endif; ?>
+            </div>
+            <?php require BASE_PATH . '/app/Views/components/dashboard-tools.php'; ?>
         </div>
     <?php endif; ?>
 
