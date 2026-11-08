@@ -810,8 +810,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                             <div class="attendance-rate-ring" style="--attendance-rate: <?= max(0, min(100, (float) ($attendance['coverage_percent'] ?? 0))) ?>%" role="progressbar" aria-label="Coverage of scheduled live class sessions" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round((float) ($attendance['coverage_percent'] ?? 0)) ?>">
                                 <div class="attendance-rate-ring-center">
                                     <strong><?= number_format((float) ($attendance['coverage_percent'] ?? 0), 1) ?>%</strong>
-                                    <span><?= $num($attendance['decided_sessions'] ?? 0) ?> / <?= $num($attendance['total_sessions'] ?? 0) ?> classes counted</span>
-                                    <small>Course schedule coverage</small>
+                                    <span><?= $num($attendance['decided_sessions'] ?? 0) ?> / <?= $num($attendance['total_sessions'] ?? 0) ?> classes</span>
+                                    <small>Schedule coverage</small>
                                 </div>
                             </div>
                             <ul class="donut-legend">
@@ -821,7 +821,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                 <li><i class="legend-dot legend-white"></i><span>Upcoming</span><strong><?= $num($attendanceSplit['upcoming']) ?></strong></li>
                             </ul>
                         </div>
-                        <?php if (!empty($attendanceToday['course_title'])): ?><p class="chart-footnote">Today: <?= $escape($attendanceToday['course_title']) ?> · <?= $escape($attendanceToday['lesson_title'] ?? 'Live class') ?> · class at <?= $escape($timeLabel((string) $attendanceToday['meeting_at'])) ?> UTC</p><?php endif; ?>
+                        <?php if (!empty($attendanceToday['course_title'])): ?><p class="chart-footnote">Today&#39;s live class: <?= $escape($attendanceToday['course_title']) ?> · <?= $escape($attendanceToday['lesson_title'] ?? 'Live class') ?> · <?= $escape($timeLabel((string) $attendanceToday['meeting_at'])) ?> UTC</p><?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
