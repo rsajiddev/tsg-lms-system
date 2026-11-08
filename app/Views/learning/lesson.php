@@ -79,6 +79,7 @@ $watermarkOverlay = static function () use ($escape, $watermark): string {
              data-csrf="<?= $escape(Security::csrfToken()) ?>"
              data-heartbeat="<?= (int) $media['heartbeat'] ?>"
              data-duration="<?= (int) $media['duration'] ?>"
+             data-provider="<?= $escape((string) $media['provider']) ?>"
              data-position="<?= (int) $media['position'] ?>"
              data-trackable="<?= $media['trackable'] ? '1' : '0' ?>"
              data-watermark="<?= $watermark['enabled'] && trim((string) $watermark['label']) !== '' ? '1' : '0' ?>"

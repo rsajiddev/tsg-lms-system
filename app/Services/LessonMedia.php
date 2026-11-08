@@ -225,7 +225,7 @@ final class LessonMedia
             if (preg_match('#(?:v=|youtu\.be/|embed/|shorts/)([A-Za-z0-9_-]{6,20})#', $value, $match) === 1) {
                 $videoId = $match[1];
             }
-            return $videoId === '' ? $value : 'https://www.youtube-nocookie.com/embed/' . $videoId;
+            return $videoId === '' ? $value : 'https://www.youtube-nocookie.com/embed/' . $videoId . '?enablejsapi=1&playsinline=1';
         }
         if ($provider === 'vimeo') {
             if (preg_match('#vimeo\.com/(?:video/)?([0-9]+)#', $value, $match) === 1) {

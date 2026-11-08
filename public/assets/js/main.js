@@ -985,6 +985,7 @@
         if (!endpoint || lessonId === '0') return;
 
         const trackable = player.dataset.trackable === '1';
+        const provider = player.dataset.provider || '';
         const video = player.querySelector('.lesson-video');
         const frame = player.querySelector('.lesson-iframe');
         if (trackable && !video) return;
@@ -1053,6 +1054,10 @@
 
         let position = Math.max(0, Number.parseInt(player.dataset.position || '0', 10));
         let activeSeconds = 0;
+        // Embedded providers do not expose a native HTMLMediaElement. YouTube reports its
+        // play/pause state through postMessage; until that state says PLAYING, no watch time is
+        // allowed to accumulate. Other legacy embeds keep the existing visible-tab behaviour.
+        let embedPlaying = provider !== 'youtube';
         let sending = false;
         let finished = player.dataset.completed === '1';
         let ticker = 0;
@@ -1123,6 +1128,7 @@
         const tick = () => {
             if (finished) return;
             if (document.visibilityState !== 'visible') return;
+            if (!trackable && provider === 'youtube' && !embedPlaying) return;
             if (!trackable) activeSeconds += Math.round(interval / 1000);
             if (duration && position + activeSeconds > duration + 60) activeSeconds = Math.max(0, duration - position);
             report(false);
@@ -1208,6 +1214,36 @@
                 }
                 lastSeen = where;
             });
+        }
+
+        if (!trackable && provider === 'youtube' && frame) {
+            const youtubeOrigins = new Set(['https://www.youtube-nocookie.com', 'https://www.youtube.com']);
+            const youtubeMessage = (event) => {
+                if (event.source !== frame.contentWindow || !youtubeOrigins.has(event.origin)) return;
+                let payload;
+                try { payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data; } catch (error) { return; }
+                if (!payload) return;
+                const state = payload.event === 'onStateChange'
+                    ? Number(payload.info)
+                    : payload.event === 'infoDelivery' && payload.info
+                        ? Number(payload.info.playerState)
+                        : NaN;
+                if (!Number.isFinite(state)) return;
+                if (state === 1) {
+                    embedPlaying = true;
+                } else if (state === 0 || state === 2 || state === 3 || state === 5) {
+                    embedPlaying = false;
+                    activeSeconds = 0;
+                }
+            };
+            window.addEventListener('message', youtubeMessage);
+            const subscribe = () => {
+                const post = (message) => frame.contentWindow?.postMessage(JSON.stringify(message), '*');
+                post({ event: 'listening', id: 1, channel: 'lesson-player' });
+                post({ event: 'command', func: 'addEventListener', args: ['onStateChange'], id: 1, channel: 'lesson-player' });
+            };
+            frame.addEventListener('load', subscribe);
+            subscribe();
         }
 
         if (!finished) {
