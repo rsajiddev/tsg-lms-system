@@ -17,6 +17,7 @@ $watermark += ['enabled' => false, 'name' => '', 'reference' => '—', 'time' =>
 // null unless this enrolment is on the Live + Recorded plan and the lesson holds a class address.
 // The controller decided that; the template only prints what it was handed.
 $liveClass = isset($liveClass) && is_array($liveClass) ? $liveClass : null;
+$recordedOnlyLiveLesson = !empty($recordedOnlyLiveLesson);
 // meeting_at is a naive UTC instant, so it is read on the UTC clock and printed on the UTC clock.
 // Two students in two countries therefore read the same start time, and it is labelled as what it is.
 $classLabel = static function (?string $value): string {
@@ -107,7 +108,9 @@ $watermarkOverlay = static function () use ($escape, $watermark): string {
         </div>
         <div class="lesson-watch-track" role="progressbar" aria-label="Lesson video watched" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($media['ratio']) ?>"><span class="lesson-watch-fill" data-watch-fill style="--watch-width: <?= max(0, min(100, (float) $media['ratio'])) ?>%"></span></div>
         <p class="lesson-watch-note" data-watch-note><?php
-            if ((int) $lesson['completed'] === 1) {
+            if ($recordedOnlyLiveLesson) {
+                echo 'This is a live class. Its recording will appear here for your plan after the Academy adds it.';
+            } elseif ((int) $lesson['completed'] === 1) {
                 echo 'You have completed this lesson.';
             } elseif ($media['rule_applies']) {
                 echo 'Watch ' . (int) $media['percent'] . '% of this recording (' . $escape($media['required_label']) . ') to unlock completion.';
@@ -126,11 +129,12 @@ $watermarkOverlay = static function () use ($escape, $watermark): string {
       <p class="lesson-protection-note" data-protection-note hidden></p>
     </article>
   <?php endif; ?>
+  <?php if ($recordedOnlyLiveLesson): ?><p class="learning-plan-note">This lesson is scheduled as a live class. Your Recorded Only access will include it once the recording is added.</p><?php endif; ?>
   <article class="dashboard-panel learning-content"><?php if (trim((string) ($lesson['body'] ?? '')) !== ''): ?><div class="learning-body"><?= nl2br($escape($lesson['body'])) ?></div><?php else: ?><div class="dashboard-empty">
         <div>
           <h2>Lesson content is being prepared</h2>
           <p>Your course team has not added the lesson materials yet.</p>
         </div>
-      </div><?php endif; ?><div class="learning-actions"><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $lesson['course_id'] ?>">Back to course</a><?php if ((int) $lesson['completed'] !== 1): ?><form method="post" action="<?= $escape($baseUrl) ?>/learning/complete"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="lesson_id" value="<?= (int) $lesson['lesson_id'] ?>"><button class="button" type="submit" data-complete-button><?= $media['rule_applies'] ? 'Complete lesson' : 'Mark lesson complete' ?></button><?php if ($media['rule_applies']): ?><span class="learning-actions-hint" data-unlock-hint>Unlocks after <?= (int) $media['percent'] ?>% watched (<?= $escape($media['required_label']) ?>)</span><?php endif; ?></form><?php endif; ?><span class="learning-completed-label" data-completed-label<?= (int) $lesson['completed'] === 1 ? '' : ' hidden' ?>>✓ Lesson completed</span></div>
+      </div><?php endif; ?><div class="learning-actions"><a class="button button-secondary" href="<?= $escape($baseUrl) ?>/learning?course_id=<?= (int) $lesson['course_id'] ?>">Back to course</a><?php if ((int) $lesson['completed'] !== 1 && !$recordedOnlyLiveLesson): ?><form method="post" action="<?= $escape($baseUrl) ?>/learning/complete"><input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>"><input type="hidden" name="lesson_id" value="<?= (int) $lesson['lesson_id'] ?>"><button class="button" type="submit" data-complete-button><?= $media['rule_applies'] ? 'Complete lesson' : 'Mark lesson complete' ?></button><?php if ($media['rule_applies']): ?><span class="learning-actions-hint" data-unlock-hint>Unlocks after <?= (int) $media['percent'] ?>% watched (<?= $escape($media['required_label']) ?>)</span><?php endif; ?></form><?php endif; ?><span class="learning-completed-label" data-completed-label<?= (int) $lesson['completed'] === 1 ? '' : ' hidden' ?>>✓ Lesson completed</span></div>
   </article>
 </section>

@@ -1049,10 +1049,10 @@ final class DocumentPdf
     private static function reportNotes(string $type): string
     {
         return match ($type) {
-            'attendance' => 'One line per marked day. A day counts as present once the session is confirmed, and closes as absent when no confirmation arrives inside the window.',
+            'attendance' => 'One line per scheduled live class. A class counts as present once the student confirms, and closes as absent when no confirmation arrives inside the attendance window.',
             'quizzes' => 'Only submitted attempts appear here. Each score is taken from the quiz total and the result applies the pass mark stored with that quiz.',
             'assignments' => 'Submissions are listed with the marks an instructor awarded after review. An unreviewed submission stays pending and carries no score yet.',
-            'students' => 'Every enrolled student is listed with the days marked for the period and the regularity rate that comes out of those days.',
+            'students' => 'Every enrolled student is listed with live classes marked for the period and the regularity rate that comes out of those classes.',
             'all' => 'One consolidated pack. Every headline figure is taken from its own desk, and the rows below cover student, attendance, quiz and assignment activity for the period.',
             default => 'Rows are taken from the academy records that fall inside the reporting period printed above.',
         };

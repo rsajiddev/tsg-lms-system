@@ -1975,9 +1975,11 @@ ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 CREATE TABLE IF NOT EXISTS attendance_records (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
+       course_id BIGINT UNSIGNED NULL,
+       lesson_id BIGINT UNSIGNED NULL,
        attendance_date DATE NOT NULL,
        status ENUM('pending', 'present', 'absent') NOT NULL DEFAULT 'pending',
-       first_login_at DATETIME NOT NULL,
+       first_login_at DATETIME NULL,
        mark_deadline_at DATETIME NOT NULL,
        marked_at DATETIME NULL,
        closed_at DATETIME NULL,
@@ -1989,6 +1991,67 @@ CREATE TABLE IF NOT EXISTS attendance_records (
        INDEX idx_attendance_student_date(student_id, attendance_date),
        INDEX idx_attendance_pending(mark_deadline_at, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Attendance is tied to the scheduled live lesson. A legacy daily row can be associated with its
+-- live lesson during the backfill below; rows without a matching live lesson remain legacy-only.
+SET
+       @add_attendance_course_id = (
+              SELECT IF(COUNT(*) = 0,
+                     'ALTER TABLE attendance_records ADD COLUMN course_id BIGINT UNSIGNED NULL AFTER student_id',
+                     'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records' AND COLUMN_NAME = 'course_id'
+       );
+PREPARE add_attendance_course_id_stmt FROM @add_attendance_course_id;
+EXECUTE add_attendance_course_id_stmt;
+DEALLOCATE PREPARE add_attendance_course_id_stmt;
+
+SET
+       @add_attendance_lesson_id = (
+              SELECT IF(COUNT(*) = 0,
+                     'ALTER TABLE attendance_records ADD COLUMN lesson_id BIGINT UNSIGNED NULL AFTER course_id',
+                     'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records' AND COLUMN_NAME = 'lesson_id'
+       );
+PREPARE add_attendance_lesson_id_stmt FROM @add_attendance_lesson_id;
+EXECUTE add_attendance_lesson_id_stmt;
+DEALLOCATE PREPARE add_attendance_lesson_id_stmt;
+
+SET
+       @make_attendance_first_login_nullable = (
+              SELECT IF(COUNT(*) = 0,
+                     'ALTER TABLE attendance_records MODIFY first_login_at DATETIME NULL',
+                     'SELECT 1')
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records'
+                    AND COLUMN_NAME = 'first_login_at' AND IS_NULLABLE = 'NO'
+       );
+PREPARE make_attendance_first_login_nullable_stmt FROM @make_attendance_first_login_nullable;
+EXECUTE make_attendance_first_login_nullable_stmt;
+DEALLOCATE PREPARE make_attendance_first_login_nullable_stmt;
+
+SET
+       @add_attendance_course_date_index = (
+              SELECT IF(COUNT(*) = 0,
+                     'ALTER TABLE attendance_records ADD INDEX idx_attendance_course_date(course_id,attendance_date)',
+                     'SELECT 1')
+              FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records'
+                    AND INDEX_NAME = 'idx_attendance_course_date'
+       );
+PREPARE add_attendance_course_date_index_stmt FROM @add_attendance_course_date_index;
+EXECUTE add_attendance_course_date_index_stmt;
+DEALLOCATE PREPARE add_attendance_course_date_index_stmt;
+
+-- Reuse an old daily mark only when its date matches a scheduled live class the student could attend.
+UPDATE attendance_records ar
+JOIN lessons l ON DATE(l.meeting_at) = ar.attendance_date AND l.meeting_url IS NOT NULL AND l.meeting_url <> ''
+JOIN course_modules cm ON cm.id = l.module_id
+JOIN student_course_access sca ON sca.student_id = ar.student_id AND sca.course_id = cm.course_id
+SET ar.course_id = cm.course_id, ar.lesson_id = l.id
+WHERE ar.course_id IS NULL AND sca.plan_code = 'live_recorded'
+  AND sca.granted_at <= l.meeting_at AND (sca.expires_at IS NULL OR sca.expires_at >= l.meeting_at);
 
 -- Attendance grace window is seeded once so an admin change survives a re-import.
 INSERT INTO app_settings(setting_key, setting_value)

@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Security;
+use App\Services\AccessPlan;
 
 /**
  * View::render() injects these values from StudentPortalController::courses().
@@ -58,7 +59,7 @@ $grantedLabel = static function (?string $value): string {
                 <article class="certificate-criteria-item">
                     <span class="certificate-criteria-value"><?= (int) $certificateCriteria['attendance'] ?>%</span>
                     <strong>Attendance</strong>
-                    <small>For Live + Recorded plans only: present days as a share of decided days since access was granted. Recorded-only plans have no live attendance requirement.</small>
+                    <small>For Live + Recorded plans only: present live classes as a share of decided classes since access was granted. Recorded-only plans have no live attendance requirement.</small>
                 </article>
                 <article class="certificate-criteria-item">
                     <span class="certificate-criteria-value">100%</span>
@@ -116,6 +117,7 @@ $grantedLabel = static function (?string $value): string {
                         <p class="dashboard-course-category"><?= $escape($course['category'] ?: 'Academy course') ?></p>
                         <h3><?= $escape($course['title']) ?></h3>
                         <p class="dashboard-course-meta"><?= $escape($course['level_label'] ?: 'All levels') ?><?= $course['duration_label'] ? ' · ' . $escape($course['duration_label']) : '' ?></p>
+                        <p class="dashboard-course-meta"><strong>Access plan:</strong> <?= $escape(AccessPlan::label(isset($course['plan_code']) ? (string) $course['plan_code'] : null)) ?></p>
                         <div class="dashboard-progress-label"><span>Lesson progress</span><strong><?= $lessons > 0 ? $progress . '%' : 'Not started' ?></strong></div>
                         <div class="dashboard-progress" role="progressbar" aria-label="<?= $escape($course['title']) ?> lesson progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress ?>"><span style="width: <?= $progress ?>%"></span></div>
                         <small class="dashboard-course-foot"><?= $lessons > 0 ? number_format($completed) . ' of ' . number_format($lessons) . ' lessons completed' : 'Course lessons are being prepared' ?> · Access granted <?= $escape($grantedLabel($course['granted_at'] ?? null)) ?> · Expires <?= $escape($grantedLabel($course['expires_at'] ?? null)) ?></small>

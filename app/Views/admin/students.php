@@ -2,6 +2,7 @@
 
 use App\Core\Security;
 use App\Services\AccountIdentity;
+use App\Services\AccessPlan;
 
 /**
  * View::render() injects these values from StudentManagementController.
@@ -198,6 +199,15 @@ $accountId = static function (array $account): string {
                 <span><strong>Successful sign-ins</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['successful'] ?? 0)) ?></span>
                 <span><strong>Failed / blocked attempts</strong><?= empty($loginHistoryAvailable) ? 'Not installed' : number_format((int) ($selectedLoginCounts['failed'] ?? 0)) ?></span>
             </div>
+            <div class="student-activity-toolbar"><h3>Course access <small>Course and delivery plan saved for this student</small></h3></div>
+            <?php if (empty($studentCourses)): ?>
+                <div class="dashboard-empty"><div><h2>No course access recorded</h2><p>Approved course payments and manual grants will appear here with their delivery plan.</p></div></div>
+            <?php else: ?>
+                <div class="admin-table-wrapper"><table class="admin-table student-activity-table">
+                    <thead><tr><th>Course</th><th>Paid plan</th><th>Current access plan</th><th>Access</th><th>Granted</th><th>Expires</th></tr></thead>
+                    <tbody><?php foreach ($studentCourses as $studentCourse): ?><tr><td data-label="Course"><?= Security::escape($studentCourse['title']) ?></td><td data-label="Paid plan"><?= Security::escape(isset($studentCourse['paid_plan_code']) && $studentCourse['paid_plan_code'] !== null ? AccessPlan::label((string) $studentCourse['paid_plan_code']) : 'Not recorded') ?></td><td data-label="Current access plan"><?= Security::escape(AccessPlan::label(isset($studentCourse['plan_code']) ? (string) $studentCourse['plan_code'] : null)) ?></td><td data-label="Access"><?= Security::escape(ucfirst((string) $studentCourse['status'])) ?></td><td data-label="Granted"><?= Security::escape($studentCourse['granted_at'] ?: '—') ?></td><td data-label="Expires"><?= Security::escape($studentCourse['expires_at'] ?: '—') ?></td></tr><?php endforeach; ?></tbody>
+                </table></div>
+            <?php endif; ?>
             <div class="student-activity-toolbar">
                 <h3>Open sessions <small>Devices holding this account right now · cap <?= (int) ($sessionCap ?? 1) ?></small></h3>
                 <?php if (!empty($sessionsAvailable) && $sessions !== []): ?>

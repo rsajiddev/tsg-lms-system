@@ -261,10 +261,10 @@ final class DashboardController
                  WHERE role = 'student' AND created_at >= ? GROUP BY bucket", [$since]),
             'present' => $bucketize(
                 "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
-                 WHERE status = 'present' AND attendance_date >= ? GROUP BY bucket", [$since]),
+                 WHERE course_id IS NOT NULL AND status = 'present' AND attendance_date >= ? GROUP BY bucket", [$since]),
             'absent' => $bucketize(
                 "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
-                 WHERE status = 'absent' AND attendance_date >= ? GROUP BY bucket", [$since]),
+                 WHERE course_id IS NOT NULL AND status = 'absent' AND attendance_date >= ? GROUP BY bucket", [$since]),
             'payments' => $bucketize(
                 "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM payments
                  WHERE created_at >= ? GROUP BY bucket", [$since]),

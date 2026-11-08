@@ -30,7 +30,11 @@ final class CourseAdminController
         $imageColumn = $courseImagesAvailable ? 'c.image_path' : 'NULL AS image_path';
         $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM courses c LEFT JOIN course_modules cm ON cm.course_id=c.id LEFT JOIN lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
         $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
-        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'plansAvailable' => AccessPlan::columnStored($db, 'student_course_access.plan_code'), 'message' => $_SESSION['_flash'] ?? null]);
+        $plansAvailable = AccessPlan::columnStored($db, 'student_course_access.plan_code');
+        $studentCoursePlans = $plansAvailable
+            ? $db->query("SELECT student_id,course_id,plan_code,status FROM student_course_access")->fetchAll(PDO::FETCH_ASSOC)
+            : [];
+        View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'plansAvailable' => $plansAvailable, 'studentCoursePlans' => $studentCoursePlans, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
 
@@ -117,17 +121,26 @@ final class CourseAdminController
         $watchColumn = $watchAvailable
             ? '(SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
             : '0 AS watching_count';
+        $planMetrics = AccessPlan::columnStored($db, 'student_course_access.plan_code')
+            ? "(SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
+               (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
+            : '0 AS recorded_students,0 AS live_students';
         $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,$meetingColumns,$meetingPlatformColumn,cm.id AS module_id,cm.title AS module_title,
                     c.id AS course_id,c.title AS course_title,c.visibility AS course_visibility,
+                    $planMetrics,
                     (SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
-                    (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
+                    (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
                     $watchColumn
               $from$where
               ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
               LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
         // Slug is included because the same list feeds the "Add lesson" target-course picker.
-        $courses = $db->query('SELECT id, title, slug FROM courses ORDER BY title')->fetchAll();
+        $planCountColumns = AccessPlan::columnStored($db, 'student_course_access.plan_code')
+            ? ",(SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
+               (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
+            : ',0 AS recorded_students,0 AS live_students';
+        $courses = $db->query("SELECT c.id,c.title,c.slug $planCountColumns FROM courses c ORDER BY c.title")->fetchAll();
 
         View::render('admin/lessons', [
             'title' => 'Lesson library',
@@ -348,8 +361,21 @@ final class CourseAdminController
         if ($meetingUrl !== null && $meetingPlatform === null) {
             throw new RuntimeException('Choose Google Meet or Zoom as the platform for this live meeting.');
         }
-        $meetingAt = LessonMedia::parseMeetingTime($meetingTimeInput);
         $meetingColumns = AccessPlan::columnStored($db, 'lessons.meeting_url') && AccessPlan::columnStored($db, 'lessons.meeting_at');
+        $meetingAt = LessonMedia::parseMeetingTime($meetingTimeInput);
+        if ($meetingUrl !== null && !$meetingColumns) {
+            throw new RuntimeException('Live class attendance requires the updated database/migrations/001_initial_schema.sql. Import it, then try again.');
+        }
+        if ($meetingUrl !== null && $meetingAt === null) {
+            throw new RuntimeException('Set the live class date and time so its attendance session can be scheduled.');
+        }
+        if ($meetingUrl !== null) {
+            $sameDay = $db->prepare("SELECT l.id FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE l.meeting_url IS NOT NULL AND l.meeting_url<>'' AND DATE(l.meeting_at)=DATE(?) AND (?=0 OR l.id<>?) LIMIT 1");
+            $sameDay->execute([$meetingAt, $lessonId, $lessonId]);
+            if ($sameDay->fetchColumn()) {
+                throw new RuntimeException('Only one live class can be scheduled per UTC day. Move or clear the other class first.');
+            }
+        }
         if ($meetingUrl === null && $meetingAt !== null) {
             throw new RuntimeException('A class time needs a meeting link. Paste the Zoom or Google Meet address as well.');
         }

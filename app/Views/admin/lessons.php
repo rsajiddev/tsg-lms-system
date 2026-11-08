@@ -155,11 +155,11 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                             <option value="" disabled selected>No courses available (create one first)</option>
                         <?php else: ?>
                             <?php foreach ($courses as $index => $course): ?>
-                                <option value="<?= (int) $course['id'] ?>" <?= $index === 0 ? 'selected' : '' ?>><?= $escape($course['title']) ?> (<?= $escape($course['slug'] ?? '') ?>)</option>
+                                <option value="<?= (int) $course['id'] ?>" <?= $index === 0 ? 'selected' : '' ?>><?= $escape($course['title']) ?> (<?= $escape($course['slug'] ?? '') ?> · <?= (int) ($course['recorded_students'] ?? 0) ?> Recorded · <?= (int) ($course['live_students'] ?? 0) ?> Live + Recorded)</option>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </select>
-                    <span class="admin-hint">The lesson is published inside this course's curriculum.</span>
+                    <span class="admin-hint">The recorded video is shared with both plans. A meeting link is shown only to Live + Recorded students.</span>
                 </div>
 
                 <div class="admin-field">
@@ -221,13 +221,13 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                     <div class="admin-field">
                         <label class="admin-label" for="lesson-meeting-url">Live meeting URL (optional)</label>
                         <input class="admin-input" id="lesson-meeting-url" name="meeting_url" maxlength="600" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij">
-                        <span class="admin-hint">Optional. https addresses only. Students open it in a new tab, and only those enrolled on the Live + Recorded plan are ever shown it.</span>
+                        <span class="admin-hint">https addresses only. Shown only to Live + Recorded students. A scheduled date and time is required to create its attendance session.</span>
                     </div>
 
                     <div class="admin-field">
                         <label class="admin-label" for="lesson-meeting-at">Class date &amp; time (UTC)</label>
                         <input class="admin-input" id="lesson-meeting-at" name="meeting_at" type="datetime-local">
-                        <span class="admin-hint">Optional, and needs a link above it. Stored exactly as typed, in the same UTC clock every record here uses, and shown to students labelled UTC.</span>
+                        <span class="admin-hint">Required with a live meeting link; only one live class can be scheduled per UTC day. Used to open its attendance window.</span>
                     </div>
                 </div>
 
@@ -362,6 +362,8 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                             $duration = $lesson['video_duration_seconds'] === null ? null : (int) $lesson['video_duration_seconds'];
                             $meetingUrl = is_string($lesson['meeting_url'] ?? null) && $lesson['meeting_url'] !== '' ? $lesson['meeting_url'] : null;
                             $enrolled = max(0, (int) $lesson['enrolled_count']);
+                            $recordedStudents = max(0, (int) ($lesson['recorded_students'] ?? 0));
+                            $liveStudents = max(0, (int) ($lesson['live_students'] ?? 0));
                             $completed = max(0, (int) $lesson['completed_count']);
                             $rate = $enrolled > 0 ? (int) round($completed / $enrolled * 100) : 0;
                         ?>
@@ -370,6 +372,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                                     <div class="lesson-lib-identity">
                                         <strong><?= $escape($lesson['title']) ?></strong>
                                         <small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?> · position <?= (int) $lesson['sort_order'] ?></small>
+                                        <small><?= $recordedStudents ?> Recorded Only · <?= $liveStudents ?> Live + Recorded students</small>
                                     </div>
                                 </td>
                                 <td data-label="Status"><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></td>
@@ -447,7 +450,7 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
             <div class="lesson-library-list">
                 <?php foreach ($lessons as $lesson): ?>
                     <details class="lesson-editor" id="lesson-<?= (int) $lesson['id'] ?>">
-                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?><?php if ($videosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape($durationLabel((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?> · live class <?= $escape($classLabel($lesson['meeting_at'] ?? null) !== '' ? $classLabel($lesson['meeting_at'] ?? null) : 'time not set') ?><?php endif; ?></small></span><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?><span class="table-badge live">Live</span><?php endif; ?><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></summary>
+                        <summary><span><strong><?= $escape($lesson['title']) ?></strong><small><?= $escape($lesson['course_title']) ?> · <?= $escape($lesson['module_title']) ?> · <?= (int) ($lesson['recorded_students'] ?? 0) ?> Recorded Only · <?= (int) ($lesson['live_students'] ?? 0) ?> Live + Recorded<?php if ($videosAvailable && !empty($lesson['video_url'])): ?> · video <?= $lesson['video_duration_seconds'] !== null ? $escape($durationLabel((int) $lesson['video_duration_seconds'])) : 'length not set' ?><?php endif; ?><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?> · live class <?= $escape($classLabel($lesson['meeting_at'] ?? null) !== '' ? $classLabel($lesson['meeting_at'] ?? null) : 'time not set') ?><?php endif; ?></small></span><?php if ($liveClassesAvailable && !empty($lesson['meeting_url'])): ?><span class="table-badge live">Live</span><?php endif; ?><span class="table-badge <?= $lesson['status'] === 'published' ? 'published' : 'draft' ?>"><?= $escape(ucfirst((string) $lesson['status'])) ?></span></summary>
                         <form method="post" action="<?= $escape($baseUrl) ?>/admin/courses/lessons/save" class="admin-form">
                             <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
                             <input type="hidden" name="lesson_id" value="<?= (int) $lesson['id'] ?>">
@@ -472,8 +475,8 @@ $filtersActive = $search !== '' || $courseId > 0 || $status !== 'all' || $videoF
                                         <option value="zoom" <?= $meetingPlatform === 'zoom' ? 'selected' : '' ?>>Zoom</option>
                                     </select><span class="admin-hint">Google Meet or Zoom. Optional when no meeting link is set.</span></label>
                                 <?php endif; ?>
-                                <label class="admin-label">Live meeting URL (optional)<input class="admin-input" name="meeting_url" maxlength="600" value="<?= $escape($lesson['meeting_url'] ?? '') ?>" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij"><span class="admin-hint">https only. Shown to Live + Recorded students on the lesson page; nobody else receives the address.</span></label>
-                                <label class="admin-label">Class date &amp; time (UTC)<input class="admin-input" name="meeting_at" type="datetime-local" value="<?= $escape($meetingFieldValue($lesson['meeting_at'] ?? null)) ?>"><span class="admin-hint">Optional, and needs a link. Kept exactly as typed, in UTC.</span></label>
+                                <label class="admin-label">Live meeting URL (optional)<input class="admin-input" name="meeting_url" maxlength="600" value="<?= $escape($lesson['meeting_url'] ?? '') ?>" placeholder="https://zoom.us/j/... or https://meet.google.com/abc-defg-hij"><span class="admin-hint">https only. Shown only to Live + Recorded students. A scheduled date and time is required to create its attendance session.</span></label>
+                                <label class="admin-label">Class date &amp; time (UTC)<input class="admin-input" name="meeting_at" type="datetime-local" value="<?= $escape($meetingFieldValue($lesson['meeting_at'] ?? null)) ?>"><span class="admin-hint">Required with a live meeting link; only one live class can be scheduled per UTC day. Used to open its attendance window.</span></label>
                             <?php endif; ?>
                             <label class="admin-label">Publishing status<select class="admin-select" name="status">
                                     <option value="draft" <?= $lesson['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>

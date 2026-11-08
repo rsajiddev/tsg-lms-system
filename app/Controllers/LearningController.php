@@ -73,6 +73,11 @@ final class LearningController
         }
         // Watch state comes from the service, so the player and the completion rule read the same row.
         $state = (new LessonMedia($db))->state((int) $student['id'], $lessonId);
+        // A live-only lesson is not a completion shortcut for Recorded Only enrolments.
+        // It becomes available to that plan only after the recording is attached.
+        $recordedOnlyLiveLesson = !AccessPlan::allowsLive($lesson['plan_code'] ?? null)
+            && is_string($lesson['meeting_url'] ?? null) && $lesson['meeting_url'] !== ''
+            && !$state['has_video'];
         // The watermark is computed server-side: a name and an Academy ID that the browser made up
         // would be worth nothing as evidence. The page still draws it even when the view log has not
         // been imported, because the mark costs nothing beyond this one call.
@@ -94,6 +99,7 @@ final class LearningController
             'lesson' => $lesson,
             'media' => $state,
             'liveClass' => $liveClass,
+            'recordedOnlyLiveLesson' => $recordedOnlyLiveLesson,
             'watermark' => $protection->watermark((int) $student['id'], (string) $student['name']),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
@@ -216,6 +222,12 @@ final class LearningController
             return;
         }
         $media = new LessonMedia($db);
+        if (!AccessPlan::allowsLive($lesson['plan_code'] ?? null)
+            && is_string($lesson['meeting_url'] ?? null) && $lesson['meeting_url'] !== ''
+            && !$media->state((int) $student['id'], $lessonId)['has_video']) {
+            $_SESSION['_flash_error'] = 'This lesson is a live class. Its recording will be available on your Recorded Only plan after the Academy adds it.';
+            $this->redirect('/learning/lesson?lesson_id=' . $lessonId);
+        }
         $blocked = $media->completionBlock((int) $student['id'], $lessonId);
         if ($blocked !== null) {
             $_SESSION['_flash_error'] = $blocked;

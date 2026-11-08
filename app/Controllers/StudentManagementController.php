@@ -93,6 +93,7 @@ final class StudentManagementController
 
         $studentId = filter_var($_GET['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
         $selectedStudent = null;
+        $studentCourses = [];
         $activity = [];
         $sessions = [];
         $registry = new SessionRegistry($db);
@@ -103,6 +104,15 @@ final class StudentManagementController
             $selectedStudent = $selectedQuery->fetch() ?: null;
             if ($selectedStudent && trim((string) ($selectedStudent['account_reference'] ?? '')) === '') {
                 $selectedStudent['account_reference'] = AccountIdentity::ensure($db, (int) $selectedStudent['id']);
+            }
+            if ($selectedStudent) {
+                $planColumn = \App\Services\AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'sca.plan_code' : "'recorded_only' AS plan_code";
+                $paidPlanColumn = \App\Services\AccessPlan::columnStored($db, 'payments.plan_code')
+                    ? "(SELECT p.plan_code FROM payments p WHERE p.student_id=sca.student_id AND p.course_id=sca.course_id AND p.status='approved' ORDER BY p.reviewed_at DESC,p.id DESC LIMIT 1) AS paid_plan_code"
+                    : 'NULL AS paid_plan_code';
+                $courseRows = $db->prepare("SELECT c.title,sca.status,sca.granted_at,sca.expires_at,$planColumn,$paidPlanColumn FROM student_course_access sca JOIN courses c ON c.id=sca.course_id WHERE sca.student_id=? ORDER BY sca.granted_at DESC,c.title");
+                $courseRows->execute([$studentId]);
+                $studentCourses = $courseRows->fetchAll(PDO::FETCH_ASSOC);
             }
             // Read whether or not the login history exists: an open session is a live fact, not a
             // historical one, and it is the thing an admin needs when a student says the lesson will
@@ -131,6 +141,7 @@ final class StudentManagementController
             'totalStudents' => $total,
             'statusCounts' => $statusCounts,
             'selectedStudent' => $selectedStudent,
+            'studentCourses' => $studentCourses,
             'selectedLoginCounts' => $selectedLoginCounts,
             'activity' => $activity,
             'sessions' => $sessions,

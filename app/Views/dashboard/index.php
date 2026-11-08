@@ -18,8 +18,8 @@ $dateLabel = static function (?string $value): string {
 };
 $timeLabel = static function (?string $value): string {
     if (!$value) return '—';
-    $timestamp = strtotime($value);
-    return $timestamp === false ? '—' : date('g:i A', $timestamp);
+    $timestamp = strtotime($value . ' UTC');
+    return $timestamp === false ? '—' : gmdate('g:i A', $timestamp);
 };
 $money = static fn(mixed $amount, mixed $currency): string => $escape((string) $currency . ' ' . number_format((float) $amount, 2));
 /** Largest share of a set, used to scale bar charts without dividing by zero. */
@@ -91,8 +91,8 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             <p><?= $isAdmin
                     ? 'Live statistics on students, attendance, payments, assessments and course activity.'
                     : (!empty($attendance['eligible'])
-                        ? 'Mark today\'s attendance, then track your courses, lessons and assessment progress.'
-                        : 'Track your learning progress here. Attendance becomes available after your course access is approved.') ?></p>
+                        ? 'Mark attendance for scheduled live classes, then track your courses, lessons and assessment progress.'
+                        : 'Track your learning progress here. Live class attendance becomes available with Live + Recorded access.') ?></p>
         </div>
         <?php if ($isAdmin): ?>
             <form class="analytics-ranges" method="get" action="<?= $escape($baseUrl) ?>/dashboard" aria-label="Statistics period">
@@ -136,7 +136,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         $revenueSpark = $sparkline((array) ($revenue['series'] ?? []));
         $kpi = [
             ['label' => 'Students', 'value' => $num($students['total'] ?? 0), 'hint' => $num($students['active'] ?? 0) . ' active · ' . $num($students['blocked'] ?? 0) . ' blocked', 'delta' => '+' . $num($students['newThisMonth'] ?? 0) . ' this month', 'series' => 'students', 'color' => '#60a5fa', 'icon' => '👥'],
-            ['label' => 'Present today', 'value' => $num($attendanceToday['present'] ?? 0), 'hint' => $num($attendanceToday['total'] ?? 0) . ' signed in today', 'delta' => ($attendance['available'] ?? false) ? number_format((float) ($attendanceToday['rate'] ?? 0), 1) . '% present rate' : 'Attendance off', 'series' => 'present', 'color' => '#34d399', 'icon' => '✓'],
+            ['label' => 'Present today', 'value' => $num($attendanceToday['present'] ?? 0), 'hint' => $num($attendanceToday['total'] ?? 0) . ' live-class records today', 'delta' => ($attendance['available'] ?? false) ? number_format((float) ($attendanceToday['rate'] ?? 0), 1) . '% present rate' : 'Attendance off', 'series' => 'present', 'color' => '#34d399', 'icon' => '✓'],
             ['label' => 'Absent today', 'value' => $num($attendanceToday['absent'] ?? 0), 'hint' => $num($attendanceToday['pending'] ?? 0) . ' still inside the window', 'delta' => 'Auto-marked after grace', 'series' => 'absent', 'color' => '#fb7185', 'icon' => '✕'],
             ['label' => 'Pending payments', 'value' => $num($payments['pending'] ?? 0), 'hint' => $num($payments['pendingOver24h'] ?? 0) . ' waiting over 24h', 'delta' => $num($payments['approvedThisMonth'] ?? 0) . ' approved this month', 'series' => 'payments', 'color' => '#fbbf24', 'icon' => '₨'],
             ['label' => 'Quiz attempts', 'value' => $num($quizzes['attempts'] ?? 0), 'hint' => $num($quizzes['passed'] ?? 0) . ' passed · ' . $num($quizzes['failed'] ?? 0) . ' failed', 'delta' => $quizzes['average'] === null ? 'No scores yet' : 'Avg ' . number_format((float) $quizzes['average'], 1) . '%', 'series' => 'quizzes', 'color' => '#c084fc', 'icon' => '◎'],
@@ -262,7 +262,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 </div>
                 <?php if (empty($attendance['available'])): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording daily student attendance.</p></div>
+                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording scheduled live-class attendance.</p></div>
                     </div>
                 <?php else: ?>
                     <div class="attendance-admin-metrics" aria-label="Attendance summary for today">
@@ -312,7 +312,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                             'present' => 'Present today',
                                             'absent' => 'Absent today',
                                             'pending' => 'Awaiting mark',
-                                            default => 'No sign-in today',
+                                            default => 'No class today',
                                         };
                                     ?>
                                         <article class="attendance-student-row">
@@ -323,7 +323,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                                                 <span class="attendance-student-rate"><?= number_format($studentRate, 1) ?>%</span>
                                             </div>
                                             <div class="attendance-student-row-bottom">
-                                                <span><?= $num($attendanceStudent['present'] ?? 0) ?> / <?= $num($attendanceStudent['expected'] ?? 0) ?> days present</span>
+                                                <span><?= $num($attendanceStudent['present'] ?? 0) ?> / <?= $num($attendanceStudent['expected'] ?? 0) ?> live classes present</span>
                                                 <div class="attendance-student-meter" role="progressbar" aria-label="<?= $escape($attendanceStudent['full_name']) ?> attendance rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round($studentRate) ?>">
                                                     <span style="--attendance-width: <?= $studentRate ?>%"></span>
                                                 </div>
@@ -348,11 +348,11 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                 </div>
                 <?php if (empty($attendance['available'])): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording daily student attendance.</p></div>
+                        <div><h3>Attendance is not enabled</h3><p>Import the latest schema to start recording scheduled live-class attendance.</p></div>
                     </div>
                 <?php elseif ($attendanceMax <= 1 && array_sum(array_column($attendanceDays, 'present')) + array_sum(array_column($attendanceDays, 'absent')) === 0): ?>
                     <div class="dashboard-empty"><span class="dashboard-empty-icon">🗓</span>
-                        <div><h3>No attendance yet</h3><p>Records appear as soon as students sign in and confirm presence.</p></div>
+                        <div><h3>No attendance yet</h3><p>Records appear for scheduled live classes when students confirm presence or the attendance window closes.</p></div>
                     </div>
                 <?php else: ?>
                     <?php
@@ -584,7 +584,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         <h3>Most absences this month</h3>
                         <ul>
                             <?php foreach ((array) $attendance['attention'] as $row): ?>
-                                <li><span><?= $escape($row['full_name']) ?></span><strong><?= $num($row['absent_total']) ?> days</strong></li>
+                                <li><span><?= $escape($row['full_name']) ?></span><strong><?= $num($row['absent_total']) ?> classes</strong></li>
                             <?php endforeach; ?>
                         </ul>
                     </div>
@@ -721,22 +721,21 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
         // Stored deadlines are UTC, so the remaining time is measured against the UTC instant.
         $deadlineTimestamp = $deadlineRaw === '' ? false : strtotime($deadlineRaw . ' UTC');
         $secondsLeft = $deadlineTimestamp === false ? 0 : max(0, $deadlineTimestamp - time());
-        // Four-way split of the 30-day window for the attendance donut; days without any record
-        // are the remainder of the window, which is why "No sign-in" never needs its own column.
-        $attendanceWindowDays = max(1, count($attendanceDays));
+        // Counts are based on scheduled live sessions across the active course duration.
         $attendanceSplit = [
             'present' => (int) ($attendance['present'] ?? 0),
             'absent' => (int) ($attendance['absent'] ?? 0),
             'pending' => (int) ($attendance['pending'] ?? 0),
-            'none' => max(0, $attendanceWindowDays - (int) ($attendance['present'] ?? 0) - (int) ($attendance['absent'] ?? 0) - (int) ($attendance['pending'] ?? 0)),
+            'upcoming' => max(0, (int) ($attendance['total_sessions'] ?? 0) - (int) ($attendance['present'] ?? 0) - (int) ($attendance['absent'] ?? 0) - (int) ($attendance['pending'] ?? 0)),
         ];
         // Today's attendance is a metric tile like the ones below, so the panel shows a value
         // instead of a sentence: the mark time when present, the state otherwise.
         $attendanceTile = [
-            'present' => ['tone' => 'emerald', 'icon' => '✓', 'label' => 'Present today', 'value' => !empty($attendanceToday['marked_at']) ? $timeLabel((string) $attendanceToday['marked_at']) : 'Marked', 'hint' => 'Confirmed at sign-in · keep the streak going'],
-            'absent' => ['tone' => 'rose', 'icon' => '✕', 'label' => 'Absent today', 'value' => 'Not marked', 'hint' => 'The window closed before you confirmed presence'],
-            'pending' => ['tone' => 'amber', 'icon' => '◔', 'label' => 'Waiting to confirm', 'value' => 'Open now', 'hint' => 'Mark present within ' . (int) ($attendance['grace_minutes'] ?? 5) . ' minutes of signing in'],
-            'none' => ['tone' => 'slate', 'icon' => '◷', 'label' => 'Attendance', 'value' => 'No record', 'hint' => 'Sign in starts today\'s attendance window'],
+            'present' => ['tone' => 'emerald', 'icon' => '✓', 'label' => 'Present today', 'value' => !empty($attendanceToday['marked_at']) ? $timeLabel((string) $attendanceToday['marked_at']) : 'Marked', 'hint' => 'Confirmed for today\'s live class · keep the class streak going'],
+            'absent' => ['tone' => 'rose', 'icon' => '✕', 'label' => 'Absent today', 'value' => 'Not marked', 'hint' => 'The class attendance window closed before you confirmed'],
+            'pending' => ['tone' => 'amber', 'icon' => '◔', 'label' => 'Waiting to confirm', 'value' => 'Open now', 'hint' => 'Mark present within ' . (int) ($attendance['grace_minutes'] ?? 5) . ' minutes of class start'],
+            'scheduled' => ['tone' => 'slate', 'icon' => '◷', 'label' => 'Live class scheduled', 'value' => isset($attendanceToday['meeting_at']) ? $timeLabel((string) $attendanceToday['meeting_at']) . ' UTC' : 'Today', 'hint' => 'Attendance opens when this live class starts'],
+            'none' => ['tone' => 'slate', 'icon' => '◷', 'label' => 'No live class today', 'value' => 'No attendance due', 'hint' => 'Attendance follows your scheduled Live + Recorded classes'],
         ];
         $todayTile = $attendanceTile[$attendanceStatus] ?? $attendanceTile['none'];
         // Weekly trend: the 30-day window folded into 7-day buckets (oldest first) so the bars
@@ -747,8 +746,10 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
             if (!isset($attendanceWeeks[$bucket])) {
                 $attendanceWeeks[$bucket] = ['start' => (string) $day['date'], 'present' => 0, 'total' => 0];
             }
-            $attendanceWeeks[$bucket]['total']++;
-            if ((string) $day['status'] === 'present') $attendanceWeeks[$bucket]['present']++;
+            if ((string) $day['status'] !== 'none') {
+                $attendanceWeeks[$bucket]['total']++;
+                if ((string) $day['status'] === 'present') $attendanceWeeks[$bucket]['present']++;
+            }
         }
         $recentWeeks = array_slice(array_values($attendanceWeeks), -5);
         // Forecast: consecutive present days needed to lift the counted rate to the 90% goal.
@@ -774,7 +775,7 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                         <article class="hero-tile hero-tile-slate">
                             <div class="hero-tile-top"><span class="hero-tile-icon" aria-hidden="true">◷</span><span class="hero-tile-label">Attendance</span></div>
                             <strong class="hero-tile-value">Unlocks with course access</strong>
-                            <p class="hero-tile-hint">Attendance tracking will appear here after your course access is approved.</p>
+                            <p class="hero-tile-hint">Live class attendance appears here with Live + Recorded access.</p>
                         </article>
                     <?php elseif (empty($attendance['available'])): ?>
                         <article class="hero-tile hero-tile-slate">
@@ -797,45 +798,45 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                             <?php endif; ?>
                         </article>
                         <article class="hero-tile hero-tile-day-streak">
-                            <div class="hero-tile-top"><span class="hero-tile-icon" aria-hidden="true">🔥</span><span class="hero-tile-label">Day streak</span></div>
+                            <div class="hero-tile-top"><span class="hero-tile-icon" aria-hidden="true">🔥</span><span class="hero-tile-label">Class streak</span></div>
                             <strong class="hero-tile-value"><?= $num($attendance['streak'] ?? 0) ?></strong>
-                            <p class="hero-tile-hint">Consecutive present days · <?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>% overall rate</p>
+                            <p class="hero-tile-hint">Consecutive present live classes · <?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>% overall attendance</p>
                         </article>
                     <?php endif; ?>
                 </div>
                 <?php if (!empty($attendance['available'])): ?>
                     <div class="attendance-chart">
                         <div class="attendance-progress-layout">
-                            <div class="attendance-rate-ring" style="--attendance-rate: <?= max(0, min(100, (float) ($attendance['rate'] ?? 0))) ?>%" role="progressbar" aria-label="Attendance rate over the last 30 days" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round((float) ($attendance['rate'] ?? 0)) ?>">
+                            <div class="attendance-rate-ring" style="--attendance-rate: <?= max(0, min(100, (float) ($attendance['coverage_percent'] ?? 0))) ?>%" role="progressbar" aria-label="Coverage of scheduled live class sessions" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= (int) round((float) ($attendance['coverage_percent'] ?? 0)) ?>">
                                 <div class="attendance-rate-ring-center">
-                                    <strong><?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>%</strong>
-                                    <span><?= $num($attendanceSplit['present']) ?> / <?= $num($attendanceCounted) ?> days</span>
-                                    <small>Last 30 days</small>
+                                    <strong><?= number_format((float) ($attendance['coverage_percent'] ?? 0), 1) ?>%</strong>
+                                    <span><?= $num($attendance['decided_sessions'] ?? 0) ?> / <?= $num($attendance['total_sessions'] ?? 0) ?> classes counted</span>
+                                    <small>Course schedule coverage</small>
                                 </div>
                             </div>
                             <ul class="donut-legend">
-                                <li><i class="legend-dot legend-emerald"></i><span>Present</span><strong><?= $num($attendanceSplit['present']) ?></strong></li>
+                                <li><i class="legend-dot legend-emerald"></i><span>Present · <?= number_format((float) ($attendance['rate'] ?? 0), 1) ?>% attendance</span><strong><?= $num($attendanceSplit['present']) ?></strong></li>
                                 <li><i class="legend-dot legend-rose"></i><span>Absent</span><strong><?= $num($attendanceSplit['absent']) ?></strong></li>
                                 <li><i class="legend-dot legend-amber"></i><span>Waiting</span><strong><?= $num($attendanceSplit['pending']) ?></strong></li>
-                                <li><i class="legend-dot legend-white"></i><span>No sign-in</span><strong><?= $num($attendanceSplit['none']) ?></strong></li>
+                                <li><i class="legend-dot legend-white"></i><span>Upcoming</span><strong><?= $num($attendanceSplit['upcoming']) ?></strong></li>
                             </ul>
                         </div>
-                        <p class="chart-footnote">Present days divided by expected days · <?= $num($attendanceWindowDays) ?>-day window</p>
+                        <?php if (!empty($attendanceToday['course_title'])): ?><p class="chart-footnote">Today: <?= $escape($attendanceToday['course_title']) ?> · <?= $escape($attendanceToday['lesson_title'] ?? 'Live class') ?> · class at <?= $escape($timeLabel((string) $attendanceToday['meeting_at'])) ?> UTC</p><?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
             <?php if (!empty($attendance['available'])): ?>
                 <div class="attendance-insights">
                     <section class="insight-card insight-week" aria-label="Weekly attendance trend">
-                        <div class="insight-head"><p class="eyebrow">WEEKLY TREND</p><h3>Present days per week</h3></div>
+                        <div class="insight-head"><p class="eyebrow">WEEKLY TREND</p><h3>Live classes attended per week</h3></div>
                         <?php if ($recentWeeks === []): ?>
-                            <p class="insight-empty">No attendance recorded yet — your weekly bars fill in as you sign in.</p>
+                            <p class="insight-empty">No attendance recorded yet — your weekly bars fill in as scheduled live classes are marked.</p>
                         <?php else: ?>
-                            <div class="week-bars" role="img" aria-label="Present days per week over the last 30 days">
+                            <div class="week-bars" role="img" aria-label="Live classes attended per week over the last 30 days">
                                 <?php foreach ($recentWeeks as $week):
-                                    $height = $pct((float) $week['present'], 7);
+                                    $height = $pct((float) $week['present'], max(1.0, (float) $week['total']));
                                     $weekLabel = date('j M', strtotime((string) $week['start'])); ?>
-                                    <div class="week-bar-col" title="Week of <?= $escape($weekLabel) ?>: <?= (int) $week['present'] ?> of <?= (int) $week['total'] ?> days present">
+                                    <div class="week-bar-col" title="Week of <?= $escape($weekLabel) ?>: <?= (int) $week['present'] ?> of <?= (int) $week['total'] ?> live classes present">
                                         <span class="week-bar-value"><?= $num($week['present']) ?></span>
                                         <span class="week-bar" style="--week-height: <?= max(5, $height) ?>%"></span>
                                         <span class="week-bar-label"><?= $escape($weekLabel) ?></span>
@@ -920,9 +921,9 @@ $attendance = $isAdmin ? ($admin['attendance'] ?? []) : ($student['attendance'] 
                     <ul class="attendance-history">
                         <?php foreach ($attendanceHistory as $record): ?>
                             <li>
-                                <span><?= $escape($dateLabel((string) $record['attendance_date'])) ?></span>
+                                <span><?= $escape($dateLabel((string) $record['attendance_date'])) ?> · <?= $escape($record['course_title'] ?? '') ?></span>
                                 <em class="attendance-chip chip-<?= $escape($record['status']) ?>"><?= $escape(ucfirst((string) $record['status'])) ?></em>
-                                <small><?= $record['status'] === 'present' ? 'Marked ' . $escape($timeLabel($record['marked_at'] ?? null)) : 'Signed in ' . $escape($timeLabel($record['first_login_at'] ?? null)) ?></small>
+                                <small><?= $escape($record['lesson_title'] ?? 'Live class') ?> · class at <?= $escape($timeLabel($record['meeting_at'] ?? null)) ?> UTC<?= $record['status'] === 'present' ? ' · marked ' . $escape($timeLabel($record['marked_at'] ?? null)) : '' ?></small>
                             </li>
                         <?php endforeach; ?>
                     </ul>

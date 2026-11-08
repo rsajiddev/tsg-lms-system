@@ -160,9 +160,11 @@ Student Activity Tracking:
 * Admin zaroorat par student activity records clear bhi kar sakta hai.
 
 ### 10\. Attendance Confirmation Window
-* Admin attendance confirmation ka time set kar sakta hai.
-* Example: Agar attendance window 5 minutes set hai, toh student login ke baad 5 minutes ke andar attendance mark kar sakta hai.
-* Agar student given time mein attendance mark nahi karta, toh system automatically usko Absent mark kar dega.
+* Attendance sirf **Live + Recorded** students ke scheduled live classes par mark hoti hai; login akela attendance nahi banata.
+* Admin har live lesson ke saath UTC date aur time set karta hai. Ek UTC din mein academy ki sirf ek live class schedule ho sakti hai.
+* Class start par enrolled Live + Recorded students ke liye attendance window khulti hai. Admin ka configured grace time khatam hone par unconfirmed students Absent record hote hain, chahe woh login na hue hon.
+* Student dashboard ka circle poore scheduled class plan ki coverage dikhata hai; attendance percentage Present / decided classes se alag calculate hoti hai.
+* Admin dashboard, reports aur Live + Recorded certificate eligibility isi per-class attendance record ko use karte hain.
 
 ### 11\. Announcements
 * Admin students ke liye announcements create kar sakta hai.
@@ -287,15 +289,14 @@ Neeche aapke Student Dashboard ki complete explanation ko pehle Roman Urdu aur p
 * Different cards, charts aur statistics ke zariye important information display hogi.
 
 A. Attendance Card
-* Student yahan se apni daily attendance mark karega.
-* Attendance history bhi available hogi.
-* Present, Absent aur Waiting status show honge.
-* Attendance ke saath notes aur related information bhi show hogi.
-* Circular chart ke zariye attendance percentage display hogi.
+* Student apni scheduled live class ka attendance class start ke baad mark karega.
+* Attendance history har class, course aur date ke saath available hogi.
+* Present, Absent aur Waiting status show honge; login na karne par bhi guzri hui class Absent record hogi.
+* Circular chart poore course ke scheduled live classes ki coverage dikhayega; attendance percentage Present / decided classes se alag hogi.
 
 B. Weekly Attendance Statistics
-* Student apni weekly attendance performance dekh sakega.
-* Har week mein kitne din Present aur kitne din Absent raha, ye show hoga.
+* Student apni weekly live-class attendance performance dekh sakega.
+* Har week mein kitni classes Present aur kitni Absent rahin, ye show hoga.
 
 C. Video Watching Progress
 * Admin jo recorded lessons upload karega, student unki video links ke zariye lessons watch karega.

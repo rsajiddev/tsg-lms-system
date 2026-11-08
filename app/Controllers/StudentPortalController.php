@@ -28,6 +28,7 @@ final class StudentPortalController
         $user = AuthMiddleware::requireRole('student');
         $db = Database::connection();
         $imageColumn = $this->courseImageColumnAvailable($db) ? 'c.image_path' : 'NULL AS image_path';
+        $accessPlanColumn = AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'sca.plan_code' : "'recorded_only' AS plan_code";
         // Certificates are optional schema on older imports, so degrade to "not installed" instead of failing the page.
         $certificatesAvailable = $this->certificateTableAvailable($db);
         $testCertificatesAvailable = $this->certificateTestTableAvailable($db);
@@ -52,7 +53,7 @@ final class StudentPortalController
             ? 'LEFT JOIN course_grades cg ON cg.student_id = sca.student_id AND cg.course_id = c.id'
             : '';
         $stmt = $db->prepare(
-            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, sca.status AS access_status, u.account_reference AS student_reference, $gradeColumns, $certificateColumns, $testCertificateColumns,
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, sca.status AS access_status, $accessPlanColumn, u.account_reference AS student_reference, $gradeColumns, $certificateColumns, $testCertificateColumns,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id

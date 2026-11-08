@@ -91,7 +91,7 @@ $filters = [
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value"><?= (int) $criteria['attendance'] ?>%</span>
                 <strong>Attendance</strong>
-                <small>Live + Recorded plans require <?= (int) $criteria['attendance'] ?>% attendance, calculated from decided days since access was granted. Recorded-only plans have no live attendance requirement.</small>
+                <small>Live + Recorded plans require <?= (int) $criteria['attendance'] ?>% attendance, calculated from decided live classes since access was granted. Recorded-only plans have no live attendance requirement.</small>
             </article>
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value">100%</span>

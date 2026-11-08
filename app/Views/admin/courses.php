@@ -406,6 +406,7 @@ $totalStudents = count($students);
                                 <option value="<?= $escape($planCode) ?>"><?= $escape($planLabel) ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <span class="admin-hint" id="access-plan-current" aria-live="polite">Choose a student and course to see the saved access plan.</span>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -448,6 +449,28 @@ $totalStudents = count($students);
                 };
                 studentSelect.addEventListener('change', syncStudentEmail);
                 syncStudentEmail();
+            }
+            var courseSelect = document.getElementById('access-course');
+            var planSelect = document.getElementById('access-plan');
+            var planCurrent = document.getElementById('access-plan-current');
+            var accessRows = <?= json_encode($studentCoursePlans ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            var syncCurrentPlan = function() {
+                if (!studentSelect || !courseSelect || !planSelect || !planCurrent) return;
+                var row = accessRows.find(function(item) {
+                    return String(item.student_id) === studentSelect.value && String(item.course_id) === courseSelect.value;
+                });
+                if (row) {
+                    planSelect.value = row.plan_code || 'recorded_only';
+                    planCurrent.textContent = 'Saved plan: ' + (row.plan_code === 'live_recorded' ? 'Live + Recorded' : 'Recorded Only') + ' · access: ' + row.status;
+                } else {
+                    planSelect.value = 'recorded_only';
+                    planCurrent.textContent = 'No saved course access for this student and course yet. Choose the plan they purchased.';
+                }
+            };
+            if (studentSelect && courseSelect && planSelect) {
+                studentSelect.addEventListener('change', syncCurrentPlan);
+                courseSelect.addEventListener('change', syncCurrentPlan);
+                syncCurrentPlan();
             }
         });
     </script>

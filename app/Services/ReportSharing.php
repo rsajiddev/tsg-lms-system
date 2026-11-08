@@ -186,22 +186,17 @@ final class ReportSharing
     private static function activityReport(PDO $db, array $report, int $studentId, array $period): array
     {
         (new AttendanceService($db))->closeExpired();
-        $stmt = $db->prepare("SELECT u.full_name,u.email,u.status,u.last_login_at,u.account_reference,DATE(u.created_at) AS created_date,COUNT(a.id) AS marked_days,COALESCE(SUM(a.status='present'),0) AS present_days,MAX(CASE WHEN a.attendance_date=UTC_DATE() THEN a.status ELSE NULL END) AS today_status FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' AND u.id=? GROUP BY u.id");
+        $stmt = $db->prepare("SELECT u.full_name,u.email,u.status,u.last_login_at,u.account_reference,COUNT(a.id) AS total_sessions,COALESCE(SUM(a.status='present'),0) AS present_sessions,COALESCE(SUM(a.status='absent'),0) AS absent_sessions FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' AND u.id=? GROUP BY u.id");
         $stmt->execute([$period['start'], $period['end'], $studentId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-        $marked = (int) ($row['marked_days'] ?? 0);
-        $present = (int) ($row['present_days'] ?? 0);
-        $expected = $row === [] ? 0 : AttendanceService::expectedDays(
-            substr((string) $period['start'], 0, 10),
-            substr((string) $period['end'], 0, 10),
-            (string) $row['created_date'],
-            is_string($row['today_status'] ?? null) ? $row['today_status'] : null
-        );
-        $absent = max(0, $expected - $present);
+        $total = (int) ($row['total_sessions'] ?? 0);
+        $present = (int) ($row['present_sessions'] ?? 0);
+        $absent = (int) ($row['absent_sessions'] ?? 0);
+        $expected = $present + $absent;
         $reference = $row !== [] ? trim((string) ($row['account_reference'] ?? '')) : '';
         if ($row !== [] && $reference === '') $reference = AccountIdentity::ensure($db, $studentId);
         $rate = $expected > 0 ? round($present / $expected * 100, 1) : null;
-        $report['columns'] = ['Student', 'Student ID', 'Email', 'State', 'Present days', 'Absent days', 'Attendance'];
+        $report['columns'] = ['Student', 'Student ID', 'Email', 'State', 'Present classes', 'Absent classes', 'Attendance'];
         $report['rows'] = $row === [] ? [] : [[
             (string) ($row['full_name'] ?? '—'),
             $reference,
@@ -212,14 +207,14 @@ final class ReportSharing
             $rate !== null ? $rate . '%' : '—',
         ]];
         $report['metrics'] = [
-            ['label' => 'Days marked', 'value' => (string) $marked],
+            ['label' => 'Scheduled classes', 'value' => (string) $total],
             ['label' => 'Present', 'value' => (string) $present],
             ['label' => 'Absent', 'value' => (string) $absent],
             ['label' => 'Attendance rate', 'value' => $rate !== null ? number_format($rate, 1) . '%' : '—'],
         ];
         $report['chart'] = [
-            ['label' => 'Present days', 'value' => (float) $present],
-            ['label' => 'Absent days', 'value' => (float) $absent],
+            ['label' => 'Present classes', 'value' => (float) $present],
+            ['label' => 'Absent classes', 'value' => (float) $absent],
         ];
         return $report;
     }
@@ -232,55 +227,35 @@ final class ReportSharing
         $student = $account->fetch(PDO::FETCH_ASSOC) ?: [];
         $reference = $student !== [] ? trim((string) ($student['account_reference'] ?? '')) : '';
         if ($student !== [] && $reference === '') $reference = AccountIdentity::ensure($db, $studentId);
-        $stmt = $db->prepare('SELECT attendance_date,status,first_login_at,marked_at FROM attendance_records WHERE student_id=? AND attendance_date>=DATE(?) AND attendance_date<DATE(?) ORDER BY attendance_date DESC LIMIT 60');
+        $stmt = $db->prepare('SELECT ar.attendance_date,ar.status,ar.first_login_at,ar.marked_at,l.meeting_at AS class_starts_at,l.title AS lesson_title,c.title AS course_title FROM attendance_records ar JOIN lessons l ON l.id=ar.lesson_id JOIN courses c ON c.id=ar.course_id WHERE ar.student_id=? AND ar.course_id IS NOT NULL AND ar.lesson_id IS NOT NULL AND ar.attendance_date>=DATE(?) AND ar.attendance_date<DATE(?) ORDER BY ar.attendance_date DESC LIMIT 100');
         $stmt->execute([$studentId, $period['start'], $period['end']]);
-        $byDate = [];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $byDate[(string) $row['attendance_date']] = $row;
-        }
-        $utc = new \DateTimeZone('UTC');
-        $start = new \DateTimeImmutable(substr((string) $period['start'], 0, 10), $utc);
-        if (!empty($student['created_date'])) {
-            $created = new \DateTimeImmutable(substr((string) $student['created_date'], 0, 10), $utc);
-            if ($created > $start) $start = $created;
-        }
-        $today = new \DateTimeImmutable('today', $utc);
-        $end = new \DateTimeImmutable(substr((string) $period['end'], 0, 10), $utc);
-        $tomorrow = $today->modify('+1 day');
-        $displayEnd = $end < $tomorrow ? $end : $tomorrow;
-        $generated = [];
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $present = 0;
         $absent = 0;
         $pending = 0;
-        for ($date = $start; $date < $displayEnd; $date = $date->modify('+1 day')) {
-            $key = $date->format('Y-m-d');
-            $record = $byDate[$key] ?? null;
-            $status = is_array($record)
-                ? (string) $record['status']
-                : ($date < $today ? 'absent' : 'pending');
+        $generated = [];
+        foreach ($rows as $record) {
+            $status = (string) $record['status'];
             if ($status === 'present') $present++;
             elseif ($status === 'absent') $absent++;
             else $pending++;
             $generated[] = [
-                $key,
+                (string) $record['attendance_date'],
+                (string) $record['class_starts_at'],
+                (string) $record['course_title'],
+                (string) $record['lesson_title'],
                 (string) ($student['full_name'] ?? '—'),
                 $reference !== '' ? $reference : '—',
                 ucfirst($status),
-                is_array($record) ? (string) ($record['first_login_at'] ?? '—') : '—',
-                is_array($record) && ($record['marked_at'] ?? '') !== '' ? (string) $record['marked_at'] : '—',
+                ($record['marked_at'] ?? '') !== '' ? (string) $record['marked_at'] : '—',
             ];
         }
-        $expected = AttendanceService::expectedDays(
-            substr((string) $period['start'], 0, 10),
-            substr((string) $period['end'], 0, 10),
-            (string) ($student['created_date'] ?? ''),
-            is_string($byDate[$today->format('Y-m-d')]['status'] ?? null) ? $byDate[$today->format('Y-m-d')]['status'] : null
-        );
+        $expected = $present + $absent;
         $rate = $expected > 0 ? round($present / $expected * 100, 1) : null;
-        $report['columns'] = ['Date', 'Student', 'Student ID', 'Status', 'First login', 'Confirmed'];
+        $report['columns'] = ['Date', 'Class starts (UTC)', 'Course', 'Live class', 'Student', 'Student ID', 'Status', 'Confirmed'];
         $report['rows'] = array_reverse($generated);
         $report['metrics'] = [
-            ['label' => 'Expected days', 'value' => (string) $expected],
+            ['label' => 'Scheduled classes', 'value' => (string) count($rows)],
             ['label' => 'Present', 'value' => (string) $present],
             ['label' => 'Absent', 'value' => (string) $absent],
             ['label' => 'Attendance rate', 'value' => $rate !== null ? number_format($rate, 1) . '%' : '—'],
