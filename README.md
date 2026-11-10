@@ -466,8 +466,3 @@ database. Every test cleans up the rows and files it creates, and restores any s
 
 Run the suite after any code change to the affected area — a green test is the project's definition
 of "this flow still works". New features should ship with a matching smoke test.
-
-## Existing database upgrade: retired certificate test table
-
-Fresh schema imports no longer create the temporary certificate-test table. For a database that already contains it, first take a database backup, then import `database/decommission/2026_remove_test_certificate_workflow.sql` once against the intended database (for example, through phpMyAdmin's **Import** page after selecting that database). This one-time script removes only test-workflow notifications, audit entries, email-log entries, and the dedicated `certificate_test_requests` table. Do not run it as part of routine schema imports. It does not modify official certificate records or files.
-```
