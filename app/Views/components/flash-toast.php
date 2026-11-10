@@ -19,12 +19,13 @@ if ($flashToasts === []) {
     return;
 }
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
-// Green and red carry the outcome before anybody reads a word; the label repeats it in text so
-// the card still works for a colour-blind reader and on a screen that renders the palette flat.
+// Each tone carries the outcome before anybody reads a word; the label repeats it in text so the
+// card still works for a colour-blind reader and on a screen that renders the palette flat.
 $flashTones = [
     'success' => ['label' => 'Success', 'role' => 'status', 'button' => 'Continue', 'icon' => '<circle cx="12" cy="12" r="9"/><path d="m8.4 12.4 2.5 2.5 4.7-5.4"/>'],
     'error' => ['label' => 'Error', 'role' => 'alert', 'button' => 'Try again', 'icon' => '<circle cx="12" cy="12" r="9"/><path d="M12 7.6v5.2"/><path d="M12 16.3v.1"/>'],
-    'info' => ['label' => 'Notice', 'role' => 'status', 'button' => 'Got it', 'icon' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.4"/><path d="M12 7.7v.1"/>'],
+    'info' => ['label' => 'Information', 'role' => 'status', 'button' => 'Got it', 'icon' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.4"/><path d="M12 7.7v.1"/>'],
+    'pending' => ['label' => 'Payment pending', 'role' => 'status', 'button' => 'Wait until payment is approved', 'icon' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
 ];
 ?>
 <div class="flash-toast-layer" data-flash-layer>

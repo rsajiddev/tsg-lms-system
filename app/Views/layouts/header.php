@@ -14,7 +14,7 @@ if ($appBasePath !== '' && str_starts_with($requestPath, $appBasePath)) {
 }
 $activePath = '/' . trim($requestPath, '/');
 $navClass = static fn(string $path): string => $activePath === $path ? ' class="active"' : '';
-$dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/payments') || str_starts_with($activePath, '/notifications'));
+$dashboardArea = $currentUser !== [] && ($activePath === '/dashboard' || str_starts_with($activePath, '/admin/') || str_starts_with($activePath, '/learning') || str_starts_with($activePath, '/student') || str_starts_with($activePath, '/notifications'));
 $dashboardRole = (string)($currentUser['role'] ?? 'student');
 // Sidebar counters. A student counts unread notifications plus any course item that still needs
 // their own action; an administrator counts the work a student can leave waiting on the Academy,
@@ -125,7 +125,7 @@ unset($dashboardNavItem);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= Security::escape($title) ?> · TSG Academy LMS</title>
-    <link rel="icon" type="image/svg+xml" href="<?= Security::escape($baseUrl) ?>/public/assets/images/favicon.svg">
+    <link rel="icon" type="image/jpeg" href="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg">
     <link rel="stylesheet" href="<?= Security::escape($baseUrl) ?>/public/assets/css/app.css?v=<?= (string) filemtime(BASE_PATH . '/public/assets/css/app.css') ?>">
     <link rel="stylesheet" href="<?= Security::escape($baseUrl) ?>/public/assets/css/pages.css?v=<?= (string) filemtime(BASE_PATH . '/public/assets/css/pages.css') ?>">
     <script>
@@ -149,7 +149,7 @@ unset($dashboardNavItem);
     <?php if ($dashboardArea): ?>
         <aside class="dashboard-sidebar" id="dashboard-sidebar" aria-label="Dashboard navigation">
             <div class="dashboard-sidebar-head">
-                <a class="dashboard-sidebar-brand" href="<?= Security::escape($baseUrl) ?>/dashboard"><span class="brand-mark">TSG</span><span>Tech SG<small><?= $dashboardRole === 'admin' ? 'ADMIN' : 'ACADEMY' ?></small></span></a>
+                <a class="dashboard-sidebar-brand" href="<?= Security::escape($baseUrl) ?>/dashboard"><span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span><span>Tech SG<small><?= $dashboardRole === 'admin' ? 'ADMIN' : 'ACADEMY' ?></small></span></a>
                 <span class="dashboard-nav-caption">WORKSPACE</span>
             </div>
             <nav class="dashboard-side-nav" aria-label="Dashboard sections">
@@ -163,7 +163,7 @@ unset($dashboardNavItem);
                 </form>
             </nav>
             <div class="dashboard-sidebar-bottom">
-                <div class="dashboard-logout-card"><span class="dashboard-logout-mark">TSG</span><div class="dashboard-logout-identity"><strong><?= Security::escape((string)($currentUser['full_name'] ?? $currentUser['name'] ?? 'Account user')) ?></strong><p><?= Security::escape((string)($currentUser['email'] ?? '')) ?></p></div><form method="post" action="<?= Security::escape($baseUrl) ?>/logout" data-logout-form class="dashboard-logout-form"><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><div class="logout-swipe" data-logout-swipe><span class="logout-swipe-fill" aria-hidden="true"></span><span class="logout-swipe-label" aria-hidden="true">Swipe to logout</span><button class="logout-swipe-handle" type="submit" aria-label="Log out" title="Log out"><?= $dashboardNavIcon('logout') ?></button></div></form></div>
+                <div class="dashboard-logout-card"><span class="dashboard-logout-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span><div class="dashboard-logout-identity"><strong><?= Security::escape((string)($currentUser['full_name'] ?? $currentUser['name'] ?? 'Account user')) ?></strong><p><?= Security::escape((string)($currentUser['email'] ?? '')) ?></p></div><form method="post" action="<?= Security::escape($baseUrl) ?>/logout" data-logout-form class="dashboard-logout-form"><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><div class="logout-swipe" data-logout-swipe><span class="logout-swipe-fill" aria-hidden="true"></span><span class="logout-swipe-label" aria-hidden="true">Swipe to logout</span><button class="logout-swipe-handle" type="submit" aria-label="Log out" title="Log out"><?= $dashboardNavIcon('logout') ?></button></div></form></div>
             </div>
         </aside>
         <button class="dashboard-sidebar-scrim" type="button" data-dashboard-close aria-label="Close dashboard menu"></button>
@@ -179,7 +179,7 @@ unset($dashboardNavItem);
     <?php endif; ?>
     <header class="topbar">
         <a class="brand" href="<?= Security::escape($baseUrl) ?>/">
-            <span class="brand-mark">TSG</span>
+            <span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span>
             <span>Tech SG <small>Academy</small></span>
         </a>
         <nav class="top-nav" aria-label="Main navigation">
@@ -188,7 +188,7 @@ unset($dashboardNavItem);
             <a<?= $navClass('/verify') ?> href="<?= Security::escape($baseUrl) ?>/verify">Certificate</a>
             <a<?= $navClass('/about') ?> href="<?= Security::escape($baseUrl) ?>/about">About</a>
             <a<?= $navClass('/contact') ?> href="<?= Security::escape($baseUrl) ?>/contact">Contact</a>
-            <?php if ($currentUser !== []): ?>
+            <?php if ($currentUser !== [] && !str_starts_with($activePath, '/payments')): ?>
                 <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard">Dashboard</a>
             <?php else: ?>
                 <a href="<?= Security::escape($baseUrl) ?>/login">Sign in</a>
@@ -207,7 +207,7 @@ unset($dashboardNavItem);
                 <a<?= $navClass('/verify') ?> href="<?= Security::escape($baseUrl) ?>/verify">Certificate</a>
                 <a<?= $navClass('/about') ?> href="<?= Security::escape($baseUrl) ?>/about">About</a>
                 <a<?= $navClass('/contact') ?> href="<?= Security::escape($baseUrl) ?>/contact">Contact</a>
-                <?php if ($currentUser !== []): ?>
+                <?php if ($currentUser !== [] && !str_starts_with($activePath, '/payments')): ?>
                     <a<?= $navClass('/dashboard') ?> href="<?= Security::escape($baseUrl) ?>/dashboard">Dashboard</a>
                 <?php else: ?>
                     <a href="<?= Security::escape($baseUrl) ?>/login">Sign in</a>

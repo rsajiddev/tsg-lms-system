@@ -25,9 +25,20 @@ final class PurgeGuard
 
     public static function assertConfirmed(string $expectedPhrase): void
     {
-        $typed = strtoupper(trim((string)($_POST['confirm_phrase'] ?? '')));
-        if (!hash_equals($expectedPhrase, $typed)) {
-            throw new RuntimeException('Type the confirmation phrase exactly as it is shown before deleting these records.');
+        $password = (string) ($_POST['admin_password'] ?? '');
+        if ($password !== '') {
+            $adminId = (int) ($_SESSION['user']['id'] ?? 0);
+            $stmt = Database::connection()->prepare("SELECT password_hash FROM users WHERE id=? AND role='admin' AND status='active' LIMIT 1");
+            $stmt->execute([$adminId]);
+            $hash = (string) ($stmt->fetchColumn() ?: '');
+            if ($hash === '' || !password_verify($password, $hash)) {
+                throw new RuntimeException('The admin password is incorrect. Nothing was deleted.');
+            }
+        } else {
+            $typed = strtoupper(trim((string)($_POST['confirm_phrase'] ?? '')));
+            if (!hash_equals($expectedPhrase, $typed)) {
+                throw new RuntimeException('Enter the admin password before deleting these records.');
+            }
         }
         if ((string)($_POST['irreversible'] ?? '') !== '1') {
             throw new RuntimeException('Confirm that this deletion is permanent and cannot be undone.');

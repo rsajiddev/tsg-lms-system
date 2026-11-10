@@ -6,7 +6,7 @@ $mode = isset($mode) && is_string($mode) ? $mode : 'error';
 $message = isset($message) && is_string($message) ? $message : null;
 $values = isset($values) && is_array($values) ? $values : [];
 // A message that reports something going wrong must not arrive dressed as a confirmation.
-$messageTone = isset($messageTone) && $messageTone === 'error' ? 'error' : 'success';
+$messageTone = isset($messageTone) && in_array($messageTone, ['error', 'pending', 'info'], true) ? $messageTone : 'success';
 $resendSeconds = isset($resendSeconds) && is_int($resendSeconds) ? max(0, $resendSeconds) : 0;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $value = static fn(string $name): string => Security::escape((string) ($values[$name] ?? ''));
@@ -26,7 +26,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
   <div class="auth-panel">
     <section class="auth-form-side">
       <div class="auth-top">
-        <a class="auth-logo" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark">TSG</span>Tech SG</a>
+        <a class="auth-logo" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span>Tech SG</a>
       </div>
       <header class="auth-heading">
         <h1><?= Security::escape($copy['heading']) ?></h1>
@@ -91,7 +91,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
       </div>
     </section>
     <aside class="auth-visual">
-      <a class="auth-logo auth-logo-light visual-brand" href="<?= Security::escape($baseUrl) ?>/" tabindex="-1"><span class="brand-mark">TSG</span>Tech SG</a>
+      <a class="auth-logo auth-logo-light visual-brand" href="<?= Security::escape($baseUrl) ?>/" tabindex="-1"><span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span>Tech SG</a>
       <div class="visual-copy">
         <h2>Learn skills that move your career forward.</h2>
         <p>Live and recorded IT training with real projects, assignments and verified certificates — from Tech SG Studio (SMC-Pvt.) Ltd.</p>

@@ -40,7 +40,7 @@ final class PaymentController
         }
         $pending = $db->prepare("SELECT 1 FROM payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
         $pending->execute([(int) $student['id'], $courseId]);
-        $history = $db->prepare('SELECT id,amount,currency,transaction_reference,payment_proof_path,receipt_number,receipt_issued_at,status,review_note,created_at FROM payments WHERE student_id=? AND course_id=? ORDER BY id DESC LIMIT 5');
+        $history = $db->prepare("SELECT id,amount,currency,transaction_reference,status,created_at FROM payments WHERE student_id=? AND course_id=? AND status='pending' ORDER BY id DESC LIMIT 1");
         $history->execute([(int) $student['id'], $courseId]);
         $paymentDetails = [];
         foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {

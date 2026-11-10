@@ -33,7 +33,7 @@ $eyeToggle = '<button class="pw-toggle" type="button" data-toggle-password aria-
 ?>
 <section class="enrol-shell">
   <header class="enrol-topbar">
-    <a class="auth-logo" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark">TSG</span>Tech SG</a>
+    <a class="auth-logo" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span>Tech SG</a>
     <a class="enrol-back" href="<?= Security::escape($baseUrl) ?>/courses"><span aria-hidden="true">←</span> All courses</a>
   </header>
 

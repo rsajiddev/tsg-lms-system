@@ -99,6 +99,22 @@ final class AuthController
         if (!$this->csrfValid()) return;
         try {
             $user = $this->auth->login((string) ($_POST['email'] ?? ''), (string) ($_POST['password'] ?? ''));
+            $intent = filter_var($_SESSION['enrol_course_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($user['role'] === 'student' && !$intent) {
+                $db = Database::connection();
+                $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+                $access->execute([(int) $user['id']]);
+                if (!$access->fetchColumn()) {
+                    $pending = $db->prepare("SELECT course_id FROM payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
+                    $pending->execute([(int) $user['id']]);
+                    $pendingCourseId = (int) ($pending->fetchColumn() ?: 0);
+                    $message = $pendingCourseId > 0
+                        ? 'Your payment is currently pending approval. Please wait until your payment has been approved. You will receive an email and notification once your access is ready.'
+                        : 'Your student access has not been approved yet. Please choose a course and complete the enrolment and payment steps.';
+                    $this->page('login', ['email' => (string) ($_POST['email'] ?? '')], $message, $pendingCourseId > 0 ? 'pending' : 'info');
+                    return;
+                }
+            }
             session_regenerate_id(true);
             unset($_SESSION['_csrf']);
             $_SESSION['user'] = ['id' => (int) $user['id'], 'name' => $user['full_name'], 'email' => $user['email'], 'role' => $user['role']];
@@ -107,7 +123,6 @@ final class AuthController
             (new SessionRegistry())->register((int) $user['id']);
             // Someone who came in through a course and already had an account should land on that
             // course's payment step, not on a dashboard. The payment page authorises the id itself.
-            $intent = filter_var($_SESSION['enrol_course_id'] ?? null, FILTER_VALIDATE_INT);
             $this->redirect($intent && $user['role'] === 'student'
                 ? '/payments/new?course_id=' . $intent
                 : '/dashboard');

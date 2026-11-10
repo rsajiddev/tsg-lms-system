@@ -18,9 +18,8 @@ final class View
     {
         $text = is_string($text) ? trim($text) : '';
         if ($text === '') return;
-        // Only three cards are styled, so anything else arrives as the neutral one rather than an
-        // unstyled overlay.
-        $tone = in_array($tone, ['success', 'error'], true) ? $tone : 'info';
+        // Unknown tones arrive as the neutral one rather than producing an unstyled overlay.
+        $tone = in_array($tone, ['success', 'error', 'pending', 'info'], true) ? $tone : 'info';
         self::$toasts[] = ['tone' => $tone, 'text' => $text];
     }
 

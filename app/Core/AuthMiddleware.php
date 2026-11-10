@@ -52,6 +52,27 @@ final class AuthMiddleware
             exit;
         }
         $_SESSION['user'] = ['id' => (int) $fresh['id'], 'name' => $fresh['full_name'], 'email' => $fresh['email'], 'role' => $fresh['role']];
+        if ($role === 'student' && !self::isPaymentRoute()) {
+            $db = Database::connection();
+            $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+            $access->execute([(int) $fresh['id']]);
+            if (!$access->fetchColumn()) {
+                $pending = $db->prepare("SELECT course_id FROM payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
+                $pending->execute([(int) $fresh['id']]);
+                $courseId = (int) ($pending->fetchColumn() ?: 0);
+                $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
+                header('Location: ' . $baseUrl . ($courseId > 0 ? '/payments/new?course_id=' . $courseId : '/courses'));
+                exit;
+            }
+        }
         return $_SESSION['user'];
+    }
+
+    private static function isPaymentRoute(): bool
+    {
+        $basePath = rtrim((string) (parse_url((require BASE_PATH . '/config/app.php')['url'], PHP_URL_PATH) ?: ''), '/');
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        if ($basePath !== '' && str_starts_with($path, $basePath)) $path = '/' . ltrim(substr($path, strlen($basePath)), '/');
+        return str_starts_with('/' . trim($path, '/'), '/payments');
     }
 }

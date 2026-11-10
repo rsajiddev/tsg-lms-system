@@ -7,7 +7,7 @@ $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 </main>
 <footer class="site-footer">
     <div class="footer-inner">
-        <div class="footer-brand"><a class="brand" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark">TSG</span><span>Tech SG <small>Academy</small></span></a>
+        <div class="footer-brand"><a class="brand" href="<?= Security::escape($baseUrl) ?>/"><span class="brand-mark brand-logo"><img src="<?= Security::escape($baseUrl) ?>/public/assets/images/tsg-logo.jpeg" alt="Tech SG Studio"></span><span>Tech SG <small>Academy</small></span></a>
             <p>Live and recorded IT training in web development, digital marketing and design, from a registered software and digital agency.</p>
             <div class="footer-social">
                 <a class="social-icon si-facebook" href="https://facebook.com/techsgstudio" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
