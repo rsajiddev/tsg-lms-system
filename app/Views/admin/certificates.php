@@ -5,8 +5,6 @@ use App\Core\Security;
 /**
  * View::render() injects these values from CertificateController.
  * @var array<int, array<string, mixed>> $certificates
- * @var array<int, array<string, mixed>> $testRequests
- * @var bool $testRequestsAvailable
  * @var array<string, int> $counts
  * @var string $status
  * @var string $search
@@ -20,8 +18,6 @@ use App\Core\Security;
 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');
 $escape = static fn(mixed $value): string => Security::escape((string) $value);
 $certificates = is_array($certificates ?? null) ? $certificates : [];
-$testRequests = is_array($testRequests ?? null) ? $testRequests : [];
-$testRequestsAvailable = (bool) ($testRequestsAvailable ?? false);
 $counts = is_array($counts ?? null) ? $counts : [];
 $status = is_string($status ?? null) ? $status : 'all';
 $search = is_string($search ?? null) ? $search : '';
@@ -81,7 +77,7 @@ $filters = [
             </div>
             <span>Official certificates only</span>
         </div>
-        <p class="certificate-eligibility-lead">An official certificate request is accepted only when the student clears the course requirements. The separate TEST ONLY workflow below does not create an official request. The rules are also published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page.</p>
+        <p class="certificate-eligibility-lead">An official certificate request is accepted only when the student clears the course requirements. The rules are also published on the student's <a class="dashboard-inline-link" href="<?= $escape($baseUrl) ?>/student/courses">My courses</a> page.</p>
         <div class="certificate-eligibility-grid">
             <article class="certificate-eligibility-item">
                 <span class="certificate-eligibility-value"><?= (int) $criteria['grade'] ?>%</span>
@@ -104,75 +100,6 @@ $filters = [
     <?php if (!$schemaAvailable): ?>
         <div class="student-schema-notice" role="status"><strong>The certificates table is not installed yet.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code> into <code>tsg_academy_lms</code>. Requests and issued certificates appear here straight after.</span></div>
     <?php else: ?>
-
-        <section class="dashboard-panel certificate-test-panel" aria-label="Test certificate requests">
-            <div class="dashboard-panel-heading certificate-list-heading">
-                <div>
-                    <p class="eyebrow">TEST ONLY · NOT THE OFFICIAL REGISTER</p>
-                    <h2>Sample certificate workflow</h2>
-                </div>
-                <?php if ($testRequestsAvailable && $testRequests !== []): ?>
-                    <form method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/test-clear" onsubmit="return confirm('Clear every test-only request and permanently delete its uploaded sample files? Official certificates will not be changed.')">
-                        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-                        <button class="student-action-button is-block" type="submit">Clear all test requests</button>
-                    </form>
-                <?php endif; ?>
-            </div>
-            <p class="certificate-test-warning">Student test requests bypass lesson, grade and attendance eligibility only inside this separate queue. They never create or modify official certificate records. Upload only a clearly marked sample JPG or PDF (max 5 MB). Clearing this test queue removes its sample files and lets students start again.</p>
-            <?php if (!$testRequestsAvailable): ?>
-                <div class="student-schema-notice" role="status"><strong>The isolated testing table is not installed yet.</strong><span>Import the updated <code>database/migrations/001_initial_schema.sql</code>, then reload this page.</span></div>
-            <?php elseif ($testRequests === []): ?>
-                <div class="dashboard-empty"><div><h3>No test requests</h3><p>Students can start a TEST ONLY workflow from My courses. It does not change their official eligibility or certificates.</p></div></div>
-            <?php else: ?>
-                <div class="certificate-test-list">
-                    <?php foreach ($testRequests as $testRequest): ?>
-                        <?php $testStatus = (string) $testRequest['status']; ?>
-                        <article class="certificate-test-request">
-                            <div class="certificate-test-request-student">
-                                <span class="certificate-test-field-label">Student</span>
-                                <strong><?= $escape($testRequest['student_name']) ?></strong>
-                                <span><?= $escape($testRequest['student_email']) ?></span>
-                                <small>ID: <?= $escape($testRequest['account_reference'] ?? '') ?></small>
-                            </div>
-                            <div class="certificate-test-request-course">
-                                <span class="certificate-test-field-label">Course</span>
-                                <strong><?= $escape($testRequest['course_title']) ?></strong>
-                            </div>
-                            <div class="certificate-test-request-status">
-                                <span class="certificate-test-field-label">Request</span>
-                                <span class="certificate-status certificate-status-<?= $escape($testStatus) ?>"><?= $escape(ucfirst($testStatus)) ?></span>
-                                <span><?= $escape($label((string) $testRequest['requested_at'])) ?></span>
-                                <span class="certificate-test-badge">TEST ONLY</span>
-                            </div>
-                            <div class="certificate-test-request-sample">
-                                <span class="certificate-test-field-label">Sample</span>
-                                <?php if ($testStatus === 'issued'): ?>
-                                    <strong>Sample uploaded</strong>
-                                    <span><?= $escape($label((string) $testRequest['issued_at'])) ?> · <?= $escape(strtoupper((string) $testRequest['file_type'])) ?></span>
-                                <?php else: ?>
-                                    <strong>Waiting for admin upload</strong>
-                                    <span>Use a clearly marked sample file.</span>
-                                <?php endif; ?>
-                            </div>
-                            <div class="certificate-test-request-actions<?= $testStatus === 'issued' ? ' is-issued' : '' ?>">
-                                <?php if ($testStatus === 'requested'): ?>
-                                    <form class="certificate-test-upload-form" method="post" action="<?= $escape($baseUrl) ?>/admin/certificates/test-issue" enctype="multipart/form-data">
-                                        <input type="hidden" name="_csrf" value="<?= $escape(Security::csrfToken()) ?>">
-                                        <input type="hidden" name="test_request_id" value="<?= (int) $testRequest['id'] ?>">
-                                        <label class="admin-label" for="test-certificate-file-<?= (int) $testRequest['id'] ?>">Choose sample file <small>Clearly marked JPG or PDF · max 5 MB</small></label>
-                                        <input class="admin-input certificate-file-input" id="test-certificate-file-<?= (int) $testRequest['id'] ?>" type="file" name="certificate_file" accept="image/jpeg,application/pdf" required>
-                                        <button class="button button-secondary certificate-button" type="submit">Upload test sample</button>
-                                    </form>
-                                <?php else: ?>
-                                    <a class="button button-secondary certificate-button" href="<?= $escape($baseUrl) ?>/certificate/test-download?test_id=<?= (int) $testRequest['id'] ?>">Download sample <span aria-hidden="true">↓</span></a>
-                                    <a class="certificate-link" href="<?= $escape($baseUrl) ?>/verify?cert_id=<?= $escape(rawurlencode((string) ($testRequest['account_reference'] ?: $testRequest['student_name']))) ?>" target="_blank" rel="noopener">Public test lookup →</a>
-                                <?php endif; ?>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </section>
 
         <section class="dashboard-panel certificate-list-panel" aria-label="Certificate requests">
             <div class="dashboard-panel-heading certificate-list-heading">

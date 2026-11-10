@@ -33,7 +33,7 @@ $formatDate = static function (?string $value): string {
     <div class="verify-hero-inner">
         <p class="verify-eyebrow"><span aria-hidden="true">01</span> TECH SG ACADEMY · CERTIFICATE REGISTER</p>
         <h1 id="verify-page-title">Verify a <span>Certificate</span></h1>
-        <p>Check official Tech SG Academy certificates or clearly marked test-only samples — instantly, with no email and no waiting.</p>
+        <p>Check official Tech SG Academy certificates instantly, with no email and no waiting.</p>
     </div>
 </section>
 
@@ -46,13 +46,13 @@ $formatDate = static function (?string $value): string {
             </div>
             <span class="verify-search-badge">PUBLIC LOOKUP</span>
         </div>
-        <label class="verify-search-label" for="cert-id">Academy ID or exact student name</label>
+        <label class="verify-search-label" for="cert-id">Academy ID</label>
         <div class="verify-search-field">
             <span class="verify-search-icon" aria-hidden="true"></span>
-            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="e.g. TSG-CER-001" autocomplete="off" spellcheck="false" maxlength="120" required>
+            <input id="cert-id" type="text" name="cert_id" value="<?= $escape($query) ?>" placeholder="e.g. TSG-CER-001" autocomplete="off" spellcheck="false" maxlength="64" required>
             <button class="button verify-search-button" type="submit">Verify certificate <span aria-hidden="true">→</span></button>
         </div>
-        <p class="verify-search-hint">Search official certificates with the student's Academy ID, for example <strong>TSG-CER-001</strong>. Test-only sample certificates can also be found by the student's exact full name; those results are clearly marked and are not official certificates.</p>
+        <p class="verify-search-hint">Search the official certificate register with the student's Academy ID, for example <strong>TSG-CER-001</strong>.</p>
     </form>
 </section>
 
@@ -69,29 +69,23 @@ $formatDate = static function (?string $value): string {
         </div>
     <?php elseif (in_array($state, ['valid', 'expired', 'revoked'], true) && $certificates !== []): ?>
         <?php if (count($certificates) > 1): ?>
-            <?php $testCount = count(array_filter($certificates, static fn(array $item): bool => (bool) ($item['is_test_certificate'] ?? false))); ?>
-            <?php if ($testCount > 0): ?>
-                <p class="verify-multiple">This search found <strong><?= count($certificates) ?></strong> certificate records, including <strong><?= $testCount ?></strong> TEST ONLY sample<?= $testCount === 1 ? '' : 's' ?>. Official certificates and test samples are clearly marked below.</p>
-            <?php else: ?>
-                <p class="verify-multiple">This ID was issued for <strong><?= count($certificates) ?></strong> certificates by Tech SG Academy. Every one of them is listed below.</p>
-            <?php endif; ?>
+            <p class="verify-multiple">This ID was issued for <strong><?= count($certificates) ?></strong> certificates by Tech SG Academy. Every one of them is listed below.</p>
         <?php endif; ?>
         <?php foreach ($certificates as $cardIndex => $certificate): ?>
             <?php
             $revoked = (string) ($certificate['certificate_status'] ?? '') === 'revoked';
-            $isTest = (bool) ($certificate['is_test_certificate'] ?? false);
             $lapsed = !$revoked && (string) ($certificate['expires_at'] ?? '') !== '' && (string) $certificate['expires_at'] <= gmdate('Y-m-d H:i:s');
             $certFormat = strtolower((string) ($certificate['file_ext'] ?? '')) === 'pdf' ? 'PDF' : 'JPG';
             $studentId = trim((string) ($certificate['student_id'] ?? ''));
-            $cardClass = $isTest ? 'verify-card-test' : ($revoked ? 'verify-card-revoked' : ($lapsed ? 'verify-card-expired' : 'verify-card-valid'));
-            $cardHeading = $isTest ? 'TEST ONLY — Sample certificate' : ($revoked ? 'Certificate revoked' : ($lapsed ? 'Certificate expired' : 'Certificate verified'));
+            $cardClass = $revoked ? 'verify-card-revoked' : ($lapsed ? 'verify-card-expired' : 'verify-card-valid');
+            $cardHeading = $revoked ? 'Certificate revoked' : ($lapsed ? 'Certificate expired' : 'Certificate verified');
             ?>
             <article class="verify-card <?= $cardClass ?>">
                 <header class="verify-card-head">
                     <span class="verify-card-mark" aria-hidden="true"><?= $revoked ? '×' : ($lapsed ? '⏱' : '✓') ?></span>
                     <div>
                         <h2><?= $escape($cardHeading) ?></h2>
-                        <p><?= $isTest ? 'This is an admin-uploaded sample for testing the certificate workflow. It is not an official certificate and is not proof of course completion.' : ($revoked ? 'This certificate was revoked by Tech SG Academy and is no longer valid.' : ($lapsed ? 'This certificate was genuine but its verification window has closed.' : 'This certificate is genuine and was issued by Tech SG Academy.')) ?></p>
+                        <p><?= $revoked ? 'This certificate was revoked by Tech SG Academy and is no longer valid.' : ($lapsed ? 'This certificate was genuine but its verification window has closed.' : 'This certificate is genuine and was issued by Tech SG Academy.') ?></p>
                     </div>
                 </header>
                 <div class="verify-card-body">
@@ -107,23 +101,13 @@ $formatDate = static function (?string $value): string {
                         <div><dt>Course duration</dt><dd><?= $escape($certificate['duration_label'] ?: 'Not specified') ?></dd></div>
                         <div><dt>Level</dt><dd><?= $escape($certificate['level_label'] ?: 'All levels') ?></dd></div>
                         <div><dt>Valid until</dt><dd><?= $escape($formatDate((string) ($certificate['expires_at'] ?? ''))) ?></dd></div>
-                        <div><dt>Certificate status</dt><dd><?= $isTest ? 'TEST SAMPLE — NOT OFFICIAL' : ($revoked ? 'Revoked' : $escape(ucfirst((string) ($certificate['certificate_status'] ?? 'issued')))) ?></dd></div>
-                        <div><dt>Verification status</dt><dd class="<?= ($lapsed || $revoked || $isTest) ? 'verify-lapsed' : 'verify-ok' ?>"><?= $isTest ? 'TEST ONLY — NOT VERIFIED' : ($revoked ? '× Revoked' : ($lapsed ? '⏱ Expired' : '✓ Verified')) ?></dd></div>
+                        <div><dt>Certificate status</dt><dd><?= $revoked ? 'Revoked' : $escape(ucfirst((string) ($certificate['certificate_status'] ?? 'issued'))) ?></dd></div>
+                        <div><dt>Verification status</dt><dd class="<?= ($lapsed || $revoked) ? 'verify-lapsed' : 'verify-ok' ?>"><?= $revoked ? '× Revoked' : ($lapsed ? '⏱ Expired' : '✓ Verified') ?></dd></div>
                     </dl>
                     <?php if (!empty($certificate['admin_remarks'])): ?>
                         <p class="verify-remarks"><strong>Academy remarks</strong><span><?= $escape($certificate['admin_remarks']) ?></span></p>
                     <?php endif; ?>
-                    <?php if ($isTest): ?>
-                        <div class="verify-authenticity verify-test-warning">
-                            <span class="verify-authenticity-icon" aria-hidden="true">!</span>
-                            <div><h4>Test sample only — not official</h4><p>This record exists only to test uploads, student downloads and public lookup. It does not confirm eligibility, course completion or an official certificate award.</p></div>
-                        </div>
-                        <?php if (!empty($certificate['has_file'])): ?>
-                            <div class="verify-actions">
-                                <a class="button button-secondary verify-download" href="<?= $escape($baseUrl) ?>/certificate/test-download?test_id=<?= (int) ($certificate['certificate_row_id'] ?? 0) ?>">Download TEST sample <?= $escape($certFormat) ?></a>
-                            </div>
-                        <?php endif; ?>
-                    <?php elseif ($revoked): ?>
+                    <?php if ($revoked): ?>
                         <p class="verify-help">Revoked on <?= $escape($formatDate((string) ($certificate['revoked_at'] ?? ''))) ?>. Reason: <?= $escape((string) ($certificate['revoked_reason'] ?? 'Contact the Academy for details.')) ?></p>
                     <?php elseif (!$lapsed): ?>
                         <div class="verify-authenticity">
@@ -148,13 +132,13 @@ $formatDate = static function (?string $value): string {
                         <p class="verify-help">The certificate can no longer be downloaded or shared as valid proof. To renew the verification period, contact <a href="mailto:<?= $escape($contact) ?>"><?= $escape($contact) ?></a> with the certificate ID.</p>
                     <?php endif; ?>
                 </div>
-                <footer class="verify-card-foot"><?= $isTest ? 'TEST ONLY · Sample record; not part of the official certificate register.' : 'Record checked live from our register on ' . $escape(gmdate('j F Y')) . '.' ?></footer>
+                <footer class="verify-card-foot">Record checked live from our register on <?= $escape(gmdate('j F Y')) ?>.</footer>
             </article>
         <?php endforeach; ?>
     <?php else: ?>
         <?php
         $headings = [
-            'invalid' => ['Search is too long', 'Enter an Academy ID or an exact student name (up to 120 characters).'],
+            'invalid' => ['Search is too long', 'Enter an Academy ID up to 64 characters.'],
             'limited' => ['Too many checks from this connection', 'Please wait a few minutes and try again.'],
             'unavailable' => ['Verification is temporarily unavailable', 'Our certificate register cannot be reached right now. Please try again shortly.'],
         ];
@@ -169,7 +153,7 @@ $formatDate = static function (?string $value): string {
                 </div>
             </header>
             <div class="verify-card-body">
-                <p class="verify-help">Check the Academy ID spelling. For a test sample, enter the student's exact full name. Contact <a href="mailto:<?= $escape($contact) ?>"><?= $escape($contact) ?></a> if you need help.</p>
+                <p class="verify-help">Check the Academy ID spelling. Contact <a href="mailto:<?= $escape($contact) ?>"><?= $escape($contact) ?></a> if you need help.</p>
                 <?php if ($query !== ''): ?><p class="verify-tried">Searched for: <strong><?= $escape($query) ?></strong></p><?php endif; ?>
             </div>
         </article>

@@ -24,16 +24,17 @@ $message = $message ?? null;
                 </div>
             </div>
         </section><?php else: ?>
-        <div class="dashboard-course-list"><?php foreach ($reviews as $review): ?><article class="dashboard-panel">
-                    <div class="dashboard-panel-heading">
+        <div class="review-moderation-list"><?php foreach ($reviews as $review): ?><article class="dashboard-panel review-moderation-card">
+                    <div class="review-moderation-heading">
                         <div>
                             <p class="eyebrow"><?= Security::escape(ucfirst($review['reviewer_type'])) ?> · <?= (int)$review['rating'] ?>/5 stars</p>
                             <h2><?= Security::escape($review['full_name']) ?></h2>
-                        </div><time><?= Security::escape($review['created_at']) ?></time>
+                        </div>
+                        <time><?= Security::escape($review['created_at']) ?></time>
                     </div>
-                    <p><?= Security::escape($review['context_label'] ?? '') ?></p>
-                    <blockquote><?= nl2br(Security::escape($review['content'])) ?></blockquote>
-                    <div class="dashboard-actions"><?php foreach (['approved' => 'Approve and publish', 'rejected' => 'Reject'] as $decision => $label): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/reviews/decision"><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><input type="hidden" name="review_id" value="<?= (int)$review['id'] ?>"><input type="hidden" name="decision" value="<?= Security::escape($decision) ?>"><button class="button <?= $decision === 'rejected' ? 'button-secondary' : '' ?>" type="submit"><?= Security::escape($label) ?></button></form><?php endforeach; ?></div>
+                    <p class="review-moderation-context"><?= Security::escape($review['context_label'] ?? '') ?></p>
+                    <blockquote class="review-moderation-quote"><?= nl2br(Security::escape($review['content'])) ?></blockquote>
+                    <div class="review-moderation-actions"><?php foreach (['approved' => 'Approve and publish', 'rejected' => 'Reject'] as $decision => $label): ?><form method="post" action="<?= Security::escape($baseUrl) ?>/admin/reviews/decision"><input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>"><input type="hidden" name="review_id" value="<?= (int)$review['id'] ?>"><input type="hidden" name="decision" value="<?= Security::escape($decision) ?>"><button class="button <?= $decision === 'rejected' ? 'button-review-reject' : 'button-review-approve' ?>" type="submit"><?= Security::escape($label) ?></button></form><?php endforeach; ?></div>
                 </article><?php endforeach; ?></div><?php endif; ?>
     <section class="dashboard-panel contact-inbox" aria-labelledby="contact-inbox-title">
         <div class="dashboard-panel-heading">
@@ -47,7 +48,7 @@ $message = $message ?? null;
                 <?php if ($contactMessages !== []): ?>
                     <form method="post" action="<?= Security::escape($baseUrl) ?>/admin/reviews/contact-messages/clear" onsubmit="return confirm('Clear all contact messages from this inbox? This cannot be undone.');">
                         <input type="hidden" name="_csrf" value="<?= Security::escape(Security::csrfToken()) ?>">
-                        <button class="button button-danger" type="submit">Clear inbox</button>
+                        <button class="student-action-button is-clear" type="submit">Clear inbox</button>
                     </form>
                 <?php endif; ?>
             </div>

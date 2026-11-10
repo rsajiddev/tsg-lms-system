@@ -78,12 +78,6 @@ final class MailService
         return $this->sendAll(EmailMessages::certificateRequest($request));
     }
 
-    /** Test-only certificate request raised by a student; routed to the certificate inbox. */
-    public function sendCertificateTestRequest(array $request): bool
-    {
-        return $this->sendAll(EmailMessages::certificateTestRequest($request));
-    }
-
     /** Certificate issued and waiting in the student workspace. */
     public function sendCertificateIssued(array $certificate): bool
     {

@@ -170,11 +170,14 @@ EXECUTE add_lesson_video_duration_stmt;
 DEALLOCATE PREPARE add_lesson_video_duration_stmt;
 
 -- Backfill the provider for rows created before the column existed.
-UPDATE lessons
+UPDATE
+       lessons
 SET
        video_provider = CASE
-              WHEN video_url IS NULL OR TRIM(video_url) = '' THEN 'none'
-              WHEN video_url LIKE '%youtube.com%' OR video_url LIKE '%youtu.be%' THEN 'youtube'
+              WHEN video_url IS NULL
+              OR TRIM(video_url) = '' THEN 'none'
+              WHEN video_url LIKE '%youtube.com%'
+              OR video_url LIKE '%youtu.be%' THEN 'youtube'
               WHEN video_url LIKE '%vimeo.com%' THEN 'vimeo'
               ELSE 'file'
        END
@@ -258,13 +261,18 @@ EXECUTE add_lesson_meeting_at_stmt;
 
 DEALLOCATE PREPARE add_lesson_meeting_at_stmt;
 
-UPDATE lessons
-SET meeting_platform = CASE
-       WHEN meeting_url LIKE '%meet.google.com%' THEN 'google_meet'
-       WHEN meeting_url LIKE '%zoom.us%' THEN 'zoom'
-       ELSE meeting_platform
-END
-WHERE meeting_platform IS NULL AND meeting_url IS NOT NULL AND meeting_url <> '';
+UPDATE
+       lessons
+SET
+       meeting_platform = CASE
+              WHEN meeting_url LIKE '%meet.google.com%' THEN 'google_meet'
+              WHEN meeting_url LIKE '%zoom.us%' THEN 'zoom'
+              ELSE meeting_platform
+       END
+WHERE
+       meeting_platform IS NULL
+       AND meeting_url IS NOT NULL
+       AND meeting_url <> '';
 
 CREATE TABLE IF NOT EXISTS student_course_access (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1493,8 +1501,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- purchase. It runs here because this file creates the audit table after the payment section.
 UPDATE
        payments p
-JOIN
-       audit_logs a ON a.entity_type = 'payment'
+       JOIN audit_logs a ON a.entity_type = 'payment'
        AND a.entity_id = p.id
        AND a.action = 'payment.submitted'
 SET
@@ -1512,16 +1519,14 @@ WHERE
 -- upgraded from Recorded Only to Live + Recorded keeps the upgrade through a re-import.
 UPDATE
        student_course_access sca
-JOIN
-       (
+       JOIN (
               SELECT
                      chosen.student_id,
                      chosen.course_id,
                      chosen.plan_code
               FROM
                      payments chosen
-              JOIN
-                     (
+                     JOIN (
                             SELECT
                                    student_id,
                                    course_id,
@@ -1615,22 +1620,124 @@ CREATE TABLE IF NOT EXISTS payment_accounts (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Preserve the original single-account settings when upgrading an existing installation.
-INSERT INTO payment_accounts(account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions)
+INSERT INTO
+       payment_accounts(
+              account_title,
+              bank_name,
+              account_number,
+              iban,
+              wallet_name,
+              wallet_number,
+              instructions
+       )
 SELECT
-       COALESCE(MAX(CASE WHEN setting_key='payment_account_title' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_bank_name' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_account_number' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_iban' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_wallet_name' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_wallet_number' THEN setting_value END),''),
-       COALESCE(MAX(CASE WHEN setting_key='payment_instructions' THEN setting_value END),'')
-FROM app_settings
-HAVING (COALESCE(MAX(CASE WHEN setting_key='payment_account_title' THEN setting_value END),'') <> ''
-        OR COALESCE(MAX(CASE WHEN setting_key='payment_bank_name' THEN setting_value END),'') <> ''
-        OR COALESCE(MAX(CASE WHEN setting_key='payment_account_number' THEN setting_value END),'') <> ''
-        OR COALESCE(MAX(CASE WHEN setting_key='payment_wallet_name' THEN setting_value END),'') <> ''
-        OR COALESCE(MAX(CASE WHEN setting_key='payment_wallet_number' THEN setting_value END),'') <> '')
-   AND NOT EXISTS (SELECT 1 FROM payment_accounts);
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_account_title' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_bank_name' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_account_number' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_iban' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_wallet_name' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_wallet_number' THEN setting_value
+                     END
+              ),
+              ''
+       ),
+       COALESCE(
+              MAX(
+                     CASE
+                            WHEN setting_key = 'payment_instructions' THEN setting_value
+                     END
+              ),
+              ''
+       )
+FROM
+       app_settings
+HAVING
+       (
+              COALESCE(
+                     MAX(
+                            CASE
+                                   WHEN setting_key = 'payment_account_title' THEN setting_value
+                            END
+                     ),
+                     ''
+              ) <> ''
+              OR COALESCE(
+                     MAX(
+                            CASE
+                                   WHEN setting_key = 'payment_bank_name' THEN setting_value
+                            END
+                     ),
+                     ''
+              ) <> ''
+              OR COALESCE(
+                     MAX(
+                            CASE
+                                   WHEN setting_key = 'payment_account_number' THEN setting_value
+                            END
+                     ),
+                     ''
+              ) <> ''
+              OR COALESCE(
+                     MAX(
+                            CASE
+                                   WHEN setting_key = 'payment_wallet_name' THEN setting_value
+                            END
+                     ),
+                     ''
+              ) <> ''
+              OR COALESCE(
+                     MAX(
+                            CASE
+                                   WHEN setting_key = 'payment_wallet_number' THEN setting_value
+                            END
+                     ),
+                     ''
+              ) <> ''
+       )
+       AND NOT EXISTS (
+              SELECT
+                     1
+              FROM
+                     payment_accounts
+       );
 
 CREATE TABLE IF NOT EXISTS reviews (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1941,34 +2048,17 @@ CREATE TABLE IF NOT EXISTS certificates (
        INDEX idx_certificate_student(student_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
--- Isolated sample workflow for exercising certificate screens without bypassing real issuance
--- or creating records in the official certificate register.
-CREATE TABLE IF NOT EXISTS certificate_test_requests (
-       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-       student_id BIGINT UNSIGNED NOT NULL,
-       course_id BIGINT UNSIGNED NOT NULL,
-       status ENUM('requested', 'issued') NOT NULL DEFAULT 'requested',
-       file_path VARCHAR(500) NULL,
-       file_type ENUM('jpg', 'pdf') NULL,
-       requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       issued_by BIGINT UNSIGNED NULL,
-       issued_at DATETIME NULL,
-       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       UNIQUE KEY uq_certificate_test_student_course(student_id, course_id),
-       CONSTRAINT fk_certificate_test_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
-       CONSTRAINT fk_certificate_test_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_certificate_test_issuer FOREIGN KEY(issued_by) REFERENCES users(id) ON DELETE SET NULL,
-       INDEX idx_certificate_test_status(status, requested_at),
-       INDEX idx_certificate_test_student(student_id, status)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
 -- Certificate defaults are seeded once and never overwritten by a re-import, so admin edits survive.
 -- The old certificate_id_prefix setting is gone for good: a certificate carries its owner's account
 -- ID, and that scheme is seeded with the account-reference section at the end of this file.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
-       ('certificate_available_days', '15')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('certificate_available_days', '15') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- Student attendance. A successful student login opens one daily row in the pending state; the
 -- student must confirm presence before mark_deadline_at, otherwise the row is closed as absent.
@@ -1996,74 +2086,141 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 -- live lesson during the backfill below; rows without a matching live lesson remain legacy-only.
 SET
        @add_attendance_course_id = (
-              SELECT IF(COUNT(*) = 0,
-                     'ALTER TABLE attendance_records ADD COLUMN course_id BIGINT UNSIGNED NULL AFTER student_id',
-                     'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records' AND COLUMN_NAME = 'course_id'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE attendance_records ADD COLUMN course_id BIGINT UNSIGNED NULL AFTER student_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'attendance_records'
+                     AND COLUMN_NAME = 'course_id'
        );
-PREPARE add_attendance_course_id_stmt FROM @add_attendance_course_id;
+
+PREPARE add_attendance_course_id_stmt
+FROM
+       @add_attendance_course_id;
+
 EXECUTE add_attendance_course_id_stmt;
+
 DEALLOCATE PREPARE add_attendance_course_id_stmt;
 
 SET
        @add_attendance_lesson_id = (
-              SELECT IF(COUNT(*) = 0,
-                     'ALTER TABLE attendance_records ADD COLUMN lesson_id BIGINT UNSIGNED NULL AFTER course_id',
-                     'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records' AND COLUMN_NAME = 'lesson_id'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE attendance_records ADD COLUMN lesson_id BIGINT UNSIGNED NULL AFTER course_id',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'attendance_records'
+                     AND COLUMN_NAME = 'lesson_id'
        );
-PREPARE add_attendance_lesson_id_stmt FROM @add_attendance_lesson_id;
+
+PREPARE add_attendance_lesson_id_stmt
+FROM
+       @add_attendance_lesson_id;
+
 EXECUTE add_attendance_lesson_id_stmt;
+
 DEALLOCATE PREPARE add_attendance_lesson_id_stmt;
 
 SET
        @make_attendance_first_login_nullable = (
-              SELECT IF(COUNT(*) = 0,
-                     'ALTER TABLE attendance_records MODIFY first_login_at DATETIME NULL',
-                     'SELECT 1')
-              FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records'
-                    AND COLUMN_NAME = 'first_login_at' AND IS_NULLABLE = 'NO'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE attendance_records MODIFY first_login_at DATETIME NULL',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.COLUMNS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'attendance_records'
+                     AND COLUMN_NAME = 'first_login_at'
+                     AND IS_NULLABLE = 'NO'
        );
-PREPARE make_attendance_first_login_nullable_stmt FROM @make_attendance_first_login_nullable;
+
+PREPARE make_attendance_first_login_nullable_stmt
+FROM
+       @make_attendance_first_login_nullable;
+
 EXECUTE make_attendance_first_login_nullable_stmt;
+
 DEALLOCATE PREPARE make_attendance_first_login_nullable_stmt;
 
 SET
        @add_attendance_course_date_index = (
-              SELECT IF(COUNT(*) = 0,
-                     'ALTER TABLE attendance_records ADD INDEX idx_attendance_course_date(course_id,attendance_date)',
-                     'SELECT 1')
-              FROM information_schema.STATISTICS
-              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_records'
-                    AND INDEX_NAME = 'idx_attendance_course_date'
+              SELECT
+                     IF(
+                            COUNT(*) = 0,
+                            'ALTER TABLE attendance_records ADD INDEX idx_attendance_course_date(course_id,attendance_date)',
+                            'SELECT 1'
+                     )
+              FROM
+                     information_schema.STATISTICS
+              WHERE
+                     TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = 'attendance_records'
+                     AND INDEX_NAME = 'idx_attendance_course_date'
        );
-PREPARE add_attendance_course_date_index_stmt FROM @add_attendance_course_date_index;
+
+PREPARE add_attendance_course_date_index_stmt
+FROM
+       @add_attendance_course_date_index;
+
 EXECUTE add_attendance_course_date_index_stmt;
+
 DEALLOCATE PREPARE add_attendance_course_date_index_stmt;
 
 -- Reuse an old daily mark only when its date matches a scheduled live class the student could attend.
-UPDATE attendance_records ar
-JOIN lessons l ON DATE(l.meeting_at) = ar.attendance_date AND l.meeting_url IS NOT NULL AND l.meeting_url <> ''
-JOIN course_modules cm ON cm.id = l.module_id
-JOIN student_course_access sca ON sca.student_id = ar.student_id AND sca.course_id = cm.course_id
-SET ar.course_id = cm.course_id, ar.lesson_id = l.id
-WHERE ar.course_id IS NULL AND sca.plan_code = 'live_recorded'
-  AND sca.granted_at <= l.meeting_at AND (sca.expires_at IS NULL OR sca.expires_at >= l.meeting_at);
+UPDATE
+       attendance_records ar
+       JOIN lessons l ON DATE(l.meeting_at) = ar.attendance_date
+       AND l.meeting_url IS NOT NULL
+       AND l.meeting_url <> ''
+       JOIN course_modules cm ON cm.id = l.module_id
+       JOIN student_course_access sca ON sca.student_id = ar.student_id
+       AND sca.course_id = cm.course_id
+SET
+       ar.course_id = cm.course_id,
+       ar.lesson_id = l.id
+WHERE
+       ar.course_id IS NULL
+       AND sca.plan_code = 'live_recorded'
+       AND sca.granted_at <= l.meeting_at
+       AND (
+              sca.expires_at IS NULL
+              OR sca.expires_at >= l.meeting_at
+       );
 
 -- Attendance grace window is seeded once so an admin change survives a re-import.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
-       ('attendance_grace_minutes', '5')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('attendance_grace_minutes', '5') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- Share of a lesson video that must be watched before the lesson may be marked complete.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
-       ('lesson_watch_completion_percent', '90')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('lesson_watch_completion_percent', '90') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- Per-student, per-course grade matrix. Written by App\Services\CourseGrading and read by the
 -- student portals, the admin roster and certificate eligibility. Recompute upserts this row.
@@ -2143,7 +2300,8 @@ DEALLOCATE PREPARE add_certificate_snapshot_stmt;
 
 -- Grading weights and certificate thresholds. Seeded once and never overwritten by a re-import,
 -- so admin adjustments survive. Weights are percentages of the overall course score.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
        ('grade_weight_video', '30'),
        ('grade_weight_quiz', '28'),
@@ -2151,13 +2309,20 @@ VALUES
        ('grade_weight_project', '14'),
        ('grade_weight_final', '14'),
        ('certificate_min_grade_percent', '60'),
-       ('certificate_min_attendance_percent', '75')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('certificate_min_attendance_percent', '75') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- Move the old default to the company-approved 60% pass mark without replacing an admin override.
-UPDATE app_settings
-SET setting_value = '60'
-WHERE setting_key = 'certificate_min_grade_percent' AND setting_value = '50';
+UPDATE
+       app_settings
+SET
+       setting_value = '60'
+WHERE
+       setting_key = 'certificate_min_grade_percent'
+       AND setting_value = '50';
 
 -- Automated in-app notifications need to say what they are about, so the reader can group
 -- them per workspace area and the sidebar can count unread items by category. Added in one
@@ -2412,11 +2577,15 @@ DEALLOCATE PREPARE add_certificate_public_index_stmt;
 
 -- The scheme the admin edits on their settings page. The prefix is the branding, the
 -- number is where the next student to register will start.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
        ('student_id_prefix', 'TSG-CER'),
-       ('student_id_next_number', '1')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('student_id_next_number', '1') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- Give every account that has no ID yet a stored one. Accounts that already carry an ID are
 -- never touched, so re-running this cannot renumber a student out of their own certificate.
@@ -2428,7 +2597,17 @@ ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 -- collides with a hand-typed ID is left for AccountIdentity::ensure() instead of failing the file.
 SET
        @student_id_prefix = COALESCE(
-              NULLIF((SELECT setting_value FROM app_settings WHERE setting_key = 'student_id_prefix'), ''),
+              NULLIF(
+                     (
+                            SELECT
+                                   setting_value
+                            FROM
+                                   app_settings
+                            WHERE
+                                   setting_key = 'student_id_prefix'
+                     ),
+                     ''
+              ),
               'TSG-CER'
        );
 
@@ -2436,13 +2615,27 @@ SET
        @student_id_base = CAST(
               GREATEST(
                      COALESCE(
-                            NULLIF((SELECT CAST(setting_value AS UNSIGNED) FROM app_settings WHERE setting_key = 'student_id_next_number'), 0),
+                            NULLIF(
+                                   (
+                                          SELECT
+                                                 CAST(setting_value AS UNSIGNED)
+                                          FROM
+                                                 app_settings
+                                          WHERE
+                                                 setting_key = 'student_id_next_number'
+                                   ),
+                                   0
+                            ),
                             1
                      ),
                      COALESCE(
                             (
                                    SELECT
-                                          MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                                          MAX(
+                                                 CAST(
+                                                        SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED
+                                                 )
+                                          )
                                    FROM
                                           users
                                    WHERE
@@ -2454,24 +2647,39 @@ SET
               ) AS UNSIGNED
        );
 
-UPDATE IGNORE users u
-JOIN (
-       SELECT
-              id,
-              ROW_NUMBER() OVER (ORDER BY id) AS sequence_step
-       FROM
-              users
-       WHERE
-              account_reference IS NULL
-              AND role = 'student'
-) numbered ON numbered.id = u.id
+UPDATE
+       IGNORE users u
+       JOIN (
+              SELECT
+                     id,
+                     ROW_NUMBER() OVER (
+                            ORDER BY
+                                   id
+                     ) AS sequence_step
+              FROM
+                     users
+              WHERE
+                     account_reference IS NULL
+                     AND role = 'student'
+       ) numbered ON numbered.id = u.id
 SET
        u.account_reference = CONCAT(
               @student_id_prefix,
               '-',
               LPAD(
-                     CAST(@student_id_base + numbered.sequence_step - 1 AS UNSIGNED),
-                     GREATEST(3, CHAR_LENGTH(CAST(CAST(@student_id_base + numbered.sequence_step - 1 AS UNSIGNED) AS CHAR))),
+                     CAST(
+                            @student_id_base + numbered.sequence_step - 1 AS UNSIGNED
+                     ),
+                     GREATEST(
+                            3,
+                            CHAR_LENGTH(
+                                   CAST(
+                                          CAST(
+                                                 @student_id_base + numbered.sequence_step - 1 AS UNSIGNED
+                                          ) AS CHAR
+                                   )
+                            )
+                     ),
                      '0'
               )
        );
@@ -2483,7 +2691,11 @@ SET
               COALESCE(
                      (
                             SELECT
-                                   MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                                   MAX(
+                                          CAST(
+                                                 SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED
+                                          )
+                                   )
                             FROM
                                    users
                             WHERE
@@ -2494,21 +2706,31 @@ SET
               ) + 1 AS UNSIGNED
        );
 
-UPDATE IGNORE users u
-JOIN (
-       SELECT
-              id,
-              ROW_NUMBER() OVER (ORDER BY id) AS sequence_step
-       FROM
-              users
-       WHERE
-              account_reference IS NULL
-              AND role = 'admin'
-) numbered ON numbered.id = u.id
+UPDATE
+       IGNORE users u
+       JOIN (
+              SELECT
+                     id,
+                     ROW_NUMBER() OVER (
+                            ORDER BY
+                                   id
+                     ) AS sequence_step
+              FROM
+                     users
+              WHERE
+                     account_reference IS NULL
+                     AND role = 'admin'
+       ) numbered ON numbered.id = u.id
 SET
        u.account_reference = CONCAT(
               'TSG-ADM-',
-              LPAD(CAST(@admin_id_base + numbered.sequence_step - 1 AS UNSIGNED), 5, '0')
+              LPAD(
+                     CAST(
+                            @admin_id_base + numbered.sequence_step - 1 AS UNSIGNED
+                     ),
+                     5,
+                     '0'
+              )
        );
 
 -- The counter has to move past whatever this backfill just handed out, otherwise the next
@@ -2518,7 +2740,11 @@ SET
               COALESCE(
                      (
                             SELECT
-                                   MAX(CAST(SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED))
+                                   MAX(
+                                          CAST(
+                                                 SUBSTRING_INDEX(account_reference, '-', -1) AS UNSIGNED
+                                          )
+                                   )
                             FROM
                                    users
                             WHERE
@@ -2529,18 +2755,30 @@ SET
               ) AS UNSIGNED
        );
 
-UPDATE app_settings
+UPDATE
+       app_settings
 SET
-       setting_value = CAST(CAST(GREATEST(CAST(setting_value AS UNSIGNED), @highest_student_sequence + 1) AS UNSIGNED) AS CHAR)
+       setting_value = CAST(
+              CAST(
+                     GREATEST(
+                            CAST(setting_value AS UNSIGNED),
+                            @highest_student_sequence + 1
+                     ) AS UNSIGNED
+              ) AS CHAR
+       )
 WHERE
        setting_key = 'student_id_next_number';
 
 -- Nothing reads the per-certificate prefix any longer, so the row is retired rather than left
 -- behind looking like a setting that still does something. Certificates already issued keep the
 -- number printed on them in certificates.certificate_id, so no document is affected by this.
-DELETE FROM app_settings WHERE setting_key = 'certificate_id_prefix';
+DELETE FROM
+       app_settings
+WHERE
+       setting_key = 'certificate_id_prefix';
 
-SET FOREIGN_KEY_CHECKS = 1;
+SET
+       FOREIGN_KEY_CHECKS = 1;
 
 -- Private chat is intentionally separate from Academy announcements. A notification is read-only
 -- news; a chat thread is one direct student-to-Academy line.
@@ -2559,7 +2797,7 @@ CREATE TABLE IF NOT EXISTS chat_threads (
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        UNIQUE KEY uq_chat_thread_student(student_id),
        CONSTRAINT fk_chat_thread_student FOREIGN KEY(student_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_messages (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -2569,11 +2807,11 @@ CREATE TABLE IF NOT EXISTS chat_messages (
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        CONSTRAINT fk_chat_message_thread FOREIGN KEY(thread_id) REFERENCES chat_threads(id) ON DELETE CASCADE,
        CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES users(id),
-       INDEX idx_chat_messages_thread(thread_id,created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+       INDEX idx_chat_messages_thread(thread_id, created_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 /* A database that already holds conversations is not rebuilt for two columns, so the clearing stamps
-   are added to it the same guarded way the rest of this schema uses. */
+ are added to it the same guarded way the rest of this schema uses. */
 SET
        @add_thread_student_cleared_at = (
               SELECT
@@ -2632,9 +2870,9 @@ CREATE TABLE IF NOT EXISTS dashboard_tasks (
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        CONSTRAINT fk_dashboard_task_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-       INDEX idx_dashboard_task_reminder(is_done,reminder_at,reminder_sent_at),
-       INDEX idx_dashboard_task_owner(user_id,is_done,created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+       INDEX idx_dashboard_task_reminder(is_done, reminder_at, reminder_sent_at),
+       INDEX idx_dashboard_task_owner(user_id, is_done, created_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- A report an admin sends to a student is a promise about a period, not about the moment the
 -- student opens it, so the period boundaries are stored on the share itself. Only the metadata
@@ -2643,8 +2881,8 @@ CREATE TABLE IF NOT EXISTS dashboard_tasks (
 CREATE TABLE IF NOT EXISTS report_shares (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
-       report_type ENUM('students','attendance','quizzes','assignments') NOT NULL,
-       period_key ENUM('weekly','monthly') NOT NULL,
+       report_type ENUM('students', 'attendance', 'quizzes', 'assignments') NOT NULL,
+       period_key ENUM('weekly', 'monthly') NOT NULL,
        period_start DATETIME NOT NULL,
        period_end DATETIME NOT NULL,
        sent_by BIGINT UNSIGNED NOT NULL,
@@ -2652,7 +2890,7 @@ CREATE TABLE IF NOT EXISTS report_shares (
        CONSTRAINT fk_report_share_student FOREIGN KEY(student_id) REFERENCES users(id),
        CONSTRAINT fk_report_share_sender FOREIGN KEY(sent_by) REFERENCES users(id),
        INDEX idx_report_share_student(student_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
 -- Video protection: one active session per account, and a log of unusual viewing.
@@ -2682,7 +2920,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
        UNIQUE KEY uq_user_session_hash(session_hash),
        CONSTRAINT fk_user_session_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
        INDEX idx_user_session_active(user_id, revoked_at, last_seen_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Player-side protection events for one lesson and one student. Watch time is NOT decided
 -- from these rows: LessonMedia keeps sole authority over completion, so a blocked download
@@ -2710,13 +2948,14 @@ CREATE TABLE IF NOT EXISTS lesson_view_events (
        INDEX idx_view_event_created(created_at, id),
        INDEX idx_view_event_student(student_id, created_at),
        INDEX idx_view_event_lesson(lesson_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Seeded once and never overwritten by a re-import, so an admin's own values survive.
 -- session_max_active is the literal company rule (one active session) at its default of 1;
 -- it is a setting rather than a constant because a student with a phone and a laptop is a
 -- real classroom fact, and the Academy has to be able to answer it without a code change.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
        ('session_max_active', '1'),
        ('video_watermark_enabled', '1'),
@@ -2813,10 +3052,14 @@ EXECUTE add_certificate_revoked_by_fk_stmt;
 DEALLOCATE PREPARE add_certificate_revoked_by_fk_stmt;
 
 -- Seeded once and never overwritten by a re-import, so an admin's chosen format survives.
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
-       ('student_id_include_year', '0')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('student_id_include_year', '0') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);
 
 -- ---------------------------------------------------------------------------
 -- Completion video lock (proposal 5.7).
@@ -2828,7 +3071,11 @@ ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
 -- decision and not a code change. Seeded OFF - the behaviour every install has always had - and
 -- forward-only: importing this file never hides a video from anybody who can watch one today.
 -- ---------------------------------------------------------------------------
-INSERT INTO app_settings(setting_key, setting_value)
+INSERT INTO
+       app_settings(setting_key, setting_value)
 VALUES
-       ('video_lock_on_completion', '0')
-ON DUPLICATE KEY UPDATE setting_key = VALUES(setting_key);
+       ('video_lock_on_completion', '0') ON DUPLICATE KEY
+UPDATE
+       setting_key =
+VALUES
+(setting_key);

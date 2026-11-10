@@ -1145,6 +1145,18 @@ button.button.contact-send:focus {
   height: 18px
 }
 
+.pw-toggle .pw-icon-hide {
+  display: none
+}
+
+.pw-toggle.is-on .pw-icon-show {
+  display: none
+}
+
+.pw-toggle.is-on .pw-icon-hide {
+  display: block
+}
+
 .pw-toggle:hover {
   color: var(--navy);
   background: #eef2f7
@@ -4685,6 +4697,124 @@ html.js [data-reveal].is-visible.dash-card:hover {
   gap: 13px
 }
 
+.review-moderation-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+  align-items: stretch;
+  gap: 18px
+}
+
+.review-moderation-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0;
+  padding: 22px;
+  border-color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .05)
+}
+
+.review-moderation-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px
+}
+
+.review-moderation-heading .eyebrow {
+  margin: 0 0 7px;
+  color: #64748b;
+  font-size: 10px;
+  letter-spacing: .12em
+}
+
+.review-moderation-heading h2 {
+  margin: 0;
+  color: #17233d;
+  font-size: 20px;
+  line-height: 1.3;
+  overflow-wrap: anywhere
+}
+
+.review-moderation-heading time {
+  flex: 0 0 auto;
+  padding-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums
+}
+
+.review-moderation-context {
+  margin: 14px 0 0;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere
+}
+
+.review-moderation-quote {
+  margin: 12px 0 20px;
+  padding: 14px 16px;
+  border-left: 3px solid #d5dfed;
+  border-radius: 0 10px 10px 0;
+  background: #f7f9fc;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere
+}
+
+.review-moderation-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: auto
+}
+
+.review-moderation-actions form {
+  min-width: 0;
+  margin: 0
+}
+
+.review-moderation-actions .button {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 13px;
+  white-space: normal
+}
+
+.review-moderation-actions .button-review-approve {
+  background: #23446e;
+  box-shadow: 0 5px 14px rgba(35, 68, 110, .18)
+}
+
+.review-moderation-actions .button-review-approve:hover {
+  background: #15345a;
+  box-shadow: 0 8px 20px rgba(21, 52, 90, .28), 0 0 12px rgba(35, 68, 110, .18)
+}
+
+.review-moderation-actions .button-review-reject {
+  border: 1px solid #e7a0a4;
+  background: #c75b62;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(185, 28, 28, .12);
+  transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease
+}
+
+.review-moderation-actions .button-review-reject:hover {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 7px 18px rgba(185, 28, 28, .32), 0 0 14px rgba(220, 38, 38, .28)
+}
+
+.review-moderation-actions .button-review-reject:active {
+  background: #991b1b;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(153, 27, 27, .3)
+}
+
 .contact-inbox {
   margin-top: 22px
 }
@@ -4757,6 +4887,15 @@ html.js [data-reveal].is-visible.dash-card:hover {
 }
 
 @media (max-width: 600px) {
+  .review-moderation-card {
+    padding: 17px
+  }
+
+  .review-moderation-heading {
+    flex-direction: column;
+    gap: 6px
+  }
+
   .contact-inbox-list {
     grid-template-columns: minmax(0, 1fr)
   }
@@ -16169,200 +16308,6 @@ html.admin-modal-js .admin-modal.is-open {
   margin-bottom: 22px
 }
 
-.certificate-test-panel {
-  margin-bottom: 22px;
-  border-color: #f3d9a8;
-  background: #fffdf8
-}
-
-.certificate-test-panel .dashboard-panel-heading {
-  align-items: flex-start;
-  gap: 16px
-}
-
-.certificate-test-panel .dashboard-panel-heading>form {
-  flex: 0 0 auto
-}
-
-.certificate-test-panel .dashboard-panel-heading .student-action-button {
-  min-height: 42px;
-  white-space: nowrap
-}
-
-.certificate-test-list {
-  display: grid;
-  gap: 12px
-}
-
-.certificate-test-request {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr);
-  align-items: center;
-  column-gap: 22px;
-  row-gap: 18px;
-  min-width: 0;
-  padding: 20px;
-  border: 1px solid #e6ecf4;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 3px 12px #17233d08
-}
-
-.certificate-test-request>div {
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: 5px;
-  min-width: 0
-}
-
-.certificate-test-request strong {
-  color: #17233d;
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere
-}
-
-.certificate-test-request span,
-.certificate-test-request small {
-  color: #718096;
-  font-size: 11px;
-  line-height: 1.5;
-  overflow-wrap: anywhere
-}
-
-.certificate-test-request .certificate-test-field-label {
-  margin-bottom: 3px;
-  color: #8391a6;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .1em;
-  text-transform: uppercase
-}
-
-.certificate-test-request .certificate-status {
-  color: #002147
-}
-
-.certificate-test-request .certificate-test-badge {
-  color: #805600
-}
-
-.certificate-test-request-actions {
-  grid-column: 1 / -1;
-  width: 100%;
-  padding-top: 16px;
-  border-top: 1px solid #edf1f6
-}
-
-.certificate-test-request-actions .certificate-link {
-  font-size: 12px
-}
-
-.certificate-test-upload-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 10px 16px;
-  width: 100%;
-  min-width: 0
-}
-
-.certificate-test-upload-form .admin-label {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: #17233d;
-  font-size: 12px;
-  line-height: 1.5
-}
-
-.certificate-test-upload-form .admin-label small {
-  display: inline;
-  margin-left: 6px;
-  color: #718096;
-  font-size: 11px;
-  font-weight: 600
-}
-
-.certificate-test-upload-form .certificate-file-input {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  padding: 7px;
-  box-sizing: border-box;
-  overflow: hidden;
-  font-size: 12px
-}
-
-.certificate-test-upload-form .certificate-file-input::file-selector-button {
-  margin-right: 10px;
-  padding: 8px 11px
-}
-
-.certificate-test-upload-form .certificate-button {
-  min-width: 180px;
-  min-height: 44px;
-  white-space: nowrap
-}
-
-.certificate-test-request-actions.is-issued {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px 20px
-}
-
-.certificate-test-warning {
-  margin: 0 0 16px;
-  color: #77530b;
-  font-size: 12px;
-  line-height: 1.65
-}
-
-.certificate-test-only {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px dashed #e2bd70;
-  border-radius: 12px;
-  background: #fffaf0
-}
-
-.certificate-chip-test,
-.certificate-test-badge {
-  border: 1px solid #f1d59d;
-  Redesign Danger Zone with clean,
-  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
-  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
-  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges Redesign Danger Zone with clean,
-  modern styling Keep admins on the page after delete actions Preserve existing redirects on other pages Show success and error feedback after purges background: #fff1ce;
-  color: #805600
-}
-
-.certificate-test-badge {
-  display: inline-block;
-  width: fit-content;
-  margin-top: 4px;
-  padding: 3px 7px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800
-}
-
-.verify-card-test {
-  border-color: #e2bd70;
-  box-shadow: 0 12px 32px #80560012
-}
-
-.verify-test-warning {
-  border-color: #f1d59d;
-  background: #fffaf0
-}
-
 .certificate-eligibility-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -17536,12 +17481,6 @@ html.admin-modal-js .admin-modal.is-open {
 
 @media(max-width:760px) {
 
-  .certificate-test-request {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    padding: 16px
-  }
-
   .certificate-table,
   .certificate-table tbody,
   .certificate-table tr,
@@ -17621,42 +17560,6 @@ html.admin-modal-js .admin-modal.is-open {
 
   .course-certificate .certificate-chip {
     justify-self: end
-  }
-}
-
-@media(max-width:520px) {
-  .certificate-test-request {
-    grid-template-columns: minmax(0, 1fr)
-  }
-
-  .certificate-test-panel .dashboard-panel-heading {
-    align-items: stretch
-  }
-
-  .certificate-test-panel .dashboard-panel-heading>form,
-  .certificate-test-panel .dashboard-panel-heading .student-action-button {
-    width: 100%
-  }
-
-  .certificate-test-upload-form {
-    grid-template-columns: minmax(0, 1fr)
-  }
-
-  .certificate-test-upload-form .admin-label {
-    grid-column: auto
-  }
-
-  .certificate-test-upload-form .admin-label small {
-    display: block;
-    margin: 2px 0 0
-  }
-
-  .certificate-test-upload-form .certificate-file-input {
-    min-height: 48px
-  }
-
-  .certificate-test-upload-form .certificate-button {
-    width: 100%
   }
 }
 
@@ -24816,14 +24719,9 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   border-bottom-color: #f3d9d7
 }
 
-.verify-page .verify-card-unknown .verify-card-head,
-.verify-page .verify-card-test .verify-card-head {
+.verify-page .verify-card-unknown .verify-card-head {
   background: linear-gradient(110deg, #f2f6fb, #fbfcfe);
   border-bottom: 1px solid #e3eaf3
-}
-
-.verify-page .verify-card-test {
-  border-color: #ead9b7
 }
 
 .verify-page .verify-card-mark {
@@ -24837,8 +24735,7 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
   background: #087443
 }
 
-.verify-page .verify-card-expired .verify-card-mark,
-.verify-page .verify-card-test .verify-card-mark {
+.verify-page .verify-card-expired .verify-card-mark {
   background: #a76613
 }
 
@@ -24935,15 +24832,6 @@ body.dashboard-shell.dashboard-overview .dashboard-search {
 .verify-page .verify-authenticity ul {
   font-size: 12px;
   line-height: 1.65
-}
-
-.verify-page .verify-test-warning {
-  border-color: #efdfc4;
-  background: #fffaf1
-}
-
-.verify-page .verify-test-warning h4 {
-  color: #805219
 }
 
 .verify-page .verify-actions {

@@ -324,12 +324,6 @@ final class StudentManagementController
         $paths = $db->query("SELECT file_path FROM assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
             UNION SELECT payment_proof_path FROM payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
             UNION SELECT file_path FROM certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
-        try {
-            $testPaths = $db->query("SELECT file_path FROM certificate_test_requests WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
-            $paths = array_merge($paths, $testPaths);
-        } catch (PDOException $exception) {
-            if ((string) $exception->getCode() !== '42S02') throw $exception;
-        }
         $sources = [
             'assignment_submission' => array_map('intval', $db->query("SELECT id FROM assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
             'payment' => array_map('intval', $db->query("SELECT id FROM payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
@@ -372,7 +366,6 @@ final class StudentManagementController
             // Deleting only the messages - as the admin chat desk does - would leave the thread row
             // holding the student_id key and block the account delete with an FK 1451.
             foreach ([
-                'certificate_test_requests' => 'DELETE FROM certificate_test_requests WHERE student_id IN ' . $students,
                 'lesson_view_events' => 'DELETE FROM lesson_view_events WHERE student_id IN ' . $students,
                 'user_sessions' => 'DELETE FROM user_sessions WHERE user_id IN ' . $students,
                 'chat_threads' => 'DELETE FROM chat_threads WHERE student_id IN ' . $students,

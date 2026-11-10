@@ -594,27 +594,21 @@ $assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered
 $assert(stripos($html, 'account-id-input') === false, 'A student sees their ID as read-only text.',
     'The student settings page renders an editable ID field.');
 $studentCoursesHtml = $render(static fn() => (new \App\Controllers\StudentPortalController())->courses());
-$assert(str_contains($studentCoursesHtml, 'Test certificate workflow')
-    && str_contains($studentCoursesHtml, 'skips course eligibility checks')
-    && str_contains($studentCoursesHtml, '/student/certificates/test-request'),
-    'An enrolled student can see a clearly labelled test button before meeting course eligibility.',
-    'The student testing button is hidden or does not explain that it is separate from eligibility.');
-$db->prepare("INSERT INTO certificate_test_requests(student_id,course_id,status) VALUES(?,?,'requested')")
-    ->execute([$studentId, $courseId]);
+$assert(!str_contains($studentCoursesHtml, 'Test certificate workflow')
+    && !str_contains($studentCoursesHtml, '/student/certificates/test-request'),
+    'The student course page has no test-certificate control or route.',
+    'The removed student test-certificate control is still rendered.');
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $adminCertificatesHtml = $render(static fn() => (new \App\Controllers\CertificateController())->adminIndex());
-$assert(str_contains($adminCertificatesHtml, 'Sample certificate workflow')
-    && str_contains($adminCertificatesHtml, 'certificate-test-request')
-    && str_contains($adminCertificatesHtml, 'certificate-test-upload-form')
-    && str_contains($adminCertificatesHtml, 'TEST ONLY')
-    && str_contains($adminCertificatesHtml, '/admin/certificates/test-issue')
-    && str_contains($adminCertificatesHtml, '/admin/certificates/test-clear'),
-    'The admin can see the isolated test queue, upload a sample and clear the test workflow.',
-    'The admin test queue, upload form or clear-all control is missing.');
+$assert(!str_contains($adminCertificatesHtml, 'Sample certificate workflow')
+    && !str_contains($adminCertificatesHtml, 'certificate-test-request')
+    && !str_contains($adminCertificatesHtml, '/admin/certificates/test-issue')
+    && !str_contains($adminCertificatesHtml, '/admin/certificates/test-clear'),
+    'The admin certificate workspace has no sample queue or test-only actions.',
+    'The removed admin test-certificate workflow is still rendered.');
 $assert((int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
-    'Creating a test request did not create an official certificate record.',
-    'A test-only request leaked into the official certificate register.');
-$db->exec('DELETE FROM certificate_test_requests WHERE student_id = ' . (int) $studentId);
+    'Rendering the student and admin certificate pages did not create an official certificate record.',
+    'Rendering a certificate page unexpectedly created an official certificate record.');
 $signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
 
 /* ------------------------------------------------------------------- catalogue call to action */
@@ -1138,13 +1132,19 @@ $assert(($ungraded['quizzes'] ?? 0) - ($before['quizzes'] ?? 0) === 1, 'quizzes 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $reviewsHtml = $render(static fn() => (new AdminManagementController())->reviews());
 $assert(str_contains($reviewsHtml, 'Contact messages')
+    && str_contains($reviewsHtml, 'review-moderation-card')
+    && str_contains($reviewsHtml, 'review-moderation-actions')
+    && str_contains($reviewsHtml, 'button-review-approve')
+    && str_contains($reviewsHtml, 'button-review-reject')
+    && str_contains($reviewsHtml, 'The course was worth it.')
     && str_contains($reviewsHtml, 'Render smoke enquiry')
     && str_contains($reviewsHtml, 'I would like details about the next batch.')
     && str_contains($reviewsHtml, 'mailto:visitor@example.test')
     && str_contains($reviewsHtml, 'Clear inbox')
+    && str_contains($reviewsHtml, 'student-action-button is-clear')
     && str_contains($reviewsHtml, '/admin/reviews/contact-messages/clear'),
-    'The Review moderation page displays saved contact messages and the clear inbox action.',
-    'Saved contact messages or the clear inbox action are missing from the Review moderation page.');
+    'The Review moderation page displays redesigned review actions and a simple inbox clear button.',
+    'The review card layout, decision actions or simple inbox clear button are missing.');
 $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/dashboard';
 $html = $render(static fn() => (new DashboardController())->show());
 foreach ([

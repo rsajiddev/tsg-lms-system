@@ -144,14 +144,6 @@ try {
     $summary = EmailMessages::monthlyRevenue(['period' => 'October 2026', 'currency' => 'PKR', 'rows' => [$student + ['course_title' => 'Full Stack Web Development', 'amount' => 45000]]]);
     $assert(str_contains(EmailLayout::html((string) $summary[0]['subject'], (array) $summary[0]['view']), '15%'), 'The developer summary must state the 15% share.');
     $check(EmailMessages::certificateRequest($payment + ['reference' => 7, 'remarks' => 'Completed the final project.']), 'certificate.requested', 1);
-    $testCertificateRequest = EmailMessages::certificateTestRequest($student + [
-        'course_title' => 'Full Stack Web Development',
-        'reference' => 8,
-    ]);
-    $check($testCertificateRequest, 'certificate.test_requested', 1);
-    $testRequestHtml = EmailLayout::html((string) $testCertificateRequest[0]['subject'], (array) $testCertificateRequest[0]['view']);
-    $assert(str_contains($testRequestHtml, 'TEST ONLY') && str_contains($testRequestHtml, 'no official certificate request'),
-        'The test request email must warn the admin that eligibility was bypassed and no official request was created.');
     $check(EmailMessages::certificateIssued($student + ['course_title' => 'Full Stack Web Development', 'certificate_id' => 'TSG-CERT-0007', 'issued_on' => gmdate('Y-m-d'), 'expires_on' => gmdate('Y-m-d', strtotime('+1 year')), 'verify_url' => 'https://techsgstudio.com/verify?id=TSG-CERT-0007']), 'certificate.issued', 1);
     $check(EmailMessages::certificateRejected($student + ['course_title' => 'Full Stack Web Development', 'remarks' => 'Attendance is below the requirement.']), 'certificate.rejected', 1);
     $check(EmailMessages::certificateRevoked($student + ['course_title' => 'Full Stack Web Development', 'certificate_id' => 'TSG-CERT-0007', 'reason' => 'Issued in error.']), 'certificate.revoked', 1);
@@ -160,7 +152,7 @@ try {
     $contactRecipients = array_map(static fn(array $m): string => (string) $m['to'], $contact);
     $assert(in_array('visitor@example.test', $contactRecipients, true), 'The contact sender must receive an acknowledgement.');
     $assert(in_array(MailService::hrAddress(), $contactRecipients, true), 'The contact enquiry must reach the company inbox.');
-    echo "templates: 13 events rendered as HTML and plain text\n";
+    echo "templates: official email events rendered as HTML and plain text\n";
 
     /* ----------------------------------------------------------- 2b. the MIME envelope */
     // Getting the words right is only half of a message: the envelope has to be valid MIME or a

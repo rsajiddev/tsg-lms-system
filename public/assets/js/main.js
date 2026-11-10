@@ -329,7 +329,7 @@
 
     /* =========================================================
        PASSWORD VISIBILITY TOGGLE
-       Works inside the auth .input-wrap and the admin .admin-input-wrap.
+       Works inside auth and admin input wrappers.
        ========================================================= */
 
     document.querySelectorAll('[data-toggle-password]').forEach((button) => {

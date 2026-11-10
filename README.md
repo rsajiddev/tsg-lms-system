@@ -189,11 +189,9 @@ Admin announcement in logon ke liye send kar sakta hai:
   * **Live + Recorded** access plan ke liye attendance kam az kam **75%** ho; calculation access grant ke baad ke decided attendance days par hoti hai.
   * **Recorded Only** plan par live attendance gate apply nahi hota.
   * Course ke tamam published lessons complete hon. Draft ya removed lessons count nahi hote.
-* Admin certificate queue mein request review karke signed **JPG ya PDF** (max 5 MB) upload karta hai. Issuance par student ko email/in-app notification milti hai aur certificate us ke Academy ID ke saath public verification par available hota hai.
-* Admin issued certificate ko reason ke saath revoke kar sakta hai. Revoked record public register mein rehta hai, download nahi hota, aur student ko notification milti hai. Admin revoked request par replacement upload karke reissue kar sakta hai.
-* **TEST ONLY workflow:** My courses ke har active course card par “Test certificate workflow” button company testing ke liye hai. Ye lesson, grade aur attendance eligibility check nahi karta; request `certificate_test_requests` aur `certificate-tests/` mein official register se alag rakhi jati hai. Is se grade, attendance, progress, eligibility ya asli certificate record nahi badalta.
-* Test button par click karne se admin certificate page ki alag **Sample certificate workflow** queue mein request aati hai aur certificate inbox ko email jati hai. Admin sirf clearly marked sample JPG/PDF upload kare; student usay My courses se download kar sakta hai. Public verification page par sample Academy ID se, ya test sample ke liye exact student name se, dhoonda ja sakta hai. Har result par **TEST ONLY — NOT OFFICIAL** dikhaya jata hai; sample kisi official award ka proof nahi.
-* **Clear all test requests** sirf test queue aur us ke uploaded sample files ko delete karta hai, student test button ko dobara use karne deta hai, aur official certificate records/rules ko nahi chhoota. Student/account purge ke waqt test sample files bhi remove hoti hain.
+  * Admin certificate queue mein request review karke signed **JPG ya PDF** (max 5 MB) upload karta hai. Issuance par student ko email/in-app notification milti hai aur certificate us ke Academy ID ke saath public verification par available hota hai.
+  * Admin issued certificate ko reason ke saath revoke kar sakta hai. Revoked record public register mein rehta hai, download nahi hota, aur student ko notification milti hai. Admin revoked request par replacement upload karke reissue kar sakta hai.
+  * Issued certificate student ke **My courses** page se download hota hai. Public verification par Academy ID se us account ke official certificates aur un ke current issued, expired, ya revoked statuses dekhe ja sakte hain; name search official verification ka zariya nahi hai.
 
 ### 14\. Revenue & Payments
 * Admin tamam students ki payment history dekh sakta hai.
@@ -455,13 +453,13 @@ database. Every test cleans up the rows and files it creates, and restores any s
 | `auth-flow-smoke.php` | Registration, OTP verification and resend throttle, activation (with one-time token revoke and replay rejection), successful/failed login, password reset, duplicate handling, and the OTP/reset rows written to `email_logs`. |
 | `enrol-flow-smoke.php` | Course-first checkout: enrolment, access plans and the enrolment intent/checkout flow. |
 | `contact-flow-smoke.php` | Public contact form: visitor enquiry sends both emails, saves the enquiry for the admin inbox, carries the right recipients, survives CSRF/field validation, and is logged in `email_logs`. |
-| `email-notification-smoke.php` | All thirteen email templates render as real HTML + plain-text alternatives, with correct recipient routing (OTP, payment, certificate including test-only requests, contact, admin alerts) and the in-app notification badge counts. |
+| `email-notification-smoke.php` | All official email templates render as real HTML + plain-text alternatives, with correct recipient routing (OTP, payment, certificate, contact, admin alerts) and the in-app notification badge counts. |
 | `interface-render-smoke.php` | Renders every admin and student surface against seeded fixtures (no PHP notices, no failed reads), asserts the sidebar unread/due badges, and checks the `.env` handover surface so the mail keys stay consistent with the code that reads them. |
 | `attendance-flow-smoke.php` | Daily attendance rows, the confirmation window and grace minutes, present/absent sweeps, and admin/student summary consistency. |
 | `lesson-watch-flow-smoke.php` | Opening a lesson and recording watch time / completion. |
 | `video-protection-flow-smoke.php` | Video protection rules: lesson media access, concurrent-device limits and anti-piracy behaviour. |
 | `live-class-flow-smoke.php` | Live class meeting links, scheduling and access gating. |
-| `certificate-verify-smoke.php` | Public certificate verification: valid/expired/revoked official states, separate visibly marked test samples, Academy ID and exact-name test lookup, and the invalid page. |
+| `certificate-verify-smoke.php` | Official request eligibility and public certificate verification: valid/expired/revoked states, Academy ID lookup, official download link, and invalid lookup handling. |
 | `admin-identity-flow-smoke.php` | Admin account provisioning, unified ID prefixes and identity handling. |
 | `purge-tools-smoke.php` | Admin data-purge tools: FK-safe deletion order and the audit trail (destructive, so it only ever runs on a scratch schema). |
 | `TEST-PLAN.md` | The living log of what has been tested, the results, and the items deliberately left untested (e.g. browser-only visual checks). |
@@ -469,59 +467,7 @@ database. Every test cleans up the rows and files it creates, and restores any s
 Run the suite after any code change to the affected area — a green test is the project's definition
 of "this flow still works". New features should ship with a matching smoke test.
 
-## TEST ONLY Certificate Workflow — Usage and Cleanup
+## Existing database upgrade: retired certificate test table
 
-This workflow lets the company test the student request, admin notification, sample upload, student download and public lookup without first meeting course certificate eligibility. Test records and files are kept separate from the official certificate register. A test sample is **not an award**, is not proof of course completion, and must never be presented as an official certificate.
-
-### One-time setup
-1. Back up the local database.
-2. In phpMyAdmin, select `tsg_academy_lms`, open **Import**, and import the updated `database/migrations/001_initial_schema.sql`. The migration creates the isolated `certificate_test_requests` table. Do not manually create a test request in the official `certificates` table.
-3. Configure the mail settings if the test should also verify delivery to the certificate inbox. The student test request and in-app notification still work if email is unavailable; the admin page shows a mail failure message.
-
-### Run a test
-1. Sign in as a student with an active course access grant and open **My courses**.
-2. On the course card, click **Test certificate workflow**. This test-only action does not require completed lessons, a passing grade or attendance. It is not the normal **Request certificate** button.
-3. Sign in as an admin and open **Workspace → Certificates**. In the separate **Sample certificate workflow** section, find the student/course and choose a clearly marked sample JPG or PDF no larger than 5 MB. Click **Upload test sample**.
-4. The student can download the sample from the same course card. A public lookup can be checked at `/verify` using the student's Academy ID; test-only samples can also be found by entering the exact student name. Every sample result is marked **TEST ONLY — NOT OFFICIAL**.
-5. To run the same student/course again, first clear the test queue as described below. Only one test request per student/course is allowed at a time.
-
-### Clear test data and remove sample uploads
-1. As an admin, open **Workspace → Certificates** and go to **Sample certificate workflow**.
-2. Click **Clear all test requests** and confirm the warning. The action deletes all rows from the isolated `certificate_test_requests` queue and removes their sample uploads from `storage/uploads/private/certificate-tests/`.
-3. After the queue is cleared, students can click **Test certificate workflow** again. The clear action does **not** delete or alter official certificate requests, issued/revoked certificates, student grades, attendance, lesson progress, certificate eligibility settings or certificate IDs.
-4. If a student account is removed by the admin student purge or system **Clear All Data**, its test request and associated test sample file are also removed with that account. The separate test queue clear button is preferred when only certificate test data should be reset.
-5. If the admin reports a sample-file cleanup error, check the application/server log and permissions on the private test upload folder. Do not delete the whole `storage/uploads/private/` directory; it may contain unrelated private uploads.
-
-## Prompt for Removing the TEST ONLY Certificate Workflow
-
-After the company has finished testing and explicitly approves removal, give the following prompt to the AI coding agent working in this repository. It is intentionally narrow: remove only the temporary test-certificate workflow described above. Do not use it before testing is approved.
-
-```text
-Task: Permanently remove the temporary TEST ONLY certificate workflow from this repository after company testing has been approved.
-
-Start by inspecting the current worktree, the certificate implementation, the database migration strategy, the test suite, and this README section. Treat this prompt as a scoped code-removal task, not as permission to redesign certificates. Preserve all unrelated and pre-existing worktree changes. Do not reset, revert, or overwrite unrelated files.
-
-REMOVE ONLY THE TEST-ONLY CERTIFICATE FEATURE:
-- Remove the student “Test certificate workflow” control, its POST route and handler, test-only request state, and test-only student notifications.
-- Remove the separate admin “Sample certificate workflow” queue, sample upload and “Clear all test requests” UI, its routes and handlers.
-- Remove test-only public lookup behavior (including exact-name sample lookup), the test-sample download endpoint, and test-only verification labels. Keep official public verification by Academy ID.
-- Remove test-specific email template/service code, CSS, audit/event handling, and any test-table/test-file cleanup branches that exist solely for this feature.
-- Remove the `certificate_test_requests` schema from fresh installs and safely clean up the already-installed test table and its test rows using the repository’s established migration/decommission approach. Do not put an unconditional destructive table drop in a migration that runs on every normal schema re-import unless that is explicitly how this repository safely handles one-time destructive migrations. Back up or preserve user data according to the existing project conventions.
-- Remove only files that are proven to be test samples under `storage/uploads/private/certificate-tests/` and whose names match the feature’s generated random JPG/PDF filename pattern. Never recursively delete `storage/uploads/private/`, `storage/uploads/private/certificates/`, or any unrelated uploads. Report any file that cannot safely be identified or removed; do not broaden the deletion.
-- Update/remove test fixtures and assertions that exist only for the test-only workflow. Keep and strengthen tests for the real certificate flow.
-- Remove the TEST ONLY usage/cleanup guide and this removal-prompt section from README. Keep accurate documentation of real certificate eligibility, official issue/upload, revocation/reissue, download, and public verification rules. Remove test-only claims elsewhere in documentation, but do not erase or rewrite unrelated docs.
-
-MUST REMAIN INTACT — DO NOT CHANGE OR REMOVE:
-- Official student certificate requests and the real eligibility gates: all published lessons complete, minimum 60% overall grade, and the configured attendance threshold only for Live + Recorded plans (not Recorded Only).
-- The official `certificates` records and their statuses, certificate ID/account-reference scheme, admin validity settings, real JPG/PDF upload validation, private official certificate storage, and issued-certificate download.
-- Real admin issue/reject/revoke/reissue actions, CSRF/role protections, audit records, student email/in-app notifications, certificate expiry behavior, and official public verification.
-- Unrelated clear-data tools, student/account purge behavior, unrelated mail templates, unrelated tables, files, CSS, and test cases.
-
-WORKING RULES:
-1. Search for references first and trace each one to decide whether it belongs exclusively to test certificates or is shared with the real flow. Do not remove shared helpers just because the test workflow calls them.
-2. Make the smallest complete changes. Do not rename or refactor real certificate APIs as cleanup.
-3. If an existing database cleanup could affect real certificate rows or non-test uploads, stop and ask instead of guessing. Test cleanup must never delete from the official `certificates` table or remove files from its `certificates/` folder.
-4. Update directly related documentation and tests. Do not leave dead routes, dead CSS, misleading README instructions, or orphaned test-only schema references.
-5. Run PHP lint on changed PHP files, `git diff --check`, and the focused certificate, interface-render, notification and purge smoke tests available in this repository. Add/run an assertion that the real certificate request/eligibility and public issued-certificate flow still work. Use only a scratch database for database tests.
-6. Review the final diff against the initial worktree. Summarize exactly what test-only functionality was removed, confirm the official certificate workflow remains, list validation results, and disclose any test sample files/table data that could not safely be cleaned.
+Fresh schema imports no longer create the temporary certificate-test table. For a database that already contains it, first take a database backup, then import `database/decommission/2026_remove_test_certificate_workflow.sql` once against the intended database (for example, through phpMyAdmin's **Import** page after selecting that database). This one-time script removes only test-workflow notifications, audit entries, email-log entries, and the dedicated `certificate_test_requests` table. Do not run it as part of routine schema imports. It does not modify official certificate records or files.
 ```

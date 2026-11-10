@@ -23,6 +23,7 @@ foreach (
         '/app/Core/Database.php',
         '/app/Core/AuthMiddleware.php',
         '/app/Core/RateLimiter.php',
+        '/app/Services/SessionRegistry.php',
         '/app/Services/EmailLayout.php',
         '/app/Services/EmailMessages.php',
         '/app/Services/AccountIdentity.php',
@@ -95,11 +96,19 @@ $courseOne = 'verify-smoke-full-stack';
 $courseTwo = 'verify-smoke-graphic-design';
 $courseThree = 'verify-smoke-revoked';
 $existingStudentIds = "(SELECT id FROM users WHERE email = " . $db->quote($studentEmail) . ')';
-$db->exec('DELETE FROM certificate_test_requests WHERE student_id IN (SELECT id FROM users WHERE email = ' . $db->quote($studentEmail) . ')');
+$db->exec('DELETE FROM notification_replies WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . '))');
+$db->exec('DELETE FROM notification_recipients WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . '))');
+$db->exec('DELETE FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . ')');
+$db->exec('DELETE FROM audit_logs WHERE actor_user_id IN ' . $existingStudentIds . " AND action = 'certificate.requested'");
+$db->exec('DELETE FROM email_logs WHERE related_user_id IN ' . $existingStudentIds . " AND template_key = 'certificate.requested'");
 $db->exec('DELETE FROM certificates WHERE student_id IN (SELECT id FROM users WHERE email = ' . $db->quote($studentEmail) . ')');
 $db->exec('DELETE FROM course_grades WHERE student_id IN ' . $existingStudentIds);
 $db->exec('DELETE FROM attendance_records WHERE student_id IN ' . $existingStudentIds);
 $db->exec('DELETE FROM student_course_access WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM lesson_progress WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM quizzes WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
+$db->exec('DELETE FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
 $db->exec('DELETE FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
 $db->exec('DELETE FROM users WHERE email = ' . $db->quote($studentEmail));
 $db->exec("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference)
@@ -114,8 +123,21 @@ $courseInsert->execute(['Verify Smoke Revoked', $courseThree, $studentId, '4 wee
 $thirdCourseId = (int) $db->lastInsertId();
 $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,plan_code,granted_by) VALUES(?,?,'completed','live_recorded',?), (?,?,'completed','recorded_only',?)")
     ->execute([$studentId, $firstCourseId, $studentId, $studentId, $secondCourseId, $studentId]);
-$db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at) VALUES(?,UTC_DATE(),'absent',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE))")
-    ->execute([$studentId]);
+$moduleInsert = $db->prepare('INSERT INTO course_modules(course_id,title) VALUES(?,?)');
+$lessonInsert = $db->prepare("INSERT INTO lessons(module_id,title,body,status) VALUES(?,?,'Completed lesson','published')");
+$progressInsert = $db->prepare('INSERT INTO lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP())');
+$firstLessonId = 0;
+foreach ([[$firstCourseId, 'Live course'], [$secondCourseId, 'Recorded course']] as [$courseId, $label]) {
+    $moduleInsert->execute([$courseId, $label . ' module']);
+    $moduleId = (int) $db->lastInsertId();
+    $lessonInsert->execute([$moduleId, $label . ' lesson']);
+    $lessonId = (int) $db->lastInsertId();
+    $progressInsert->execute([$studentId, $lessonId]);
+    if ($courseId === $firstCourseId) $firstLessonId = $lessonId;
+}
+$db->prepare("INSERT INTO attendance_records(student_id,course_id,lesson_id,attendance_date,status,first_login_at,mark_deadline_at,closed_at)
+    VALUES(?,?,?,UTC_DATE(),'absent',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE),UTC_TIMESTAMP())")
+    ->execute([$studentId, $firstCourseId, $firstLessonId]);
 
 echo "\n-- one account, one ID\n";
 // This is the number the certificate is printed with, so it has to exist before anything issues.
@@ -135,9 +157,98 @@ $assert(!$recordedEligibility['attendanceRequired'] && $recordedEligibility['att
     && count(array_filter($recordedEligibility['missing'], static fn(string $item): bool => str_contains($item, 'Attendance'))) === 0,
     'Recorded-only certificates do not require live attendance.', 'Recorded-only eligibility was blocked by attendance.');
 
+echo "\n-- official certificate request eligibility\n";
+$requestToken = bin2hex(random_bytes(32));
+$_SESSION = ['_csrf' => $requestToken];
+$_POST = ['_csrf' => $requestToken, 'course_id' => (string) $firstCourseId];
+$createRequest = new ReflectionMethod(CertificateController::class, 'createRequest');
+$createRequest->setAccessible(true);
+$requestError = '';
+try {
+    $createRequest->invoke(new CertificateController(), [
+        'id' => $studentId,
+        'name' => 'Verify Smoke Student',
+        'email' => $studentEmail,
+    ]);
+} catch (RuntimeException $exception) {
+    $requestError = $exception->getMessage();
+}
+$assert(str_contains($requestError, 'Attendance is 0%')
+    && (int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
+    'The official request handler blocks a Live + Recorded student below the attendance threshold.',
+    'The official request handler did not block the ineligible Live + Recorded request.');
+
+$db->prepare("UPDATE attendance_records SET status='present', marked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND lesson_id=?")
+    ->execute([$studentId, $firstCourseId, $firstLessonId]);
+$db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,99,'Low grade eligibility check','lesson','released',?)")
+    ->execute([$firstCourseId, $studentId]);
+$lowGradeRequestError = '';
+try {
+    $createRequest->invoke(new CertificateController(), [
+        'id' => $studentId,
+        'name' => 'Verify Smoke Student',
+        'email' => $studentEmail,
+    ]);
+} catch (RuntimeException $exception) {
+    $lowGradeRequestError = $exception->getMessage();
+}
+$assert(str_contains($lowGradeRequestError, 'Overall grade is 51.72%')
+    && (int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
+    'The official request handler blocks a fully attended student below the 60% grade threshold.',
+    'The official request handler did not block the ineligible low-grade request.');
+$db->prepare('DELETE FROM quizzes WHERE course_id=? AND week_number=99')->execute([$firstCourseId]);
+$requestCode = 'define("BASE_PATH", ' . var_export(BASE_PATH, true) . ');'
+    . 'foreach (' . var_export([
+        '/app/Core/Env.php',
+        '/app/Core/View.php',
+        '/app/Core/Security.php',
+        '/app/Core/Database.php',
+        '/app/Core/AuthMiddleware.php',
+        '/app/Core/RateLimiter.php',
+        '/app/Services/SessionRegistry.php',
+        '/app/Core/PrivateStorage.php',
+        '/app/Services/EmailLayout.php',
+        '/app/Services/EmailMessages.php',
+        '/app/Services/AccountIdentity.php',
+        '/app/Services/AccessPlan.php',
+        '/app/Services/MailService.php',
+        '/app/Services/NotificationService.php',
+        '/app/Services/AttendanceService.php',
+        '/app/Services/CourseGrading.php',
+        '/app/Controllers/CertificateController.php',
+    ], true) . ' as $file) require BASE_PATH . $file;'
+    . '\\App\\Core\\Env::load(BASE_PATH . "/.env");'
+    . '$_SESSION=["user"=>["id"=>' . $studentId . '],"_csrf"=>' . var_export($requestToken, true) . '];'
+    . '$_POST=["_csrf"=>' . var_export($requestToken, true) . ',"course_id"=>' . $firstCourseId . '];'
+    . '$_SERVER["REQUEST_URI"]="/student/certificates/request";'
+    . '(new \\App\\Controllers\\CertificateController())->request();';
+$previousMailUsername = getenv('MAIL_USERNAME');
+$previousMailPassword = getenv('MAIL_PASSWORD');
+putenv('MAIL_USERNAME=');
+putenv('MAIL_PASSWORD=');
+$pipes = [];
+$process = proc_open([PHP_BINARY, '-r', $requestCode], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, BASE_PATH);
+if (!is_resource($process)) throw new RuntimeException('Could not launch the isolated official certificate request.');
+fclose($pipes[0]);
+$requestStdout = stream_get_contents($pipes[1]);
+$requestStderr = stream_get_contents($pipes[2]);
+fclose($pipes[1]);
+fclose($pipes[2]);
+$requestExitCode = proc_close($process);
+if ($previousMailUsername === false) putenv('MAIL_USERNAME'); else putenv('MAIL_USERNAME=' . $previousMailUsername);
+if ($previousMailPassword === false) putenv('MAIL_PASSWORD'); else putenv('MAIL_PASSWORD=' . $previousMailPassword);
+$requestedCertificate = $db->query('SELECT id, status, overall_percent, attendance_percent FROM certificates WHERE student_id = ' . $studentId . ' AND course_id = ' . $firstCourseId)->fetch();
+$assert($requestExitCode === 0 && is_array($requestedCertificate)
+    && $requestedCertificate['status'] === 'requested'
+    && (float) $requestedCertificate['overall_percent'] >= 60
+    && (float) $requestedCertificate['attendance_percent'] >= 75,
+    'An eligible student can submit an official request with the passing grade and attendance snapshot.',
+    'The eligible official request failed: ' . trim((string) $requestStdout . ' ' . $requestStderr));
+
 // One certificate is live, one has expired, and one was revoked.
 $db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,file_path)
-    VALUES(?,?,?,'issued',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 15 DAY),CONCAT('certificates/', REPEAT('ab', 24), '.jpg'))")
+    VALUES(?,?,?,'issued',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 15 DAY),CONCAT('certificates/', REPEAT('ab', 24), '.jpg'))
+    ON DUPLICATE KEY UPDATE certificate_id=VALUES(certificate_id),status='issued',issued_at=VALUES(issued_at),expires_at=VALUES(expires_at),file_path=VALUES(file_path)")
     ->execute([$accountReference, $studentId, $firstCourseId]);
 $db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at)
     VALUES(?,?,?,'issued',UTC_TIMESTAMP(),DATE_SUB(UTC_TIMESTAMP(),INTERVAL 5 DAY))")
@@ -145,9 +256,6 @@ $db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,statu
 $db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,revoked_by,revoked_at,revoked_reason)
     VALUES(?,?,?,'revoked',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 15 DAY),?,UTC_TIMESTAMP(),'Smoke test revocation')")
     ->execute([$accountReference, $studentId, $thirdCourseId, $studentId]);
-$db->prepare("INSERT INTO certificate_test_requests(student_id,course_id,status,file_path,file_type,issued_at)
-    VALUES(?,?,'issued',CONCAT('certificate-tests/', REPEAT('cd', 24), '.jpg'),'jpg',UTC_TIMESTAMP())")
-    ->execute([$studentId, $thirdCourseId]);
 
 $render = static function (string $id): string {
     $_SERVER['REQUEST_URI'] = '/TSG-Academy-LMS/verify';
@@ -161,10 +269,8 @@ $render = static function (string $id): string {
 echo "\n-- every certificate behind one ID\n";
 $html = $render($accountReference);
 $cards = substr_count($html, '<article class="verify-card ');
-$assert($cards === 4, 'The page lists every official certificate and test sample behind ' . $accountReference . '.',
-    'Expected three official cards and one test sample, found ' . $cards . '.');
-$assert(str_contains($html, 'including <strong>1</strong> TEST ONLY sample'),
-    'The page separates test samples from official certificate records.', 'The mixed-result banner is missing.');
+$assert($cards === 3, 'The page lists every official certificate behind ' . $accountReference . '.',
+    'Expected three official certificate cards, found ' . $cards . '.');
 $assert(str_contains($html, 'Verify Smoke Full Stack') && str_contains($html, 'Verify Smoke Graphic Design') && str_contains($html, 'Verify Smoke Revoked'),
     'All three course titles are on the page.', 'A course title is missing from the listing.');
 $assert(str_contains($html, 'verify-card-expired') && str_contains($html, 'verify-lapsed'),
@@ -173,29 +279,35 @@ $assert(str_contains($html, 'Certificate verified') && str_contains($html, 'Cert
     'One card reads verified and the other reads expired.', 'The card headings do not describe both states.');
 $assert(str_contains($html, 'Certificate revoked') && str_contains($html, 'Smoke test revocation') && str_contains($html, 'verify-card-revoked'),
     'A revoked certificate is clearly identified with its reason.', 'The revoked certificate was not clearly identified.');
-$assert(str_contains($html, 'TEST ONLY — Sample certificate') && str_contains($html, 'not an official certificate'),
-    'Test samples are visibly marked as not official in public verification.', 'The public test sample is not clearly marked.');
 preg_match_all('/certificate\/download\?cert_id=[^&"]*&course_id=(\d+)/', $html, $links);
 $assert($links[1] === [(string) $firstCourseId], 'The single download link names the live course, not the expired one.',
     'The download links point at ' . json_encode($links[1]) . ' instead of course ' . $firstCourseId . '.');
 
 echo "\n-- what a visitor can type\n";
-$assert(substr_count($render(strtolower($accountReference)), '<article class="verify-card ') === 4,
+$assert(substr_count($render(strtolower($accountReference)), '<article class="verify-card ') === 3,
     'A lower-case ID still opens the account.', 'Typing the ID in lower case found nothing.');
 $nameResult = $render('Verify Smoke Student');
-$assert(substr_count($nameResult, '<article class="verify-card ') === 1 && str_contains($nameResult, 'TEST ONLY — Sample certificate'),
-    'An exact student name opens only its clearly marked test sample.', 'Exact-name search leaked official rows or missed its test sample.');
+$assert(!str_contains($nameResult, 'Verify Smoke Full Stack') && !str_contains($nameResult, '/certificate/download?'),
+    'Public verification accepts Academy IDs rather than student names.', 'A student name unexpectedly returned an official certificate.');
 $assert(str_contains($render('TSG-CER-999999'), 'Certificate not found'),
     'An ID with no certificate is refused plainly.', 'An unknown ID did not produce the not-found card.');
 $assert(str_contains($render('TSG_CER_001'), 'Certificate not found'),
     'Malformed IDs do not return a certificate.', 'A malformed ID unexpectedly returned a record.');
 
 echo "\n";
-$db->exec('DELETE FROM certificate_test_requests WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM notification_replies WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . '))');
+$db->exec('DELETE FROM notification_recipients WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . '))');
+$db->exec('DELETE FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . ')');
+$db->exec("DELETE FROM audit_logs WHERE actor_user_id = {$studentId} AND action = 'certificate.requested'");
+$db->exec("DELETE FROM email_logs WHERE related_user_id = {$studentId} AND template_key = 'certificate.requested'");
 $db->exec('DELETE FROM certificates WHERE student_id = ' . $studentId);
 $db->exec('DELETE FROM course_grades WHERE student_id = ' . $studentId);
 $db->exec('DELETE FROM attendance_records WHERE student_id = ' . $studentId);
 $db->exec('DELETE FROM student_course_access WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lesson_progress WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM quizzes WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
+$db->exec('DELETE FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
 $db->exec('DELETE FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
 $db->exec('DELETE FROM users WHERE id = ' . $studentId);
 if (($options['drop'] ?? '0') === '1') {
@@ -207,5 +319,5 @@ if ($failures !== []) {
     fwrite(STDERR, 'FAIL: ' . count($failures) . " problem(s)\n - " . implode("\n - ", $failures) . "\n");
     exit(1);
 }
-echo "PASS: Academy ID and exact-name lookups show official records and marked test samples on " . $dbName . "\n";
+echo "PASS: official request eligibility and Academy ID verification work on " . $dbName . "\n";
 exit(0);

@@ -31,18 +31,11 @@ final class StudentPortalController
         $accessPlanColumn = AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'sca.plan_code' : "'recorded_only' AS plan_code";
         // Certificates are optional schema on older imports, so degrade to "not installed" instead of failing the page.
         $certificatesAvailable = $this->certificateTableAvailable($db);
-        $testCertificatesAvailable = $this->certificateTestTableAvailable($db);
         $certificateColumns = $certificatesAvailable
             ? 'cert.status AS certificate_status, cert.certificate_id, cert.admin_remarks, cert.revoked_reason AS certificate_revoked_reason, cert.expires_at AS certificate_expires_at'
             : 'NULL AS certificate_status, NULL AS certificate_id, NULL AS admin_remarks, NULL AS certificate_revoked_reason, NULL AS certificate_expires_at';
         $certificateJoin = $certificatesAvailable
             ? 'LEFT JOIN certificates cert ON cert.student_id = sca.student_id AND cert.course_id = c.id'
-            : '';
-        $testCertificateColumns = $testCertificatesAvailable
-            ? 'test_cert.id AS test_certificate_id, test_cert.status AS test_certificate_status, test_cert.file_type AS test_certificate_file_type'
-            : 'NULL AS test_certificate_id, NULL AS test_certificate_status, NULL AS test_certificate_file_type';
-        $testCertificateJoin = $testCertificatesAvailable
-            ? 'LEFT JOIN certificate_test_requests test_cert ON test_cert.student_id = sca.student_id AND test_cert.course_id = c.id'
             : '';
         // Course grades come from the same migration; probe so an un-imported schema still renders.
         $gradesAvailable = $this->courseGradesAvailable($db);
@@ -53,7 +46,7 @@ final class StudentPortalController
             ? 'LEFT JOIN course_grades cg ON cg.student_id = sca.student_id AND cg.course_id = c.id'
             : '';
         $stmt = $db->prepare(
-            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, sca.status AS access_status, $accessPlanColumn, u.account_reference AS student_reference, $gradeColumns, $certificateColumns, $testCertificateColumns,
+            "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at, sca.expires_at, sca.status AS access_status, $accessPlanColumn, u.account_reference AS student_reference, $gradeColumns, $certificateColumns,
                     (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
                     (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
@@ -64,7 +57,6 @@ final class StudentPortalController
              JOIN users u ON u.id = sca.student_id
              $gradeJoin
              $certificateJoin
-             $testCertificateJoin
              WHERE sca.student_id = ? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              ORDER BY sca.granted_at DESC, c.title ASC"
         );
@@ -75,7 +67,6 @@ final class StudentPortalController
             'user' => $user,
             'courses' => $stmt->fetchAll(),
             'certificatesAvailable' => $certificatesAvailable,
-            'testCertificatesAvailable' => $testCertificatesAvailable,
             'gradesAvailable' => $gradesAvailable,
             // Quoted live from the same settings the request gate uses, so the student always sees
             // the bar they are actually measured against.
@@ -401,17 +392,6 @@ final class StudentPortalController
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
             return false;
-        }
-    }
-
-    private function certificateTestTableAvailable(\PDO $db): bool
-    {
-        try {
-            $db->query('SELECT id FROM certificate_test_requests LIMIT 0');
-            return true;
-        } catch (\PDOException $exception) {
-            if ((string) $exception->getCode() === '42S02') return false;
-            throw $exception;
         }
     }
 
