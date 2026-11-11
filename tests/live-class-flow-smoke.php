@@ -156,31 +156,31 @@ $scratchFiles = [];
 $columnsDropped = false;
 
 /* --------------------------------------------------------------------------- fixtures */
-foreach ($emails as $email) $db->prepare('DELETE FROM users WHERE email = ?')->execute([$email]);
-$db->prepare('DELETE FROM courses WHERE slug = ?')->execute([$slug]);
+foreach ($emails as $email) $db->prepare('DELETE FROM lms_users WHERE email = ?')->execute([$email]);
+$db->prepare('DELETE FROM lms_courses WHERE slug = ?')->execute([$slug]);
 
-$insertUser = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())");
+$insertUser = $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())");
 $insertUser->execute(['Live Class Smoke Admin', $emails['admin'], password_hash($adminPassword, PASSWORD_BCRYPT), 'admin', 'active']);
 $ids['admin'] = (int) $db->lastInsertId();
 foreach (['live', 'recorded', 'buyer', 'upgrade', 'legacy', 'lonely', 'stray'] as $key) {
     $insertUser->execute(['Live Class Smoke ' . ucfirst($key) . ' Student', $emails[$key], password_hash($studentPassword, PASSWORD_BCRYPT), 'student', 'active']);
     $ids[$key] = (int) $db->lastInsertId();
 }
-$db->prepare("INSERT INTO courses(title,slug,visibility,duration_label,created_by) VALUES(?,?,'published','3 months',?)")
+$db->prepare("INSERT INTO lms_courses(title,slug,visibility,duration_label,created_by) VALUES(?,?,'published','3 months',?)")
     ->execute(['Live Class Smoke Course', $slug, $ids['admin']]);
 $courseId = (int) $db->lastInsertId();
 foreach ([AccessPlan::RECORDED => 25000, AccessPlan::LIVE => 45000] as $code => $price) {
-    $db->prepare("INSERT INTO course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,'PKR')")
+    $db->prepare("INSERT INTO lms_course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,'PKR')")
         ->execute([$courseId, $code, AccessPlan::label($code), $price]);
 }
-$db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$courseId, 'Smoke module']);
+$db->prepare('INSERT INTO lms_course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$courseId, 'Smoke module']);
 $moduleId = (int) $db->lastInsertId();
-$insertLesson = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status,meeting_url,meeting_platform,meeting_at) VALUES(?,?,?,?,?,180,?,'published',?,?,?)");
+$insertLesson = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status,meeting_url,meeting_platform,meeting_at) VALUES(?,?,?,?,?,180,?,'published',?,?,?)");
 $insertLesson->execute([$moduleId, 'Live class lesson', 'Body', 'https://cdn.example.com/live-' . $token . '.mp4', 'file', 1, $meetingUrl, 'google_meet', $futureAt]);
 $lessonIds['live'] = (int) $db->lastInsertId();
 $insertLesson->execute([$moduleId, 'Passed class lesson', 'Body', 'https://cdn.example.com/past-' . $token . '.mp4', 'file', 2, $meetingUrl, 'google_meet', $pastAt]);
 $lessonIds['past'] = (int) $db->lastInsertId();
-$insertPlain = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,180,?,'published')");
+$insertPlain = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,180,?,'published')");
 $insertPlain->execute([$moduleId, 'Recorded only lesson', 'Body', 'https://cdn.example.com/plain-' . $token . '.mp4', 'file', 3]);
 $lessonIds['plain'] = (int) $db->lastInsertId();
 $insertPlain->execute([$moduleId, 'Editable lesson', 'Body', 'https://cdn.example.com/edit-' . $token . '.mp4', 'file', 4]);
@@ -188,25 +188,25 @@ $lessonIds['editable'] = (int) $db->lastInsertId();
 
 // Enrolments: the two students whose lesson pages are compared below, and the upgrade case, which
 // starts on Recorded Only and is moved by a second approved payment.
-$insertAccess = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,plan_code,granted_by,granted_at,expires_at) VALUES(?,?,'active',?,?,UTC_TIMESTAMP(),?)");
+$insertAccess = $db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,plan_code,granted_by,granted_at,expires_at) VALUES(?,?,'active',?,?,UTC_TIMESTAMP(),?)");
 $expiresAt = CourseDuration::expiry('3 months');
 foreach (['live' => AccessPlan::LIVE, 'recorded' => AccessPlan::RECORDED, 'upgrade' => AccessPlan::RECORDED, 'legacy' => AccessPlan::LIVE] as $key => $plan) {
     $insertAccess->execute([$ids[$key], $courseId, $plan, $ids['admin'], $expiresAt]);
 }
 
 $readAccess = static function (int $studentId) use ($db, $courseId): array {
-    $stmt = $db->prepare('SELECT status,plan_code,granted_by,granted_at,expires_at,revoked_by,revoked_at FROM student_course_access WHERE student_id=? AND course_id=?');
+    $stmt = $db->prepare('SELECT status,plan_code,granted_by,granted_at,expires_at,revoked_by,revoked_at FROM lms_student_course_access WHERE student_id=? AND course_id=?');
     $stmt->execute([$studentId, $courseId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 };
 $readPlan = static function (int $studentId) use ($db, $courseId): ?string {
-    $stmt = $db->prepare('SELECT plan_code FROM student_course_access WHERE student_id=? AND course_id=?');
+    $stmt = $db->prepare('SELECT plan_code FROM lms_student_course_access WHERE student_id=? AND course_id=?');
     $stmt->execute([$studentId, $courseId]);
     $value = $stmt->fetchColumn();
     return $value === false ? null : (string) $value;
 };
 $readMeeting = static function (int $lessonId) use ($db): array {
-    $stmt = $db->prepare('SELECT meeting_url,meeting_at FROM lessons WHERE id=?');
+    $stmt = $db->prepare('SELECT meeting_url,meeting_at FROM lms_lessons WHERE id=?');
     $stmt->execute([$lessonId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     return [$row['meeting_url'] ?? null, $row['meeting_at'] ?? null];
@@ -326,7 +326,7 @@ $signIn = static function (string $jar, string $email, string $password) use ($o
 /** A payment row written by the harness rather than the form, for the states the checkout itself can
  *  no longer produce: a second purchase after access is open, and a legacy row with no plan on it. */
 $seedPayment = static function (int $studentId, ?string $plan, string $reference) use ($db, $courseId): int {
-    $stmt = $db->prepare("INSERT INTO payments(student_id,course_id,plan_code,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,25000,'PKR',?,'harness/seed.sql','pending')");
+    $stmt = $db->prepare("INSERT INTO lms_payments(student_id,course_id,plan_code,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,25000,'PKR',?,'harness/seed.sql','pending')");
     $stmt->execute([$studentId, $courseId, $plan, $reference]);
     return (int) $db->lastInsertId();
 };
@@ -349,7 +349,7 @@ try {
     }
     $indexed = (int) trim((string) shell_exec($mysql . ' ' . $credentials . ' -N -B -e ' . escapeshellarg(
         "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='" . $dbName . "' AND table_name='student_course_access' AND index_name='idx_access_plan'")));
-    $assert($indexed >= 1, 'Plans are indexed for the lookup every lesson page makes.', 'idx_access_plan is missing from student_course_access.');
+    $assert($indexed >= 1, 'Plans are indexed for the lookup every lesson page makes.', 'idx_access_plan is missing from lms_student_course_access.');
     $loader = (string) file_get_contents(BASE_PATH . '/public/index.php');
     $assert(str_contains($loader, "'/app/Services/AccessPlan.php'"), 'public/index.php loads the plan service.', 'AccessPlan.php is not in the loader, so no controller can see it.');
 
@@ -405,7 +405,7 @@ try {
         'transaction_reference' => 'LIVE-' . $token,
     ], $jarBuyer, 'payment_proof');
     $assert($bought['status'] === 302, 'The submitted payment is answered with a redirect either way.', 'The payment POST answered ' . $bought['status'] . '.');
-    $buyerRows = $db->prepare('SELECT id,plan_code,status FROM payments WHERE student_id=? AND course_id=?');
+    $buyerRows = $db->prepare('SELECT id,plan_code,status FROM lms_payments WHERE student_id=? AND course_id=?');
     $buyerRows->execute([$ids['buyer'], $courseId]);
     $purchase = $buyerRows->fetch(PDO::FETCH_ASSOC) ?: [];
     if ($canUpload) {
@@ -413,7 +413,7 @@ try {
         $assert((string) ($purchase['plan_code'] ?? '') === AccessPlan::LIVE,
             'The plan the student picked is now a column on the payment, not only a note in the audit log.',
             'payments.plan_code reads ' . var_export($purchase['plan_code'] ?? null, true) . ' for the submitted purchase.');
-        $audited = $db->prepare("SELECT metadata FROM audit_logs WHERE action='payment.submitted' AND entity_id=? LIMIT 1");
+        $audited = $db->prepare("SELECT metadata FROM lms_audit_logs WHERE action='payment.submitted' AND entity_id=? LIMIT 1");
         $audited->execute([(int) $purchase['id']]);
         $auditMeta = (string) ($audited->fetchColumn() ?: '');
         $assert(str_contains($auditMeta, 'live_recorded'), 'The audit row still records the option it was given.', 'The submission audit row lost its option: ' . $auditMeta);
@@ -433,7 +433,7 @@ try {
         'option_code' => 'gold_plan',
         'transaction_reference' => 'GOLD-' . $token,
     ], $jarBuyer, 'payment_proof');
-    $stillOne = (int) $db->query('SELECT COUNT(*) FROM payments WHERE student_id = ' . (int) $ids['buyer'])->fetchColumn();
+    $stillOne = (int) $db->query('SELECT COUNT(*) FROM lms_payments WHERE student_id = ' . (int) $ids['buyer'])->fetchColumn();
     $assert($wrongOption['status'] === 302 && $stillOne === 1,
         'An option nobody sells is refused before anything is written.', 'A forged option left ' . $stillOne . ' payment row(s) behind.');
 
@@ -499,7 +499,7 @@ try {
     ], $jarAdmin);
     $assert($readPlan($ids['recorded']) === AccessPlan::LIVE,
         'Saving the plan a student already has is not reported as a failed enrolment.', 'Setting the same plan twice lost the enrolment.');
-    $planAudit = (string) $db->query("SELECT metadata FROM audit_logs WHERE action='course_access.plan' ORDER BY id DESC LIMIT 1")->fetchColumn();
+    $planAudit = (string) $db->query("SELECT metadata FROM lms_audit_logs WHERE action='course_access.plan' ORDER BY id DESC LIMIT 1")->fetchColumn();
     $assert(str_contains($planAudit, 'live_recorded'), 'The plan change is audited with the plan it set.', 'The plan audit row reads ' . $planAudit . '.');
 
     $noEnrolment = $open('POST', '/admin/courses/access', [
@@ -562,7 +562,7 @@ try {
     }
     $assert(str_contains($recordedPage['body'], 'Live class lesson'), 'The Recorded Only student still sees the lesson they are enrolled in.', 'The recorded page lost the lesson itself.');
 
-    $db->prepare('UPDATE lessons SET meeting_url=?,meeting_at=? WHERE id=?')->execute([$meetingUrl2, $futureAt, $lessonIds['live']]);
+    $db->prepare('UPDATE lms_lessons SET meeting_url=?,meeting_at=? WHERE id=?')->execute([$meetingUrl2, $futureAt, $lessonIds['live']]);
     $liveAgain = $open('GET', '/learning/lesson?lesson_id=' . $lessonIds['live'], [], $jarLive);
     $recordedAgain = $open('GET', '/learning/lesson?lesson_id=' . $lessonIds['live'], [], $jarRecorded);
     $assert(str_contains($liveAgain['body'], Security::escape($meetingUrl2)), 'Change the address and the new one is what the live student reads: the card comes from the row.', 'The live page still printed the old address.');
@@ -658,20 +658,20 @@ try {
     $assert($saved['status'] === 302 && (string) $stored[0] === 'https://meet.google.com/abc-defg-hij' && (string) $stored[1] === '2026-11-08 20:00:00',
         'A real Meet address and its UTC time are stored as typed.', 'The save stored ' . json_encode($stored) . ' (status ' . $saved['status'] . ').');
     $videoOnly = $postLesson('', '', 'https://www.youtube.com/watch?v=abc123def45');
-    $onlyVideo = $db->prepare('SELECT video_url,meeting_url FROM lessons WHERE id=?');
+    $onlyVideo = $db->prepare('SELECT video_url,meeting_url FROM lms_lessons WHERE id=?');
     $onlyVideo->execute([$lessonIds['editable']]);
     $onlyVideoRow = $onlyVideo->fetch(PDO::FETCH_ASSOC) ?: [];
     $assert($videoOnly['status'] === 302 && str_contains((string) ($onlyVideoRow['video_url'] ?? ''), 'youtube.com/watch') && $onlyVideoRow['meeting_url'] === null,
         'A recorded video saves without requiring a live meeting link.', 'The video-only save answered ' . $videoOnly['status'] . ' and stored ' . json_encode($onlyVideoRow) . '.');
     $liveOnly = $postLesson('https://zoom.us/j/4005006007', '', '', '');
-    $onlyLive = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform FROM lessons WHERE id=?');
+    $onlyLive = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform FROM lms_lessons WHERE id=?');
     $onlyLive->execute([$lessonIds['editable']]);
     $onlyLiveRow = $onlyLive->fetch(PDO::FETCH_ASSOC) ?: [];
     $assert($liveOnly['status'] === 302 && $onlyLiveRow['video_url'] === null && $onlyLiveRow['video_duration_seconds'] === null
         && $onlyLiveRow['meeting_url'] === 'https://zoom.us/j/4005006007' && $onlyLiveRow['meeting_platform'] === 'zoom',
         'A live meeting saves independently with no recorded video or duration.', 'The live-only save answered ' . $liveOnly['status'] . ' and stored ' . json_encode($onlyLiveRow) . '.');
     $noLinks = $postLesson('', '', '', '');
-    $emptyLinks = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform,meeting_at FROM lessons WHERE id=?');
+    $emptyLinks = $db->prepare('SELECT video_url,video_duration_seconds,meeting_url,meeting_platform,meeting_at FROM lms_lessons WHERE id=?');
     $emptyLinks->execute([$lessonIds['editable']]);
     $emptyLinksRow = $emptyLinks->fetch(PDO::FETCH_ASSOC) ?: [];
     $assert($noLinks['status'] === 302 && $emptyLinksRow === [
@@ -696,11 +696,11 @@ try {
     // to write. Two payments are put back into the state an old row sits in - the plan column empty -
     // one of them with the submission audit row an old checkout really wrote, the other without any
     // record at all, and then the very file the README hands the admin is imported over the top.
-    $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?, 'payment.submitted', 'payment', ?, JSON_OBJECT('course_id', ?, 'option_code', 'live_recorded'))")
+    $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?, 'payment.submitted', 'payment', ?, JSON_OBJECT('course_id', ?, 'option_code', 'live_recorded'))")
         ->execute([$ids['legacy'], $legacyPayment, $courseId]);
-    $db->prepare('UPDATE payments SET plan_code = NULL WHERE id = ?')->execute([$upgradePayment]);
+    $db->prepare('UPDATE lms_payments SET plan_code = NULL WHERE id = ?')->execute([$upgradePayment]);
     $beforeLegacy = $readAccess($ids['legacy']);
-    $legacyPlanBefore = $db->query('SELECT plan_code FROM payments WHERE id = ' . (int) $legacyPayment)->fetchColumn();
+    $legacyPlanBefore = $db->query('SELECT plan_code FROM lms_payments WHERE id = ' . (int) $legacyPayment)->fetchColumn();
     $assert($legacyPlanBefore === null && $readPlan($ids['legacy']) === AccessPlan::RECORDED,
         'Both accounts start this section as an old database holds them: an approved payment with no plan on it, and an enrolment on the safe side.',
         'The legacy fixture did not start empty: ' . json_encode([$legacyPlanBefore, $readPlan($ids['legacy'])]) . '.');
@@ -710,9 +710,9 @@ try {
     // already there, which is the sound half of a re-import rather than a message to check.
     $assert(trim($importReport) === '', 'Re-importing the schema over a database that already has it reports no error and breaks nothing.',
         'The re-import reported: ' . str_replace("\n", ' / ', substr(trim($importReport), 0, 300)));
-    $assert((string) $db->query('SELECT plan_code FROM payments WHERE id = ' . (int) $legacyPayment)->fetchColumn() === AccessPlan::LIVE,
+    $assert((string) $db->query('SELECT plan_code FROM lms_payments WHERE id = ' . (int) $legacyPayment)->fetchColumn() === AccessPlan::LIVE,
         'A purchase the audit log can explain is given its plan back.',
-        'The legacy payment still reads ' . var_export($db->query('SELECT plan_code FROM payments WHERE id = ' . (int) $legacyPayment)->fetchColumn(), true) . '.');
+        'The legacy payment still reads ' . var_export($db->query('SELECT plan_code FROM lms_payments WHERE id = ' . (int) $legacyPayment)->fetchColumn(), true) . '.');
     $assert($readPlan($ids['legacy']) === AccessPlan::LIVE,
         'And its enrolment inherits that plan, so a Live + Recorded student bought before the column exists still reaches their classes.',
         'The enrolment the backfill left on ' . var_export($readPlan($ids['legacy']), true) . '.');
@@ -726,7 +726,7 @@ try {
     // The half that matters more: a payment no record explains is left unclaimed rather than guessed
     // at, and the enrolment falls back to the closed plan instead of keeping one nothing can account
     // for. An admin has to review those accounts - this proves the review starts from the safe side.
-    $assert($db->query('SELECT plan_code FROM payments WHERE id = ' . (int) $upgradePayment)->fetchColumn() === null
+    $assert($db->query('SELECT plan_code FROM lms_payments WHERE id = ' . (int) $upgradePayment)->fetchColumn() === null
         && $readPlan($ids['upgrade']) === AccessPlan::RECORDED,
         'A payment the audit cannot explain keeps no plan, and its enrolment drops to Recorded Only.',
         'An unexplained purchase was left holding ' . var_export($readPlan($ids['upgrade']), true) . '.');
@@ -736,15 +736,15 @@ try {
         'Re-running the import moved the plans to ' . json_encode([$readPlan($ids['legacy']), $readPlan($ids['upgrade'])]) . '.');
     // Put the upgrade fixture back the way the section above left it, so a reader of the failures
     // below is looking at the states those checks put there.
-    $db->prepare('UPDATE payments SET plan_code = ? WHERE id = ?')->execute([AccessPlan::LIVE, $upgradePayment]);
-    $db->prepare('UPDATE student_course_access SET plan_code = ? WHERE student_id = ? AND course_id = ?')
+    $db->prepare('UPDATE lms_payments SET plan_code = ? WHERE id = ?')->execute([AccessPlan::LIVE, $upgradePayment]);
+    $db->prepare('UPDATE lms_student_course_access SET plan_code = ? WHERE student_id = ? AND course_id = ?')
         ->execute([AccessPlan::LIVE, $ids['upgrade'], $courseId]);
 
     /* ----------------------------------------------------------- a schema that has not arrived */
     $emit("\n-- a database that has not been re-imported");
-    $runSql('ALTER TABLE lessons DROP COLUMN meeting_at, DROP COLUMN meeting_platform, DROP COLUMN meeting_url');
-    $runSql('ALTER TABLE student_course_access DROP INDEX idx_access_plan, DROP COLUMN plan_code');
-    $runSql('ALTER TABLE payments DROP COLUMN plan_code');
+    $runSql('ALTER TABLE lms_lessons DROP COLUMN meeting_at, DROP COLUMN meeting_platform, DROP COLUMN meeting_url');
+    $runSql('ALTER TABLE lms_student_course_access DROP INDEX idx_access_plan, DROP COLUMN plan_code');
+    $runSql('ALTER TABLE lms_payments DROP COLUMN plan_code');
     $columnsDropped = true;
     AccessPlan::forgetColumnState();
     $bareLive = $open('GET', '/learning/lesson?lesson_id=' . $lessonIds['live'], [], $jarLive);
@@ -783,7 +783,7 @@ try {
         'option_code' => AccessPlan::LIVE,
         'transaction_reference' => 'BARE-' . $token,
     ], $jarStray, 'payment_proof');
-    $bareStmt = $db->prepare('SELECT COUNT(*) FROM payments WHERE transaction_reference = ?');
+    $bareStmt = $db->prepare('SELECT COUNT(*) FROM lms_payments WHERE transaction_reference = ?');
     $bareStmt->execute(['BARE-' . $token]);
     $barePayment = (int) $bareStmt->fetchColumn();
     $bareCheckout = $open('GET', '/payments/new?course_id=' . $courseId, [], $jarStray)['body'];
@@ -795,7 +795,7 @@ try {
             'A database with no plan column does not break the checkout: the same proof folder is what stops it, and no schema complaint is invented.',
             'The bare checkout answered ' . $barePurchase['status'] . ' and left ' . $barePayment . ' row(s).');
     }
-    $db->prepare('DELETE FROM payments WHERE transaction_reference = ?')->execute(['BARE-' . $token]);
+    $db->prepare('DELETE FROM lms_payments WHERE transaction_reference = ?')->execute(['BARE-' . $token]);
 } catch (Throwable $exception) {
     $failures[] = 'The run stopped: ' . $exception->getMessage();
     $report .= '  x ' . $exception->getMessage() . "\n";
@@ -806,9 +806,9 @@ try {
     }
     // The scratch database outlives this run, and the next one expects the columns to be there.
     if ($columnsDropped) {
-        $runSql('ALTER TABLE lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds, ADD COLUMN meeting_platform ENUM(\'google_meet\',\'zoom\') NULL AFTER meeting_url, ADD COLUMN meeting_at DATETIME NULL AFTER meeting_platform');
-        $runSql('ALTER TABLE payments ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NULL AFTER course_id');
-        $runSql('ALTER TABLE student_course_access ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NOT NULL DEFAULT \'recorded_only\' AFTER status, ADD INDEX idx_access_plan(student_id, plan_code)');
+        $runSql('ALTER TABLE lms_lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds, ADD COLUMN meeting_platform ENUM(\'google_meet\',\'zoom\') NULL AFTER meeting_url, ADD COLUMN meeting_at DATETIME NULL AFTER meeting_platform');
+        $runSql('ALTER TABLE lms_payments ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NULL AFTER course_id');
+        $runSql('ALTER TABLE lms_student_course_access ADD COLUMN plan_code ENUM(\'recorded_only\',\'live_recorded\') NOT NULL DEFAULT \'recorded_only\' AFTER status, ADD INDEX idx_access_plan(student_id, plan_code)');
         $restored = $columnPresent('lessons', 'meeting_url') && $columnPresent('lessons', 'meeting_platform') && $columnPresent('payments', 'plan_code') && $columnPresent('student_course_access', 'plan_code');
         $emit(($restored ? '  ok ' : '  FAIL ') . 'the four live class columns are back for the next run.');
     }
@@ -818,38 +818,38 @@ try {
     $allIds = array_values(array_diff($ids, [0]));
     $studentIds = array_values(array_diff($allIds, [$ids['admin']]));
     $idList = implode(',', $allIds);
-    $proofStmt = $db->prepare('SELECT payment_proof_path FROM payments WHERE student_id IN (' . $idList . ')');
+    $proofStmt = $db->prepare('SELECT payment_proof_path FROM lms_payments WHERE student_id IN (' . $idList . ')');
     $proofStmt->execute();
     foreach ($proofStmt->fetchAll(PDO::FETCH_COLUMN) as $relative) {
         if (is_string($relative) && $relative !== '') $proofFiles[] = BASE_PATH . '/storage/uploads/private/' . $relative;
     }
     foreach ($studentIds as $id) {
-        $db->prepare('DELETE FROM lesson_progress WHERE student_id = ?')->execute([$id]);
+        $db->prepare('DELETE FROM lms_lesson_progress WHERE student_id = ?')->execute([$id]);
     }
     // Opening a course page recalculates the stored grade, so the grading row is this run's own
     // doing and has to go before the course it points at.
-    $db->exec('DELETE FROM course_grades WHERE student_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM attendance_records WHERE student_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM notification_recipients WHERE student_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM notifications WHERE created_by IN (' . $idList . ')');
-    $db->exec('DELETE FROM user_sessions WHERE user_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM login_events WHERE user_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_course_grades WHERE student_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_attendance_records WHERE student_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_notification_recipients WHERE student_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_notifications WHERE created_by IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_user_sessions WHERE user_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_login_events WHERE user_id IN (' . $idList . ')');
     // Every mail this run tried to send is logged against the account it was meant for.
-    $db->exec('DELETE FROM email_logs WHERE related_user_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM email_otps WHERE user_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM certificates WHERE student_id IN (' . $idList . ')');
-    $limitStmt = $db->prepare('DELETE FROM auth_rate_limits WHERE subject_hash IN (' . implode(',', array_fill(0, count($allIds), '?')) . ')');
+    $db->exec('DELETE FROM lms_email_logs WHERE related_user_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_email_otps WHERE user_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_certificates WHERE student_id IN (' . $idList . ')');
+    $limitStmt = $db->prepare('DELETE FROM lms_auth_rate_limits WHERE subject_hash IN (' . implode(',', array_fill(0, count($allIds), '?')) . ')');
     $limitStmt->execute(array_map(static fn(int $id): string => hash('sha256', 'user:' . $id), $allIds));
-    $db->exec('DELETE FROM student_course_access WHERE student_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_student_course_access WHERE student_id IN (' . $idList . ')');
     // Any payment this run left behind, whether the harness or the checkout wrote it: the account
     // rows below cannot go while a payment still points at them.
-    $db->exec('DELETE FROM payments WHERE student_id IN (' . $idList . ')');
-    $db->exec('DELETE FROM audit_logs WHERE actor_user_id IN (' . $idList . ')');
-    $db->prepare('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id = ?)')->execute([$courseId]);
-    $db->prepare('DELETE FROM course_pricing_options WHERE course_id = ?')->execute([$courseId]);
-    $db->prepare('DELETE FROM course_modules WHERE course_id = ?')->execute([$courseId]);
-    $db->prepare('DELETE FROM courses WHERE slug = ?')->execute([$slug]);
-    $db->exec('DELETE FROM users WHERE id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_payments WHERE student_id IN (' . $idList . ')');
+    $db->exec('DELETE FROM lms_audit_logs WHERE actor_user_id IN (' . $idList . ')');
+    $db->prepare('DELETE FROM lms_lessons WHERE module_id IN (SELECT id FROM lms_course_modules WHERE course_id = ?)')->execute([$courseId]);
+    $db->prepare('DELETE FROM lms_course_pricing_options WHERE course_id = ?')->execute([$courseId]);
+    $db->prepare('DELETE FROM lms_course_modules WHERE course_id = ?')->execute([$courseId]);
+    $db->prepare('DELETE FROM lms_courses WHERE slug = ?')->execute([$slug]);
+    $db->exec('DELETE FROM lms_users WHERE id IN (' . $idList . ')');
     foreach ($proofFiles as $path) {
         if (is_file($path)) @unlink($path);
     }

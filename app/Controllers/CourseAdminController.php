@@ -28,11 +28,11 @@ final class CourseAdminController
         $db = Database::connection();
         $courseImagesAvailable = $this->courseImageColumnAvailable($db);
         $imageColumn = $courseImagesAvailable ? 'c.image_path' : 'NULL AS image_path';
-        $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM courses c LEFT JOIN course_modules cm ON cm.course_id=c.id LEFT JOIN lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
-        $students = $db->query("SELECT id,full_name,email FROM users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
+        $courses = $db->query("SELECT c.id,c.title,c.slug,c.visibility,c.category,c.short_description,c.description,c.duration_label,c.level_label,$imageColumn,COUNT(DISTINCT cm.id) AS module_count,COUNT(DISTINCT l.id) AS lesson_count,(SELECT price FROM lms_course_pricing_options WHERE course_id=c.id AND option_code='recorded_only' LIMIT 1) AS recorded_price,(SELECT price FROM lms_course_pricing_options WHERE course_id=c.id AND option_code='live_recorded' LIMIT 1) AS live_price FROM lms_courses c LEFT JOIN lms_course_modules cm ON cm.course_id=c.id LEFT JOIN lms_lessons l ON l.module_id=cm.id GROUP BY c.id ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
+        $students = $db->query("SELECT id,full_name,email FROM lms_users WHERE role='student' AND status='active' AND email_verified_at IS NOT NULL ORDER BY full_name")->fetchAll();
         $plansAvailable = AccessPlan::columnStored($db, 'student_course_access.plan_code');
         $studentCoursePlans = $plansAvailable
-            ? $db->query("SELECT student_id,course_id,plan_code,status FROM student_course_access")->fetchAll(PDO::FETCH_ASSOC)
+            ? $db->query("SELECT student_id,course_id,plan_code,status FROM lms_student_course_access")->fetchAll(PDO::FETCH_ASSOC)
             : [];
         View::render('admin/courses', ['title' => 'Course management', 'user' => $admin, 'courses' => $courses, 'students' => $students, 'courseImagesAvailable' => $courseImagesAvailable, 'plansAvailable' => $plansAvailable, 'studentCoursePlans' => $studentCoursePlans, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
@@ -100,7 +100,7 @@ final class CourseAdminController
             ? 'l.meeting_url,l.meeting_at'
             : 'NULL AS meeting_url,NULL AS meeting_at';
         $meetingPlatformColumn = $meetingPlatformAvailable ? 'l.meeting_platform' : 'NULL AS meeting_platform';
-        $from = 'FROM lessons l JOIN course_modules cm ON cm.id = l.module_id JOIN courses c ON c.id = cm.course_id';
+        $from = 'FROM lms_lessons l JOIN lms_course_modules cm ON cm.id = l.module_id JOIN lms_courses c ON c.id = cm.course_id';
         $count = $db->prepare("SELECT COUNT(*) $from$where");
         $count->execute($params);
         $total = (int) $count->fetchColumn();
@@ -119,17 +119,17 @@ final class CourseAdminController
         // Watch columns arrive with the same schema as the video columns, so an older import
         // still gets the lesson list - it simply reports no progress instead of failing.
         $watchColumn = $watchAvailable
-            ? '(SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
+            ? '(SELECT COUNT(*) FROM lms_lesson_progress lp WHERE lp.lesson_id = l.id AND lp.watched_seconds > 0) AS watching_count'
             : '0 AS watching_count';
         $planMetrics = AccessPlan::columnStored($db, 'student_course_access.plan_code')
-            ? "(SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
-               (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
+            ? "(SELECT COUNT(*) FROM lms_student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
+               (SELECT COUNT(*) FROM lms_student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
             : '0 AS recorded_students,0 AS live_students';
         $stmt = $db->prepare("SELECT l.id,l.title,l.body,l.status,l.sort_order,l.created_at,$videoColumns,$meetingColumns,$meetingPlatformColumn,cm.id AS module_id,cm.title AS module_title,
                     c.id AS course_id,c.title AS course_title,c.visibility AS course_visibility,
                     $planMetrics,
-                    (SELECT COUNT(*) FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
-                    (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id = c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
+                    (SELECT COUNT(*) FROM lms_lesson_progress lp WHERE lp.lesson_id = l.id AND lp.completed_at IS NOT NULL) AS completed_count,
+                    (SELECT COUNT(*) FROM lms_student_course_access sca WHERE sca.course_id = c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())) AS enrolled_count,
                     $watchColumn
               $from$where
               ORDER BY c.title,cm.sort_order,cm.id,l.sort_order,l.id
@@ -137,10 +137,10 @@ final class CourseAdminController
         $stmt->execute($params);
         // Slug is included because the same list feeds the "Add lesson" target-course picker.
         $planCountColumns = AccessPlan::columnStored($db, 'student_course_access.plan_code')
-            ? ",(SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
-               (SELECT COUNT(*) FROM student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
+            ? ",(SELECT COUNT(*) FROM lms_student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='recorded_only') AS recorded_students,
+               (SELECT COUNT(*) FROM lms_student_course_access sca WHERE sca.course_id=c.id AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) AND sca.plan_code='live_recorded') AS live_students"
             : ',0 AS recorded_students,0 AS live_students';
-        $courses = $db->query("SELECT c.id,c.title,c.slug $planCountColumns FROM courses c ORDER BY c.title")->fetchAll();
+        $courses = $db->query("SELECT c.id,c.title,c.slug $planCountColumns FROM lms_courses c ORDER BY c.title")->fetchAll();
 
         View::render('admin/lessons', [
             'title' => 'Lesson library',
@@ -162,7 +162,7 @@ final class CourseAdminController
             'total' => $total,
             'page' => $page,
             'pages' => $pages,
-            'purgeCount' => (int) $db->query('SELECT COUNT(*) FROM lessons')->fetchColumn(),
+            'purgeCount' => (int) $db->query('SELECT COUNT(*) FROM lms_lessons')->fetchColumn(),
             'message' => $_SESSION['_flash'] ?? null,
             'error' => $_SESSION['_flash_error'] ?? null,
         ]);
@@ -205,30 +205,30 @@ final class CourseAdminController
             $db->beginTransaction();
             if ($id > 0) {
                 $existingImageSelect = $courseImagesAvailable ? 'image_path' : 'NULL AS image_path';
-                $existingCourse = $db->prepare("SELECT $existingImageSelect FROM courses WHERE id=? FOR UPDATE");
+                $existingCourse = $db->prepare("SELECT $existingImageSelect FROM lms_courses WHERE id=? FOR UPDATE");
                 $existingCourse->execute([$id]);
                 $previousImage = $existingCourse->fetch();
                 if (!$previousImage) throw new RuntimeException('Course not found. Refresh and try again.');
                 $oldImagePath = is_string($previousImage['image_path'] ?? null) ? $previousImage['image_path'] : null;
                 if ($newImagePath !== null) {
-                    $stmt = $db->prepare('UPDATE courses SET title=?,slug=?,category=?,short_description=?,description=?,duration_label=?,level_label=?,image_path=?,visibility=? WHERE id=?');
+                    $stmt = $db->prepare('UPDATE lms_courses SET title=?,slug=?,category=?,short_description=?,description=?,duration_label=?,level_label=?,image_path=?,visibility=? WHERE id=?');
                     $stmt->execute([$title, $slug, $category ?: null, $shortDescription ?: null, $description ?: null, $duration ?: null, $level ?: null, $newImagePath, $visibility, $id]);
                 } else {
-                    $stmt = $db->prepare('UPDATE courses SET title=?,slug=?,category=?,short_description=?,description=?,duration_label=?,level_label=?,visibility=? WHERE id=?');
+                    $stmt = $db->prepare('UPDATE lms_courses SET title=?,slug=?,category=?,short_description=?,description=?,duration_label=?,level_label=?,visibility=? WHERE id=?');
                     $stmt->execute([$title, $slug, $category ?: null, $shortDescription ?: null, $description ?: null, $duration ?: null, $level ?: null, $visibility, $id]);
                 }
                 $courseId = $id;
             } else {
                 if ($courseImagesAvailable) {
-                    $stmt = $db->prepare('INSERT INTO courses (title,slug,category,short_description,description,duration_label,level_label,image_path,price,currency,visibility,created_by) VALUES (?,?,?,?,?,?,?,?,?,\'PKR\',?,?)');
+                    $stmt = $db->prepare('INSERT INTO lms_courses (title,slug,category,short_description,description,duration_label,level_label,image_path,price,currency,visibility,created_by) VALUES (?,?,?,?,?,?,?,?,?,\'PKR\',?,?)');
                     $stmt->execute([$title, $slug, $category ?: null, $shortDescription ?: null, $description ?: null, $duration ?: null, $level ?: null, $newImagePath, $recordedPrice, $visibility, (int)$admin['id']]);
                 } else {
-                    $stmt = $db->prepare('INSERT INTO courses (title,slug,category,short_description,description,duration_label,level_label,price,currency,visibility,created_by) VALUES (?,?,?,?,?,?,?,?,\'PKR\',?,?)');
+                    $stmt = $db->prepare('INSERT INTO lms_courses (title,slug,category,short_description,description,duration_label,level_label,price,currency,visibility,created_by) VALUES (?,?,?,?,?,?,?,?,\'PKR\',?,?)');
                     $stmt->execute([$title, $slug, $category ?: null, $shortDescription ?: null, $description ?: null, $duration ?: null, $level ?: null, $recordedPrice, $visibility, (int)$admin['id']]);
                 }
                 $courseId = (int)$db->lastInsertId();
             }
-            $pricing = $db->prepare('INSERT INTO course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,\'PKR\') ON DUPLICATE KEY UPDATE price=VALUES(price),display_label=VALUES(display_label)');
+            $pricing = $db->prepare('INSERT INTO lms_course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,\'PKR\') ON DUPLICATE KEY UPDATE price=VALUES(price),display_label=VALUES(display_label)');
             $pricing->execute([$courseId, 'recorded_only', 'Recorded Only', $recordedPrice]);
             $pricing->execute([$courseId, 'live_recorded', 'Live + Recorded', $livePrice]);
             $this->audit($db, (int)$admin['id'], 'course.saved', 'course', $courseId);
@@ -290,7 +290,7 @@ final class CourseAdminController
     private function courseImageColumnAvailable(PDO $db): bool
     {
         try {
-            $db->query('SELECT image_path FROM courses LIMIT 0');
+            $db->query('SELECT image_path FROM lms_courses LIMIT 0');
             return true;
         } catch (\PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054) return false;
@@ -302,7 +302,7 @@ final class CourseAdminController
     private function lessonVideoColumnsAvailable(PDO $db): bool
     {
         try {
-            $db->query('SELECT video_url,video_provider,video_duration_seconds FROM lessons LIMIT 0');
+            $db->query('SELECT video_url,video_provider,video_duration_seconds FROM lms_lessons LIMIT 0');
             return true;
         } catch (\PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054) return false;
@@ -370,7 +370,7 @@ final class CourseAdminController
             throw new RuntimeException('Set the live class date and time so its attendance session can be scheduled.');
         }
         if ($meetingUrl !== null) {
-            $sameDay = $db->prepare("SELECT l.id FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE l.meeting_url IS NOT NULL AND l.meeting_url<>'' AND DATE(l.meeting_at)=DATE(?) AND (?=0 OR l.id<>?) LIMIT 1");
+            $sameDay = $db->prepare("SELECT l.id FROM lms_lessons l JOIN lms_course_modules cm ON cm.id=l.module_id WHERE l.meeting_url IS NOT NULL AND l.meeting_url<>'' AND DATE(l.meeting_at)=DATE(?) AND (?=0 OR l.id<>?) LIMIT 1");
             $sameDay->execute([$meetingAt, $lessonId, $lessonId]);
             if ($sameDay->fetchColumn()) {
                 throw new RuntimeException('Only one live class can be scheduled per UTC day. Move or clear the other class first.');
@@ -384,15 +384,15 @@ final class CourseAdminController
         }
         $db->beginTransaction();
         try {
-            $check = $db->prepare('SELECT id, title FROM courses WHERE id=?');
+            $check = $db->prepare('SELECT id, title FROM lms_courses WHERE id=?');
             $check->execute([$courseId]);
             $courseRow = $check->fetch();
             if (!$courseRow) throw new RuntimeException('Course not found.');
             if ($lessonId > 0) {
-                $moduleCheck = $db->prepare('SELECT id FROM course_modules WHERE id=? AND course_id=?');
+                $moduleCheck = $db->prepare('SELECT id FROM lms_course_modules WHERE id=? AND course_id=?');
                 $moduleCheck->execute([$moduleId, $courseId]);
                 if (!$moduleCheck->fetchColumn()) throw new RuntimeException('The selected lesson module does not belong to this course.');
-                $lessonCheck = $db->prepare('SELECT id FROM lessons WHERE id=? AND module_id=?');
+                $lessonCheck = $db->prepare('SELECT id FROM lms_lessons WHERE id=? AND module_id=?');
                 $lessonCheck->execute([$lessonId, $moduleId]);
                 if (!$lessonCheck->fetchColumn()) throw new RuntimeException('Lesson not found in the selected module.');
                 $assignments = 'title=?,body=?,status=?';
@@ -416,15 +416,15 @@ final class CourseAdminController
                 }
                 $params[] = $lessonId;
                 $params[] = $moduleId;
-                $update = $db->prepare("UPDATE lessons SET $assignments WHERE id=? AND module_id=?");
+                $update = $db->prepare("UPDATE lms_lessons SET $assignments WHERE id=? AND module_id=?");
                 $update->execute($params);
                 $action = 'lesson.updated';
             } else {
-                $module = $db->prepare('SELECT id FROM course_modules WHERE course_id=? AND title=? LIMIT 1');
+                $module = $db->prepare('SELECT id FROM lms_course_modules WHERE course_id=? AND title=? LIMIT 1');
                 $module->execute([$courseId, $moduleTitle]);
                 $moduleId = (int)($module->fetchColumn() ?: 0);
                 if (!$moduleId) {
-                    $insert = $db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM course_modules existing WHERE existing.course_id=?))');
+                    $insert = $db->prepare('INSERT INTO lms_course_modules(course_id,title,sort_order) VALUES(?,?,(SELECT COALESCE(MAX(sort_order),0)+1 FROM lms_course_modules existing WHERE existing.course_id=?))');
                     $insert->execute([$courseId, $moduleTitle, $courseId]);
                     $moduleId = (int)$db->lastInsertId();
                 }
@@ -450,9 +450,9 @@ final class CourseAdminController
                     $params[] = $meetingUrl === null ? null : $meetingPlatform;
                 }
                 $columns .= ',sort_order';
-                $placeholders .= ',(SELECT COALESCE(MAX(sort_order),0)+1 FROM lessons existing WHERE existing.module_id=?)';
+                $placeholders .= ',(SELECT COALESCE(MAX(sort_order),0)+1 FROM lms_lessons existing WHERE existing.module_id=?)';
                 $params[] = $moduleId;
-                $lesson = $db->prepare("INSERT INTO lessons($columns) VALUES($placeholders)");
+                $lesson = $db->prepare("INSERT INTO lms_lessons($columns) VALUES($placeholders)");
                 $lesson->execute($params);
                 $lessonId = (int)$db->lastInsertId();
                 $action = 'lesson.created';
@@ -504,7 +504,7 @@ final class CourseAdminController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+            $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
                 ->execute([LessonMedia::WATCH_KEY, $raw, (int) $admin['id']]);
             $this->audit($db, (int) $admin['id'], 'lesson.watch_rule_updated', 'app_settings', 0, ['percent' => (int) $raw]);
             $db->commit();
@@ -533,17 +533,17 @@ final class CourseAdminController
         $db->beginTransaction();
         try {
             if ($action === 'grant') {
-                $durationQuery = $db->prepare('SELECT duration_label FROM courses WHERE id=?');
+                $durationQuery = $db->prepare('SELECT duration_label FROM lms_courses WHERE id=?');
                 $durationQuery->execute([$courseId]);
                 $duration = $durationQuery->fetchColumn();
                 if ($duration === false) throw new RuntimeException('Course not found.');
                 $grantedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
                 $grantedAtSql = $grantedAt->format('Y-m-d H:i:s');
                 $expiresAt = CourseDuration::expiry((string)$duration, $grantedAt);
-                $stmt = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
+                $stmt = $db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
                     . ($tracksPlan ? ',plan_code' : '')
                     . ") SELECT ?,?,'active',?,?,?,NULL,NULL" . ($tracksPlan ? ',?' : '')
-                    . " FROM users u JOIN courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL"
+                    . " FROM lms_users u JOIN lms_courses c ON c.id=? WHERE u.id=? AND u.role='student' AND u.status='active' AND u.email_verified_at IS NOT NULL ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL"
                     . ($tracksPlan ? ',plan_code=VALUES(plan_code)' : ''));
                 $grantParams = [$studentId, $courseId, (int)$admin['id'], $grantedAtSql, $expiresAt];
                 if ($tracksPlan) $grantParams[] = $planCode;
@@ -552,12 +552,12 @@ final class CourseAdminController
                 if ($stmt->rowCount() === 0) throw new RuntimeException('Active verified student or course not found.');
             } elseif ($action === 'plan') {
                 if (!$tracksPlan) throw new RuntimeException('Delivery plans require the updated database/migrations/001_initial_schema.sql. Import it, then try again.');
-                $enrolled = $db->prepare('SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? LIMIT 1');
+                $enrolled = $db->prepare('SELECT 1 FROM lms_student_course_access WHERE student_id=? AND course_id=? LIMIT 1');
                 $enrolled->execute([$studentId, $courseId]);
                 if (!$enrolled->fetchColumn()) throw new RuntimeException('That student has no enrolment in this course. Grant access first, then set its plan.');
-                $db->prepare('UPDATE student_course_access SET plan_code=? WHERE student_id=? AND course_id=?')->execute([$planCode, $studentId, $courseId]);
+                $db->prepare('UPDATE lms_student_course_access SET plan_code=? WHERE student_id=? AND course_id=?')->execute([$planCode, $studentId, $courseId]);
             } else {
-                $stmt = $db->prepare("UPDATE student_course_access SET status='revoked',revoked_by=?,revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND status='active'");
+                $stmt = $db->prepare("UPDATE lms_student_course_access SET status='revoked',revoked_by=?,revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND status='active'");
                 $stmt->execute([(int)$admin['id'], $studentId, $courseId]);
                 if ($stmt->rowCount() === 0) throw new RuntimeException('No active access grant exists for that student/course.');
             }
@@ -586,7 +586,7 @@ final class CourseAdminController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $course = $db->prepare('SELECT id,title FROM courses WHERE id=? FOR UPDATE');
+            $course = $db->prepare('SELECT id,title FROM lms_courses WHERE id=? FOR UPDATE');
             $course->execute([$courseId]);
             $row = $course->fetch();
             if (!$row) {
@@ -594,7 +594,7 @@ final class CourseAdminController
                 $_SESSION['_flash'] = 'Course not found. It may already have been deleted.';
                 $this->redirect('/admin/courses');
             }
-            $history = $db->prepare("SELECT (SELECT COUNT(*) FROM payments WHERE course_id=?) + (SELECT COUNT(*) FROM student_course_access WHERE course_id=?) + (SELECT COUNT(*) FROM quiz_attempts qa JOIN quizzes q ON q.id=qa.quiz_id WHERE q.course_id=?) + (SELECT COUNT(*) FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE a.course_id=?) + (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?)");
+            $history = $db->prepare("SELECT (SELECT COUNT(*) FROM lms_payments WHERE course_id=?) + (SELECT COUNT(*) FROM lms_student_course_access WHERE course_id=?) + (SELECT COUNT(*) FROM lms_quiz_attempts qa JOIN lms_quizzes q ON q.id=qa.quiz_id WHERE q.course_id=?) + (SELECT COUNT(*) FROM lms_assignment_submissions s JOIN lms_assignments a ON a.id=s.assignment_id WHERE a.course_id=?) + (SELECT COUNT(*) FROM lms_lesson_progress lp JOIN lms_lessons l ON l.id=lp.lesson_id JOIN lms_course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?)");
             $history->execute([$courseId, $courseId, $courseId, $courseId, $courseId]);
             if ((int)$history->fetchColumn() > 0) {
                 $db->rollBack();
@@ -602,17 +602,17 @@ final class CourseAdminController
                 $this->redirect('/admin/courses');
             }
 
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'course.deleted','course',?,?)")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'course.deleted','course',?,?)")
                 ->execute([(int)$admin['id'], $courseId, json_encode(['title' => $row['title']], JSON_THROW_ON_ERROR)]);
-            $db->prepare('DELETE qop FROM quiz_options qop JOIN quiz_questions qq ON qq.id=qop.question_id JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE qa FROM quiz_answers qa JOIN quiz_questions qq ON qq.id=qa.question_id JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE qq FROM quiz_questions qq JOIN quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE FROM quizzes WHERE course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE FROM assignments WHERE course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE l FROM lessons l JOIN course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE FROM course_modules WHERE course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE FROM course_pricing_options WHERE course_id=?')->execute([$courseId]);
-            $db->prepare('DELETE FROM courses WHERE id=?')->execute([$courseId]);
+            $db->prepare('DELETE qop FROM lms_quiz_options qop JOIN lms_quiz_questions qq ON qq.id=qop.question_id JOIN lms_quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE qa FROM lms_quiz_answers qa JOIN lms_quiz_questions qq ON qq.id=qa.question_id JOIN lms_quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE qq FROM lms_quiz_questions qq JOIN lms_quizzes q ON q.id=qq.quiz_id WHERE q.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM lms_quizzes WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM lms_assignments WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE l FROM lms_lessons l JOIN lms_course_modules cm ON cm.id=l.module_id WHERE cm.course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM lms_course_modules WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM lms_course_pricing_options WHERE course_id=?')->execute([$courseId]);
+            $db->prepare('DELETE FROM lms_courses WHERE id=?')->execute([$courseId]);
             $db->commit();
         } catch (\Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -646,7 +646,7 @@ final class CourseAdminController
         PurgeGuard::assertConfirmed('DELETE ALL LESSONS');
         $courseId = PurgeGuard::scopeCourseId();
         $db = Database::connection();
-        $list = $db->prepare('SELECT l.id FROM lessons l JOIN course_modules cm ON cm.id=l.module_id' . ($courseId > 0 ? ' WHERE cm.course_id=?' : '') . ' ORDER BY l.id');
+        $list = $db->prepare('SELECT l.id FROM lms_lessons l JOIN lms_course_modules cm ON cm.id=l.module_id' . ($courseId > 0 ? ' WHERE cm.course_id=?' : '') . ' ORDER BY l.id');
         $list->execute($courseId > 0 ? [$courseId] : []);
         $lessonIds = array_map('intval', $list->fetchAll(PDO::FETCH_COLUMN));
         if ($lessonIds === []) {
@@ -654,13 +654,13 @@ final class CourseAdminController
             $this->redirect(PurgeGuard::returnPath('/admin/lessons'));
         }
         $in = implode(',', array_fill(0, count($lessonIds), '?'));
-        $progress = $db->prepare("SELECT lp.student_id, cm.course_id, COUNT(*) AS c FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id JOIN course_modules cm ON cm.id=l.module_id WHERE lp.lesson_id IN ($in) GROUP BY lp.student_id, cm.course_id");
+        $progress = $db->prepare("SELECT lp.student_id, cm.course_id, COUNT(*) AS c FROM lms_lesson_progress lp JOIN lms_lessons l ON l.id=lp.lesson_id JOIN lms_course_modules cm ON cm.id=l.module_id WHERE lp.lesson_id IN ($in) GROUP BY lp.student_id, cm.course_id");
         $progress->execute($lessonIds);
         $affected = array_map(static fn(array $row): array => ['student_id' => (int) $row['student_id'], 'course_id' => (int) $row['course_id']], $progress->fetchAll());
         $progressRows = 0;
         $db->beginTransaction();
         try {
-            $drop = $db->prepare("DELETE lp FROM lesson_progress lp JOIN lessons l ON l.id=lp.lesson_id WHERE lp.lesson_id IN ($in)");
+            $drop = $db->prepare("DELETE lp FROM lms_lesson_progress lp JOIN lms_lessons l ON l.id=lp.lesson_id WHERE lp.lesson_id IN ($in)");
             $drop->execute($lessonIds);
             $progressRows = $drop->rowCount();
             // A removed lesson takes its viewing reports with it. The foreign key would cascade them
@@ -668,14 +668,14 @@ final class CourseAdminController
             // is skipped on a database that has not been re-imported with the table yet.
             $viewRows = 0;
             try {
-                $events = $db->prepare("DELETE FROM lesson_view_events WHERE lesson_id IN ($in)");
+                $events = $db->prepare("DELETE FROM lms_lesson_view_events WHERE lesson_id IN ($in)");
                 $events->execute($lessonIds);
                 $viewRows = $events->rowCount();
             } catch (\PDOException $exception) {
                 if ((string) $exception->getCode() !== '42S02') throw $exception;
             }
-            $db->prepare("DELETE FROM lessons WHERE id IN ($in)")->execute($lessonIds);
-            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,NULL,?)')
+            $db->prepare("DELETE FROM lms_lessons WHERE id IN ($in)")->execute($lessonIds);
+            $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,NULL,?)')
                 ->execute([(int) $admin['id'], 'lesson.bulk_deleted', 'lesson', json_encode([
                     'course_id' => $courseId,
                     'lessons_deleted' => count($lessonIds),
@@ -703,7 +703,7 @@ final class CourseAdminController
     }
     private function audit(PDO $db, int $actor, string $action, string $entity, int $id, array $metadata = []): void
     {
-        $stmt = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
+        $stmt = $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
         $stmt->execute([$actor, $action, $entity, $id, $metadata ? json_encode($metadata, JSON_THROW_ON_ERROR) : null]);
     }
     private function redirect(string $path): never

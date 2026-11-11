@@ -26,7 +26,7 @@ final class ReportsController
         $period = $this->period($_GET['period'] ?? 'monthly');
         $reports = $this->reports($db, $period);
         // The send panel needs someone to send to, and the admin likes to see what already went out.
-        $students = $db->query("SELECT id, full_name, email, account_reference FROM users WHERE role = 'student' AND status = 'active' ORDER BY full_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        $students = $db->query("SELECT id, full_name, email, account_reference FROM lms_users WHERE role = 'student' AND status = 'active' ORDER BY full_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($students as &$student) {
             if (trim((string) ($student['account_reference'] ?? '')) === '') {
                 $student['account_reference'] = AccountIdentity::ensure($db, (int) $student['id']);
@@ -70,7 +70,7 @@ final class ReportsController
         }
         // The id arrives from the browser, so the account has to be re-checked: a student, and an
         // active one, is the only kind of recipient a report can go to.
-        $student = $db->prepare("SELECT full_name FROM users WHERE id = ? AND role = 'student' AND status = 'active' LIMIT 1");
+        $student = $db->prepare("SELECT full_name FROM lms_users WHERE id = ? AND role = 'student' AND status = 'active' LIMIT 1");
         $student->execute([$studentId]);
         $studentName = $student->fetchColumn();
         if (!is_string($studentName) || $studentName === '') {
@@ -129,7 +129,7 @@ final class ReportsController
         try {
             // Recording who emptied the desk is derived bookkeeping: the list is already cleared, so
             // a database that will not take the audit row is logged rather than shown as a failure.
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'reports.recent_cleared','report_share',JSON_OBJECT('hidden_shares', ?))")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'reports.recent_cleared','report_share',JSON_OBJECT('hidden_shares', ?))")
                 ->execute([(int) $admin['id'], $hidden]);
         } catch (\Throwable $exception) {
             error_log('[REPORTS] Recently sent clear was not audited: ' . $exception->getMessage());
@@ -209,18 +209,18 @@ final class ReportsController
     {
         $from = $period['start']; $until = $period['end'];
         (new AttendanceService($db))->closeExpired();
-        $attendanceSummary = $db->prepare("SELECT COUNT(*) AS total, SUM(status='present') AS present, SUM(status='absent') AS absent, SUM(status='pending') AS pending FROM attendance_records WHERE course_id IS NOT NULL AND lesson_id IS NOT NULL AND attendance_date>=DATE(?) AND attendance_date<DATE(?)");
+        $attendanceSummary = $db->prepare("SELECT COUNT(*) AS total, SUM(status='present') AS present, SUM(status='absent') AS absent, SUM(status='pending') AS pending FROM lms_attendance_records WHERE course_id IS NOT NULL AND lesson_id IS NOT NULL AND attendance_date>=DATE(?) AND attendance_date<DATE(?)");
         $attendanceSummary->execute([$from, $until]);
         $attendanceTotals = $attendanceSummary->fetch(PDO::FETCH_ASSOC) ?: [];
-        $studentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,u.email,u.status,u.last_login_at,COUNT(a.id) AS expected_sessions,COALESCE(SUM(a.status='present'),0) AS present_sessions,COALESCE(SUM(a.status='absent'),0) AS absent_sessions,MAX(CASE WHEN a.attendance_date=UTC_DATE() THEN a.status ELSE NULL END) AS today_status FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' GROUP BY u.id");
+        $studentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,u.email,u.status,u.last_login_at,COUNT(a.id) AS expected_sessions,COALESCE(SUM(a.status='present'),0) AS present_sessions,COALESCE(SUM(a.status='absent'),0) AS absent_sessions,MAX(CASE WHEN a.attendance_date=UTC_DATE() THEN a.status ELSE NULL END) AS today_status FROM lms_users u LEFT JOIN lms_attendance_records a ON a.student_id=u.id AND a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' GROUP BY u.id");
         $studentRows->execute([$from, $until]);
-        $studentTotal = (int)$db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
-        $studentStatusCounts = $db->query("SELECT status,COUNT(*) AS total FROM users WHERE role='student' GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
-        $attendanceRows = $db->prepare("SELECT a.attendance_date,u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,l.title AS lesson_title,l.meeting_at,a.status,a.first_login_at,a.marked_at FROM attendance_records a JOIN users u ON u.id=a.student_id JOIN courses c ON c.id=a.course_id JOIN lessons l ON l.id=a.lesson_id WHERE a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) ORDER BY a.attendance_date DESC,u.full_name LIMIT 60");
+        $studentTotal = (int)$db->query("SELECT COUNT(*) FROM lms_users WHERE role='student'")->fetchColumn();
+        $studentStatusCounts = $db->query("SELECT status,COUNT(*) AS total FROM lms_users WHERE role='student' GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $attendanceRows = $db->prepare("SELECT a.attendance_date,u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,l.title AS lesson_title,l.meeting_at,a.status,a.first_login_at,a.marked_at FROM lms_attendance_records a JOIN lms_users u ON u.id=a.student_id JOIN lms_courses c ON c.id=a.course_id JOIN lms_lessons l ON l.id=a.lesson_id WHERE a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) ORDER BY a.attendance_date DESC,u.full_name LIMIT 60");
         $attendanceRows->execute([$from, $until]);
-        $quizRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM quiz_attempts qa JOIN users u ON u.id=qa.student_id JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id WHERE qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
+        $quizRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM lms_quiz_attempts qa JOIN lms_users u ON u.id=qa.student_id JOIN lms_quizzes q ON q.id=qa.quiz_id JOIN lms_courses c ON c.id=q.course_id WHERE qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
         $quizRows->execute([$from, $until]);
-        $assignmentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM assignment_submissions s JOIN users u ON u.id=s.student_id JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id WHERE s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60");
+        $assignmentRows = $db->prepare("SELECT u.id AS student_id,u.account_reference AS student_reference,u.full_name,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM lms_assignment_submissions s JOIN lms_users u ON u.id=s.student_id JOIN lms_assignments a ON a.id=s.assignment_id JOIN lms_courses c ON c.id=a.course_id WHERE s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60");
         $assignmentRows->execute([$from, $until]);
         $quizData = $quizRows->fetchAll(PDO::FETCH_ASSOC);
         $assignmentData = $assignmentRows->fetchAll(PDO::FETCH_ASSOC);

@@ -23,10 +23,10 @@ final class AssignmentController
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
-        $courses = $db->query("SELECT id,title FROM courses WHERE visibility IN ('published','draft','hidden') ORDER BY title")->fetchAll();
-        $modules = $db->query('SELECT id,course_id,title,sort_order FROM course_modules ORDER BY course_id,sort_order,id')->fetchAll();
-        $assignments = $db->query('SELECT a.*,c.title AS course_title,m.title AS module_title,(SELECT COUNT(*) FROM assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM assignments a JOIN courses c ON c.id=a.course_id LEFT JOIN course_modules m ON m.id=a.module_id ORDER BY a.id DESC')->fetchAll();
-        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.id AS student_id,u.full_name AS student_name,u.email AS student_email,u.account_reference AS student_reference FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id JOIN users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $courses = $db->query("SELECT id,title FROM lms_courses WHERE visibility IN ('published','draft','hidden') ORDER BY title")->fetchAll();
+        $modules = $db->query('SELECT id,course_id,title,sort_order FROM lms_course_modules ORDER BY course_id,sort_order,id')->fetchAll();
+        $assignments = $db->query('SELECT a.*,c.title AS course_title,m.title AS module_title,(SELECT COUNT(*) FROM lms_assignment_submissions s WHERE s.assignment_id=a.id) AS submission_count FROM lms_assignments a JOIN lms_courses c ON c.id=a.course_id LEFT JOIN lms_course_modules m ON m.id=a.module_id ORDER BY a.id DESC')->fetchAll();
+        $submissions = $db->query("SELECT s.*,a.title AS assignment_title,a.max_marks,a.late_deduction_percent,a.assignment_type,c.title AS course_title,u.id AS student_id,u.full_name AS student_name,u.email AS student_email,u.account_reference AS student_reference FROM lms_assignment_submissions s JOIN lms_assignments a ON a.id=s.assignment_id JOIN lms_courses c ON c.id=a.course_id JOIN lms_users u ON u.id=s.student_id WHERE s.status IN ('submitted','resubmit_requested') ORDER BY s.submitted_at ASC,s.id ASC")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($submissions as &$submission) {
             if (trim((string) ($submission['student_reference'] ?? '')) === '') {
                 $submission['student_reference'] = AccountIdentity::ensure($db, (int) $submission['student_id']);
@@ -58,22 +58,22 @@ final class AssignmentController
         if ($courseId < 1 || !in_array($type, ['exercise', 'mini_project'], true) || !in_array($topic, ['general', 'php_mysql'], true) || ($week !== null && ($week < 1 || $week > 52)) || mb_strlen($title) < 3 || mb_strlen($title) > 200 || mb_strlen($instructions) > 10000 || !is_numeric($marks) || (float)$marks <= 0 || (float)$marks > 100000 || !is_numeric($deduction) || (float)$deduction < 0 || (float)$deduction > 100 || ($cutoffAt !== null && $dueAt !== null && strtotime($cutoffAt . ' UTC') < strtotime($dueAt . ' UTC')) || !in_array($status, ['draft', 'published', 'closed'], true)) throw new RuntimeException('Enter valid assignment details. The Admin cutoff must be on or after the due date.');
         $db = Database::connection();
         $isUpdate = $id > 0;
-        $course = $db->prepare('SELECT id, title FROM courses WHERE id=?');
+        $course = $db->prepare('SELECT id, title FROM lms_courses WHERE id=?');
         $course->execute([$courseId]);
         $courseRow = $course->fetch();
         if (!$courseRow) throw new RuntimeException('Select an existing course.');
         if ($moduleId > 0) {
-            $module = $db->prepare('SELECT id FROM course_modules WHERE id=? AND course_id=?');
+            $module = $db->prepare('SELECT id FROM lms_course_modules WHERE id=? AND course_id=?');
             $module->execute([$moduleId, $courseId]);
             if (!$module->fetchColumn()) throw new RuntimeException('Select a module from the chosen course.');
         } else {
             $moduleId = 0;
         }
         if ($id > 0) {
-            $stmt = $db->prepare('UPDATE assignments SET course_id=?,assignment_type=?,module_id=?,assignment_topic=?,week_number=?,title=?,instructions=?,due_at=?,admin_cutoff_at=?,late_deduction_percent=?,max_marks=?,status=? WHERE id=?');
+            $stmt = $db->prepare('UPDATE lms_assignments SET course_id=?,assignment_type=?,module_id=?,assignment_topic=?,week_number=?,title=?,instructions=?,due_at=?,admin_cutoff_at=?,late_deduction_percent=?,max_marks=?,status=? WHERE id=?');
             $stmt->execute([$courseId, $type, $moduleId ?: null, $topic, $week, $title, $instructions ?: null, $dueAt, $cutoffAt, $deduction, $marks, $status, $id]);
         } else {
-            $stmt = $db->prepare('INSERT INTO assignments(course_id,assignment_type,module_id,assignment_topic,week_number,title,instructions,due_at,admin_cutoff_at,late_deduction_percent,max_marks,status,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt = $db->prepare('INSERT INTO lms_assignments(course_id,assignment_type,module_id,assignment_topic,week_number,title,instructions,due_at,admin_cutoff_at,late_deduction_percent,max_marks,status,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
             $stmt->execute([$courseId, $type, $moduleId ?: null, $topic, $week, $title, $instructions ?: null, $dueAt, $cutoffAt, $deduction, $marks, $status, (int)$admin['id']]);
             $id = (int)$db->lastInsertId();
         }
@@ -96,7 +96,7 @@ final class AssignmentController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $course = $db->prepare("SELECT c.id,c.title FROM courses c JOIN student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $course = $db->prepare("SELECT c.id,c.title FROM lms_courses c JOIN lms_student_course_access a ON a.course_id=c.id WHERE c.id=? AND a.student_id=? AND a.status IN ('active','completed','certified') AND (a.expires_at IS NULL OR a.expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $course->execute([$courseId, (int)$student['id']]);
         $courseRow = $course->fetch();
         if (!$courseRow) {
@@ -104,7 +104,7 @@ final class AssignmentController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $stmt = $db->prepare("SELECT a.id,a.assignment_type,a.assignment_topic,a.module_id,m.title AS module_title,a.week_number,a.title,a.instructions,a.due_at,a.admin_cutoff_at,a.late_deduction_percent,a.max_marks,a.status,s.id AS submission_id,s.submission_text,s.github_url,s.file_path,s.submitted_late,s.submitted_at,s.status AS submission_status,s.marks_awarded,s.feedback,s.rubric_technical,s.rubric_problem_solving,s.rubric_code_quality,s.rubric_timeliness,s.rubric_completeness FROM assignments a LEFT JOIN course_modules m ON m.id=a.module_id LEFT JOIN assignment_submissions s ON s.id=(SELECT latest.id FROM assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.course_id=? AND a.status IN ('published','closed') ORDER BY a.week_number,a.id");
+        $stmt = $db->prepare("SELECT a.id,a.assignment_type,a.assignment_topic,a.module_id,m.title AS module_title,a.week_number,a.title,a.instructions,a.due_at,a.admin_cutoff_at,a.late_deduction_percent,a.max_marks,a.status,s.id AS submission_id,s.submission_text,s.github_url,s.file_path,s.submitted_late,s.submitted_at,s.status AS submission_status,s.marks_awarded,s.feedback,s.rubric_technical,s.rubric_problem_solving,s.rubric_code_quality,s.rubric_timeliness,s.rubric_completeness FROM lms_assignments a LEFT JOIN lms_course_modules m ON m.id=a.module_id LEFT JOIN lms_assignment_submissions s ON s.id=(SELECT latest.id FROM lms_assignment_submissions latest WHERE latest.assignment_id=a.id AND latest.student_id=? ORDER BY latest.id DESC LIMIT 1) WHERE a.course_id=? AND a.status IN ('published','closed') ORDER BY a.week_number,a.id");
         $stmt->execute([(int)$student['id'], $courseId]);
         $rows = [];
         foreach ($stmt->fetchAll() as $row) {
@@ -128,17 +128,17 @@ final class AssignmentController
         $db->beginTransaction();
         $stored = null;
         try {
-            $stmt = $db->prepare("SELECT a.course_id,a.status,a.assignment_topic,a.due_at,a.admin_cutoff_at FROM assignments a JOIN student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status IN ('active','completed','certified') AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
+            $stmt = $db->prepare("SELECT a.course_id,a.status,a.assignment_topic,a.due_at,a.admin_cutoff_at FROM lms_assignments a JOIN lms_student_course_access x ON x.course_id=a.course_id AND x.student_id=? AND x.status IN ('active','completed','certified') AND (x.expires_at IS NULL OR x.expires_at>UTC_TIMESTAMP()) WHERE a.id=? LIMIT 1 FOR UPDATE");
             $stmt->execute([(int)$student['id'], $assignmentId]);
             $assignment = $stmt->fetch();
             $now = time();
             $effectiveCutoff = $assignment ? ($assignment['admin_cutoff_at'] ?: $assignment['due_at']) : null;
             $pastCutoff = $effectiveCutoff !== null && strtotime($effectiveCutoff . ' UTC') < $now;
             if (!$assignment || $assignment['status'] !== 'published' || $pastCutoff) throw new RuntimeException('This assignment is unavailable or its final submission cutoff has passed.');
-            $revisionCount = $db->prepare('SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id=? AND student_id=?');
+            $revisionCount = $db->prepare('SELECT COUNT(*) FROM lms_assignment_submissions WHERE assignment_id=? AND student_id=?');
             $revisionCount->execute([$assignmentId, (int)$student['id']]);
             if ((int)$revisionCount->fetchColumn() >= 5) throw new RuntimeException('The maximum of five submissions for this assignment has been reached. Contact your instructor if you need help.');
-            $latest = $db->prepare('SELECT status FROM assignment_submissions WHERE assignment_id=? AND student_id=? ORDER BY id DESC LIMIT 1');
+            $latest = $db->prepare('SELECT status FROM lms_assignment_submissions WHERE assignment_id=? AND student_id=? ORDER BY id DESC LIMIT 1');
             $latest->execute([$assignmentId, (int)$student['id']]);
             $priorStatus = $latest->fetchColumn();
             if ($priorStatus !== false && $priorStatus !== 'resubmit_requested') throw new RuntimeException('Your latest submission is already under review or has been graded.');
@@ -146,7 +146,7 @@ final class AssignmentController
             if (is_array($upload) && ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) $stored = $this->storeFile($upload);
             if (($assignment['assignment_topic'] === 'php_mysql' && $githubUrl === '') || ($text === '' && $githubUrl === '' && $stored === null)) throw new RuntimeException($assignment['assignment_topic'] === 'php_mysql' ? 'Add your PHP/MySQL practice repository as a GitHub link before submitting.' : 'Add a GitHub repository link, write a response, or attach a file before submitting.');
             $late = $assignment['due_at'] !== null && strtotime($assignment['due_at'] . ' UTC') < $now;
-            $insert = $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,github_url,file_path,submitted_late,status) VALUES(?,?,?,?,?,?, 'submitted')");
+            $insert = $db->prepare("INSERT INTO lms_assignment_submissions(assignment_id,student_id,submission_text,github_url,file_path,submitted_late,status) VALUES(?,?,?,?,?,?, 'submitted')");
             $insert->execute([$assignmentId, (int)$student['id'], $text ?: null, $githubUrl ?: null, $stored['relative'] ?? null, $late ? 1 : 0]);
             $this->audit($db, (int)$student['id'], 'assignment.submitted', (int)$db->lastInsertId());
             $db->commit();
@@ -175,7 +175,7 @@ final class AssignmentController
             $rubric[$column] = $value === '' ? null : (float)$value;
         }
         $db = Database::connection();
-        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,a.course_id,a.title AS assignment_title,s.submitted_late,s.student_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.id=?');
+        $find = $db->prepare('SELECT a.max_marks,a.late_deduction_percent,a.course_id,a.title AS assignment_title,s.submitted_late,s.student_id FROM lms_assignment_submissions s JOIN lms_assignments a ON a.id=s.assignment_id WHERE s.id=?');
         $find->execute([$id]);
         $assignment = $find->fetch();
         if (!$assignment) throw new RuntimeException('Submission was not found.');
@@ -184,7 +184,7 @@ final class AssignmentController
             $raw = array_sum(array_map(static fn($value): float => (float)$value, $rubric));
             $marks = round(((float)$assignment['max_marks'] * $raw / 25) * ((int)$assignment['submitted_late'] === 1 ? 1 - (float)$assignment['late_deduction_percent'] / 100 : 1), 2);
         }
-        $update = $db->prepare('UPDATE assignment_submissions SET status=?,marks_awarded=?,feedback=?,rubric_technical=?,rubric_problem_solving=?,rubric_code_quality=?,rubric_timeliness=?,rubric_completeness=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?');
+        $update = $db->prepare('UPDATE lms_assignment_submissions SET status=?,marks_awarded=?,feedback=?,rubric_technical=?,rubric_problem_solving=?,rubric_code_quality=?,rubric_timeliness=?,rubric_completeness=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP() WHERE id=?');
         $update->execute([$decision, $marks, $feedback ?: null, ...array_values($rubric), (int)$admin['id'], $id]);
         $this->audit($db, (int)$admin['id'], 'assignment.' . $decision, $id);
         // A reviewed rubric changes the course grade matrix; keep it current without risking the review.
@@ -237,7 +237,7 @@ final class AssignmentController
         PurgeGuard::assertConfirmed('DELETE ALL ASSIGNMENTS');
         $courseId = PurgeGuard::scopeCourseId();
         $db = Database::connection();
-        $list = $db->prepare('SELECT id,title FROM assignments' . ($courseId > 0 ? ' WHERE course_id=?' : '') . ' ORDER BY id');
+        $list = $db->prepare('SELECT id,title FROM lms_assignments' . ($courseId > 0 ? ' WHERE course_id=?' : '') . ' ORDER BY id');
         $list->execute($courseId > 0 ? [$courseId] : []);
         $assignmentIds = array_map('intval', array_column($list->fetchAll(), 'id'));
         if ($assignmentIds === []) {
@@ -245,18 +245,18 @@ final class AssignmentController
             $this->redirect(PurgeGuard::returnPath('/admin/assignments'));
         }
         $in = implode(',', array_fill(0, count($assignmentIds), '?'));
-        $submitted = $db->prepare("SELECT id,file_path FROM assignment_submissions WHERE assignment_id IN ($in)");
+        $submitted = $db->prepare("SELECT id,file_path FROM lms_assignment_submissions WHERE assignment_id IN ($in)");
         $submitted->execute($assignmentIds);
         $submissions = $submitted->fetchAll();
         $files = PurgeGuard::removeStoredFiles(array_column($submissions, 'file_path'));
-        $pairs = $db->prepare("SELECT DISTINCT s.student_id,a.course_id FROM assignment_submissions s JOIN assignments a ON a.id=s.assignment_id WHERE s.assignment_id IN ($in)");
+        $pairs = $db->prepare("SELECT DISTINCT s.student_id,a.course_id FROM lms_assignment_submissions s JOIN lms_assignments a ON a.id=s.assignment_id WHERE s.assignment_id IN ($in)");
         $pairs->execute($assignmentIds);
         $affected = $pairs->fetchAll();
         $db->beginTransaction();
         try {
-            $db->prepare("DELETE FROM assignment_submissions WHERE assignment_id IN ($in)")->execute($assignmentIds);
-            $db->prepare("DELETE FROM assignments WHERE id IN ($in)")->execute($assignmentIds);
-            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'assignment\',NULL,?)')
+            $db->prepare("DELETE FROM lms_assignment_submissions WHERE assignment_id IN ($in)")->execute($assignmentIds);
+            $db->prepare("DELETE FROM lms_assignments WHERE id IN ($in)")->execute($assignmentIds);
+            $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'assignment\',NULL,?)')
                 ->execute([(int)$admin['id'], 'assignment.bulk_deleted', json_encode([
                     'course_id' => $courseId,
                     'assignments_deleted' => count($assignmentIds),
@@ -288,7 +288,7 @@ final class AssignmentController
         $user = AuthMiddleware::requireRole((string)$session['role']);
         $id = filter_input(INPUT_GET, 'submission_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $sql = 'SELECT file_path FROM assignment_submissions WHERE id=?';
+        $sql = 'SELECT file_path FROM lms_assignment_submissions WHERE id=?';
         $params = [$id];
         if ($user['role'] === 'student') {
             $sql .= ' AND student_id=?';
@@ -364,7 +364,7 @@ final class AssignmentController
     }
     private function audit(PDO $db, int $actor, string $action, int $id): void
     {
-        $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'assignment_submission\',?)')->execute([$actor, $action, $id]);
+        $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'assignment_submission\',?)')->execute([$actor, $action, $id]);
     }
     private function csrf(): void
     {

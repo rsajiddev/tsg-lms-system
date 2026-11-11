@@ -95,7 +95,7 @@ final class CourseGrading
             $letter = self::letter($overall);
 
             $this->db->prepare(
-                'INSERT INTO course_grades
+                'INSERT INTO lms_course_grades
                     (student_id, course_id, video_pct, quiz_pct, exercise_pct, project_pct, final_pct, overall_pct, letter_grade, components_mask, computed_at)
                  VALUES(?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())
                  ON DUPLICATE KEY UPDATE
@@ -123,7 +123,7 @@ final class CourseGrading
     public function forStudentCourse(int $studentId, int $courseId): ?array
     {
         try {
-            $stmt = $this->db->prepare('SELECT * FROM course_grades WHERE student_id = ? AND course_id = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT * FROM lms_course_grades WHERE student_id = ? AND course_id = ? LIMIT 1');
             $stmt->execute([$studentId, $courseId]);
             $row = $stmt->fetch();
             return is_array($row) ? $row : null;
@@ -153,7 +153,7 @@ final class CourseGrading
             (new AttendanceService($this->db))->closeExpired();
             $stmt = $this->db->prepare(
                 "SELECT SUM(status='present') AS present,COUNT(*) AS decided
-                 FROM attendance_records
+                 FROM lms_attendance_records
                  WHERE student_id=? AND course_id=? AND lesson_id IS NOT NULL
                    AND attendance_date>=DATE(?) AND status IN ('present','absent')"
             );
@@ -184,7 +184,7 @@ final class CourseGrading
         $requiresAttendance = false;
         try {
             $planColumn = AccessPlan::columnStored($this->db, 'student_course_access.plan_code') ? ', plan_code' : '';
-            $stmt = $this->db->prepare('SELECT granted_at' . $planColumn . ' FROM student_course_access WHERE student_id = ? AND course_id = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT granted_at' . $planColumn . ' FROM lms_student_course_access WHERE student_id = ? AND course_id = ? LIMIT 1');
             $stmt->execute([$studentId, $courseId]);
             $access = $stmt->fetch();
             if (is_array($access)) {
@@ -273,9 +273,9 @@ final class CourseGrading
         try {
             $stmt = $this->db->prepare(
                 "SELECT q.id,
-                        (SELECT MAX(qa.percentage) FROM quiz_attempts qa
+                        (SELECT MAX(qa.percentage) FROM lms_quiz_attempts qa
                          WHERE qa.quiz_id = q.id AND qa.student_id = ? AND qa.status <> 'in_progress' AND qa.percentage IS NOT NULL) AS best
-                 FROM quizzes q
+                 FROM lms_quizzes q
                  WHERE q.course_id = ? AND q.quiz_type IN ($placeholders) AND q.status IN ('released', 'closed')"
             );
             $stmt->execute(array_merge([$studentId, $courseId], $types));
@@ -300,9 +300,9 @@ final class CourseGrading
         try {
             $stmt = $this->db->prepare(
                 "SELECT a.max_marks,
-                        (SELECT MAX(s.marks_awarded) FROM assignment_submissions s
+                        (SELECT MAX(s.marks_awarded) FROM lms_assignment_submissions s
                          WHERE s.assignment_id = a.id AND s.student_id = ? AND s.status = 'reviewed' AND s.marks_awarded IS NOT NULL) AS awarded
-                 FROM assignments a
+                 FROM lms_assignments a
                  WHERE a.course_id = ? AND a.assignment_type = ? AND a.status IN ('published', 'closed')"
             );
             $stmt->execute([$studentId, $courseId, $type]);
@@ -333,9 +333,9 @@ final class CourseGrading
         try {
             $stmt = $this->db->prepare(
                 'SELECT l.video_duration_seconds, lp.watched_seconds, lp.completed_at
-                 FROM lessons l
-                 JOIN course_modules cm ON cm.id = l.module_id
-                 LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
+                 FROM lms_lessons l
+                 JOIN lms_course_modules cm ON cm.id = l.module_id
+                 LEFT JOIN lms_lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
                  WHERE cm.course_id = ? AND l.status = \'published\''
             );
             $stmt->execute([$studentId, $courseId]);
@@ -367,9 +367,9 @@ final class CourseGrading
             $stmt = $this->db->prepare(
                 'SELECT COUNT(*) AS total,
                         SUM(lp.completed_at IS NOT NULL) AS done
-                 FROM lessons l
-                 JOIN course_modules cm ON cm.id = l.module_id
-                 LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
+                 FROM lms_lessons l
+                 JOIN lms_course_modules cm ON cm.id = l.module_id
+                 LEFT JOIN lms_lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
                  WHERE cm.course_id = ? AND l.status = \'published\''
             );
             $stmt->execute([$studentId, $courseId]);
@@ -395,9 +395,9 @@ final class CourseGrading
         try {
             $stmt = $this->db->prepare(
                 'SELECT COUNT(*) AS total, SUM(lp.completed_at IS NOT NULL) AS done
-                 FROM lessons l
-                 JOIN course_modules cm ON cm.id = l.module_id
-                 LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
+                 FROM lms_lessons l
+                 JOIN lms_course_modules cm ON cm.id = l.module_id
+                 LEFT JOIN lms_lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
                  WHERE cm.course_id = ? AND l.status = \'published\''
             );
             $stmt->execute([$studentId, $courseId]);
@@ -406,7 +406,7 @@ final class CourseGrading
                 return;
             }
             // Only ever lift a live enrollment; certified/revoked/completed rows are left alone.
-            $this->db->prepare("UPDATE student_course_access SET status = 'completed' WHERE student_id = ? AND course_id = ? AND status = 'active'")
+            $this->db->prepare("UPDATE lms_student_course_access SET status = 'completed' WHERE student_id = ? AND course_id = ? AND status = 'active'")
                 ->execute([$studentId, $courseId]);
         } catch (\PDOException $exception) {
             error_log('[COURSE GRADING] Completion check failed: ' . $exception->getMessage());
@@ -421,7 +421,7 @@ final class CourseGrading
         }
         $placeholders = implode(',', array_fill(0, count($keys), '?'));
         try {
-            $stmt = $this->db->prepare("SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ($placeholders)");
+            $stmt = $this->db->prepare("SELECT setting_key, setting_value FROM lms_app_settings WHERE setting_key IN ($placeholders)");
             $stmt->execute($keys);
             $out = [];
             foreach ($stmt->fetchAll() as $row) {

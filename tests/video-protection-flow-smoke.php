@@ -147,29 +147,29 @@ $scratchFiles = [];
 $cliSessions = [];
 
 /* --------------------------------------------------------------------------- fixtures */
-$putSetting = $db->prepare('INSERT INTO app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+$putSetting = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
 $readSetting = static function (string $key) use ($db): ?string {
-    $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+    $stmt = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ?');
     $stmt->execute([$key]);
     $value = $stmt->fetchColumn();
     return $value === false ? null : (string) $value;
 };
 $resetSessions = static function (int $id) use ($db): void {
-    $db->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$id]);
-    $db->prepare('DELETE FROM lesson_view_events WHERE student_id = ?')->execute([$id]);
+    $db->prepare('DELETE FROM lms_user_sessions WHERE user_id = ?')->execute([$id]);
+    $db->prepare('DELETE FROM lms_lesson_view_events WHERE student_id = ?')->execute([$id]);
 };
 $activeRows = static function (int $id) use ($db): array {
-    $stmt = $db->prepare('SELECT session_hash,ip_address,revoked_at,revoked_reason,created_at,last_seen_at FROM user_sessions WHERE user_id = ? ORDER BY id');
+    $stmt = $db->prepare('SELECT session_hash,ip_address,revoked_at,revoked_reason,created_at,last_seen_at FROM lms_user_sessions WHERE user_id = ? ORDER BY id');
     $stmt->execute([$id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 };
 
 foreach (['students' => $studentEmail, 'reset' => $resetEmail, 'admin' => $adminEmail] as $label => $email) {
-    $db->prepare('DELETE FROM users WHERE email = ?')->execute([$email]);
+    $db->prepare('DELETE FROM lms_users WHERE email = ?')->execute([$email]);
 }
-$db->prepare("DELETE FROM courses WHERE slug IN (?,?)")->execute($slugs);
+$db->prepare("DELETE FROM lms_courses WHERE slug IN (?,?)")->execute($slugs);
 
-$insertUser = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES(?,?,?,?,\"active\",UTC_TIMESTAMP(),?)");
+$insertUser = $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES(?,?,?,?,\"active\",UTC_TIMESTAMP(),?)");
 $insertUser->execute(['Video Protection Smoke Student', $studentEmail, password_hash($studentPassword, PASSWORD_BCRYPT), 'student', $studentReference]);
 $studentId = (int) $db->lastInsertId();
 $insertUser->execute(['Video Protection Smoke Reset Student', $resetEmail, password_hash($studentPassword, PASSWORD_BCRYPT), 'student', 'TSG-VPR-' . strtoupper(substr($token, 0, 6))]);
@@ -177,18 +177,18 @@ $resetStudentId = (int) $db->lastInsertId();
 $insertUser->execute(['Video Protection Smoke Admin', $adminEmail, password_hash($adminPassword, PASSWORD_BCRYPT), 'admin', null]);
 $adminId = (int) $db->lastInsertId();
 
-$insertCourse = $db->prepare("INSERT INTO courses(title,slug,visibility) VALUES(?,?,\"published\")");
+$insertCourse = $db->prepare("INSERT INTO lms_courses(title,slug,visibility) VALUES(?,?,\"published\")");
 $insertCourse->execute(['Video Protection Smoke Course', $slugs[0]]);
 $courseId = (int) $db->lastInsertId();
 $insertCourse->execute(['Video Protection Smoke Other Course', $slugs[1]]);
 $otherCourseId = (int) $db->lastInsertId();
-$db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$courseId, 'Smoke module']);
+$db->prepare('INSERT INTO lms_course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$courseId, 'Smoke module']);
 $moduleId = (int) $db->lastInsertId();
-$db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$otherCourseId, 'Other module']);
+$db->prepare('INSERT INTO lms_course_modules(course_id,title,sort_order) VALUES(?,?,1)')->execute([$otherCourseId, 'Other module']);
 $otherModuleId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,\"active\",?)")->execute([$studentId, $courseId, $adminId]);
+$db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,\"active\",?)")->execute([$studentId, $courseId, $adminId]);
 
-$insertLesson = $db->prepare("INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,?,1,'published')");
+$insertLesson = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,?,1,'published')");
 // A direct file with a known length: the only shape that is trackable, so the watch-time guard has
 // something to measure. The values below are the ones lesson-watch-flow-smoke.php already proves.
 $insertLesson->execute([$moduleId, 'Protection recording', 'Smoke lesson body', 'https://cdn.example.com/smoke-' . $token . '.mp4', 'file', 200]);
@@ -342,7 +342,7 @@ try {
     ));
     $assert(trim($columnNullability) === 'YES', 'A view event may be filed without a lesson.', 'lesson_view_events.lesson_id is NOT NULL, so account-level reports cannot be stored.');
     $cascade = trim((string) shell_exec($mysql . ' ' . $credentials . ' -N -B -e ' . escapeshellarg(
-        "SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='" . $dbName . "' AND TABLE_NAME='lesson_view_events' AND CONSTRAINT_NAME='fk_view_event_lesson'"
+        "SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='" . $dbName . "' AND TABLE_NAME='lms_lesson_view_events' AND CONSTRAINT_NAME='fk_view_event_lesson'"
     )));
     $assert($cascade === 'CASCADE', 'Removing a lesson takes its view events with it.', 'lesson_view_events.lesson_id does not cascade (got "' . $cascade . '"), so a lesson purge would fail on the foreign key.');
     foreach ([
@@ -483,11 +483,11 @@ try {
     $verdictLaptop = $device('laptop', static fn() => $registry->check($studentId), $laptopIp);
     $assert($verdictPhone === 'revoked' && $verdictLaptop === 'ok',
         'The bounced device is refused and the current one passes.', 'Verdicts were ' . $verdictPhone . ' / ' . $verdictLaptop . '.');
-    $accountEvents = $db->query('SELECT event_type,detail FROM lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchAll(PDO::FETCH_ASSOC);
+    $accountEvents = $db->query('SELECT event_type,detail FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchAll(PDO::FETCH_ASSOC);
     $assert(in_array('session_cap', array_column($accountEvents, 'event_type'), true) && in_array('concurrent_ip', array_column($accountEvents, 'event_type'), true),
         'Both halves of the sign-in are filed for the admin: the eviction and the second address.',
         'The view log holds ' . json_encode(array_column($accountEvents, 'event_type')));
-    $lessonless = (int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND lesson_id IS NULL')->fetchColumn();
+    $lessonless = (int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND lesson_id IS NULL')->fetchColumn();
     $assert($lessonless === 2, 'Account-level reports are stored without a lesson, so the desk can print them honestly.',
         $lessonless . ' of 2 sign-in events carry no lesson reference.');
 
@@ -526,7 +526,7 @@ try {
     // reads is the truth about why that session stopped.
     $resetSessions($studentId);
     $device('stale', static fn() => (new SessionRegistry($db))->register($studentId), $phoneIp);
-    $db->prepare('UPDATE user_sessions SET last_seen_at = UTC_TIMESTAMP() - INTERVAL ? SECOND WHERE user_id = ?')
+    $db->prepare('UPDATE lms_user_sessions SET last_seen_at = UTC_TIMESTAMP() - INTERVAL ? SECOND WHERE user_id = ?')
         ->execute([(SessionRegistry::IDLE_MINUTES + 60) * 60, $studentId]);
     $device('fresh', static fn() => (new SessionRegistry($db))->register($studentId), $phoneIp);
     $forgetVerdicts();
@@ -583,7 +583,7 @@ try {
         'After the change, the open rows were ' . json_encode(array_column($stillOpen, 'session_hash')) . ' against ' . $keptHash . '.');
     $changedReasons = array_values(array_filter(array_map(static fn(array $r): string => (string) $r['revoked_reason'], $afterChange), static fn(string $r): bool => $r === 'password_change'));
     $assert(count($changedReasons) === 1, 'The other device is closed as a password change.', 'Reasons on file: ' . json_encode(array_column($afterChange, 'revoked_reason')));
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='profile.password_changed' AND actor_user_id=" . (int) $studentId)->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='profile.password_changed' AND actor_user_id=" . (int) $studentId)->fetchColumn() === 1,
         'The change is audited as it was before this feature existed.', 'The password change left no audit row.');
     $studentPassword = 'Video Protection Smoke 2!';
 
@@ -592,7 +592,7 @@ try {
     $resetSessions($resetStudentId);
     $putSetting->execute([SessionRegistry::MAX_ACTIVE_KEY, '3']);
     $device('reset-phone', static fn() => (new SessionRegistry($db))->register($resetStudentId), $laptopIp);
-    $db->prepare("INSERT INTO email_otps(user_id,purpose,target_email,otp_hash,expires_at) VALUES(?,?,?, ?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 600 SECOND))")
+    $db->prepare("INSERT INTO lms_email_otps(user_id,purpose,target_email,otp_hash,expires_at) VALUES(?,?,?, ?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 600 SECOND))")
         ->execute([$resetStudentId, 'reset_password', $resetEmail, password_hash('246810', PASSWORD_BCRYPT)]);
     $device('reset-web', static function () use ($db, $auth, $resetStudentId, $resetEmail, $phoneIp): void {
         $registry = new SessionRegistry($db);
@@ -644,10 +644,10 @@ try {
     $assert($logProbe === false, 'An event the log does not know is refused rather than written.', 'log() accepted an unknown event name.');
     $long = str_repeat('a', 300);
     $protection->log($studentId, $lessonId, 'download_blocked', "  squeezed   text  ");
-    $storedDetail = (string) $db->query('SELECT detail FROM lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="download_blocked" ORDER BY id DESC LIMIT 1')->fetchColumn();
+    $storedDetail = (string) $db->query('SELECT detail FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="download_blocked" ORDER BY id DESC LIMIT 1')->fetchColumn();
     $assert($storedDetail === 'squeezed text', 'A report is stored on one line, with its run of spaces collapsed.', 'The detail read "' . $storedDetail . '".');
     $protection->log($studentId, $lessonId, 'download_blocked', $long);
-    $clip = (string) $db->query('SELECT detail FROM lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="download_blocked" ORDER BY id DESC LIMIT 1')->fetchColumn();
+    $clip = (string) $db->query('SELECT detail FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="download_blocked" ORDER BY id DESC LIMIT 1')->fetchColumn();
     $assert(mb_strlen($clip) === 255, 'An oversized report is cut to what the column holds instead of failing the row.', 'The detail was ' . mb_strlen($clip) . ' characters.');
     $resetSessions($studentId);
 } catch (Throwable $exception) {
@@ -735,20 +735,20 @@ try {
     $assert(is_array($beat['watermark'] ?? null) && preg_match('/^[0-9A-F]{6}$/', (string) ($beat['watermark']['trace'] ?? '')) === 1,
         'The rotating code rides the heartbeat it was already making, so the mark cannot go stale.',
         'The heartbeat carried no fresh trace: ' . json_encode($beat['watermark'] ?? null) . '.');
-    $db->prepare('UPDATE lesson_progress SET updated_at = UTC_TIMESTAMP() - INTERVAL 30 SECOND WHERE student_id = ? AND lesson_id = ?')->execute([$studentId, $lessonId]);
+    $db->prepare('UPDATE lms_lesson_progress SET updated_at = UTC_TIMESTAMP() - INTERVAL 30 SECOND WHERE student_id = ? AND lesson_id = ?')->execute([$studentId, $lessonId]);
     $beat2 = json_decode((string) $open('POST', '/learning/lesson/watch', ['_csrf' => $csrf, 'lesson_id' => (string) $lessonId, 'position' => '45'], $jarA)['body'], true);
     $assert((int) ($beat2['watched'] ?? -1) === 40,
         'A 25 second scrub still credits only the 20 second cap, protection layer or no protection layer.',
         'The second heartbeat credited ' . json_encode($beat2['watched'] ?? null) . ', expected 40 in total.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
         'Ordinary heartbeats file no protection report; the log is for resistance, not for watching.',
         'Watch pings wrote into the view log.');
 
     $emit("\n-- what the player is allowed to report");
-    $before = (int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn();
+    $before = (int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn();
     $reportReply = $open('POST', '/learning/lesson/view', ['_csrf' => $csrf, 'lesson_id' => (string) $lessonId, 'event' => 'download_blocked', 'detail' => 'Save video as'], $jarA);
     $assert($reportReply['status'] === 200 && str_contains($reportReply['body'], '{"ok":true}'), 'A blocked download is accepted.', 'The view endpoint answered ' . $reportReply['body'] . '.');
-    $logged = $db->prepare('SELECT event_type,lesson_id,ip_address,detail FROM lesson_view_events WHERE student_id = ? ORDER BY id DESC LIMIT 1');
+    $logged = $db->prepare('SELECT event_type,lesson_id,ip_address,detail FROM lms_lesson_view_events WHERE student_id = ? ORDER BY id DESC LIMIT 1');
     $logged->execute([$studentId]);
     $logRow = $logged->fetch();
     $assert(is_array($logRow) && $logRow['event_type'] === 'download_blocked' && (int) $logRow['lesson_id'] === $lessonId && $logRow['ip_address'] === '127.0.0.1',
@@ -762,9 +762,9 @@ try {
     $foreign = $open('POST', '/learning/lesson/view', ['_csrf' => $csrf, 'lesson_id' => (string) $foreignLessonId, 'event' => 'context_menu'], $jarA);
     $assert($foreign['status'] === 404 && str_contains($foreign['body'], '"error":"unavailable"'),
         'A report cannot be filed against a lesson the student has no access to.', 'A foreign lesson answered ' . $foreign['status'] . ' ' . $foreign['body'] . '.');
-    $metered = (int) $db->query('SELECT COUNT(*) FROM auth_rate_limits WHERE action = "lesson_view_event"')->fetchColumn();
+    $metered = (int) $db->query('SELECT COUNT(*) FROM lms_auth_rate_limits WHERE action = "lesson_view_event"')->fetchColumn();
     $assert($metered === 1, 'The reports are metered per account, so the log cannot be flooded.', 'No rate-limit row for the view endpoint.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn() === $before + 1,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId)->fetchColumn() === $before + 1,
         'Everything that was refused wrote nothing.', 'Refused reports still reached the log.');
 
     $emit("\n-- the displaced device bounces where a student can read why");
@@ -785,7 +785,7 @@ try {
     $assert(count($openB) === 1 && $openB[0]['session_hash'] === hash('sha256', $sessionIdOf($jarB)),
         'One account, one open session - the company rule, enforced across two browsers. The new session the bounce created is not adopted into the register.',
         'Open rows: ' . json_encode(array_column($openB, 'session_hash')) . ' vs ' . hash('sha256', $sessionIdOf($jarB)) . '.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="session_cap"')->fetchColumn() >= 1,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId . ' AND event_type="session_cap"')->fetchColumn() >= 1,
         'The eviction is on the admin desk as well as in the registry.', 'The sign-in displaced a session with no record of it.');
 
     $emit("\n-- the admin sets the rules on their own page");
@@ -819,7 +819,7 @@ try {
         'The cap and the retention window are stored as the admin typed them.', 'Stored: ' . json_encode([$readSetting(SessionRegistry::MAX_ACTIVE_KEY), $readSetting(LessonProtection::RETENTION_KEY)]));
     $assert($readSetting('login_max_attempts') === $securityBefore,
         'This endpoint saves its own three keys and reaches for nothing else.', 'The protection save changed the security settings.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='settings.video_protection_updated'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='settings.video_protection_updated'")->fetchColumn() === 1,
         'The change is audited with the keys it touched.', 'No audit row for the protection save.');
 
     $tooMany = $open('POST', '/admin/settings/video-protection', [
@@ -878,23 +878,23 @@ try {
         'A sign-in report is printed as what it is: something that happened at the door, not in a recording.',
         'The account-level rows are missing or mislabelled on the desk.');
     $assert(str_contains($activity['body'], '/admin/activity/view-log/clear'), 'The desk has its own clear for this table.', 'No clear control on the view log card.');
-    $db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL 400 DAY)')
+    $db->prepare('INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL 400 DAY)')
         ->execute([$studentId, $lessonId, 'seek_ahead']);
     $swept = $open('GET', '/admin/activity', [], $jarAdmin);
     $assert(str_contains($swept['body'], '45 day(s)'), 'The desk states the retention window the admin set.', 'The card still says the seeded 30 days.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE event_type="seek_ahead"')->fetchColumn() === 0,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE event_type="seek_ahead"')->fetchColumn() === 0,
         'A report older than the window is dropped the next time the desk is opened, with no scheduler to run.',
         'A 400 day old report survived the sweep.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM lesson_view_events WHERE event_type="download_blocked"')->fetchColumn() >= 1,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events WHERE event_type="download_blocked"')->fetchColumn() >= 1,
         'The sweep only takes what is past its window.', 'Fresh reports were cleared with the old one.');
     $cleared = $open('POST', '/admin/activity/view-log/clear', ['_csrf' => $csrfOf($open('GET', '/admin/activity', [], $jarAdmin)['body'])], $jarAdmin);
-    $assert($cleared['status'] === 302 && (int) $db->query('SELECT COUNT(*) FROM lesson_view_events')->fetchColumn() === 0,
-        'Clearing the viewing log empties it and only it.', 'The clear answered ' . $cleared['status'] . ' and left ' . (int) $db->query('SELECT COUNT(*) FROM lesson_view_events')->fetchColumn() . ' row(s).');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='lesson_view_log.cleared'")->fetchColumn() === 1,
+    $assert($cleared['status'] === 302 && (int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events')->fetchColumn() === 0,
+        'Clearing the viewing log empties it and only it.', 'The clear answered ' . $cleared['status'] . ' and left ' . (int) $db->query('SELECT COUNT(*) FROM lms_lesson_view_events')->fetchColumn() . ' row(s).');
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='lesson_view_log.cleared'")->fetchColumn() === 1,
         'Emptying the evidence table is itself on record.', 'No audit row for the view log clear.');
 
     $emit("\n-- the student directory shows and closes sessions");
-    $db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,detail) VALUES(?,?,?,?)')->execute([$studentId, $lessonId, 'context_menu', 'right click']);
+    $db->prepare('INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,detail) VALUES(?,?,?,?)')->execute([$studentId, $lessonId, 'context_menu', 'right click']);
     $detail = $open('GET', '/admin/students?student_id=' . $studentId, [], $jarAdmin);
     $assert($detail['status'] === 200 && str_contains($detail['body'], 'Open sessions'), 'The student detail card lists the devices holding the account.', 'No "Open sessions" block on the student detail.');
     $assert(str_contains($detail['body'], '127.0.0.1') && str_contains($detail['body'], 'Chrome'),
@@ -908,7 +908,7 @@ try {
     $assert($stillOpen === [], 'Every device holding the account is closed at once.', count($stillOpen) . ' session(s) stayed open.');
     $assert(in_array('admin_revoked', array_column($activeRows($studentId), 'revoked_reason'), true),
         'Each closed row says an administrator signed it out, so the reason is not guesswork later.', 'The rows do not say why they closed.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='session.revoked_all' AND entity_id=" . (int) $studentId)->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='session.revoked_all' AND entity_id=" . (int) $studentId)->fetchColumn() === 1,
         'The action is audited against the account it was taken on.', 'No audit row for the session close.');
     $pushed = $open('GET', '/dashboard', [], $jarC);
     $assert($pushed['status'] === 302 && (string) $pushed['location'] === $appUrl . '/login',
@@ -996,25 +996,25 @@ try {
     }
     shell_exec($mysql . ' ' . $credentials . ' -e ' . escapeshellarg('DROP DATABASE IF EXISTS `' . $emptyName . '`'));
     // The rows this run made, and the three settings it moved, go back the way they were found.
-    $db->prepare('DELETE FROM lesson_view_events WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM user_sessions WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM audit_logs WHERE actor_user_id IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
-    $db->prepare('DELETE FROM auth_rate_limits WHERE subject_hash IN (?)')->execute([hash('sha256', 'user:' . $studentId)]);
+    $db->prepare('DELETE FROM lms_lesson_view_events WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_user_sessions WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_audit_logs WHERE actor_user_id IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
+    $db->prepare('DELETE FROM lms_auth_rate_limits WHERE subject_hash IN (?)')->execute([hash('sha256', 'user:' . $studentId)]);
     // The admin who saved the protection card is stored on the settings rows as who last touched
     // them, so that reference has to go back to NULL before the account itself can be removed - the
     // settings rows themselves stay, with their values restored below.
-    $db->prepare('UPDATE app_settings SET updated_by = NULL WHERE updated_by IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
-    $db->prepare('DELETE FROM login_events WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM email_otps WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM attendance_records WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM lesson_progress WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM student_course_access WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
-    $db->prepare('DELETE FROM users WHERE id IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
+    $db->prepare('UPDATE lms_app_settings SET updated_by = NULL WHERE updated_by IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
+    $db->prepare('DELETE FROM lms_login_events WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_email_otps WHERE user_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_attendance_records WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_lesson_progress WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_student_course_access WHERE student_id IN (?,?)')->execute([$studentId, $resetStudentId]);
+    $db->prepare('DELETE FROM lms_users WHERE id IN (?,?,?)')->execute([$studentId, $resetStudentId, $adminId]);
     // The course is the top of a chain the run built, so the lesson and the module above it have to
     // go in the same order the schema stacks them.
-    $db->prepare('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id IN (?,?))')->execute([$courseId, $otherCourseId]);
-    $db->prepare('DELETE FROM course_modules WHERE course_id IN (?,?)')->execute([$courseId, $otherCourseId]);
-    $db->prepare('DELETE FROM courses WHERE slug IN (?,?)')->execute($slugs);
+    $db->prepare('DELETE FROM lms_lessons WHERE module_id IN (SELECT id FROM lms_course_modules WHERE course_id IN (?,?))')->execute([$courseId, $otherCourseId]);
+    $db->prepare('DELETE FROM lms_course_modules WHERE course_id IN (?,?)')->execute([$courseId, $otherCourseId]);
+    $db->prepare('DELETE FROM lms_courses WHERE slug IN (?,?)')->execute($slugs);
     $restore = [SessionRegistry::MAX_ACTIVE_KEY => '1', LessonProtection::WATERMARK_KEY => '1', LessonProtection::RETENTION_KEY => '30'];
     foreach ($restore as $key => $value) $putSetting->execute([$key, $value]);
     foreach ($scratchFiles as $path) {

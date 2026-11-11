@@ -145,7 +145,7 @@ foreach (['student_cleared_at' => 'AFTER admin_seen_at', 'admin_cleared_at' => '
         continue;
     }
     shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' -e ' . escapeshellarg(
-        'ALTER TABLE chat_threads ADD COLUMN ' . $column . ' DATETIME NULL ' . $position));
+        'ALTER TABLE lms_chat_threads ADD COLUMN ' . $column . ' DATETIME NULL ' . $position));
     echo "topped " . $dbName . ".chat_threads up with " . $column . "\n";
 }
 
@@ -296,25 +296,25 @@ foreach ($roots as $key => $criteria) {
     }
 }
 
-$insertUser = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,'active',UTC_TIMESTAMP())");
+$insertUser = $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,'active',UTC_TIMESTAMP())");
 $insertUser->execute(['Render Smoke Admin', $adminEmail, 'unusable-hash', 'admin']);
 $adminId = (int) $db->lastInsertId();
 $insertUser->execute(['Render Smoke Student', $studentEmail, 'unusable-hash', 'student']);
 $studentId = (int) $db->lastInsertId();
-$db->prepare("UPDATE users SET created_at='2026-09-01 00:00:00' WHERE id=?")->execute([$studentId]);
-$db->prepare("INSERT INTO courses(title,slug,visibility,created_by) VALUES('Render Smoke Course','render-smoke-course','published',?)")->execute([$adminId]);
+$db->prepare("UPDATE lms_users SET created_at='2026-09-01 00:00:00' WHERE id=?")->execute([$studentId]);
+$db->prepare("INSERT INTO lms_courses(title,slug,visibility,created_by) VALUES('Render Smoke Course','render-smoke-course','published',?)")->execute([$adminId]);
 $courseId = (int) $db->lastInsertId();
-$db->prepare('INSERT INTO course_modules(course_id,title) VALUES(?,?)')->execute([$courseId, 'Smoke module']);
+$db->prepare('INSERT INTO lms_course_modules(course_id,title) VALUES(?,?)')->execute([$courseId, 'Smoke module']);
 $moduleId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")->execute([$studentId, $courseId, $adminId]);
-$lessonInsert = $db->prepare("INSERT INTO lessons(module_id,title,body,status) VALUES(?,?,?,'published')");
+$db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")->execute([$studentId, $courseId, $adminId]);
+$lessonInsert = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,status) VALUES(?,?,?,'published')");
 $lessonInsert->execute([$moduleId, 'Smoke lesson', 'Body']);
 $lessonId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,1,'Smoke quiz','practice','released',?)")->execute([$courseId, $adminId]);
+$db->prepare("INSERT INTO lms_quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,1,'Smoke quiz','practice','released',?)")->execute([$courseId, $adminId]);
 $quizId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")->execute([$courseId, 'Smoke assignment', $adminId]);
+$db->prepare("INSERT INTO lms_assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")->execute([$courseId, 'Smoke assignment', $adminId]);
 $assignmentId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at,marked_at) VALUES(?,'2026-10-31','present','2026-10-31 08:00:00','2026-10-31 08:05:00','2026-10-31 08:01:00')")
+$db->prepare("INSERT INTO lms_attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at,marked_at) VALUES(?,'2026-10-31','present','2026-10-31 08:00:00','2026-10-31 08:05:00','2026-10-31 08:01:00')")
     ->execute([$studentId]);
 $reportMethod = new ReflectionMethod(ReportsController::class, 'reports');
 $reportMethod->setAccessible(true);
@@ -489,7 +489,7 @@ $checkPage('Danger Zone', '/admin/danger-zone', static fn() => (new AdminManagem
 // A student row has to print the number an admin is quoted back - the Academy ID on the account,
 // the same one the student sees on their own settings page - and never the internal row id.
 $directoryHtml = $render(static fn() => (new StudentManagementController())->index());
-$storedReference = trim((string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn());
+$storedReference = trim((string) $db->query('SELECT account_reference FROM lms_users WHERE id = ' . (int) $studentId)->fetchColumn());
 $directoryId = $storedReference !== '' ? $storedReference : AccountIdentity::derived($studentId);
 $assert(str_contains($directoryHtml, 'ID · ' . $directoryId), 'The directory prints the Academy ID ' . $directoryId . ' for the fixture student.',
     'The directory does not print ' . $directoryId . ' for the fixture student.');
@@ -497,7 +497,7 @@ $assert(preg_match('/ID · \d+<\/small>/', $directoryHtml) !== 1, 'No student ro
     'A student row still prints the internal row number instead of the Academy ID.');
 // An administrator can type an ID by hand, and that is the number the student quotes at the Academy
 // desk - so the directory has to print the stored reference, not whichever row the account sits on.
-$db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute(['TSG-CER-2026-001', $studentId]);
+$db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')->execute(['TSG-CER-2026-001', $studentId]);
 $typedHtml = $render(static fn() => (new StudentManagementController())->index());
 $assert(str_contains($typedHtml, 'ID · TSG-CER-2026-001'), 'A hand-set Academy ID is what the directory prints.',
     'The directory ignored the stored Academy ID and printed something else.');
@@ -513,7 +513,7 @@ $detailHtml = $render(static fn() => (new StudentManagementController())->index(
 $_GET = [];
 $assert(str_contains($detailHtml, 'ID TSG-CER-2026-001'), 'The student detail card prints the ID the row prints.',
     'The detail card shows a different number from the directory row it came from.');
-$db->exec('UPDATE users SET account_reference = NULL WHERE id = ' . (int) $studentId);
+$db->exec('UPDATE lms_users SET account_reference = NULL WHERE id = ' . (int) $studentId);
 AccountIdentity::forget($studentId);
 $checkPage('Admin account settings', '/admin/account', static fn() => (new AccountController())->adminSettings(), [
     'Admin ID',
@@ -541,7 +541,7 @@ $checkPage('Student dashboard badges', '/dashboard', static fn() => (new Dashboa
     'Attendance rate over the last 30 days',
     'Last 30 days',
 ]);
-$db->prepare("UPDATE student_course_access SET status='revoked', revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=?")
+$db->prepare("UPDATE lms_student_course_access SET status='revoked', revoked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=?")
     ->execute([$studentId, $courseId]);
 $ineligibleAttendanceHtml = $render(static fn() => (new DashboardController())->show());
 $assert(str_contains($ineligibleAttendanceHtml, 'Unlocks with course access')
@@ -549,7 +549,7 @@ $assert(str_contains($ineligibleAttendanceHtml, 'Unlocks with course access')
     && !str_contains($ineligibleAttendanceHtml, 'Mark me present'),
     'A student without current course access sees no attendance progress or mark action.',
     'Attendance controls are visible after course access has been revoked.');
-$db->prepare("UPDATE student_course_access SET status='active', revoked_at=NULL WHERE student_id=? AND course_id=?")
+$db->prepare("UPDATE lms_student_course_access SET status='active', revoked_at=NULL WHERE student_id=? AND course_id=?")
     ->execute([$studentId, $courseId]);
 $checkPage('Student inbox', '/notifications', static fn() => (new NotificationController())->studentIndex(), [
     'Assignment graded',
@@ -565,11 +565,11 @@ $checkPage('Student chat list', '/student/chats', static fn() => (new ChatContro
 ]);
 // The shortcut only exists while something is unread: a clean inbox has nothing to clear, and its
 // sidebar badges are already at zero, so the button would only invite a pointless click.
-$db->exec('UPDATE notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE lms_notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ' . (int) $studentId);
 $readAllHtml = $render(static fn() => (new NotificationController())->studentIndex());
 $assert(!str_contains($readAllHtml, 'notifications/read-all'), 'An inbox with nothing unread hides the Mark all read shortcut.',
     'The read-all form is offered even though every notice is already read.');
-$db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE lms_notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
 $unreadAgainHtml = $render(static fn() => (new NotificationController())->studentIndex());
 $assert(str_contains($unreadAgainHtml, 'notifications/read-all') && str_contains($unreadAgainHtml, 'Mark all read'),
     'The shortcut returns the moment a notification is unread again.',
@@ -586,7 +586,7 @@ $checkPage('Student account settings', '/student/settings', static fn() => (new 
     'account-settings-page',
 ]);
 $html = $render(static fn() => (new AccountController())->studentSettings());
-$studentReference = trim((string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn());
+$studentReference = trim((string) $db->query('SELECT account_reference FROM lms_users WHERE id = ' . (int) $studentId)->fetchColumn());
 $assert($studentReference !== '' && str_contains($html, $studentReference), 'Student account settings show the stored admin-formatted ID.',
     'Student account settings did not show the stored admin-formatted ID.');
 $assert(stripos($html, 'Student ID scheme') === false, 'A student is not offered the ID scheme card.',
@@ -606,7 +606,7 @@ $assert(!str_contains($adminCertificatesHtml, 'Sample certificate workflow')
     && !str_contains($adminCertificatesHtml, '/admin/certificates/test-clear'),
     'The admin certificate workspace has no sample queue or test-only actions.',
     'The removed admin test-certificate workflow is still rendered.');
-$assert((int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
+$assert((int) $db->query('SELECT COUNT(*) FROM lms_certificates WHERE student_id = ' . (int) $studentId)->fetchColumn() === 0,
     'Rendering the student and admin certificate pages did not create an official certificate record.',
     'Rendering a certificate page unexpectedly created an official certificate record.');
 $signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
@@ -719,7 +719,7 @@ $assert($notifier->markAreaSeen($studentId, 'assignments') === 0,
     'A second visit to the same page has nothing left to settle.',
     'A repeat visit settled items the student had already seen.');
 // Put the rows back unread so a rerun against the same scratch database measures the same deltas.
-$db->exec('UPDATE notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE lms_notification_recipients SET read_at = NULL WHERE student_id = ' . (int) $studentId);
 
 /* ------------------------------------------------------------------ closing usage reference */
 echo "\n-- the closing usage guide\n";
@@ -844,7 +844,7 @@ $schemeBefore = AccountIdentity::scheme($db);
 $firstMint = AccountIdentity::issue($db);
 $assert(str_starts_with($firstMint, $schemeBefore['prefix'] . '-'), 'A new sign-up is issued an ID in the saved format: ' . $firstMint . '.',
     'Issuing an ID ignored the saved prefix and produced ' . $firstMint . '.');
-$held = $db->prepare('SELECT COUNT(*) FROM users WHERE account_reference = ?');
+$held = $db->prepare('SELECT COUNT(*) FROM lms_users WHERE account_reference = ?');
 $held->execute([$firstMint]);
 $assert((int) $held->fetchColumn() === 0, 'The minted ID belongs to nobody yet, so two sign-ups cannot share it.',
     'Issuing an ID handed back a number that is already on an account.');
@@ -853,7 +853,7 @@ $assert(AccountIdentity::scheme($db)['next'] > $schemeBefore['next'], 'The count
 
 // A row that predates the column has to be given a real scheme ID, not a derived guess, because
 // the certificate is issued under the number the student can see on their own settings page.
-$db->exec('UPDATE users SET account_reference = NULL WHERE email = ' . $db->quote($studentEmail));
+$db->exec('UPDATE lms_users SET account_reference = NULL WHERE email = ' . $db->quote($studentEmail));
 $ensured = AccountIdentity::ensure($db, $studentId);
 $assert(str_starts_with($ensured, $schemeBefore['prefix'] . '-'), 'An account with no ID is issued one from the scheme: ' . $ensured . '.',
     'ensure() did not mint a scheme ID for an account that had none.');
@@ -874,15 +874,15 @@ $saved = AccountIdentity::saveScheme($db, 'tsg-smoke', 700, $adminId);
 $assert($saved['prefix'] === 'TSG-SMOKE' && AccountIdentity::scheme($db)['next'] === 700,
     'The settings page stores the prefix and the first number it was given.',
     'saveScheme() did not persist both halves of the scheme.');
-$db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at) VALUES(?,?,?,'issued',UTC_TIMESTAMP())")
+$db->prepare("INSERT INTO lms_certificates(certificate_id,student_id,course_id,status,issued_at) VALUES(?,?,?,'issued',UTC_TIMESTAMP())")
     ->execute([$ensured, $studentId, $courseId]);
 $tally = AccountIdentity::reissueStudents($db, $adminId);
-$rank = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'student' AND id <= " . (int) $studentId)->fetchColumn();
+$rank = (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role = 'student' AND id <= " . (int) $studentId)->fetchColumn();
 $expected = AccountIdentity::format('TSG-SMOKE', 700 + $rank - 1);
-$actual = (string) $db->query('SELECT account_reference FROM users WHERE id = ' . (int) $studentId)->fetchColumn();
+$actual = (string) $db->query('SELECT account_reference FROM lms_users WHERE id = ' . (int) $studentId)->fetchColumn();
 $assert($actual === $expected, 'Re-issuing numbered the fixture student as ' . $actual . ', oldest account first.',
     'Re-issuing left the fixture student at ' . $actual . ' instead of ' . $expected . '.');
-$carried = (string) $db->query('SELECT certificate_id FROM certificates WHERE student_id = ' . (int) $studentId)->fetchColumn();
+$carried = (string) $db->query('SELECT certificate_id FROM lms_certificates WHERE student_id = ' . (int) $studentId)->fetchColumn();
 $assert($carried === $actual, 'A certificate already issued follows its owner to the new number.',
     'The issued certificate stayed at ' . $carried . ' while the account moved to ' . $actual . '.');
 $assert((int) $tally['students'] >= 1 && AccountIdentity::scheme($db)['next'] === 700 + (int) $tally['students'],
@@ -891,8 +891,8 @@ $assert((int) $tally['students'] >= 1 && AccountIdentity::scheme($db)['next'] ==
 
 // Leave the scratch database as this section found it: the fixture accounts are deleted at the
 // start of every run anyway, and no later assertion should have to know about these numbers.
-$db->exec('DELETE FROM certificates WHERE student_id = ' . (int) $studentId);
-$db->exec('UPDATE users SET account_reference = NULL WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ')');
+$db->exec('DELETE FROM lms_certificates WHERE student_id = ' . (int) $studentId);
+$db->exec('UPDATE lms_users SET account_reference = NULL WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ')');
 AccountIdentity::saveScheme($db, $schemeBefore['prefix'], $schemeBefore['next'], $adminId);
 $assert(AccountIdentity::scheme($db) === $schemeBefore, 'The scheme the run found is the scheme it left behind.',
     'The identity section did not restore the saved scheme.');
@@ -904,19 +904,19 @@ $assert(AccountIdentity::scheme($db) === $schemeBefore, 'The scheme the run foun
 // its empty state can be broken for months without anyone noticing.
 echo "\n-- the video protection surfaces\n";
 $protectionReference = 'TSG-CER-2026-001';
-$db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$protectionReference, $studentId]);
+$db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')->execute([$protectionReference, $studentId]);
 // The desk labels a device out of the stored hash, and only recognises the one in front of it - so
 // the harness has to be wearing the browser it expects to read back.
 $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
-$db->exec('DELETE FROM user_sessions WHERE user_id = ' . (int) $studentId);
-$db->exec('DELETE FROM lesson_view_events WHERE student_id = ' . (int) $studentId);
-$db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,user_agent_hash,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())')
+$db->exec('DELETE FROM lms_user_sessions WHERE user_id = ' . (int) $studentId);
+$db->exec('DELETE FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId);
+$db->prepare('INSERT INTO lms_user_sessions(user_id,session_hash,ip_address,user_agent_hash,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())')
     ->execute([$studentId, hash('sha256', 'render-smoke-session'), '203.0.113.77', SessionRegistry::agentHash()]);
-$db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())')
+$db->prepare('INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())')
     ->execute([$studentId, $lessonId, 'download_blocked', '203.0.113.77', 'Save video as']);
 // An account-level report has no recording behind it, so the desk has to name the door it happened at
 // rather than leave a student's row standing next to a blank column.
-$db->prepare("INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,NULL,?,?,?,UTC_TIMESTAMP())")
+$db->prepare("INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,NULL,?,?,?,UTC_TIMESTAMP())")
     ->execute([$studentId, 'session_cap', '203.0.113.77', '1 older session(s) signed out by this sign-in.']);
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
@@ -972,7 +972,7 @@ $assert(str_contains($sessionHtml, '203.0.113.77') && str_contains($sessionHtml,
 $assert(!str_contains($sessionHtml, hash('sha256', 'render-smoke-session')),
     'No session hash reaches the page an admin reads off the screen.',
     'The session table prints the stored session hash.');
-$db->exec('DELETE FROM user_sessions WHERE user_id = ' . (int) $studentId);
+$db->exec('DELETE FROM lms_user_sessions WHERE user_id = ' . (int) $studentId);
 $_GET = ['student_id' => (string) $studentId];
 $noSessionHtml = $render(static fn() => (new StudentManagementController())->index());
 $_GET = [];
@@ -980,8 +980,8 @@ $assert(str_contains($noSessionHtml, 'No open session'), 'A student with nothing
     'The session block renders an empty table instead of saying there is nothing open.');
 // Back to how this section found the scratch database, so the queue counts below measure their own
 // fixtures and a rerun sees the same empty tables.
-$db->exec('DELETE FROM lesson_view_events WHERE student_id = ' . (int) $studentId);
-$db->prepare('UPDATE users SET account_reference = NULL WHERE id = ?')->execute([$studentId]);
+$db->exec('DELETE FROM lms_lesson_view_events WHERE student_id = ' . (int) $studentId);
+$db->prepare('UPDATE lms_users SET account_reference = NULL WHERE id = ?')->execute([$studentId]);
 unset($_SERVER['HTTP_USER_AGENT']);
 
 /* --------------------------------------------------------------- the live class surfaces */
@@ -998,7 +998,7 @@ $classStart = gmdate('Y-m-d H:i:s', (time() + 30 * 86400));
 // moves the class by the admin's or the student's own timezone.
 $classLabel = gmdate('M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
 $classSpelling = gmdate('D, M j, Y, g:i A', strtotime($classStart . ' UTC')) . ' UTC';
-$db->prepare('UPDATE lessons SET meeting_url = ?, meeting_platform = ?, meeting_at = ? WHERE id = ?')->execute([$meetingAddress, 'google_meet', $classStart, $lessonId]);
+$db->prepare('UPDATE lms_lessons SET meeting_url = ?, meeting_platform = ?, meeting_at = ? WHERE id = ?')->execute([$meetingAddress, 'google_meet', $classStart, $lessonId]);
 
 $signIn($adminId, 'Render Smoke Admin', $adminEmail, 'admin');
 $lessonsHtml = $render(static fn() => (new CourseAdminController())->lessons());
@@ -1084,33 +1084,33 @@ foreach ([$meetingAddress, 'meet.google.com', 'Open live class', 'lesson-live-cl
 }
 $assert(str_contains($closedHtml, 'Lesson body.'), 'The recording and the lesson text are untouched for that student.',
     'Closing the live class took the lesson page down with it.');
-$db->prepare('UPDATE lessons SET meeting_url = NULL, meeting_platform = NULL, meeting_at = NULL WHERE id = ?')->execute([$lessonId]);
+$db->prepare('UPDATE lms_lessons SET meeting_url = NULL, meeting_platform = NULL, meeting_at = NULL WHERE id = ?')->execute([$lessonId]);
 
 /* ------------------------------------------------------- work waiting on the Academy */
 // A student can leave six kinds of work sitting on the Academy. Each has to be countable straight
 // from the sidebar, so signing in is enough to know where to start looking.
 echo "\n-- administrator attention badges\n";
 $before = (new AdminAttention($db))->pendingByArea();
-$db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,status) VALUES(?,?,?,'submitted')")
+$db->prepare("INSERT INTO lms_assignment_submissions(assignment_id,student_id,submission_text,status) VALUES(?,?,?,'submitted')")
     ->execute([$assignmentId, $studentId, 'The write-up is in the repository.']);
 $submissionId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO certificates(student_id,course_id,status,student_remarks) VALUES(?,?,?,'Course finished, please issue it.')")
+$db->prepare("INSERT INTO lms_certificates(student_id,course_id,status,student_remarks) VALUES(?,?,?,'Course finished, please issue it.')")
     ->execute([$studentId, $courseId, 'requested']);
 $certificateId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO payments(student_id,course_id,amount,transaction_reference,status) VALUES(?,?,24000,'SMOKE-PENDING-1','pending')")
+$db->prepare("INSERT INTO lms_payments(student_id,course_id,amount,transaction_reference,status) VALUES(?,?,24000,'SMOKE-PENDING-1','pending')")
     ->execute([$studentId, $courseId]);
 $paymentId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO reviews(reviewer_type,full_name,rating,content,status) VALUES('student','Render Smoke Student',5,'The course was worth it.','pending')")
+$db->prepare("INSERT INTO lms_reviews(reviewer_type,full_name,rating,content,status) VALUES('student','Render Smoke Student',5,'The course was worth it.','pending')")
     ->execute();
 $reviewId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO contact_messages(sender_name,sender_email,phone,subject,message,submitted_at) VALUES('Render Smoke Visitor','visitor@example.test','+923001234567','Render smoke enquiry','I would like details about the next batch.','2026-01-02 03:04:05')")
+$db->prepare("INSERT INTO lms_contact_messages(sender_name,sender_email,phone,subject,message,submitted_at) VALUES('Render Smoke Visitor','visitor@example.test','+923001234567','Render smoke enquiry','I would like details about the next batch.','2026-01-02 03:04:05')")
     ->execute();
 // The messages badge counts conversations, not rows, so this fixture opens the student's own line and
 // writes the newest half of it - the one state the chat desk is meant to surface on its own.
 $chats = new ChatService($db);
 $threadId = $chats->studentThread($studentId);
 $writeMessage = static function (int $senderId, string $text, int $minutesAgo) use ($db, $threadId): void {
-    $db->prepare('INSERT INTO chat_messages(thread_id,sender_id,message,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL ? MINUTE)')
+    $db->prepare('INSERT INTO lms_chat_messages(thread_id,sender_id,message,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL ? MINUTE)')
         ->execute([$threadId, $senderId, $text, $minutesAgo]);
 };
 $writeMessage($studentId, 'Will the class be recorded?', 60);
@@ -1120,7 +1120,7 @@ foreach (['assignments' => 'an unreviewed submission', 'certificates' => 'a cert
         $area . ' moved by ' . (($after[$area] ?? 0) - ($before[$area] ?? 0)) . ' instead of one (' . $what . ').');
 }
 // An attempt that finished without a result is the one quiz state automatic grading left open.
-$db->prepare("INSERT INTO quiz_attempts(quiz_id,student_id,started_at,deadline_at,submitted_at,status) VALUES(?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP(),'submitted')")
+$db->prepare("INSERT INTO lms_quiz_attempts(quiz_id,student_id,started_at,deadline_at,submitted_at,status) VALUES(?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP(),'submitted')")
     ->execute([$quizId, $studentId]);
 $attemptId = (int) $db->lastInsertId();
 $ungraded = (new AdminAttention($db))->pendingByArea();
@@ -1296,18 +1296,18 @@ $assert($hidden === 4 && $chats->messages($threadId, 'student') === [] && $chats
 $assert(count($chats->messages($threadId, 'admin')) === 4 && count($chats->adminThreads()) === 1,
     'The Academy is still reading all four, because a clear never reaches the other side.',
     'Clearing the student side changed what the desk can see.');
-$assert((int) $db->query('SELECT COUNT(*) FROM chat_messages WHERE thread_id = ' . (int) $threadId)->fetchColumn() === 4,
+$assert((int) $db->query('SELECT COUNT(*) FROM lms_chat_messages WHERE thread_id = ' . (int) $threadId)->fetchColumn() === 4,
     'Nothing was deleted - the four rows are exactly where they were.',
     'A clear destroyed message rows it has no claim on.');
 $assert($notifier->unreadByArea($studentId) === $newsBefore, 'Clearing a chat leaves every news badge exactly where it was.',
     'The chat clear moved the notification counters to ' . json_encode($notifier->unreadByArea($studentId)) . '.');
-$db->exec('UPDATE chat_threads SET student_cleared_at = UTC_TIMESTAMP() - INTERVAL 35 MINUTE WHERE id = ' . (int) $threadId);
+$db->exec('UPDATE lms_chat_threads SET student_cleared_at = UTC_TIMESTAMP() - INTERVAL 35 MINUTE WHERE id = ' . (int) $threadId);
 $reopenedFeed = $chats->messages($threadId, 'student');
 $assert(count($reopenedFeed) === 1 && (string) ($reopenedFeed[0]['message'] ?? '') === 'The link is in your dashboard now.',
     'A mark hides only what was written before it, so the answer that came after shows here again.',
     'A moved clear stamp left ' . count($reopenedFeed) . ' message(s) visible to the student.');
 $signIn($studentId, 'Render Smoke Student', $studentEmail, 'student');
-$db->exec('UPDATE chat_threads SET student_cleared_at = UTC_TIMESTAMP() WHERE id = ' . (int) $threadId);
+$db->exec('UPDATE lms_chat_threads SET student_cleared_at = UTC_TIMESTAMP() WHERE id = ' . (int) $threadId);
 $_GET = ['thread_id' => (string) $threadId];
 $html = $render(static fn() => (new ChatController())->studentIndex());
 $_GET = [];
@@ -1324,7 +1324,7 @@ $clearedQueue = (new AdminAttention($db))->pendingByArea();
 $assert(($clearedQueue['messages'] ?? 0) === ($before['messages'] ?? 0),
     'A conversation cleared off the desk comes off the Chats badge with it.',
     'The badge still counts a conversation the desk deliberately cleared: ' . json_encode($clearedQueue) . '.');
-$db->exec('UPDATE chat_threads SET admin_cleared_at = UTC_TIMESTAMP() - INTERVAL 25 MINUTE WHERE id = ' . (int) $threadId);
+$db->exec('UPDATE lms_chat_threads SET admin_cleared_at = UTC_TIMESTAMP() - INTERVAL 25 MINUTE WHERE id = ' . (int) $threadId);
 $writeMessage($studentId, 'Still waiting on that link.', 20);
 $revived = $chats->adminThreads();
 $assert(count($revived) === 1 && (int) ($revived[0]['message_count'] ?? 0) === 1 && ChatService::awaitsReply($revived[0]),
@@ -1360,12 +1360,12 @@ $assert($chats->clear($threadId, 'student') === 0,
 // Leave every queue exactly as this section found it, so a rerun measures the same deltas. The chat
 // goes back entirely, thread row included, because a conversation with no messages is the state this
 // run started from - and the badge counts conversations, not rows.
-$db->exec('DELETE FROM chat_threads WHERE student_id = ' . (int) $studentId);
-$db->exec('DELETE FROM assignment_submissions WHERE id = ' . $submissionId);
-$db->exec('DELETE FROM certificates WHERE id = ' . $certificateId);
-$db->exec('DELETE FROM payments WHERE id = ' . $paymentId);
-$db->exec('DELETE FROM reviews WHERE id = ' . $reviewId);
-$db->exec('DELETE FROM quiz_attempts WHERE id = ' . $attemptId);
+$db->exec('DELETE FROM lms_chat_threads WHERE student_id = ' . (int) $studentId);
+$db->exec('DELETE FROM lms_assignment_submissions WHERE id = ' . $submissionId);
+$db->exec('DELETE FROM lms_certificates WHERE id = ' . $certificateId);
+$db->exec('DELETE FROM lms_payments WHERE id = ' . $paymentId);
+$db->exec('DELETE FROM lms_reviews WHERE id = ' . $reviewId);
+$db->exec('DELETE FROM lms_quiz_attempts WHERE id = ' . $attemptId);
 $restored = (new AdminAttention($db))->pendingByArea();
 $assert($restored === $before, 'Removing the fixtures leaves the queues where they were.',
     'The section left work behind: ' . json_encode($restored) . ' against ' . json_encode($before) . '.');

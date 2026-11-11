@@ -25,7 +25,7 @@ final class PaymentController
         $student = AuthMiddleware::requireRole('student');
         $courseId = filter_input(INPUT_GET, 'course_id', FILTER_VALIDATE_INT) ?: 0;
         $db = Database::connection();
-        $stmt = $db->prepare("SELECT c.id,c.title,c.duration_label,c.level_label,COALESCE(p.currency,c.currency) AS currency,p.recorded_price,p.live_price FROM courses c LEFT JOIN (SELECT course_id,MAX(CASE WHEN option_code='recorded_only' THEN price END) AS recorded_price,MAX(CASE WHEN option_code='live_recorded' THEN price END) AS live_price,MAX(currency) AS currency FROM course_pricing_options GROUP BY course_id) p ON p.course_id=c.id WHERE c.id=? AND c.visibility='published' LIMIT 1");
+        $stmt = $db->prepare("SELECT c.id,c.title,c.duration_label,c.level_label,COALESCE(p.currency,c.currency) AS currency,p.recorded_price,p.live_price FROM lms_courses c LEFT JOIN (SELECT course_id,MAX(CASE WHEN option_code='recorded_only' THEN price END) AS recorded_price,MAX(CASE WHEN option_code='live_recorded' THEN price END) AS live_price,MAX(currency) AS currency FROM lms_course_pricing_options GROUP BY course_id) p ON p.course_id=c.id WHERE c.id=? AND c.visibility='published' LIMIT 1");
         $stmt->execute([$courseId]);
         $course = $stmt->fetch();
         if (!$course) {
@@ -33,20 +33,20 @@ final class PaymentController
             View::render('errors/404', ['title' => 'Course unavailable', 'user' => $student]);
             return;
         }
-        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $access = $db->prepare("SELECT 1 FROM lms_student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $access->execute([(int) $student['id'], $courseId]);
         if ($access->fetchColumn()) {
             $this->redirect('/learning?course_id=' . $courseId);
         }
-        $pending = $db->prepare("SELECT 1 FROM payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
+        $pending = $db->prepare("SELECT 1 FROM lms_payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
         $pending->execute([(int) $student['id'], $courseId]);
-        $history = $db->prepare("SELECT id,amount,currency,transaction_reference,status,created_at FROM payments WHERE student_id=? AND course_id=? AND status='pending' ORDER BY id DESC LIMIT 1");
+        $history = $db->prepare("SELECT id,amount,currency,transaction_reference,status,created_at FROM lms_payments WHERE student_id=? AND course_id=? AND status='pending' ORDER BY id DESC LIMIT 1");
         $history->execute([(int) $student['id'], $courseId]);
         $paymentDetails = [];
-        foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {
+        foreach ($db->query("SELECT setting_key,setting_value FROM lms_app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) {
             $paymentDetails[$setting['setting_key']] = $setting['setting_value'];
         }
-        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM payment_accounts WHERE is_active=1 ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
+        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM lms_payment_accounts WHERE is_active=1 ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
         if ($paymentAccounts === [] && count(array_filter($paymentDetails, static fn($value): bool => trim((string)$value) !== '')) > 0) {
             $paymentAccounts[] = [
                 'account_title' => $paymentDetails['payment_account_title'] ?? '', 'bank_name' => $paymentDetails['payment_bank_name'] ?? '',
@@ -82,24 +82,24 @@ final class PaymentController
             $this->paymentError(max(0, $courseId), 'Enter a valid learning option and transaction reference.');
         }
         $db = Database::connection();
-        $price = $db->prepare("SELECT c.title,c.currency AS course_currency,p.price,p.currency FROM courses c JOIN course_pricing_options p ON p.course_id=c.id WHERE c.id=? AND c.visibility='published' AND p.option_code=? AND p.price>0 LIMIT 1");
+        $price = $db->prepare("SELECT c.title,c.currency AS course_currency,p.price,p.currency FROM lms_courses c JOIN lms_course_pricing_options p ON p.course_id=c.id WHERE c.id=? AND c.visibility='published' AND p.option_code=? AND p.price>0 LIMIT 1");
         $price->execute([$courseId, $option]);
         $course = $price->fetch();
         if (!$course) {
             $this->paymentError($courseId, 'This course option is unavailable. Refresh the catalogue and try again.');
         }
-        $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+        $access = $db->prepare("SELECT 1 FROM lms_student_course_access WHERE student_id=? AND course_id=? AND status='active' AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
         $access->execute([(int) $student['id'], $courseId]);
         if ($access->fetchColumn()) {
             $this->redirect('/learning?course_id=' . $courseId);
         }
-        $pending = $db->prepare("SELECT 1 FROM payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
+        $pending = $db->prepare("SELECT 1 FROM lms_payments WHERE student_id=? AND course_id=? AND status='pending' LIMIT 1");
         $pending->execute([(int) $student['id'], $courseId]);
         if ($pending->fetchColumn()) {
             $_SESSION['_flash'] = ['type' => 'info', 'text' => 'A payment for this course is already awaiting review.'];
             $this->redirect('/payments/new?course_id=' . $courseId);
         }
-        $duplicateReference = $db->prepare('SELECT 1 FROM payments WHERE transaction_reference=? LIMIT 1');
+        $duplicateReference = $db->prepare('SELECT 1 FROM lms_payments WHERE transaction_reference=? LIMIT 1');
         $duplicateReference->execute([$reference]);
         if ($duplicateReference->fetchColumn()) $this->paymentError($courseId, 'That transaction reference has already been submitted. Check it and contact the Academy if you believe this is an error.');
 
@@ -117,8 +117,8 @@ final class PaymentController
             // yet still records the purchase; only the plan column is left out of the statement.
             $recordsPlan = AccessPlan::columnStored($db, 'payments.plan_code');
             $insert = $db->prepare($recordsPlan
-                ? "INSERT INTO payments(student_id,course_id,plan_code,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,?,'pending')"
-                : "INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
+                ? "INSERT INTO lms_payments(student_id,course_id,plan_code,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,?,'pending')"
+                : "INSERT INTO lms_payments(student_id,course_id,amount,currency,transaction_reference,payment_proof_path,status) VALUES(?,?,?,?,?,?,'pending')");
             $fields = [(int) $student['id'], $courseId];
             if ($recordsPlan) $fields[] = AccessPlan::normalise($option);
             $fields[] = $course['price'];
@@ -127,7 +127,7 @@ final class PaymentController
             $fields[] = $proof['relative_path'];
             $insert->execute($fields);
             $paymentId = (int) $db->lastInsertId();
-            $audit = $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'payment.submitted','payment',?,JSON_OBJECT('course_id',?,'option_code',?))");
+            $audit = $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'payment.submitted','payment',?,JSON_OBJECT('course_id',?,'option_code',?))");
             $audit->execute([(int) $student['id'], $paymentId, $courseId, $option]);
             $db->commit();
         } catch (\Throwable $exception) {
@@ -173,24 +173,24 @@ final class PaymentController
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
-        $rows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.payment_proof_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
+        $rows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,p.payment_proof_path,p.created_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM lms_payments p JOIN lms_users u ON u.id=p.student_id JOIN lms_courses c ON c.id=p.course_id WHERE p.status='pending' ORDER BY p.created_at ASC,p.id ASC")->fetchAll();
         $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $monthOptions = $this->revenueMonthOptions($db);
-        $revenueStmt = $db->prepare("SELECT currency, COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count, COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count, COALESCE(SUM(amount),0) AS lifetime_revenue, COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue FROM payments WHERE status='approved' GROUP BY currency ORDER BY currency");
+        $revenueStmt = $db->prepare("SELECT currency, COUNT(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN 1 END) AS payment_count, COUNT(DISTINCT CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN student_id END) AS student_count, COALESCE(SUM(amount),0) AS lifetime_revenue, COALESCE(SUM(CASE WHEN COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? THEN amount ELSE 0 END),0) AS monthly_revenue FROM lms_payments WHERE status='approved' GROUP BY currency ORDER BY currency");
         $revenueStmt->execute([$monthStart, $nextMonth, $monthStart, $nextMonth, $monthStart, $nextMonth]);
         $revenue = $revenueStmt->fetchAll(PDO::FETCH_ASSOC);
-        $totalsStmt = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM payments WHERE status='approved'");
+        $totalsStmt = $db->query("SELECT COUNT(DISTINCT student_id) AS student_count, COUNT(*) AS payment_count FROM lms_payments WHERE status='approved'");
         $totals = $totalsStmt->fetch(PDO::FETCH_ASSOC) ?: ['student_count' => 0, 'payment_count' => 0];
-        $approvedRows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,COALESCE(p.reviewed_at,p.created_at) AS paid_at,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        $approvedRows = $db->query("SELECT p.id,p.amount,p.currency,p.transaction_reference,COALESCE(p.reviewed_at,p.created_at) AS paid_at,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM lms_payments p JOIN lms_users u ON u.id=p.student_id JOIN lms_courses c ON c.id=p.course_id WHERE p.status='approved' ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($revenue as &$currencyTotals) {
             $currencyTotals['developer_share'] = MailService::developerShareOf((float) $currencyTotals['monthly_revenue']);
             $currencyTotals['lifetime_developer_share'] = MailService::developerShareOf((float) $currencyTotals['lifetime_revenue']);
         }
         unset($currencyTotals);
         $paymentValues = [];
-        foreach ($db->query("SELECT setting_key,setting_value FROM app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
-        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM payment_accounts ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($db->query("SELECT setting_key,setting_value FROM lms_app_settings WHERE setting_key LIKE 'payment_%'")->fetchAll() as $setting) $paymentValues[$setting['setting_key']] = $setting['setting_value'];
+        $paymentAccounts = $db->query('SELECT account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions FROM lms_payment_accounts ORDER BY sort_order,id')->fetchAll(PDO::FETCH_ASSOC);
         if ($paymentAccounts === [] && count(array_filter($paymentValues, static fn($value): bool => trim((string)$value) !== '')) > 0) {
             $paymentAccounts[] = ['account_title'=>$paymentValues['payment_account_title'] ?? '', 'bank_name'=>$paymentValues['payment_bank_name'] ?? '', 'account_number'=>$paymentValues['payment_account_number'] ?? '', 'iban'=>$paymentValues['payment_iban'] ?? '', 'wallet_name'=>$paymentValues['payment_wallet_name'] ?? '', 'wallet_number'=>$paymentValues['payment_wallet_number'] ?? '', 'instructions'=>$paymentValues['payment_instructions'] ?? ''];
         }
@@ -210,13 +210,13 @@ final class PaymentController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.transaction_reference,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label" . (AccessPlan::columnStored($db, 'payments.plan_code') ? ",p.plan_code" : '') . " FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
+            $lookup = $db->prepare("SELECT p.student_id,p.course_id,p.amount,p.currency,p.transaction_reference,p.status,u.email AS student_email,u.full_name AS student_name,c.title AS course_title,c.duration_label" . (AccessPlan::columnStored($db, 'payments.plan_code') ? ",p.plan_code" : '') . " FROM lms_payments p JOIN lms_users u ON u.id=p.student_id JOIN lms_courses c ON c.id=p.course_id WHERE p.id=? FOR UPDATE");
             $lookup->execute([$paymentId]);
             $payment = $lookup->fetch();
             if (!$payment || $payment['status'] !== 'pending') throw new RuntimeException('This payment is no longer awaiting review.');
             $receiptNumber = $decision === 'approved' ? 'TSG-RCP-' . gmdate('Y') . '-' . str_pad((string) $paymentId, 6, '0', STR_PAD_LEFT) : null;
             $decidedAt = gmdate('Y-m-d H:i:s');
-            $update = $db->prepare('UPDATE payments SET status=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=?,receipt_number=?,receipt_issued_at=IF(?=\'approved\',UTC_TIMESTAMP(),NULL) WHERE id=? AND status=\'pending\'');
+            $update = $db->prepare('UPDATE lms_payments SET status=?,reviewed_by=?,reviewed_at=UTC_TIMESTAMP(),review_note=?,receipt_number=?,receipt_issued_at=IF(?=\'approved\',UTC_TIMESTAMP(),NULL) WHERE id=? AND status=\'pending\'');
             $update->execute([$decision, (int) $admin['id'], $note !== '' ? $note : null, $receiptNumber, $decision, $paymentId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('This payment could not be updated. Refresh the queue and try again.');
             if ($decision === 'approved') {
@@ -229,7 +229,7 @@ final class PaymentController
                 // existing enrolment's plan exactly as it was rather than clearing it.
                 $carriesPlan = AccessPlan::columnStored($db, 'payments.plan_code')
                     && AccessPlan::columnStored($db, 'student_course_access.plan_code');
-                $grant = $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
+                $grant = $db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by,granted_at,expires_at,revoked_by,revoked_at"
                     . ($carriesPlan ? ',plan_code' : '')
                     . ") VALUES(?,?,'active',?,?,?,NULL,NULL" . ($carriesPlan ? ',?' : '')
                     . ") ON DUPLICATE KEY UPDATE status='active',granted_by=VALUES(granted_by),granted_at=VALUES(granted_at),expires_at=VALUES(expires_at),revoked_by=NULL,revoked_at=NULL"
@@ -238,10 +238,10 @@ final class PaymentController
                 if ($carriesPlan) $grantParams[] = AccessPlan::normalise($payment['plan_code'] ?? null);
                 $grant->execute($grantParams);
             }
-            $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'payment\',?,JSON_OBJECT(\'course_id\',?,\'student_id\',?))');
+            $audit = $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,\'payment\',?,JSON_OBJECT(\'course_id\',?,\'student_id\',?))');
             $audit->execute([(int) $admin['id'], 'payment.' . $decision, $paymentId, (int) $payment['course_id'], (int) $payment['student_id']]);
             if ($decision === 'approved') {
-                $grantAudit = $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'course_access.granted','course',?,JSON_OBJECT('student_id',?,'payment_id',?))");
+                $grantAudit = $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,'course_access.granted','course',?,JSON_OBJECT('student_id',?,'payment_id',?))");
                 $grantAudit->execute([(int) $admin['id'], (int) $payment['course_id'], (int) $payment['student_id'], $paymentId]);
             }
             $db->commit();
@@ -312,7 +312,7 @@ final class PaymentController
     {
         $user = $this->receiptUser();
         $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
-        $sql = "SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_number,p.receipt_issued_at,p.reviewed_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.id=?";
+        $sql = "SELECT p.id,p.amount,p.currency,p.transaction_reference,p.receipt_number,p.receipt_issued_at,p.reviewed_at,p.status,u.full_name AS student_name,u.email AS student_email,c.title AS course_title FROM lms_payments p JOIN lms_users u ON u.id=p.student_id JOIN lms_courses c ON c.id=p.course_id WHERE p.id=?";
         $params = [$paymentId];
         if ($user['role'] === 'student') {
             $sql .= ' AND p.student_id=?';
@@ -359,14 +359,14 @@ final class PaymentController
                 return;
             }
             $nextMonth = $monthStart->modify('+1 month');
-            $stmt = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
+            $stmt = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
             $stmt->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
             $rates = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rates as &$row) {
                 $row['developer_share'] = MailService::developerShareOf((float) $row['monthly_revenue']);
             }
             unset($row);
-            $counts = $db->prepare("SELECT COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
+            $counts = $db->prepare("SELECT COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
             $counts->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
             $totals = $counts->fetch(PDO::FETCH_ASSOC) ?: ['payment_count' => 0, 'student_count' => 0];
             $report = [
@@ -407,7 +407,7 @@ final class PaymentController
      */
     private function revenueMonthOptions(PDO $db): array
     {
-        $firstPayment = $db->query("SELECT MIN(COALESCE(reviewed_at,created_at)) FROM payments WHERE status='approved'")->fetchColumn();
+        $firstPayment = $db->query("SELECT MIN(COALESCE(reviewed_at,created_at)) FROM lms_payments WHERE status='approved'")->fetchColumn();
         $current = new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC'));
         $first = is_string($firstPayment) && $firstPayment !== ''
             ? (new \DateTimeImmutable($firstPayment, new \DateTimeZone('UTC')))->modify('first day of this month')->setTime(0, 0)
@@ -432,11 +432,11 @@ final class PaymentController
         $startValue = $start->format('Y-m-d H:i:s');
         $endValue = $end->format('Y-m-d H:i:s');
 
-        $byMonthCurrency = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key,currency ORDER BY period_key,currency");
+        $byMonthCurrency = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS monthly_revenue FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key,currency ORDER BY period_key,currency");
         $byMonthCurrency->execute([$startValue, $endValue]);
         $currencyRows = $byMonthCurrency->fetchAll(PDO::FETCH_ASSOC);
 
-        $byMonth = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key");
+        $byMonth = $db->prepare("SELECT DATE_FORMAT(COALESCE(reviewed_at,created_at),'%Y-%m') AS period_key,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY period_key");
         $byMonth->execute([$startValue, $endValue]);
         $monthTotals = [];
         foreach ($byMonth->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -446,7 +446,7 @@ final class PaymentController
             ];
         }
 
-        $overall = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS revenue FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
+        $overall = $db->prepare("SELECT currency,COUNT(*) AS payment_count,COUNT(DISTINCT student_id) AS student_count,COALESCE(SUM(amount),0) AS revenue FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<? GROUP BY currency ORDER BY currency");
         $overall->execute([$startValue, $endValue]);
         $currencyTotals = [];
         foreach ($overall->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -471,7 +471,7 @@ final class PaymentController
         }
 
         $periodPaymentCount = array_sum(array_column($monthTotals, 'payment_count'));
-        $distinctStudents = $db->prepare("SELECT COUNT(DISTINCT student_id) FROM payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
+        $distinctStudents = $db->prepare("SELECT COUNT(DISTINCT student_id) FROM lms_payments WHERE status='approved' AND COALESCE(reviewed_at,created_at)>=? AND COALESCE(reviewed_at,created_at)<?");
         $distinctStudents->execute([$startValue, $endValue]);
 
         return [
@@ -494,7 +494,7 @@ final class PaymentController
         $monthStart = (new \DateTimeImmutable('first day of this month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $nextMonth = (new \DateTimeImmutable('first day of next month 00:00:00', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         // One report per currency, because amounts in different currencies cannot be added.
-        $rowsStmt = $db->prepare("SELECT p.amount,p.currency,p.student_id,u.full_name AS student_name,c.title AS course_title FROM payments p JOIN users u ON u.id=p.student_id JOIN courses c ON c.id=p.course_id WHERE p.status='approved' AND COALESCE(p.reviewed_at,p.created_at)>=? AND COALESCE(p.reviewed_at,p.created_at)<? ORDER BY p.currency,p.id");
+        $rowsStmt = $db->prepare("SELECT p.amount,p.currency,p.student_id,u.full_name AS student_name,c.title AS course_title FROM lms_payments p JOIN lms_users u ON u.id=p.student_id JOIN lms_courses c ON c.id=p.course_id WHERE p.status='approved' AND COALESCE(p.reviewed_at,p.created_at)>=? AND COALESCE(p.reviewed_at,p.created_at)<? ORDER BY p.currency,p.id");
         $rowsStmt->execute([$monthStart, $nextMonth]);
         $groups = [];
         foreach ($rowsStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -519,7 +519,7 @@ final class PaymentController
         }
         sort($fingerprintParts);
         $fingerprint = md5(gmdate('Y-m') . '|' . implode('|', $fingerprintParts));
-        $previous = $db->query("SELECT setting_value FROM app_settings WHERE setting_key='developer_revenue_notify_fingerprint'")->fetchColumn();
+        $previous = $db->query("SELECT setting_value FROM lms_app_settings WHERE setting_key='developer_revenue_notify_fingerprint'")->fetchColumn();
         if (is_string($previous) && $previous === $fingerprint) {
             $_SESSION['_flash'] = ['type' => 'error', 'text' => 'The current month\'s revenue summary has already been sent with these exact figures, so no duplicate notification was issued.'];
             $this->redirect('/admin/payments');
@@ -549,7 +549,7 @@ final class PaymentController
         // The fingerprint is only stored once every currency has actually gone out, so a partial
         // or failed run leaves the button free to retry rather than locking the month shut.
         if ($sent) {
-            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+            $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
                 ->execute(['developer_revenue_notify_fingerprint', $fingerprint, (int) $admin['id']]);
         }
         $_SESSION['_flash'] = ['type' => $sent ? 'success' : 'error', 'text' => $sent
@@ -564,7 +564,7 @@ final class PaymentController
         if (!is_array($sessionUser) || !in_array($sessionUser['role'] ?? '', ['admin', 'student'], true)) $this->redirect('/login');
         $user = AuthMiddleware::requireRole((string) $sessionUser['role']);
         $paymentId = filter_input(INPUT_GET, 'payment_id', FILTER_VALIDATE_INT) ?: 0;
-        $sql = 'SELECT payment_proof_path FROM payments WHERE id=?';
+        $sql = 'SELECT payment_proof_path FROM lms_payments WHERE id=?';
         $params = [$paymentId];
         if ($user['role'] === 'student') { $sql .= ' AND student_id=?'; $params[] = (int) $user['id']; }
         $stmt = Database::connection()->prepare($sql . ' LIMIT 1');

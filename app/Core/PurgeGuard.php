@@ -28,7 +28,7 @@ final class PurgeGuard
         $password = (string) ($_POST['admin_password'] ?? '');
         if ($password !== '') {
             $adminId = (int) ($_SESSION['user']['id'] ?? 0);
-            $stmt = Database::connection()->prepare("SELECT password_hash FROM users WHERE id=? AND role='admin' AND status='active' LIMIT 1");
+            $stmt = Database::connection()->prepare("SELECT password_hash FROM lms_users WHERE id=? AND role='admin' AND status='active' LIMIT 1");
             $stmt->execute([$adminId]);
             $hash = (string) ($stmt->fetchColumn() ?: '');
             if ($hash === '' || !password_verify($password, $hash)) {

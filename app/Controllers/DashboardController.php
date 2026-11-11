@@ -38,7 +38,7 @@ final class DashboardController
             ? ['admin' => $this->adminOverview($db)]
             : ['student' => $this->studentOverview($db, (int) $user['id'])];
         try {
-            $taskStmt=$db->prepare('SELECT id,title,is_done,reminder_at FROM dashboard_tasks WHERE user_id=? ORDER BY is_done ASC,created_at DESC,id DESC');
+            $taskStmt=$db->prepare('SELECT id,title,is_done,reminder_at FROM lms_dashboard_tasks WHERE user_id=? ORDER BY is_done ASC,created_at DESC,id DESC');
             $taskStmt->execute([(int)$user['id']]);
             $data['dashboardTasks']=$taskStmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\Throwable $exception) { $data['dashboardTasks']=[]; }
@@ -75,17 +75,17 @@ final class DashboardController
             'recentPayments' => $this->rows($db,
                 'SELECT p.id, p.amount, p.currency, p.status, p.transaction_reference, p.created_at,
                         u.full_name AS student_name, c.title AS course_title
-                 FROM payments p
-                 JOIN users u ON u.id = p.student_id
-                 JOIN courses c ON c.id = p.course_id
+                 FROM lms_payments p
+                 JOIN lms_users u ON u.id = p.student_id
+                 JOIN lms_courses c ON c.id = p.course_id
                  ORDER BY p.created_at DESC, p.id DESC LIMIT 6'),
             'recentAttempts' => $this->rows($db,
                 'SELECT qa.id, qa.status, qa.result, qa.percentage, qa.submitted_at,
                         u.full_name AS student_name, q.title AS quiz_title, c.title AS course_title
-                 FROM quiz_attempts qa
-                 JOIN users u ON u.id = qa.student_id
-                 JOIN quizzes q ON q.id = qa.quiz_id
-                 JOIN courses c ON c.id = q.course_id
+                 FROM lms_quiz_attempts qa
+                 JOIN lms_users u ON u.id = qa.student_id
+                 JOIN lms_quizzes q ON q.id = qa.quiz_id
+                 JOIN lms_courses c ON c.id = q.course_id
                  ORDER BY COALESCE(qa.submitted_at, qa.started_at) DESC, qa.id DESC LIMIT 6'),
         ];
 
@@ -97,30 +97,30 @@ final class DashboardController
     private function students(PDO $db): array
     {
         return [
-            'total' => $this->value($db, "SELECT COUNT(*) FROM users WHERE role = 'student'"),
-            'active' => $this->value($db, "SELECT COUNT(*) FROM users WHERE role = 'student' AND status = 'active' AND email_verified_at IS NOT NULL"),
-            'blocked' => $this->value($db, "SELECT COUNT(*) FROM users WHERE role = 'student' AND status = 'suspended'"),
-            'newThisMonth' => $this->value($db, "SELECT COUNT(*) FROM users WHERE role = 'student' AND created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
-            'withAccess' => $this->value($db, "SELECT COUNT(DISTINCT student_id) FROM student_course_access WHERE status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"),
+            'total' => $this->value($db, "SELECT COUNT(*) FROM lms_users WHERE role = 'student'"),
+            'active' => $this->value($db, "SELECT COUNT(*) FROM lms_users WHERE role = 'student' AND status = 'active' AND email_verified_at IS NOT NULL"),
+            'blocked' => $this->value($db, "SELECT COUNT(*) FROM lms_users WHERE role = 'student' AND status = 'suspended'"),
+            'newThisMonth' => $this->value($db, "SELECT COUNT(*) FROM lms_users WHERE role = 'student' AND created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
+            'withAccess' => $this->value($db, "SELECT COUNT(DISTINCT student_id) FROM lms_student_course_access WHERE status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"),
         ];
     }
 
     private function courses(PDO $db): array
     {
         return [
-            'total' => $this->value($db, 'SELECT COUNT(*) FROM courses'),
-            'published' => $this->value($db, "SELECT COUNT(*) FROM courses WHERE visibility = 'published'"),
-            'draft' => $this->value($db, "SELECT COUNT(*) FROM courses WHERE visibility = 'draft'"),
-            'hidden' => $this->value($db, "SELECT COUNT(*) FROM courses WHERE visibility IN ('hidden', 'archived')"),
-            'lessonsPublished' => $this->value($db, "SELECT COUNT(*) FROM lessons WHERE status = 'published'"),
-            'lessonsCompleted' => $this->value($db, 'SELECT COUNT(*) FROM lesson_progress WHERE completed_at IS NOT NULL'),
+            'total' => $this->value($db, 'SELECT COUNT(*) FROM lms_courses'),
+            'published' => $this->value($db, "SELECT COUNT(*) FROM lms_courses WHERE visibility = 'published'"),
+            'draft' => $this->value($db, "SELECT COUNT(*) FROM lms_courses WHERE visibility = 'draft'"),
+            'hidden' => $this->value($db, "SELECT COUNT(*) FROM lms_courses WHERE visibility IN ('hidden', 'archived')"),
+            'lessonsPublished' => $this->value($db, "SELECT COUNT(*) FROM lms_lessons WHERE status = 'published'"),
+            'lessonsCompleted' => $this->value($db, 'SELECT COUNT(*) FROM lms_lesson_progress WHERE completed_at IS NOT NULL'),
         ];
     }
 
     private function payments(PDO $db): array
     {
         $split = ['pending' => 0, 'approved' => 0, 'rejected' => 0];
-        foreach ($this->rows($db, 'SELECT status, COUNT(*) AS total FROM payments GROUP BY status') as $row) {
+        foreach ($this->rows($db, 'SELECT status, COUNT(*) AS total FROM lms_payments GROUP BY status') as $row) {
             $key = (string) $row['status'];
             if (array_key_exists($key, $split)) $split[$key] = (int) $row['total'];
         }
@@ -128,9 +128,9 @@ final class DashboardController
             'split' => $split,
             'total' => array_sum($split),
             'pending' => $split['pending'],
-            'pendingOver24h' => $this->value($db, "SELECT COUNT(*) FROM payments WHERE status = 'pending' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)"),
-            'approvedThisMonth' => $this->value($db, "SELECT COUNT(*) FROM payments WHERE status = 'approved' AND COALESCE(reviewed_at, created_at) >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
-            'submissionsThisMonth' => $this->value($db, "SELECT COUNT(*) FROM payments WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
+            'pendingOver24h' => $this->value($db, "SELECT COUNT(*) FROM lms_payments WHERE status = 'pending' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)"),
+            'approvedThisMonth' => $this->value($db, "SELECT COUNT(*) FROM lms_payments WHERE status = 'approved' AND COALESCE(reviewed_at, created_at) >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
+            'submissionsThisMonth' => $this->value($db, "SELECT COUNT(*) FROM lms_payments WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"),
         ];
     }
 
@@ -142,19 +142,19 @@ final class DashboardController
                     COALESCE(SUM(result = \'fail\'), 0) AS failed,
                     COALESCE(SUM(status = \'in_progress\'), 0) AS in_progress,
                     ROUND(AVG(percentage), 1) AS average_percentage
-             FROM quiz_attempts
+             FROM lms_quiz_attempts
              WHERE started_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)', [$range]);
         return [
-            'total' => $this->value($db, 'SELECT COUNT(*) FROM quizzes'),
-            'released' => $this->value($db, "SELECT COUNT(*) FROM quizzes WHERE status = 'released'"),
-            'awaiting' => $this->value($db, "SELECT COUNT(*) FROM quizzes WHERE status IN ('draft', 'scheduled')"),
-            'questions' => $this->value($db, 'SELECT COUNT(*) FROM quiz_questions'),
+            'total' => $this->value($db, 'SELECT COUNT(*) FROM lms_quizzes'),
+            'released' => $this->value($db, "SELECT COUNT(*) FROM lms_quizzes WHERE status = 'released'"),
+            'awaiting' => $this->value($db, "SELECT COUNT(*) FROM lms_quizzes WHERE status IN ('draft', 'scheduled')"),
+            'questions' => $this->value($db, 'SELECT COUNT(*) FROM lms_quiz_questions'),
             'attempts' => (int) ($row['total'] ?? 0),
             'passed' => (int) ($row['passed'] ?? 0),
             'failed' => (int) ($row['failed'] ?? 0),
             'inProgress' => (int) ($row['in_progress'] ?? 0),
             'average' => $row['average_percentage'] === null ? null : (float) $row['average_percentage'],
-            'retakeRequests' => $this->value($db, "SELECT COUNT(*) FROM quiz_retake_approvals WHERE request_status = 'pending'"),
+            'retakeRequests' => $this->value($db, "SELECT COUNT(*) FROM lms_quiz_retake_approvals WHERE request_status = 'pending'"),
         ];
     }
 
@@ -165,14 +165,14 @@ final class DashboardController
                     COALESCE(SUM(status = 'submitted'), 0) AS pending_review,
                     COALESCE(SUM(status = 'reviewed'), 0) AS reviewed,
                     COALESCE(SUM(submitted_late = 1), 0) AS late
-             FROM assignment_submissions");
+             FROM lms_assignment_submissions");
         $expected = $this->value($db,
-            "SELECT COUNT(*) FROM assignments a
-             JOIN student_course_access sca ON sca.course_id = a.course_id
+            "SELECT COUNT(*) FROM lms_assignments a
+             JOIN lms_student_course_access sca ON sca.course_id = a.course_id
              WHERE a.status = 'published' AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())");
         $submitted = (int) ($row['total'] ?? 0);
         return [
-            'published' => $this->value($db, "SELECT COUNT(*) FROM assignments WHERE status = 'published'"),
+            'published' => $this->value($db, "SELECT COUNT(*) FROM lms_assignments WHERE status = 'published'"),
             'expected' => $expected,
             'submitted' => $submitted,
             'notSubmitted' => max(0, $expected - $submitted),
@@ -185,7 +185,7 @@ final class DashboardController
     private function certificates(PDO $db): array
     {
         $split = ['requested' => 0, 'issued' => 0, 'rejected' => 0, 'revoked' => 0];
-        foreach ($this->rows($db, 'SELECT status, COUNT(*) AS total FROM certificates GROUP BY status') as $row) {
+        foreach ($this->rows($db, 'SELECT status, COUNT(*) AS total FROM lms_certificates GROUP BY status') as $row) {
             $key = (string) $row['status'];
             if (array_key_exists($key, $split)) $split[$key] = (int) $row['total'];
         }
@@ -193,7 +193,7 @@ final class DashboardController
             'split' => $split,
             'pending' => $split['requested'],
             'issued' => $split['issued'],
-            'expired' => $this->value($db, "SELECT COUNT(*) FROM certificates WHERE status = 'issued' AND expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP()"),
+            'expired' => $this->value($db, "SELECT COUNT(*) FROM lms_certificates WHERE status = 'issued' AND expires_at IS NOT NULL AND expires_at <= UTC_TIMESTAMP()"),
         ];
     }
 
@@ -201,8 +201,8 @@ final class DashboardController
     {
         return $this->rows($db,
             "SELECT c.title, COUNT(sca.id) AS students
-             FROM courses c
-             LEFT JOIN student_course_access sca ON sca.course_id = c.id AND sca.status = 'active'
+             FROM lms_courses c
+             LEFT JOIN lms_student_course_access sca ON sca.course_id = c.id AND sca.status = 'active'
                   AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              GROUP BY c.id, c.title
              ORDER BY students DESC, c.title ASC LIMIT 5");
@@ -214,7 +214,7 @@ final class DashboardController
         $byMonth = [];
         foreach ($this->rows($db,
             "SELECT DATE_FORMAT(granted_at, '%Y-%m') AS bucket, COUNT(*) AS total
-             FROM student_course_access
+             FROM lms_student_course_access
              WHERE granted_at >= DATE_SUB(DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01'), INTERVAL 5 MONTH)
              GROUP BY bucket") as $row) {
             $byMonth[(string) $row['bucket']] = (int) $row['total'];
@@ -257,22 +257,22 @@ final class DashboardController
         return [
             'dates' => $dates,
             'students' => $bucketize(
-                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM users
+                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM lms_users
                  WHERE role = 'student' AND created_at >= ? GROUP BY bucket", [$since]),
             'present' => $bucketize(
-                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
+                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM lms_attendance_records
                  WHERE course_id IS NOT NULL AND status = 'present' AND attendance_date >= ? GROUP BY bucket", [$since]),
             'absent' => $bucketize(
-                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM attendance_records
+                "SELECT attendance_date AS bucket, COUNT(*) AS total FROM lms_attendance_records
                  WHERE course_id IS NOT NULL AND status = 'absent' AND attendance_date >= ? GROUP BY bucket", [$since]),
             'payments' => $bucketize(
-                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM payments
+                "SELECT DATE(created_at) AS bucket, COUNT(*) AS total FROM lms_payments
                  WHERE created_at >= ? GROUP BY bucket", [$since]),
             'quizzes' => $bucketize(
-                "SELECT DATE(started_at) AS bucket, COUNT(*) AS total FROM quiz_attempts
+                "SELECT DATE(started_at) AS bucket, COUNT(*) AS total FROM lms_quiz_attempts
                  WHERE started_at >= ? GROUP BY bucket", [$since]),
             'assignments' => $bucketize(
-                "SELECT DATE(submitted_at) AS bucket, COUNT(*) AS total FROM assignment_submissions
+                "SELECT DATE(submitted_at) AS bucket, COUNT(*) AS total FROM lms_assignment_submissions
                  WHERE submitted_at >= ? GROUP BY bucket", [$since]),
         ];
     }
@@ -284,7 +284,7 @@ final class DashboardController
             "SELECT currency,
                     COALESCE(SUM(CASE WHEN COALESCE(reviewed_at, created_at) >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01') THEN amount ELSE 0 END), 0) AS month_total,
                     COALESCE(SUM(amount), 0) AS lifetime_total
-             FROM payments WHERE status = 'approved' GROUP BY currency ORDER BY lifetime_total DESC");
+             FROM lms_payments WHERE status = 'approved' GROUP BY currency ORDER BY lifetime_total DESC");
         if ($rows === []) {
             return ['currency' => 'PKR', 'month' => 0.0, 'lifetime' => 0.0, 'series' => [], 'currencies' => []];
         }
@@ -294,7 +294,7 @@ final class DashboardController
         $byMonth = [];
         foreach ($this->rows($db,
             "SELECT DATE_FORMAT(COALESCE(reviewed_at, created_at), '%Y-%m') AS bucket, COALESCE(SUM(amount), 0) AS total
-             FROM payments WHERE status = 'approved' AND currency = ?
+             FROM lms_payments WHERE status = 'approved' AND currency = ?
                   AND COALESCE(reviewed_at, created_at) >= DATE_SUB(DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01'), INTERVAL 5 MONTH)
              GROUP BY bucket", [$currency]) as $row) {
             $byMonth[(string) $row['bucket']] = (float) $row['total'];
@@ -326,7 +326,7 @@ final class DashboardController
             $alerts[] = ['level' => $level, 'title' => $title, 'detail' => $detail, 'href' => $href];
         };
 
-        $stalePayments = $this->value($db, "SELECT COUNT(*) FROM payments WHERE status = 'pending' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)");
+        $stalePayments = $this->value($db, "SELECT COUNT(*) FROM lms_payments WHERE status = 'pending' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)");
         if ($stalePayments > 0) {
             $push('danger', 'Payments waiting over 24 hours', number_format($stalePayments) . ' submission' . ($stalePayments === 1 ? '' : 's') . ' to verify', '/admin/payments');
         }
@@ -336,28 +336,28 @@ final class DashboardController
         if ($awaitingReplies > 0) {
             $push('danger', 'Student messages waiting', number_format((int) $awaitingReplies) . ' conversation' . ((int) $awaitingReplies === 1 ? '' : 's') . ' without an Academy reply', '/admin/chats');
         }
-        $pendingCertificates = $this->value($db, "SELECT COUNT(*) FROM certificates WHERE status = 'requested'");
+        $pendingCertificates = $this->value($db, "SELECT COUNT(*) FROM lms_certificates WHERE status = 'requested'");
         if ($pendingCertificates > 0) {
             $push('warning', 'Certificate requests', number_format($pendingCertificates) . ' awaiting review', '/admin/certificates');
         }
         $emptyCourses = $this->value($db,
-            "SELECT COUNT(*) FROM courses c WHERE c.visibility = 'published'
-              AND NOT EXISTS (SELECT 1 FROM course_modules cm JOIN lessons l ON l.module_id = cm.id WHERE cm.course_id = c.id AND l.status = 'published')");
+            "SELECT COUNT(*) FROM lms_courses c WHERE c.visibility = 'published'
+              AND NOT EXISTS (SELECT 1 FROM lms_course_modules cm JOIN lms_lessons l ON l.module_id = cm.id WHERE cm.course_id = c.id AND l.status = 'published')");
         if ($emptyCourses > 0) {
             $push('warning', 'Published courses without lessons', number_format($emptyCourses) . ' to review', '/admin/courses');
         }
         $expiring = $this->value($db,
-            "SELECT COUNT(DISTINCT student_id) FROM student_course_access
+            "SELECT COUNT(DISTINCT student_id) FROM lms_student_course_access
              WHERE status = 'active' AND expires_at IS NOT NULL
                   AND expires_at BETWEEN UTC_TIMESTAMP() AND DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY)");
         if ($expiring > 0) {
             $push('info', 'Access expiring within 7 days', number_format($expiring) . ' student' . ($expiring === 1 ? '' : 's'), '/admin/students');
         }
-        $awaitingQuiz = $this->value($db, "SELECT COUNT(*) FROM quizzes WHERE status IN ('draft', 'scheduled')");
+        $awaitingQuiz = $this->value($db, "SELECT COUNT(*) FROM lms_quizzes WHERE status IN ('draft', 'scheduled')");
         if ($awaitingQuiz > 0) {
             $push('info', 'Quizzes not released yet', number_format($awaitingQuiz) . ' draft or scheduled', '/admin/quizzes');
         }
-        $pendingReviews = $this->value($db, "SELECT COUNT(*) FROM reviews WHERE status = 'pending'");
+        $pendingReviews = $this->value($db, "SELECT COUNT(*) FROM lms_reviews WHERE status = 'pending'");
         if ($pendingReviews > 0) {
             $push('info', 'Student reviews to moderate', number_format($pendingReviews) . ' pending', '/admin/reviews');
         }
@@ -377,23 +377,23 @@ final class DashboardController
         $imageColumn = $this->courseImageColumnAvailable($db) ? 'c.image_path' : 'NULL AS image_path';
         $courses = $this->rows($db,
             "SELECT c.id, c.title, c.slug, c.category, c.level_label, c.duration_label, $imageColumn, sca.granted_at,
-                    (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
+                    (SELECT COUNT(*) FROM lms_course_modules cm JOIN lms_lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
-                    (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
-                     JOIN course_modules cm ON cm.id = l.module_id
+                    (SELECT COUNT(*) FROM lms_lesson_progress lp JOIN lms_lessons l ON l.id = lp.lesson_id
+                     JOIN lms_course_modules cm ON cm.id = l.module_id
                      WHERE lp.student_id = sca.student_id AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
-             FROM student_course_access sca
-             JOIN courses c ON c.id = sca.course_id
+             FROM lms_student_course_access sca
+             JOIN lms_courses c ON c.id = sca.course_id
              WHERE sca.student_id = ? AND sca.status = 'active' AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              ORDER BY sca.granted_at DESC, c.title ASC LIMIT 6", [$studentId]);
 
         return [
-            'activeCourseCount' => $this->value($db, "SELECT COUNT(*) FROM student_course_access WHERE student_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())", [$studentId]),
-            'pendingPaymentCount' => $this->value($db, "SELECT COUNT(*) FROM payments WHERE student_id = ? AND status = 'pending'", [$studentId]),
-            'completedLessonCount' => $this->value($db, 'SELECT COUNT(*) FROM lesson_progress WHERE student_id = ? AND completed_at IS NOT NULL', [$studentId]),
-            'unreadNotificationCount' => $this->value($db, 'SELECT COUNT(*) FROM notification_recipients WHERE student_id = ? AND read_at IS NULL', [$studentId]),
-            'quizAttempts' => $this->value($db, 'SELECT COUNT(*) FROM quiz_attempts WHERE student_id = ?', [$studentId]),
-            'assignmentSubmissions' => $this->value($db, 'SELECT COUNT(*) FROM assignment_submissions WHERE student_id = ?', [$studentId]),
+            'activeCourseCount' => $this->value($db, "SELECT COUNT(*) FROM lms_student_course_access WHERE student_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())", [$studentId]),
+            'pendingPaymentCount' => $this->value($db, "SELECT COUNT(*) FROM lms_payments WHERE student_id = ? AND status = 'pending'", [$studentId]),
+            'completedLessonCount' => $this->value($db, 'SELECT COUNT(*) FROM lms_lesson_progress WHERE student_id = ? AND completed_at IS NOT NULL', [$studentId]),
+            'unreadNotificationCount' => $this->value($db, 'SELECT COUNT(*) FROM lms_notification_recipients WHERE student_id = ? AND read_at IS NULL', [$studentId]),
+            'quizAttempts' => $this->value($db, 'SELECT COUNT(*) FROM lms_quiz_attempts WHERE student_id = ?', [$studentId]),
+            'assignmentSubmissions' => $this->value($db, 'SELECT COUNT(*) FROM lms_assignment_submissions WHERE student_id = ?', [$studentId]),
             'courses' => $courses,
             'attendance' => $attendance,
         ];
@@ -402,7 +402,7 @@ final class DashboardController
     private function courseImageColumnAvailable(PDO $db): bool
     {
         try {
-            $db->query('SELECT image_path FROM courses LIMIT 0');
+            $db->query('SELECT image_path FROM lms_courses LIMIT 0');
             return true;
         } catch (\PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054) return false;

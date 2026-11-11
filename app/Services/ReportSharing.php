@@ -61,7 +61,7 @@ final class ReportSharing
     /** Record a share and return its id, so the caller can point a notification at it. */
     public static function create(PDO $db, int $studentId, string $type, array $period, int $adminId): int
     {
-        $stmt = $db->prepare('INSERT INTO report_shares (student_id, report_type, period_key, period_start, period_end, sent_by) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt = $db->prepare('INSERT INTO lms_report_shares (student_id, report_type, period_key, period_start, period_end, sent_by) VALUES (?, ?, ?, ?, ?, ?)');
         $stmt->execute([$studentId, $type, $period['key'], $period['start'], $period['end'], $adminId]);
         return (int) $db->lastInsertId();
     }
@@ -71,7 +71,7 @@ final class ReportSharing
         if ($shareId < 1) {
             return null;
         }
-        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM report_shares rs JOIN users u ON u.id = rs.student_id JOIN users s ON s.id = rs.sent_by WHERE rs.id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM lms_report_shares rs JOIN lms_users u ON u.id = rs.student_id JOIN lms_users s ON s.id = rs.sent_by WHERE rs.id = ? LIMIT 1');
         $stmt->execute([$shareId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $row;
@@ -83,7 +83,7 @@ final class ReportSharing
         if ($studentId < 1) {
             return [];
         }
-        $stmt = $db->prepare('SELECT rs.*, s.full_name AS sender_name FROM report_shares rs JOIN users s ON s.id = rs.sent_by WHERE rs.student_id = ? ORDER BY rs.created_at DESC, rs.id DESC LIMIT 60');
+        $stmt = $db->prepare('SELECT rs.*, s.full_name AS sender_name FROM lms_report_shares rs JOIN lms_users s ON s.id = rs.sent_by WHERE rs.student_id = ? ORDER BY rs.created_at DESC, rs.id DESC LIMIT 60');
         $stmt->execute([$studentId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -91,7 +91,7 @@ final class ReportSharing
     /** The most recent shares across the academy, so an admin can see what already went out. */
     public static function recent(PDO $db, int $limit = 5): array
     {
-        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM report_shares rs JOIN users u ON u.id = rs.student_id JOIN users s ON s.id = rs.sent_by WHERE rs.id > ? ORDER BY rs.created_at DESC, rs.id DESC LIMIT ' . max(1, min(20, $limit)));
+        $stmt = $db->prepare('SELECT rs.*, u.full_name AS student_name, u.email AS student_email, s.full_name AS sender_name FROM lms_report_shares rs JOIN lms_users u ON u.id = rs.student_id JOIN lms_users s ON s.id = rs.sent_by WHERE rs.id > ? ORDER BY rs.created_at DESC, rs.id DESC LIMIT ' . max(1, min(20, $limit)));
         $stmt->execute([self::recentCeiling($db)]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -107,12 +107,12 @@ final class ReportSharing
      */
     public static function clearRecent(PDO $db, int $adminId): int
     {
-        $ceiling = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM report_shares')->fetchColumn();
+        $ceiling = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM lms_report_shares')->fetchColumn();
         $current = self::recentCeiling($db);
         if ($ceiling <= $current) {
             return 0;
         }
-        $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+        $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
             ->execute([self::RECENT_CEILING_KEY, (string) $ceiling, $adminId]);
         return $ceiling - $current;
     }
@@ -121,7 +121,7 @@ final class ReportSharing
     public static function recentCeiling(PDO $db): int
     {
         try {
-            $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::RECENT_CEILING_KEY]);
             $value = $stmt->fetchColumn();
         } catch (\PDOException $exception) {
@@ -186,7 +186,7 @@ final class ReportSharing
     private static function activityReport(PDO $db, array $report, int $studentId, array $period): array
     {
         (new AttendanceService($db))->closeExpired();
-        $stmt = $db->prepare("SELECT u.full_name,u.email,u.status,u.last_login_at,u.account_reference,COUNT(a.id) AS total_sessions,COALESCE(SUM(a.status='present'),0) AS present_sessions,COALESCE(SUM(a.status='absent'),0) AS absent_sessions FROM users u LEFT JOIN attendance_records a ON a.student_id=u.id AND a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' AND u.id=? GROUP BY u.id");
+        $stmt = $db->prepare("SELECT u.full_name,u.email,u.status,u.last_login_at,u.account_reference,COUNT(a.id) AS total_sessions,COALESCE(SUM(a.status='present'),0) AS present_sessions,COALESCE(SUM(a.status='absent'),0) AS absent_sessions FROM lms_users u LEFT JOIN lms_attendance_records a ON a.student_id=u.id AND a.course_id IS NOT NULL AND a.lesson_id IS NOT NULL AND a.attendance_date>=DATE(?) AND a.attendance_date<DATE(?) WHERE u.role='student' AND u.id=? GROUP BY u.id");
         $stmt->execute([$period['start'], $period['end'], $studentId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
         $total = (int) ($row['total_sessions'] ?? 0);
@@ -222,12 +222,12 @@ final class ReportSharing
     private static function attendanceReport(PDO $db, array $report, int $studentId, array $period): array
     {
         (new AttendanceService($db))->closeExpired();
-        $account = $db->prepare('SELECT full_name,account_reference,DATE(created_at) AS created_date FROM users WHERE id=? AND role=\'student\' LIMIT 1');
+        $account = $db->prepare('SELECT full_name,account_reference,DATE(created_at) AS created_date FROM lms_users WHERE id=? AND role=\'student\' LIMIT 1');
         $account->execute([$studentId]);
         $student = $account->fetch(PDO::FETCH_ASSOC) ?: [];
         $reference = $student !== [] ? trim((string) ($student['account_reference'] ?? '')) : '';
         if ($student !== [] && $reference === '') $reference = AccountIdentity::ensure($db, $studentId);
-        $stmt = $db->prepare('SELECT ar.attendance_date,ar.status,ar.first_login_at,ar.marked_at,l.meeting_at AS class_starts_at,l.title AS lesson_title,c.title AS course_title FROM attendance_records ar JOIN lessons l ON l.id=ar.lesson_id JOIN courses c ON c.id=ar.course_id WHERE ar.student_id=? AND ar.course_id IS NOT NULL AND ar.lesson_id IS NOT NULL AND ar.attendance_date>=DATE(?) AND ar.attendance_date<DATE(?) ORDER BY ar.attendance_date DESC LIMIT 100');
+        $stmt = $db->prepare('SELECT ar.attendance_date,ar.status,ar.first_login_at,ar.marked_at,l.meeting_at AS class_starts_at,l.title AS lesson_title,c.title AS course_title FROM lms_attendance_records ar JOIN lms_lessons l ON l.id=ar.lesson_id JOIN lms_courses c ON c.id=ar.course_id WHERE ar.student_id=? AND ar.course_id IS NOT NULL AND ar.lesson_id IS NOT NULL AND ar.attendance_date>=DATE(?) AND ar.attendance_date<DATE(?) ORDER BY ar.attendance_date DESC LIMIT 100');
         $stmt->execute([$studentId, $period['start'], $period['end']]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $present = 0;
@@ -270,7 +270,7 @@ final class ReportSharing
 
     private static function quizReport(PDO $db, array $report, int $studentId, array $period): array
     {
-        $stmt = $db->prepare("SELECT u.full_name,u.account_reference,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM quiz_attempts qa JOIN users u ON u.id=qa.student_id JOIN quizzes q ON q.id=qa.quiz_id JOIN courses c ON c.id=q.course_id WHERE qa.student_id=? AND qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
+        $stmt = $db->prepare("SELECT u.full_name,u.account_reference,c.title AS course_title,q.title AS quiz_title,qa.score,qa.total_marks,qa.percentage,qa.result,qa.submitted_at FROM lms_quiz_attempts qa JOIN lms_users u ON u.id=qa.student_id JOIN lms_quizzes q ON q.id=qa.quiz_id JOIN lms_courses c ON c.id=q.course_id WHERE qa.student_id=? AND qa.submitted_at>=? AND qa.submitted_at<? AND qa.status IN ('submitted','auto_submitted','timed_out') ORDER BY qa.submitted_at DESC LIMIT 60");
         $stmt->execute([$studentId, $period['start'], $period['end']]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $reference = AccountIdentity::reference($studentId);
@@ -298,7 +298,7 @@ final class ReportSharing
 
     private static function assignmentReport(PDO $db, array $report, int $studentId, array $period): array
     {
-        $stmt = $db->prepare('SELECT u.full_name,u.account_reference,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM assignment_submissions s JOIN users u ON u.id=s.student_id JOIN assignments a ON a.id=s.assignment_id JOIN courses c ON c.id=a.course_id WHERE s.student_id=? AND s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60');
+        $stmt = $db->prepare('SELECT u.full_name,u.account_reference,c.title AS course_title,a.title AS assignment_title,s.status,s.marks_awarded,a.max_marks,s.submitted_at FROM lms_assignment_submissions s JOIN lms_users u ON u.id=s.student_id JOIN lms_assignments a ON a.id=s.assignment_id JOIN lms_courses c ON c.id=a.course_id WHERE s.student_id=? AND s.submitted_at>=? AND s.submitted_at<? ORDER BY s.submitted_at DESC LIMIT 60');
         $stmt->execute([$studentId, $period['start'], $period['end']]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $reference = AccountIdentity::reference($studentId);

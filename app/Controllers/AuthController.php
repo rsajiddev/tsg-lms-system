@@ -102,10 +102,10 @@ final class AuthController
             $intent = filter_var($_SESSION['enrol_course_id'] ?? null, FILTER_VALIDATE_INT);
             if ($user['role'] === 'student' && !$intent) {
                 $db = Database::connection();
-                $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+                $access = $db->prepare("SELECT 1 FROM lms_student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
                 $access->execute([(int) $user['id']]);
                 if (!$access->fetchColumn()) {
-                    $pending = $db->prepare("SELECT course_id FROM payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
+                    $pending = $db->prepare("SELECT course_id FROM lms_payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
                     $pending->execute([(int) $user['id']]);
                     $pendingCourseId = (int) ($pending->fetchColumn() ?: 0);
                     $message = $pendingCourseId > 0

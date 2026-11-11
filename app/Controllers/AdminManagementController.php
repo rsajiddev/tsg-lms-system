@@ -108,7 +108,7 @@ final class AdminManagementController
         $db = Database::connection();
         try {
             $stored = [];
-            foreach ($db->query('SELECT setting_key,setting_value FROM app_settings')->fetchAll() as $row) {
+            foreach ($db->query('SELECT setting_key,setting_value FROM lms_app_settings')->fetchAll() as $row) {
                 $stored[(string) $row['setting_key']] = (string) $row['setting_value'];
             }
             $values = [];
@@ -117,8 +117,8 @@ final class AdminManagementController
             }
             // The handover cards quote what is still on the roll, so the counts ride along.
             $testingCounts = [
-                'students' => (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn(),
-                'certificates' => (int) $db->query('SELECT COUNT(*) FROM certificates')->fetchColumn(),
+                'students' => (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role='student'")->fetchColumn(),
+                'certificates' => (int) $db->query('SELECT COUNT(*) FROM lms_certificates')->fetchColumn(),
             ];
             // The protection card answers with defaults rather than an empty box when its seeds have
             // not been imported, because a half-imported database must still be configurable.
@@ -160,18 +160,18 @@ final class AdminManagementController
         $db = Database::connection();
         $count = static fn(string $sql): int => (int) ($db->query($sql)->fetchColumn() ?: 0);
         $danger = [
-            'students' => $count("SELECT COUNT(*) FROM users WHERE role='student'"),
-            'certificates' => $count('SELECT COUNT(*) FROM certificates'),
-            'assignments' => $count('SELECT COUNT(*) FROM assignments'),
-            'quizzes' => $count('SELECT COUNT(*) FROM quizzes'),
-            'lessons' => $count('SELECT COUNT(*) FROM lessons'),
-            'announcements' => $count('SELECT COUNT(*) FROM notifications'),
-            'automated' => $count("SELECT COUNT(*) FROM notifications WHERE category <> 'announcement' AND category <> '' AND category IS NOT NULL"),
+            'students' => $count("SELECT COUNT(*) FROM lms_users WHERE role='student'"),
+            'certificates' => $count('SELECT COUNT(*) FROM lms_certificates'),
+            'assignments' => $count('SELECT COUNT(*) FROM lms_assignments'),
+            'quizzes' => $count('SELECT COUNT(*) FROM lms_quizzes'),
+            'lessons' => $count('SELECT COUNT(*) FROM lms_lessons'),
+            'announcements' => $count('SELECT COUNT(*) FROM lms_notifications'),
+            'automated' => $count("SELECT COUNT(*) FROM lms_notifications WHERE category <> 'announcement' AND category <> '' AND category IS NOT NULL"),
         ];
         // The e-mail log may not exist yet on a partially imported database, so a missing table
         // reads as zero rather than breaking the whole page.
         try {
-            $danger['emails'] = $count('SELECT COUNT(*) FROM email_logs');
+            $danger['emails'] = $count('SELECT COUNT(*) FROM lms_email_logs');
         } catch (Throwable $exception) {
             $danger['emails'] = 0;
         }
@@ -179,9 +179,9 @@ final class AdminManagementController
         // The scoped cards (assignments, quizzes, lessons) keep their per-course dropdown, and the
         // Clear All Data and Reset cards need the live ID scheme, so the same lookups the workspace
         // pages make are made once here.
-        $danger['courses'] = $db->query('SELECT id,title FROM courses ORDER BY title')->fetchAll(PDO::FETCH_ASSOC);
+        $danger['courses'] = $db->query('SELECT id,title FROM lms_courses ORDER BY title')->fetchAll(PDO::FETCH_ASSOC);
         $scheme = AccountIdentity::scheme($db);
-        $next = (int) ($db->query('SELECT setting_value FROM app_settings WHERE setting_key = ' . $db->quote(AccountIdentity::NEXT_KEY))->fetchColumn() ?: 1);
+        $next = (int) ($db->query('SELECT setting_value FROM lms_app_settings WHERE setting_key = ' . $db->quote(AccountIdentity::NEXT_KEY))->fetchColumn() ?: 1);
         $danger['idNext'] = $next;
         $danger['idPreview'] = AccountIdentity::preview($scheme, $next);
         $danger['idPrefix'] = (string) $scheme['prefix'];
@@ -200,13 +200,13 @@ final class AdminManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
             foreach (self::SETTINGS as $key => [$label, $min, $max]) {
                 $raw = $_POST[$key] ?? '';
                 if (!is_string($raw) || !ctype_digit($raw) || (int)$raw < $min || (int)$raw > $max) throw new \RuntimeException($label . ' must be between ' . $min . ' and ' . $max . '.');
                 $upsert->execute([$key, $raw, (int)$admin['id']]);
             }
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'security.settings_updated','app_settings',JSON_OBJECT('keys',?))")->execute([(int)$admin['id'], implode(',', array_keys(self::SETTINGS))]);
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'security.settings_updated','app_settings',JSON_OBJECT('keys',?))")->execute([(int)$admin['id'], implode(',', array_keys(self::SETTINGS))]);
             $db->commit();
             $_SESSION['_flash'] = 'Security settings saved.';
         } catch (\Throwable $e) {
@@ -256,11 +256,11 @@ final class AdminManagementController
         }
         $db->beginTransaction();
         try {
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
             foreach ($clean as $key => $value) {
                 $upsert->execute([$key, $value, (int) $admin['id']]);
             }
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'settings.video_protection_updated','app_settings',JSON_OBJECT('keys',?))")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'settings.video_protection_updated','app_settings',JSON_OBJECT('keys',?))")
                 ->execute([(int) $admin['id'], implode(',', array_keys($clean))]);
             $db->commit();
             $_SESSION['_flash'] = 'Session and video protection settings saved.';
@@ -308,41 +308,41 @@ final class AdminManagementController
         }
         PurgeGuard::assertConfirmed('CLEAR ALL DATA');
         $db = Database::connection();
-        $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
+        $total = (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role='student'")->fetchColumn();
         if ($total === 0) {
             $_SESSION['_flash'] = 'There is no student data to clear. The directory is already empty.';
             $this->backToSettings(PurgeGuard::returnPath('/admin/settings'));
         }
-        $students = "(SELECT id FROM users WHERE role='student')";
-        $paths = $db->query("SELECT file_path FROM assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
-            UNION SELECT payment_proof_path FROM payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
-            UNION SELECT file_path FROM certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+        $students = "(SELECT id FROM lms_users WHERE role='student')";
+        $paths = $db->query("SELECT file_path FROM lms_assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
+            UNION SELECT payment_proof_path FROM lms_payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
+            UNION SELECT file_path FROM lms_certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
         $sources = [
-            'assignment_submission' => array_map('intval', $db->query("SELECT id FROM assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
-            'payment' => array_map('intval', $db->query("SELECT id FROM payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
-            'certificate_request' => array_map('intval', $db->query("SELECT id FROM certificates WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'assignment_submission' => array_map('intval', $db->query("SELECT id FROM lms_assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'payment' => array_map('intval', $db->query("SELECT id FROM lms_payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'certificate_request' => array_map('intval', $db->query("SELECT id FROM lms_certificates WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
         ];
         $files = PurgeGuard::removeStoredFiles(is_array($paths) ? $paths : []);
         $deleted = [];
         $db->beginTransaction();
         try {
             $statements = [
-                'assignment_submissions' => 'DELETE FROM assignment_submissions WHERE student_id IN ' . $students,
-                'attendance_records' => 'DELETE FROM attendance_records WHERE student_id IN ' . $students,
-                'certificates' => 'DELETE FROM certificates WHERE student_id IN ' . $students,
-                'course_grades' => 'DELETE FROM course_grades WHERE student_id IN ' . $students,
-                'email_otps' => 'DELETE FROM email_otps WHERE user_id IN ' . $students,
-                'lesson_progress' => 'DELETE FROM lesson_progress WHERE student_id IN ' . $students,
-                'notification_replies' => 'DELETE FROM notification_replies WHERE student_id IN ' . $students . ' OR recipient_student_id IN ' . $students,
-                'notification_recipients' => 'DELETE FROM notification_recipients WHERE student_id IN ' . $students,
-                'payments' => 'DELETE FROM payments WHERE student_id IN ' . $students,
-                'quiz_attempts' => 'DELETE FROM quiz_attempts WHERE student_id IN ' . $students,
-                'coding_challenge_attempts' => 'DELETE FROM coding_challenge_attempts WHERE student_id IN ' . $students,
-                'quiz_retake_approvals' => 'DELETE FROM quiz_retake_approvals WHERE student_id IN ' . $students,
-                'report_shares' => 'DELETE FROM report_shares WHERE student_id IN ' . $students,
-                'student_course_access' => 'DELETE FROM student_course_access WHERE student_id IN ' . $students,
-                'login_events' => 'DELETE FROM login_events WHERE user_id IN ' . $students,
-                'audit_logs' => 'DELETE FROM audit_logs WHERE actor_user_id IN ' . $students,
+                'assignment_submissions' => 'DELETE FROM lms_assignment_submissions WHERE student_id IN ' . $students,
+                'attendance_records' => 'DELETE FROM lms_attendance_records WHERE student_id IN ' . $students,
+                'certificates' => 'DELETE FROM lms_certificates WHERE student_id IN ' . $students,
+                'course_grades' => 'DELETE FROM lms_course_grades WHERE student_id IN ' . $students,
+                'email_otps' => 'DELETE FROM lms_email_otps WHERE user_id IN ' . $students,
+                'lesson_progress' => 'DELETE FROM lms_lesson_progress WHERE student_id IN ' . $students,
+                'notification_replies' => 'DELETE FROM lms_notification_replies WHERE student_id IN ' . $students . ' OR recipient_student_id IN ' . $students,
+                'notification_recipients' => 'DELETE FROM lms_notification_recipients WHERE student_id IN ' . $students,
+                'payments' => 'DELETE FROM lms_payments WHERE student_id IN ' . $students,
+                'quiz_attempts' => 'DELETE FROM lms_quiz_attempts WHERE student_id IN ' . $students,
+                'coding_challenge_attempts' => 'DELETE FROM lms_coding_challenge_attempts WHERE student_id IN ' . $students,
+                'quiz_retake_approvals' => 'DELETE FROM lms_quiz_retake_approvals WHERE student_id IN ' . $students,
+                'report_shares' => 'DELETE FROM lms_report_shares WHERE student_id IN ' . $students,
+                'student_course_access' => 'DELETE FROM lms_student_course_access WHERE student_id IN ' . $students,
+                'login_events' => 'DELETE FROM lms_login_events WHERE user_id IN ' . $students,
+                'audit_logs' => 'DELETE FROM lms_audit_logs WHERE actor_user_id IN ' . $students,
             ];
             foreach ($statements as $table => $sql) {
                 $deleted[$table] = (int) $db->exec($sql);
@@ -350,9 +350,9 @@ final class AdminManagementController
             // Same tolerance as the directory purge: a database that predates these tables is
             // missing nothing the clear depends on, and a half-imported schema must not stall it.
             foreach ([
-                'lesson_view_events' => 'DELETE FROM lesson_view_events WHERE student_id IN ' . $students,
-                'user_sessions' => 'DELETE FROM user_sessions WHERE user_id IN ' . $students,
-                'chat_threads' => 'DELETE FROM chat_threads WHERE student_id IN ' . $students,
+                'lesson_view_events' => 'DELETE FROM lms_lesson_view_events WHERE student_id IN ' . $students,
+                'user_sessions' => 'DELETE FROM lms_user_sessions WHERE user_id IN ' . $students,
+                'chat_threads' => 'DELETE FROM lms_chat_threads WHERE student_id IN ' . $students,
             ] as $table => $sql) {
                 try {
                     $deleted[$table] = (int) $db->exec($sql);
@@ -361,13 +361,13 @@ final class AdminManagementController
                     $deleted[$table] = 0;
                 }
             }
-            $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
-            $deleted['accounts'] = (int) $db->exec("DELETE FROM users WHERE role='student'");
+            $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE lms_email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
+            $deleted['accounts'] = (int) $db->exec("DELETE FROM lms_users WHERE role='student'");
             // With the directory empty the counter may restart: the numbers it handed out belong
             // to accounts that no longer exist, and the next launch starts from the saved scheme.
-            $db->prepare('UPDATE app_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?')
+            $db->prepare('UPDATE lms_app_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?')
                 ->execute(['1', (int) $admin['id'], AccountIdentity::NEXT_KEY]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'system.data_cleared', 'user', JSON_OBJECT('accounts',?, 'payments',?, 'submissions',?, 'certificates',?, 'files_removed',?))")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'system.data_cleared', 'user', JSON_OBJECT('accounts',?, 'payments',?, 'submissions',?, 'certificates',?, 'files_removed',?))")
                 ->execute([(int) $admin['id'], $deleted['accounts'], $deleted['payments'], $deleted['assignment_submissions'], $deleted['certificates'], $files]);
             $db->commit();
         } catch (Throwable $exception) {
@@ -428,7 +428,7 @@ final class AdminManagementController
             // so a reset with records standing is a repair, never a rewind into a used number.
             $start = 1;
             $suffix = $scheme['include_year'] ? '-' . gmdate('Y') . '-' : '-';
-            $serials = $db->query('SELECT account_reference FROM users WHERE role="student" AND account_reference IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
+            $serials = $db->query('SELECT account_reference FROM lms_users WHERE role="student" AND account_reference IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
             foreach ((array) $serials as $reference) {
                 $reference = trim((string) $reference);
                 if (!str_starts_with($reference, $scheme['prefix'] . $suffix)) continue;
@@ -441,7 +441,7 @@ final class AdminManagementController
             $start = (int) $rawStart;
         }
         // Protection against duplicates: walk past every number an account still carries.
-        $taken = $db->prepare('SELECT 1 FROM users WHERE account_reference = ? LIMIT 1');
+        $taken = $db->prepare('SELECT 1 FROM lms_users WHERE account_reference = ? LIMIT 1');
         $clashed = 0;
         while ($start <= AccountIdentity::MAX_SEQUENCE) {
             $taken->execute([AccountIdentity::format($scheme['prefix'], $start, $scheme['include_year'] ? (int) gmdate('Y') : null)]);
@@ -452,9 +452,9 @@ final class AdminManagementController
         if ($start > AccountIdentity::MAX_SEQUENCE) {
             throw new RuntimeException('The ID sequence is exhausted up to ' . AccountIdentity::MAX_SEQUENCE . '. Raise the prefix scheme before resetting.');
         }
-        $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+        $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
             ->execute([AccountIdentity::NEXT_KEY, (string) $start, (int) $admin['id']]);
-        $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'account.id_counter_reset', 'app_settings', JSON_OBJECT('start',?, 'skipped_taken',?))")
+        $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'account.id_counter_reset', 'app_settings', JSON_OBJECT('start',?, 'skipped_taken',?))")
             ->execute([(int) $admin['id'], $start, $clashed]);
         $_SESSION['_flash'] = 'ID counter reset. The next new ID will be ' . AccountIdentity::preview($scheme, $start)
             . ($clashed > 0 ? ' (' . $clashed . ' number(s) already in use were skipped - no existing record was touched).' : '.')
@@ -493,16 +493,16 @@ final class AdminManagementController
             }
             if (count($clean) > 12) throw new \RuntimeException('Add no more than 12 payment accounts.');
 
-            $db->exec('DELETE FROM payment_accounts');
-            $insert = $db->prepare('INSERT INTO payment_accounts(account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions,sort_order) VALUES(?,?,?,?,?,?,?,?)');
+            $db->exec('DELETE FROM lms_payment_accounts');
+            $insert = $db->prepare('INSERT INTO lms_payment_accounts(account_title,bank_name,account_number,iban,wallet_name,wallet_number,instructions,sort_order) VALUES(?,?,?,?,?,?,?,?)');
             foreach ($clean as $order => $row) $insert->execute([$row['account_title'], $row['bank_name'], $row['account_number'], $row['iban'], $row['wallet_name'], $row['wallet_number'], $row['instructions'], $order]);
 
             // Keep the original settings keys in sync for older integrations that still read them.
             $legacy = $clean[0] ?? array_fill_keys(array_keys($columns), '');
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
             $legacyMap = ['payment_account_title'=>'account_title','payment_bank_name'=>'bank_name','payment_account_number'=>'account_number','payment_iban'=>'iban','payment_wallet_name'=>'wallet_name','payment_wallet_number'=>'wallet_number','payment_instructions'=>'instructions'];
             foreach ($legacyMap as $key => $field) $upsert->execute([$key, $legacy[$field], (int)$admin['id']]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'payment.settings_updated','payment_accounts',JSON_OBJECT('account_count',?))")->execute([(int)$admin['id'], count($clean)]);
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'payment.settings_updated','payment_accounts',JSON_OBJECT('account_count',?))")->execute([(int)$admin['id'], count($clean)]);
             $db->commit();
             $_SESSION['_flash'] = count($clean) . ' payment account' . (count($clean) === 1 ? '' : 's') . ' saved.';
         } catch (\Throwable $e) {
@@ -517,8 +517,8 @@ final class AdminManagementController
     {
         $admin = AuthMiddleware::requireRole('admin');
         $db = Database::connection();
-        $rows = $db->query("SELECT id,reviewer_type,full_name,context_label,rating,content,status,created_at FROM reviews WHERE status='pending' ORDER BY created_at ASC,id ASC")->fetchAll();
-        $contactMessages = $db->query('SELECT id,sender_name,sender_email,phone,subject,message,submitted_at FROM contact_messages ORDER BY submitted_at DESC,id DESC')->fetchAll();
+        $rows = $db->query("SELECT id,reviewer_type,full_name,context_label,rating,content,status,created_at FROM lms_reviews WHERE status='pending' ORDER BY created_at ASC,id ASC")->fetchAll();
+        $contactMessages = $db->query('SELECT id,sender_name,sender_email,phone,subject,message,submitted_at FROM lms_contact_messages ORDER BY submitted_at DESC,id DESC')->fetchAll();
         View::render('admin/reviews', ['title' => 'Review moderation', 'user' => $admin, 'reviews' => $rows, 'contactMessages' => $contactMessages, 'message' => $_SESSION['_flash'] ?? null]);
         unset($_SESSION['_flash']);
     }
@@ -534,8 +534,8 @@ final class AdminManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $deleted = (int) $db->exec('DELETE FROM contact_messages');
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'contact_inbox.cleared', 'contact_message', JSON_OBJECT('deleted_rows', ?))")
+            $deleted = (int) $db->exec('DELETE FROM lms_contact_messages');
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'contact_inbox.cleared', 'contact_message', JSON_OBJECT('deleted_rows', ?))")
                 ->execute([(int) $admin['id'], $deleted]);
             $db->commit();
             $_SESSION['_flash'] = $deleted > 0
@@ -566,10 +566,10 @@ final class AdminManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $stmt = $db->prepare("UPDATE reviews SET status=? WHERE id=? AND status='pending'");
+            $stmt = $db->prepare("UPDATE lms_reviews SET status=? WHERE id=? AND status='pending'");
             $stmt->execute([$decision, $id]);
             if ($stmt->rowCount() !== 1) throw new \RuntimeException('This review is no longer pending.');
-            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'review\',?)')->execute([(int)$admin['id'], 'review.' . $decision, $id]);
+            $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'review\',?)')->execute([(int)$admin['id'], 'review.' . $decision, $id]);
             $db->commit();
             $_SESSION['_flash'] = 'Review ' . ($decision === 'approved' ? 'approved and visible on the homepage.' : 'rejected.');
         } catch (\Throwable $e) {

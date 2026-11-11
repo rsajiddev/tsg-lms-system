@@ -27,7 +27,7 @@ final class AttendanceService
     public function available(): bool
     {
         try {
-            $this->db->query('SELECT course_id,lesson_id FROM attendance_records LIMIT 0');
+            $this->db->query('SELECT course_id,lesson_id FROM lms_attendance_records LIMIT 0');
             return true;
         } catch (PDOException $exception) {
             if (in_array((string) $exception->getCode(), ['42S02', '42S22'], true)) return false;
@@ -39,7 +39,7 @@ final class AttendanceService
     public function graceMinutes(): int
     {
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::GRACE_KEY]);
             $stored = (int) $stmt->fetchColumn();
         } catch (PDOException) {
@@ -54,7 +54,7 @@ final class AttendanceService
         if ($studentId < 1 || !AccessPlan::columnStored($this->db, 'student_course_access.plan_code')) return null;
         try {
             $stmt = $this->db->prepare(
-                "SELECT DATE(MIN(granted_at)) FROM student_course_access
+                "SELECT DATE(MIN(granted_at)) FROM lms_student_course_access
                  WHERE student_id=? AND status IN ('active','completed','certified') AND plan_code='live_recorded'"
             );
             $stmt->execute([$studentId]);
@@ -84,12 +84,12 @@ final class AttendanceService
             || !AccessPlan::columnStored($this->db, 'lessons.meeting_at')) return;
         try {
             $stmt = $this->db->prepare(
-                "INSERT IGNORE INTO attendance_records(student_id,course_id,lesson_id,attendance_date,status,first_login_at,mark_deadline_at)
+                "INSERT IGNORE INTO lms_attendance_records(student_id,course_id,lesson_id,attendance_date,status,first_login_at,mark_deadline_at)
                  SELECT sca.student_id,cm.course_id,l.id,DATE(l.meeting_at),'pending',NULL,
                         DATE_ADD(l.meeting_at, INTERVAL ? MINUTE)
-                 FROM lessons l
-                 JOIN course_modules cm ON cm.id=l.module_id
-                 JOIN student_course_access sca ON sca.course_id=cm.course_id
+                 FROM lms_lessons l
+                 JOIN lms_course_modules cm ON cm.id=l.module_id
+                 JOIN lms_student_course_access sca ON sca.course_id=cm.course_id
                  WHERE l.status='published' AND l.meeting_url IS NOT NULL AND l.meeting_url<>''
                    AND l.meeting_at IS NOT NULL AND l.meeting_at<=UTC_TIMESTAMP()
                    AND sca.plan_code='live_recorded' AND sca.status IN ('active','completed','certified')
@@ -115,7 +115,7 @@ final class AttendanceService
     {
         try {
             $stmt = $this->db->prepare(
-                "UPDATE attendance_records SET status='absent',closed_at=UTC_TIMESTAMP()
+                "UPDATE lms_attendance_records SET status='absent',closed_at=UTC_TIMESTAMP()
                  WHERE course_id IS NOT NULL AND lesson_id IS NOT NULL AND status='pending'
                    AND mark_deadline_at<=UTC_TIMESTAMP()" . ($studentId !== null ? ' AND student_id=?' : '')
             );
@@ -140,10 +140,10 @@ final class AttendanceService
                         COALESCE(ar.status,IF(l.meeting_at<=UTC_TIMESTAMP(),'pending','scheduled')) AS status,
                         ar.first_login_at,ar.mark_deadline_at,ar.marked_at,l.meeting_at,
                         l.id AS lesson_id,cm.course_id,c.title AS course_title,l.title AS lesson_title
-                 FROM lessons l JOIN course_modules cm ON cm.id=l.module_id
-                 JOIN courses c ON c.id=cm.course_id
-                 JOIN student_course_access sca ON sca.course_id=cm.course_id AND sca.student_id=?
-                 LEFT JOIN attendance_records ar ON ar.student_id=sca.student_id AND ar.lesson_id=l.id
+                 FROM lms_lessons l JOIN lms_course_modules cm ON cm.id=l.module_id
+                 JOIN lms_courses c ON c.id=cm.course_id
+                 JOIN lms_student_course_access sca ON sca.course_id=cm.course_id AND sca.student_id=?
+                 LEFT JOIN lms_attendance_records ar ON ar.student_id=sca.student_id AND ar.lesson_id=l.id
                  WHERE l.status='published' AND l.meeting_url IS NOT NULL AND l.meeting_url<>''
                    AND DATE(l.meeting_at)=UTC_DATE() AND sca.plan_code='live_recorded'
                    AND sca.status IN ('active','completed','certified')
@@ -173,7 +173,7 @@ final class AttendanceService
         if ($row['status'] === 'absent') return ['ok' => false, 'message' => 'The attendance window for today\'s class has closed. Contact the Academy if you were present.'];
         try {
             $stmt = $this->db->prepare(
-                "UPDATE attendance_records SET status='present',marked_at=UTC_TIMESTAMP()
+                "UPDATE lms_attendance_records SET status='present',marked_at=UTC_TIMESTAMP()
                  WHERE id=? AND student_id=? AND status='pending' AND mark_deadline_at>UTC_TIMESTAMP()"
             );
             $stmt->execute([(int) $row['id'], $studentId]);
@@ -224,10 +224,10 @@ final class AttendanceService
             $stmt = $this->db->prepare(
                 "SELECT ar.attendance_date,ar.status,ar.first_login_at,ar.marked_at,ar.mark_deadline_at,
                         ar.course_id,ar.lesson_id,c.title AS course_title,l.title AS lesson_title,l.meeting_at
-                 FROM attendance_records ar
-                 JOIN courses c ON c.id=ar.course_id
-                 JOIN lessons l ON l.id=ar.lesson_id
-                 JOIN student_course_access sca ON sca.student_id=ar.student_id AND sca.course_id=ar.course_id
+                 FROM lms_attendance_records ar
+                 JOIN lms_courses c ON c.id=ar.course_id
+                 JOIN lms_lessons l ON l.id=ar.lesson_id
+                 JOIN lms_student_course_access sca ON sca.student_id=ar.student_id AND sca.course_id=ar.course_id
                  WHERE ar.student_id=? AND ar.course_id IS NOT NULL
                    AND sca.plan_code='live_recorded' AND sca.status IN ('active','completed','certified')
                    AND l.meeting_at>=sca.granted_at AND (sca.expires_at IS NULL OR l.meeting_at<=sca.expires_at)
@@ -252,8 +252,8 @@ final class AttendanceService
         }
         try {
             $planned = $this->db->prepare(
-                "SELECT COUNT(*) FROM lessons l JOIN course_modules cm ON cm.id=l.module_id
-                 JOIN student_course_access sca ON sca.course_id=cm.course_id AND sca.student_id=?
+                "SELECT COUNT(*) FROM lms_lessons l JOIN lms_course_modules cm ON cm.id=l.module_id
+                 JOIN lms_student_course_access sca ON sca.course_id=cm.course_id AND sca.student_id=?
                  WHERE l.status='published' AND l.meeting_url IS NOT NULL AND l.meeting_url<>'' AND l.meeting_at IS NOT NULL
                    AND sca.plan_code='live_recorded' AND sca.status IN ('active','completed','certified')
                    AND l.meeting_at>=sca.granted_at AND (sca.expires_at IS NULL OR l.meeting_at<=sca.expires_at)"
@@ -302,7 +302,7 @@ final class AttendanceService
         $windowEnd = gmdate('Y-m-d', strtotime('+1 day UTC'));
         try {
             $stmt = $this->db->prepare(
-                'SELECT status,COUNT(*) AS total FROM attendance_records
+                'SELECT status,COUNT(*) AS total FROM lms_attendance_records
                  WHERE course_id IS NOT NULL AND attendance_date=? GROUP BY status'
             );
             $stmt->execute([$today]);
@@ -311,7 +311,7 @@ final class AttendanceService
             }
             $stmt = $this->db->prepare(
                 'SELECT attendance_date,SUM(status=\'present\') AS present_total,SUM(status=\'absent\') AS absent_total
-                 FROM attendance_records WHERE course_id IS NOT NULL AND attendance_date>=? AND attendance_date<? GROUP BY attendance_date'
+                 FROM lms_attendance_records WHERE course_id IS NOT NULL AND attendance_date>=? AND attendance_date<? GROUP BY attendance_date'
             );
             $stmt->execute([$windowStart,$windowEnd]);
             $byDate = [];
@@ -335,7 +335,7 @@ final class AttendanceService
                         COALESCE(SUM(ar.status='absent'),0) AS absent,
                         COALESCE(SUM(ar.status='pending'),0) AS pending,
                         MAX(CASE WHEN ar.attendance_date=? THEN ar.status ELSE NULL END) AS today_status
-                 FROM attendance_records ar JOIN users u ON u.id=ar.student_id
+                 FROM lms_attendance_records ar JOIN lms_users u ON u.id=ar.student_id
                  WHERE ar.course_id IS NOT NULL AND ar.attendance_date>=? AND ar.attendance_date<?
                  GROUP BY u.id,u.full_name ORDER BY u.full_name"
             );
@@ -351,8 +351,8 @@ final class AttendanceService
             }
             $snapshot['studentAttendanceAvailable']=true;
             $stmt=$this->db->query(
-                "SELECT u.id,u.full_name,COUNT(*) AS absent_total FROM attendance_records ar
-                 JOIN users u ON u.id=ar.student_id WHERE ar.course_id IS NOT NULL AND ar.status='absent'
+                "SELECT u.id,u.full_name,COUNT(*) AS absent_total FROM lms_attendance_records ar
+                 JOIN lms_users u ON u.id=ar.student_id WHERE ar.course_id IS NOT NULL AND ar.status='absent'
                    AND ar.attendance_date>=DATE_SUB(UTC_DATE(),INTERVAL 30 DAY)
                  GROUP BY u.id,u.full_name ORDER BY absent_total DESC,u.full_name LIMIT 5"
             );

@@ -35,7 +35,7 @@ final class StudentManagementController
         $db = Database::connection();
         $loginHistoryAvailable = true;
         try {
-            $db->query('SELECT 1 FROM login_events LIMIT 0');
+            $db->query('SELECT 1 FROM lms_login_events LIMIT 0');
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
             $loginHistoryAvailable = false;
@@ -45,7 +45,7 @@ final class StudentManagementController
         $status = (string) ($_GET['status'] ?? 'all');
         if (!in_array($status, ['all', 'active', 'pending', 'suspended'], true)) $status = 'all';
         $page = max(1, (int) ($_GET['page'] ?? 1));
-        $statusCounts = $db->query("SELECT COUNT(*) AS total, SUM(status='active') AS active, SUM(status='pending') AS pending, SUM(status='suspended') AS suspended FROM users WHERE role='student'")->fetch() ?: [];
+        $statusCounts = $db->query("SELECT COUNT(*) AS total, SUM(status='active') AS active, SUM(status='pending') AS pending, SUM(status='suspended') AS suspended FROM lms_users WHERE role='student'")->fetch() ?: [];
 
         $where = ["u.role = 'student'"];
         $params = [];
@@ -68,19 +68,19 @@ final class StudentManagementController
         }
         $whereSql = implode(' AND ', $where);
 
-        $count = $db->prepare("SELECT COUNT(*) FROM users u WHERE $whereSql");
+        $count = $db->prepare("SELECT COUNT(*) FROM lms_users u WHERE $whereSql");
         $count->execute($params);
         $total = (int) $count->fetchColumn();
         $pages = max(1, (int) ceil($total / self::PAGE_SIZE));
         $page = min($page, $pages);
         $offset = ($page - 1) * self::PAGE_SIZE;
         $loginCounts = $loginHistoryAvailable
-            ? "(SELECT COUNT(*) FROM login_events le WHERE le.user_id=u.id AND le.event_type='success') AS successful_logins,
-                (SELECT COUNT(*) FROM login_events le WHERE le.user_id=u.id AND le.event_type IN ('failed','blocked')) AS failed_logins"
+            ? "(SELECT COUNT(*) FROM lms_login_events le WHERE le.user_id=u.id AND le.event_type='success') AS successful_logins,
+                (SELECT COUNT(*) FROM lms_login_events le WHERE le.user_id=u.id AND le.event_type IN ('failed','blocked')) AS failed_logins"
             : 'NULL AS successful_logins, NULL AS failed_logins';
         $studentsQuery = $db->prepare(
             "SELECT u.id,u.full_name,u.email,u.status,u.account_reference,u.email_verified_at,u.created_at,u.last_login_at,$loginCounts
-             FROM users u WHERE $whereSql ORDER BY u.created_at DESC,u.id DESC LIMIT " . self::PAGE_SIZE . ' OFFSET ' . $offset
+             FROM lms_users u WHERE $whereSql ORDER BY u.created_at DESC,u.id DESC LIMIT " . self::PAGE_SIZE . ' OFFSET ' . $offset
         );
         $studentsQuery->execute($params);
         $studentRows = $studentsQuery->fetchAll(PDO::FETCH_ASSOC);
@@ -99,7 +99,7 @@ final class StudentManagementController
         $registry = new SessionRegistry($db);
         $selectedLoginCounts = ['successful' => 0, 'failed' => 0];
         if ($studentId !== null) {
-            $selectedQuery = $db->prepare("SELECT id,full_name,email,status,account_reference,email_verified_at,created_at,last_login_at FROM users WHERE id=? AND role='student' LIMIT 1");
+            $selectedQuery = $db->prepare("SELECT id,full_name,email,status,account_reference,email_verified_at,created_at,last_login_at FROM lms_users WHERE id=? AND role='student' LIMIT 1");
             $selectedQuery->execute([$studentId]);
             $selectedStudent = $selectedQuery->fetch() ?: null;
             if ($selectedStudent && trim((string) ($selectedStudent['account_reference'] ?? '')) === '') {
@@ -108,9 +108,9 @@ final class StudentManagementController
             if ($selectedStudent) {
                 $planColumn = \App\Services\AccessPlan::columnStored($db, 'student_course_access.plan_code') ? 'sca.plan_code' : "'recorded_only' AS plan_code";
                 $paidPlanColumn = \App\Services\AccessPlan::columnStored($db, 'payments.plan_code')
-                    ? "(SELECT p.plan_code FROM payments p WHERE p.student_id=sca.student_id AND p.course_id=sca.course_id AND p.status='approved' ORDER BY p.reviewed_at DESC,p.id DESC LIMIT 1) AS paid_plan_code"
+                    ? "(SELECT p.plan_code FROM lms_payments p WHERE p.student_id=sca.student_id AND p.course_id=sca.course_id AND p.status='approved' ORDER BY p.reviewed_at DESC,p.id DESC LIMIT 1) AS paid_plan_code"
                     : 'NULL AS paid_plan_code';
-                $courseRows = $db->prepare("SELECT c.title,sca.status,sca.granted_at,sca.expires_at,$planColumn,$paidPlanColumn FROM student_course_access sca JOIN courses c ON c.id=sca.course_id WHERE sca.student_id=? ORDER BY sca.granted_at DESC,c.title");
+                $courseRows = $db->prepare("SELECT c.title,sca.status,sca.granted_at,sca.expires_at,$planColumn,$paidPlanColumn FROM lms_student_course_access sca JOIN lms_courses c ON c.id=sca.course_id WHERE sca.student_id=? ORDER BY sca.granted_at DESC,c.title");
                 $courseRows->execute([$studentId]);
                 $studentCourses = $courseRows->fetchAll(PDO::FETCH_ASSOC);
             }
@@ -121,10 +121,10 @@ final class StudentManagementController
                 $sessions = $registry->activeFor($studentId);
             }
             if ($selectedStudent && $loginHistoryAvailable) {
-                $countsQuery = $db->prepare("SELECT SUM(event_type='success') AS successful, SUM(event_type IN ('failed','blocked')) AS failed FROM login_events WHERE user_id=?");
+                $countsQuery = $db->prepare("SELECT SUM(event_type='success') AS successful, SUM(event_type IN ('failed','blocked')) AS failed FROM lms_login_events WHERE user_id=?");
                 $countsQuery->execute([$studentId]);
                 $selectedLoginCounts = $countsQuery->fetch() ?: $selectedLoginCounts;
-                $eventsQuery = $db->prepare('SELECT event_type,ip_address,created_at FROM login_events WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
+                $eventsQuery = $db->prepare('SELECT event_type,ip_address,created_at FROM lms_login_events WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
                 $eventsQuery->execute([$studentId]);
                 $activity = $eventsQuery->fetchAll();
             }
@@ -181,9 +181,9 @@ final class StudentManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
+            $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)')
                 ->execute([AttendanceService::GRACE_KEY, $raw, (int) $admin['id']]);
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'attendance.grace_updated','app_settings',JSON_OBJECT('minutes',?))")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'attendance.grace_updated','app_settings',JSON_OBJECT('minutes',?))")
                 ->execute([(int) $admin['id'], (int) $raw]);
             $db->commit();
             $_SESSION['_flash'] = 'Attendance window saved. New sign-ins use ' . (int) $raw . ' minutes.';
@@ -204,14 +204,14 @@ final class StudentManagementController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $lock = $db->prepare("SELECT id,status FROM users WHERE id=? AND role='student' FOR UPDATE");
+            $lock = $db->prepare("SELECT id,status FROM lms_users WHERE id=? AND role='student' FOR UPDATE");
             $lock->execute([$studentId]);
             $student = $lock->fetch();
             if (!$student || !in_array($student['status'], ['active', 'suspended'], true)) throw new RuntimeException('Only active or suspended student accounts can be changed here.');
             if ($student['status'] !== $status) {
-                $update = $db->prepare("UPDATE users SET status=? WHERE id=? AND role='student'");
+                $update = $db->prepare("UPDATE lms_users SET status=? WHERE id=? AND role='student'");
                 $update->execute([$status, $studentId]);
-                $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
+                $audit = $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
                 $audit->execute([(int) $admin['id'], $status === 'suspended' ? 'student.blocked' : 'student.unblocked', 'user', $studentId, json_encode(['previous_status' => $student['status'], 'status' => $status], JSON_THROW_ON_ERROR)]);
             }
             $db->commit();
@@ -244,7 +244,7 @@ final class StudentManagementController
         $studentId = filter_var($_POST['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
         if ($studentId < 1) throw new RuntimeException('Choose a valid student.');
         $db = Database::connection();
-        $check = $db->prepare("SELECT id FROM users WHERE id=? AND role='student'");
+        $check = $db->prepare("SELECT id FROM lms_users WHERE id=? AND role='student'");
         $check->execute([$studentId]);
         if (!$check->fetch()) throw new RuntimeException('That account is not a student.');
         $registry = new SessionRegistry($db);
@@ -253,7 +253,7 @@ final class StudentManagementController
             $this->redirect('/admin/students?student_id=' . $studentId);
         }
         $closed = (int) ($registry->revokeAll($studentId, 'admin_revoked')['closed'] ?? 0);
-        $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
+        $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
             ->execute([(int) $admin['id'], 'session.revoked_all', 'user', $studentId, json_encode(['closed_sessions' => $closed], JSON_THROW_ON_ERROR)]);
         $_SESSION['_flash'] = $closed > 0
             ? 'Signed the account out of ' . $closed . ' device(s). Its next sign-in opens a clean session.'
@@ -268,18 +268,18 @@ final class StudentManagementController
         $studentId = filter_var($_POST['student_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
         if ($studentId < 1) throw new RuntimeException('Choose a valid student.');
         $db = Database::connection();
-        $check = $db->prepare("SELECT id FROM users WHERE id=? AND role='student'");
+        $check = $db->prepare("SELECT id FROM lms_users WHERE id=? AND role='student'");
         $check->execute([$studentId]);
         if (!$check->fetch()) throw new RuntimeException('Student was not found.');
         try {
-            $delete = $db->prepare('DELETE FROM login_events WHERE user_id=?');
+            $delete = $db->prepare('DELETE FROM lms_login_events WHERE user_id=?');
             $delete->execute([$studentId]);
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
             throw new RuntimeException('Login history table is not available yet. Import the updated schema first.');
         }
         $deleted = $delete->rowCount();
-        $audit = $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
+        $audit = $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)');
         $audit->execute([(int) $admin['id'], 'student.activity_cleared', 'user', $studentId, json_encode(['deleted_events' => $deleted], JSON_THROW_ON_ERROR)]);
         $_SESSION['_flash'] = $deleted > 0
             ? 'Cleared ' . number_format($deleted) . ' sign-in record(s) for this student.'
@@ -313,46 +313,46 @@ final class StudentManagementController
         }
         PurgeGuard::assertConfirmed('DELETE ALL STUDENTS');
         $db = Database::connection();
-        $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role='student'")->fetchColumn();
+        $total = (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role='student'")->fetchColumn();
         if ($total === 0) {
             $_SESSION['_flash'] = 'There are no student accounts to delete.';
             $this->redirect(PurgeGuard::returnPath('/admin/students'));
         }
         // Every child row is written against this subquery instead of a placeholder list, so a
         // directory with thousands of test accounts purges in one statement per table.
-        $students = "(SELECT id FROM users WHERE role='student')";
-        $paths = $db->query("SELECT file_path FROM assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
-            UNION SELECT payment_proof_path FROM payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
-            UNION SELECT file_path FROM certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+        $students = "(SELECT id FROM lms_users WHERE role='student')";
+        $paths = $db->query("SELECT file_path FROM lms_assignment_submissions WHERE student_id IN $students AND file_path IS NOT NULL
+            UNION SELECT payment_proof_path FROM lms_payments WHERE student_id IN $students AND payment_proof_path IS NOT NULL
+            UNION SELECT file_path FROM lms_certificates WHERE student_id IN $students AND file_path IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
         $sources = [
-            'assignment_submission' => array_map('intval', $db->query("SELECT id FROM assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
-            'payment' => array_map('intval', $db->query("SELECT id FROM payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
-            'certificate_request' => array_map('intval', $db->query("SELECT id FROM certificates WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'assignment_submission' => array_map('intval', $db->query("SELECT id FROM lms_assignment_submissions WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'payment' => array_map('intval', $db->query("SELECT id FROM lms_payments WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
+            'certificate_request' => array_map('intval', $db->query("SELECT id FROM lms_certificates WHERE student_id IN $students")->fetchAll(PDO::FETCH_COLUMN)),
         ];
         $files = PurgeGuard::removeStoredFiles(is_array($paths) ? $paths : []);
         $deleted = [];
         $db->beginTransaction();
         try {
             $statements = [
-                'assignment_submissions' => 'DELETE FROM assignment_submissions WHERE student_id IN ' . $students,
-                'attendance_records' => 'DELETE FROM attendance_records WHERE student_id IN ' . $students,
-                'certificates' => 'DELETE FROM certificates WHERE student_id IN ' . $students,
-                'course_grades' => 'DELETE FROM course_grades WHERE student_id IN ' . $students,
-                'email_otps' => 'DELETE FROM email_otps WHERE user_id IN ' . $students,
-                'lesson_progress' => 'DELETE FROM lesson_progress WHERE student_id IN ' . $students,
-                'notification_replies' => 'DELETE FROM notification_replies WHERE student_id IN ' . $students . ' OR recipient_student_id IN ' . $students,
-                'notification_recipients' => 'DELETE FROM notification_recipients WHERE student_id IN ' . $students,
-                'payments' => 'DELETE FROM payments WHERE student_id IN ' . $students,
-                'quiz_attempts' => 'DELETE FROM quiz_attempts WHERE student_id IN ' . $students,
-                'coding_challenge_attempts' => 'DELETE FROM coding_challenge_attempts WHERE student_id IN ' . $students,
-                'quiz_retake_approvals' => 'DELETE FROM quiz_retake_approvals WHERE student_id IN ' . $students,
+                'assignment_submissions' => 'DELETE FROM lms_assignment_submissions WHERE student_id IN ' . $students,
+                'attendance_records' => 'DELETE FROM lms_attendance_records WHERE student_id IN ' . $students,
+                'certificates' => 'DELETE FROM lms_certificates WHERE student_id IN ' . $students,
+                'course_grades' => 'DELETE FROM lms_course_grades WHERE student_id IN ' . $students,
+                'email_otps' => 'DELETE FROM lms_email_otps WHERE user_id IN ' . $students,
+                'lesson_progress' => 'DELETE FROM lms_lesson_progress WHERE student_id IN ' . $students,
+                'notification_replies' => 'DELETE FROM lms_notification_replies WHERE student_id IN ' . $students . ' OR recipient_student_id IN ' . $students,
+                'notification_recipients' => 'DELETE FROM lms_notification_recipients WHERE student_id IN ' . $students,
+                'payments' => 'DELETE FROM lms_payments WHERE student_id IN ' . $students,
+                'quiz_attempts' => 'DELETE FROM lms_quiz_attempts WHERE student_id IN ' . $students,
+                'coding_challenge_attempts' => 'DELETE FROM lms_coding_challenge_attempts WHERE student_id IN ' . $students,
+                'quiz_retake_approvals' => 'DELETE FROM lms_quiz_retake_approvals WHERE student_id IN ' . $students,
                 // A report an admin shared with the student holds the last key back: report_shares
                 // points at users(id) without a cascade on both student_id and sent_by, so the
                 // account delete fails with FK 1451 until the shares filed under these students go.
-                'report_shares' => 'DELETE FROM report_shares WHERE student_id IN ' . $students,
-                'student_course_access' => 'DELETE FROM student_course_access WHERE student_id IN ' . $students,
-                'login_events' => 'DELETE FROM login_events WHERE user_id IN ' . $students,
-                'audit_logs' => 'DELETE FROM audit_logs WHERE actor_user_id IN ' . $students,
+                'report_shares' => 'DELETE FROM lms_report_shares WHERE student_id IN ' . $students,
+                'student_course_access' => 'DELETE FROM lms_student_course_access WHERE student_id IN ' . $students,
+                'login_events' => 'DELETE FROM lms_login_events WHERE user_id IN ' . $students,
+                'audit_logs' => 'DELETE FROM lms_audit_logs WHERE actor_user_id IN ' . $students,
             ];
             foreach ($statements as $table => $sql) {
                 $deleted[$table] = (int) $db->exec($sql);
@@ -366,9 +366,9 @@ final class StudentManagementController
             // Deleting only the messages - as the admin chat desk does - would leave the thread row
             // holding the student_id key and block the account delete with an FK 1451.
             foreach ([
-                'lesson_view_events' => 'DELETE FROM lesson_view_events WHERE student_id IN ' . $students,
-                'user_sessions' => 'DELETE FROM user_sessions WHERE user_id IN ' . $students,
-                'chat_threads' => 'DELETE FROM chat_threads WHERE student_id IN ' . $students,
+                'lesson_view_events' => 'DELETE FROM lms_lesson_view_events WHERE student_id IN ' . $students,
+                'user_sessions' => 'DELETE FROM lms_user_sessions WHERE user_id IN ' . $students,
+                'chat_threads' => 'DELETE FROM lms_chat_threads WHERE student_id IN ' . $students,
             ] as $table => $sql) {
                 try {
                     $deleted[$table] = (int) $db->exec($sql);
@@ -379,9 +379,9 @@ final class StudentManagementController
             }
             // The delivery log keeps its rows and only loses the link to the removed account,
             // because the operator still has to see which message went to whom.
-            $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
-            $deleted['accounts'] = (int) $db->exec("DELETE FROM users WHERE role='student'");
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'student.bulk_deleted', 'user', JSON_OBJECT('accounts',?, 'payments',?, 'submissions',?, 'certificates',?, 'files_removed',?))")
+            $deleted['email_logs_unlinked'] = (int) $db->exec("UPDATE lms_email_logs SET related_user_id=NULL WHERE related_user_id IN $students");
+            $deleted['accounts'] = (int) $db->exec("DELETE FROM lms_users WHERE role='student'");
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?, 'student.bulk_deleted', 'user', JSON_OBJECT('accounts',?, 'payments',?, 'submissions',?, 'certificates',?, 'files_removed',?))")
                 ->execute([(int) $admin['id'], $deleted['accounts'], $deleted['payments'], $deleted['assignment_submissions'], $deleted['certificates'], $files]);
             $db->commit();
         } catch (\Throwable $exception) {

@@ -6,7 +6,7 @@ SET
 SET
        FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS lms_users (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        full_name VARCHAR(150) NOT NULL,
        email VARCHAR(190) NOT NULL UNIQUE,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
        INDEX idx_users_role_status(role, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS email_otps (
+CREATE TABLE IF NOT EXISTS lms_email_otps (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        user_id BIGINT UNSIGNED NOT NULL,
        purpose ENUM('verify_email', 'reset_password') NOT NULL,
@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS email_otps (
        consumed_at DATETIME NULL,
        attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_otps_user FOREIGN KEY(user_id) REFERENCES users(id),
+       CONSTRAINT fk_otps_user FOREIGN KEY(user_id) REFERENCES lms_users(id),
        INDEX idx_otp_lookup(user_id, purpose, expires_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS courses (
+CREATE TABLE IF NOT EXISTS lms_courses (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        title VARCHAR(200) NOT NULL,
        slug VARCHAR(220) NOT NULL UNIQUE,
@@ -49,11 +49,11 @@ CREATE TABLE IF NOT EXISTS courses (
        created_by BIGINT UNSIGNED NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       CONSTRAINT fk_courses_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       CONSTRAINT fk_courses_creator FOREIGN KEY(created_by) REFERENCES lms_users(id),
        INDEX idx_courses_visibility(visibility)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS course_pricing_options (
+CREATE TABLE IF NOT EXISTS lms_course_pricing_options (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
        option_code ENUM('recorded_only', 'live_recorded') NOT NULL,
@@ -62,22 +62,22 @@ CREATE TABLE IF NOT EXISTS course_pricing_options (
        currency CHAR(3) NOT NULL DEFAULT 'PKR',
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       CONSTRAINT fk_course_pricing_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
+       CONSTRAINT fk_course_pricing_course FOREIGN KEY(course_id) REFERENCES lms_courses(id) ON DELETE CASCADE,
        UNIQUE KEY uq_course_pricing_option(course_id, option_code),
        INDEX idx_course_pricing_course(course_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS course_modules (
+CREATE TABLE IF NOT EXISTS lms_course_modules (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
        title VARCHAR(200) NOT NULL,
        sort_order INT UNSIGNED NOT NULL DEFAULT 0,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_modules_course FOREIGN KEY(course_id) REFERENCES courses(id),
+       CONSTRAINT fk_modules_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
        INDEX idx_modules_course(course_id, sort_order)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS lessons (
+CREATE TABLE IF NOT EXISTS lms_lessons (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        module_id BIGINT UNSIGNED NOT NULL,
        title VARCHAR(200) NOT NULL,
@@ -92,24 +92,24 @@ CREATE TABLE IF NOT EXISTS lessons (
        sort_order INT UNSIGNED NOT NULL DEFAULT 0,
        status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_lessons_module FOREIGN KEY(module_id) REFERENCES course_modules(id),
+       CONSTRAINT fk_lessons_module FOREIGN KEY(module_id) REFERENCES lms_course_modules(id),
        INDEX idx_lessons_module(module_id, sort_order)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
--- Keep existing installations compatible: lessons gain the recorded-video layer.
+-- Keep existing installations compatible: lms_lessons gain the recorded-video layer.
 SET
        @add_lesson_video_url = (
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN video_url VARCHAR(600) NULL AFTER resource_path',
+                            'ALTER TABLE lms_lessons ADD COLUMN video_url VARCHAR(600) NULL AFTER resource_path',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'video_url'
        );
 
@@ -126,14 +126,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN video_provider ENUM(''none'', ''file'', ''youtube'', ''vimeo'', ''embed'') NOT NULL DEFAULT ''none'' AFTER video_url',
+                            'ALTER TABLE lms_lessons ADD COLUMN video_provider ENUM(''none'', ''file'', ''youtube'', ''vimeo'', ''embed'') NOT NULL DEFAULT ''none'' AFTER video_url',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'video_provider'
        );
 
@@ -150,14 +150,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN video_duration_seconds INT UNSIGNED NULL AFTER video_provider',
+                            'ALTER TABLE lms_lessons ADD COLUMN video_duration_seconds INT UNSIGNED NULL AFTER video_provider',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'video_duration_seconds'
        );
 
@@ -171,7 +171,7 @@ DEALLOCATE PREPARE add_lesson_video_duration_stmt;
 
 -- Backfill the provider for rows created before the column existed.
 UPDATE
-       lessons
+       lms_lessons
 SET
        video_provider = CASE
               WHEN video_url IS NULL
@@ -194,14 +194,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds',
+                            'ALTER TABLE lms_lessons ADD COLUMN meeting_url VARCHAR(600) NULL AFTER video_duration_seconds',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'meeting_url'
        );
 
@@ -218,14 +218,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN meeting_platform ENUM(''google_meet'', ''zoom'') NULL AFTER meeting_url',
+                            'ALTER TABLE lms_lessons ADD COLUMN meeting_platform ENUM(''google_meet'', ''zoom'') NULL AFTER meeting_url',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'meeting_platform'
        );
 
@@ -242,14 +242,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lessons ADD COLUMN meeting_at DATETIME NULL AFTER meeting_url',
+                            'ALTER TABLE lms_lessons ADD COLUMN meeting_at DATETIME NULL AFTER meeting_url',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lessons'
+                     AND TABLE_NAME = 'lms_lessons'
                      AND COLUMN_NAME = 'meeting_at'
        );
 
@@ -262,7 +262,7 @@ EXECUTE add_lesson_meeting_at_stmt;
 DEALLOCATE PREPARE add_lesson_meeting_at_stmt;
 
 UPDATE
-       lessons
+       lms_lessons
 SET
        meeting_platform = CASE
               WHEN meeting_url LIKE '%meet.google.com%' THEN 'google_meet'
@@ -274,7 +274,7 @@ WHERE
        AND meeting_url IS NOT NULL
        AND meeting_url <> '';
 
-CREATE TABLE IF NOT EXISTS student_course_access (
+CREATE TABLE IF NOT EXISTS lms_student_course_access (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
@@ -286,10 +286,10 @@ CREATE TABLE IF NOT EXISTS student_course_access (
        revoked_by BIGINT UNSIGNED NULL,
        revoked_at DATETIME NULL,
        UNIQUE KEY uq_student_course(student_id, course_id),
-       CONSTRAINT fk_access_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_access_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_access_granted_by FOREIGN KEY(granted_by) REFERENCES users(id),
-       CONSTRAINT fk_access_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id),
+       CONSTRAINT fk_access_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_access_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
+       CONSTRAINT fk_access_granted_by FOREIGN KEY(granted_by) REFERENCES lms_users(id),
+       CONSTRAINT fk_access_revoked_by FOREIGN KEY(revoked_by) REFERENCES lms_users(id),
        INDEX idx_access_status(student_id, status),
        INDEX idx_access_plan(student_id, plan_code)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
@@ -300,14 +300,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE student_course_access ADD COLUMN expires_at DATETIME NULL AFTER granted_at',
+                            'ALTER TABLE lms_student_course_access ADD COLUMN expires_at DATETIME NULL AFTER granted_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'student_course_access'
+                     AND TABLE_NAME = 'lms_student_course_access'
                      AND COLUMN_NAME = 'expires_at'
        );
 
@@ -321,8 +321,8 @@ DEALLOCATE PREPARE add_access_expiry_stmt;
 
 -- Backfill valid historical grants from their original grant date; unknown free-text durations remain visible for admin correction.
 UPDATE
-       student_course_access a
-       JOIN courses c ON c.id = a.course_id
+       lms_student_course_access a
+       JOIN lms_courses c ON c.id = a.course_id
 SET
        a.expires_at = CASE
               WHEN LOWER(TRIM(c.duration_label)) REGEXP '^[1-9][0-9]{0,2}[[:space:]]*days?$' THEN TIMESTAMPADD(
@@ -363,14 +363,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE student_course_access ADD INDEX idx_access_expiry(student_id,status,expires_at)',
+                            'ALTER TABLE lms_student_course_access ADD INDEX idx_access_expiry(student_id,status,expires_at)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'student_course_access'
+                     AND TABLE_NAME = 'lms_student_course_access'
                      AND INDEX_NAME = 'idx_access_expiry'
        );
 
@@ -390,14 +390,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE student_course_access ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NOT NULL DEFAULT ''recorded_only'' AFTER status',
+                            'ALTER TABLE lms_student_course_access ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NOT NULL DEFAULT ''recorded_only'' AFTER status',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'student_course_access'
+                     AND TABLE_NAME = 'lms_student_course_access'
                      AND COLUMN_NAME = 'plan_code'
        );
 
@@ -414,14 +414,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE student_course_access ADD INDEX idx_access_plan(student_id,plan_code)',
+                            'ALTER TABLE lms_student_course_access ADD INDEX idx_access_plan(student_id,plan_code)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'student_course_access'
+                     AND TABLE_NAME = 'lms_student_course_access'
                      AND INDEX_NAME = 'idx_access_plan'
        );
 
@@ -433,7 +433,7 @@ EXECUTE add_access_plan_index_stmt;
 
 DEALLOCATE PREPARE add_access_plan_index_stmt;
 
-CREATE TABLE IF NOT EXISTS payments (
+CREATE TABLE IF NOT EXISTS lms_payments (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
@@ -449,9 +449,9 @@ CREATE TABLE IF NOT EXISTS payments (
        reviewed_at DATETIME NULL,
        review_note VARCHAR(1000) NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_payments_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_payments_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_payments_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
+       CONSTRAINT fk_payments_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_payments_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
+       CONSTRAINT fk_payments_reviewer FOREIGN KEY(reviewed_by) REFERENCES lms_users(id),
        INDEX idx_payment_review(status, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -462,14 +462,14 @@ SET
                      IF(
                             SUM(COLUMN_NAME = 'receipt_path') = 1
                             AND SUM(COLUMN_NAME = 'payment_proof_path') = 0,
-                            'ALTER TABLE payments CHANGE COLUMN receipt_path payment_proof_path VARCHAR(500) NULL',
+                            'ALTER TABLE lms_payments CHANGE COLUMN receipt_path payment_proof_path VARCHAR(500) NULL',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'payments'
+                     AND TABLE_NAME = 'lms_payments'
        );
 
 PREPARE rename_payment_receipt_path_stmt
@@ -485,14 +485,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE payments ADD COLUMN payment_proof_path VARCHAR(500) NULL AFTER transaction_reference',
+                            'ALTER TABLE lms_payments ADD COLUMN payment_proof_path VARCHAR(500) NULL AFTER transaction_reference',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'payments'
+                     AND TABLE_NAME = 'lms_payments'
                      AND COLUMN_NAME = 'payment_proof_path'
        );
 
@@ -509,14 +509,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE payments ADD COLUMN receipt_number VARCHAR(48) NULL AFTER payment_proof_path',
+                            'ALTER TABLE lms_payments ADD COLUMN receipt_number VARCHAR(48) NULL AFTER payment_proof_path',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'payments'
+                     AND TABLE_NAME = 'lms_payments'
                      AND COLUMN_NAME = 'receipt_number'
        );
 
@@ -533,14 +533,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE payments ADD COLUMN receipt_issued_at DATETIME NULL AFTER receipt_number',
+                            'ALTER TABLE lms_payments ADD COLUMN receipt_issued_at DATETIME NULL AFTER receipt_number',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'payments'
+                     AND TABLE_NAME = 'lms_payments'
                      AND COLUMN_NAME = 'receipt_issued_at'
        );
 
@@ -553,7 +553,7 @@ EXECUTE add_payment_receipt_issued_at_stmt;
 DEALLOCATE PREPARE add_payment_receipt_issued_at_stmt;
 
 UPDATE
-       payments
+       lms_payments
 SET
        receipt_number = CONCAT(
               'TSG-RCP-',
@@ -573,14 +573,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE payments ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NULL AFTER course_id',
+                            'ALTER TABLE lms_payments ADD COLUMN plan_code ENUM(''recorded_only'', ''live_recorded'') NULL AFTER course_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'payments'
+                     AND TABLE_NAME = 'lms_payments'
                      AND COLUMN_NAME = 'plan_code'
        );
 
@@ -592,7 +592,7 @@ EXECUTE add_payment_plan_code_stmt;
 
 DEALLOCATE PREPARE add_payment_plan_code_stmt;
 
-CREATE TABLE IF NOT EXISTS quizzes (
+CREATE TABLE IF NOT EXISTS lms_quizzes (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
        week_number SMALLINT UNSIGNED NOT NULL,
@@ -609,33 +609,33 @@ CREATE TABLE IF NOT EXISTS quizzes (
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_quiz_course_week(course_id, week_number),
-       CONSTRAINT fk_quiz_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_quiz_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       CONSTRAINT fk_quiz_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
+       CONSTRAINT fk_quiz_creator FOREIGN KEY(created_by) REFERENCES lms_users(id),
        INDEX idx_quiz_release(status, unlock_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS quiz_questions (
+CREATE TABLE IF NOT EXISTS lms_quiz_questions (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        quiz_id BIGINT UNSIGNED NOT NULL,
        question_text TEXT NOT NULL,
        marks DECIMAL(7, 2) NOT NULL DEFAULT 1,
        sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_question_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id),
+       CONSTRAINT fk_question_quiz FOREIGN KEY(quiz_id) REFERENCES lms_quizzes(id),
        INDEX idx_question_quiz(quiz_id, sort_order)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS quiz_options (
+CREATE TABLE IF NOT EXISTS lms_quiz_options (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        question_id BIGINT UNSIGNED NOT NULL,
        option_text TEXT NOT NULL,
        is_correct TINYINT(1) NOT NULL DEFAULT 0,
        sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
-       CONSTRAINT fk_option_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id),
+       CONSTRAINT fk_option_question FOREIGN KEY(question_id) REFERENCES lms_quiz_questions(id),
        INDEX idx_options_question(question_id, sort_order)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS quiz_attempts (
+CREATE TABLE IF NOT EXISTS lms_quiz_attempts (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        quiz_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
@@ -655,22 +655,22 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
        result ENUM('pass', 'fail') NULL,
        submission_reason VARCHAR(40) NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_attempt_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id),
-       CONSTRAINT fk_attempt_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_attempt_quiz FOREIGN KEY(quiz_id) REFERENCES lms_quizzes(id),
+       CONSTRAINT fk_attempt_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
        INDEX idx_attempt_student(student_id, created_at),
        INDEX idx_attempt_deadline(status, deadline_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS quiz_answers (
+CREATE TABLE IF NOT EXISTS lms_quiz_answers (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        attempt_id BIGINT UNSIGNED NOT NULL,
        question_id BIGINT UNSIGNED NOT NULL,
        selected_option_id BIGINT UNSIGNED NULL,
        awarded_marks DECIMAL(7, 2) NOT NULL DEFAULT 0,
        UNIQUE KEY uq_attempt_question(attempt_id, question_id),
-       CONSTRAINT fk_answer_attempt FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id),
-       CONSTRAINT fk_answer_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id),
-       CONSTRAINT fk_answer_option FOREIGN KEY(selected_option_id) REFERENCES quiz_options(id)
+       CONSTRAINT fk_answer_attempt FOREIGN KEY(attempt_id) REFERENCES lms_quiz_attempts(id),
+       CONSTRAINT fk_answer_question FOREIGN KEY(question_id) REFERENCES lms_quiz_questions(id),
+       CONSTRAINT fk_answer_option FOREIGN KEY(selected_option_id) REFERENCES lms_quiz_options(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Additive learning-phase fields. Keep this project on its single import file.
@@ -679,14 +679,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quizzes ADD COLUMN quiz_type ENUM(''practice'',''lesson'',''module'',''final'') NOT NULL DEFAULT ''lesson'' AFTER instructions',
+                            'ALTER TABLE lms_quizzes ADD COLUMN quiz_type ENUM(''practice'',''lesson'',''module'',''final'') NOT NULL DEFAULT ''lesson'' AFTER instructions',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quizzes'
+                     AND TABLE_NAME = 'lms_quizzes'
                      AND COLUMN_NAME = 'quiz_type'
        );
 
@@ -703,14 +703,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quizzes ADD COLUMN practice_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER quiz_type',
+                            'ALTER TABLE lms_quizzes ADD COLUMN practice_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER quiz_type',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quizzes'
+                     AND TABLE_NAME = 'lms_quizzes'
                      AND COLUMN_NAME = 'practice_topic'
        );
 
@@ -727,14 +727,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quiz_questions ADD COLUMN explanation TEXT NULL AFTER question_text',
+                            'ALTER TABLE lms_quiz_questions ADD COLUMN explanation TEXT NULL AFTER question_text',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_questions'
+                     AND TABLE_NAME = 'lms_quiz_questions'
                      AND COLUMN_NAME = 'explanation'
        );
 
@@ -746,7 +746,7 @@ EXECUTE add_question_explanation_stmt;
 
 DEALLOCATE PREPARE add_question_explanation_stmt;
 
-CREATE TABLE IF NOT EXISTS quiz_retake_approvals (
+CREATE TABLE IF NOT EXISTS lms_quiz_retake_approvals (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        quiz_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
@@ -762,9 +762,9 @@ CREATE TABLE IF NOT EXISTS quiz_retake_approvals (
        approved_at DATETIME NULL,
        used_at DATETIME NULL,
        UNIQUE KEY uq_quiz_retake_student(quiz_id, student_id),
-       CONSTRAINT fk_retake_quiz FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
-       CONSTRAINT fk_retake_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
-       CONSTRAINT fk_retake_admin FOREIGN KEY(approved_by) REFERENCES users(id),
+       CONSTRAINT fk_retake_quiz FOREIGN KEY(quiz_id) REFERENCES lms_quizzes(id) ON DELETE CASCADE,
+       CONSTRAINT fk_retake_student FOREIGN KEY(student_id) REFERENCES lms_users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_retake_admin FOREIGN KEY(approved_by) REFERENCES lms_users(id),
        INDEX idx_quiz_retake_available(student_id, used_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -774,14 +774,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quiz_retake_approvals ADD COLUMN request_status ENUM(''pending'',''approved'',''rejected'') NOT NULL DEFAULT ''pending'' AFTER student_id',
+                            'ALTER TABLE lms_quiz_retake_approvals ADD COLUMN request_status ENUM(''pending'',''approved'',''rejected'') NOT NULL DEFAULT ''pending'' AFTER student_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'request_status'
        );
 
@@ -798,14 +798,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quiz_retake_approvals ADD COLUMN student_note VARCHAR(1000) NULL AFTER request_status',
+                            'ALTER TABLE lms_quiz_retake_approvals ADD COLUMN student_note VARCHAR(1000) NULL AFTER request_status',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'student_note'
        );
 
@@ -822,14 +822,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quiz_retake_approvals ADD COLUMN student_requested_at DATETIME NULL AFTER student_note',
+                            'ALTER TABLE lms_quiz_retake_approvals ADD COLUMN student_requested_at DATETIME NULL AFTER student_note',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'student_requested_at'
        );
 
@@ -846,14 +846,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE quiz_retake_approvals ADD COLUMN admin_note VARCHAR(1000) NULL AFTER student_requested_at',
+                            'ALTER TABLE lms_quiz_retake_approvals ADD COLUMN admin_note VARCHAR(1000) NULL AFTER student_requested_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'admin_note'
        );
 
@@ -871,14 +871,14 @@ SET
               SELECT
                      IF(
                             IS_NULLABLE = 'NO',
-                            'ALTER TABLE quiz_retake_approvals MODIFY COLUMN approved_by BIGINT UNSIGNED NULL',
+                            'ALTER TABLE lms_quiz_retake_approvals MODIFY COLUMN approved_by BIGINT UNSIGNED NULL',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'approved_by'
        );
 
@@ -895,14 +895,14 @@ SET
               SELECT
                      IF(
                             IS_NULLABLE = 'NO',
-                            'ALTER TABLE quiz_retake_approvals MODIFY COLUMN approved_at DATETIME NULL',
+                            'ALTER TABLE lms_quiz_retake_approvals MODIFY COLUMN approved_at DATETIME NULL',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'quiz_retake_approvals'
+                     AND TABLE_NAME = 'lms_quiz_retake_approvals'
                      AND COLUMN_NAME = 'approved_at'
        );
 
@@ -916,29 +916,29 @@ DEALLOCATE PREPARE retake_approved_at_nullable_stmt;
 
 -- Snapshot randomized question and option order once per attempt so refreshes
 -- preserve order and submitted answers remain bound to the original question IDs.
-CREATE TABLE IF NOT EXISTS quiz_attempt_questions (
+CREATE TABLE IF NOT EXISTS lms_quiz_attempt_questions (
        attempt_id BIGINT UNSIGNED NOT NULL,
        question_id BIGINT UNSIGNED NOT NULL,
        sort_order SMALLINT UNSIGNED NOT NULL,
        PRIMARY KEY(attempt_id, question_id),
        UNIQUE KEY uq_attempt_question_order(attempt_id, sort_order),
-       CONSTRAINT fk_attempt_question_attempt FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-       CONSTRAINT fk_attempt_question_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
+       CONSTRAINT fk_attempt_question_attempt FOREIGN KEY(attempt_id) REFERENCES lms_quiz_attempts(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_question_question FOREIGN KEY(question_id) REFERENCES lms_quiz_questions(id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS quiz_attempt_options (
+CREATE TABLE IF NOT EXISTS lms_quiz_attempt_options (
        attempt_id BIGINT UNSIGNED NOT NULL,
        question_id BIGINT UNSIGNED NOT NULL,
        option_id BIGINT UNSIGNED NOT NULL,
        sort_order TINYINT UNSIGNED NOT NULL,
        PRIMARY KEY(attempt_id, question_id, option_id),
        UNIQUE KEY uq_attempt_option_order(attempt_id, question_id, sort_order),
-       CONSTRAINT fk_attempt_option_attempt FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-       CONSTRAINT fk_attempt_option_question FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
-       CONSTRAINT fk_attempt_option_option FOREIGN KEY(option_id) REFERENCES quiz_options(id) ON DELETE CASCADE
+       CONSTRAINT fk_attempt_option_attempt FOREIGN KEY(attempt_id) REFERENCES lms_quiz_attempts(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_option_question FOREIGN KEY(question_id) REFERENCES lms_quiz_questions(id) ON DELETE CASCADE,
+       CONSTRAINT fk_attempt_option_option FOREIGN KEY(option_id) REFERENCES lms_quiz_options(id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS assignments (
+CREATE TABLE IF NOT EXISTS lms_assignments (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
        week_number SMALLINT UNSIGNED NULL,
@@ -948,8 +948,8 @@ CREATE TABLE IF NOT EXISTS assignments (
        max_marks DECIMAL(8, 2) NOT NULL DEFAULT 100,
        status ENUM('draft', 'published', 'closed') NOT NULL DEFAULT 'draft',
        created_by BIGINT UNSIGNED NOT NULL,
-       CONSTRAINT fk_assignment_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_assignment_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       CONSTRAINT fk_assignment_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
+       CONSTRAINT fk_assignment_creator FOREIGN KEY(created_by) REFERENCES lms_users(id),
        INDEX idx_assignment_course(course_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -958,14 +958,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignments ADD COLUMN assignment_type ENUM(''exercise'',''mini_project'') NOT NULL DEFAULT ''exercise'' AFTER course_id',
+                            'ALTER TABLE lms_assignments ADD COLUMN assignment_type ENUM(''exercise'',''mini_project'') NOT NULL DEFAULT ''exercise'' AFTER course_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignments'
+                     AND TABLE_NAME = 'lms_assignments'
                      AND COLUMN_NAME = 'assignment_type'
        );
 
@@ -982,14 +982,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignments ADD COLUMN module_id BIGINT UNSIGNED NULL AFTER assignment_type',
+                            'ALTER TABLE lms_assignments ADD COLUMN module_id BIGINT UNSIGNED NULL AFTER assignment_type',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignments'
+                     AND TABLE_NAME = 'lms_assignments'
                      AND COLUMN_NAME = 'module_id'
        );
 
@@ -1006,14 +1006,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignments ADD COLUMN assignment_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER module_id',
+                            'ALTER TABLE lms_assignments ADD COLUMN assignment_topic ENUM(''general'',''php_mysql'') NOT NULL DEFAULT ''general'' AFTER module_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignments'
+                     AND TABLE_NAME = 'lms_assignments'
                      AND COLUMN_NAME = 'assignment_topic'
        );
 
@@ -1025,7 +1025,7 @@ EXECUTE add_assignment_topic_stmt;
 
 DEALLOCATE PREPARE add_assignment_topic_stmt;
 
-CREATE TABLE IF NOT EXISTS assignment_submissions (
+CREATE TABLE IF NOT EXISTS lms_assignment_submissions (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        assignment_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
@@ -1037,9 +1037,9 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
        feedback TEXT NULL,
        reviewed_by BIGINT UNSIGNED NULL,
        reviewed_at DATETIME NULL,
-       CONSTRAINT fk_submission_assignment FOREIGN KEY(assignment_id) REFERENCES assignments(id),
-       CONSTRAINT fk_submission_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_submission_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
+       CONSTRAINT fk_submission_assignment FOREIGN KEY(assignment_id) REFERENCES lms_assignments(id),
+       CONSTRAINT fk_submission_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_submission_reviewer FOREIGN KEY(reviewed_by) REFERENCES lms_users(id),
        INDEX idx_submission_student(student_id, submitted_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -1048,14 +1048,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignments ADD COLUMN admin_cutoff_at DATETIME NULL AFTER due_at',
+                            'ALTER TABLE lms_assignments ADD COLUMN admin_cutoff_at DATETIME NULL AFTER due_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignments'
+                     AND TABLE_NAME = 'lms_assignments'
                      AND COLUMN_NAME = 'admin_cutoff_at'
        );
 
@@ -1072,14 +1072,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignments ADD COLUMN late_deduction_percent DECIMAL(5,2) NOT NULL DEFAULT 0 AFTER admin_cutoff_at',
+                            'ALTER TABLE lms_assignments ADD COLUMN late_deduction_percent DECIMAL(5,2) NOT NULL DEFAULT 0 AFTER admin_cutoff_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignments'
+                     AND TABLE_NAME = 'lms_assignments'
                      AND COLUMN_NAME = 'late_deduction_percent'
        );
 
@@ -1096,14 +1096,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN github_url VARCHAR(500) NULL AFTER submission_text',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN github_url VARCHAR(500) NULL AFTER submission_text',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'github_url'
        );
 
@@ -1120,14 +1120,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN submitted_late TINYINT(1) NOT NULL DEFAULT 0 AFTER file_path',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN submitted_late TINYINT(1) NOT NULL DEFAULT 0 AFTER file_path',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'submitted_late'
        );
 
@@ -1144,14 +1144,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_technical DECIMAL(3,2) NULL AFTER feedback',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN rubric_technical DECIMAL(3,2) NULL AFTER feedback',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'rubric_technical'
        );
 
@@ -1168,14 +1168,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_problem_solving DECIMAL(3,2) NULL AFTER rubric_technical',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN rubric_problem_solving DECIMAL(3,2) NULL AFTER rubric_technical',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'rubric_problem_solving'
        );
 
@@ -1192,14 +1192,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_code_quality DECIMAL(3,2) NULL AFTER rubric_problem_solving',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN rubric_code_quality DECIMAL(3,2) NULL AFTER rubric_problem_solving',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'rubric_code_quality'
        );
 
@@ -1216,14 +1216,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_timeliness DECIMAL(3,2) NULL AFTER rubric_code_quality',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN rubric_timeliness DECIMAL(3,2) NULL AFTER rubric_code_quality',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'rubric_timeliness'
        );
 
@@ -1240,14 +1240,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE assignment_submissions ADD COLUMN rubric_completeness DECIMAL(3,2) NULL AFTER rubric_timeliness',
+                            'ALTER TABLE lms_assignment_submissions ADD COLUMN rubric_completeness DECIMAL(3,2) NULL AFTER rubric_timeliness',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'assignment_submissions'
+                     AND TABLE_NAME = 'lms_assignment_submissions'
                      AND COLUMN_NAME = 'rubric_completeness'
        );
 
@@ -1259,7 +1259,7 @@ EXECUTE add_rubric_completeness_stmt;
 
 DEALLOCATE PREPARE add_rubric_completeness_stmt;
 
-CREATE TABLE IF NOT EXISTS lesson_progress (
+CREATE TABLE IF NOT EXISTS lms_lesson_progress (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        lesson_id BIGINT UNSIGNED NOT NULL,
@@ -1268,8 +1268,8 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
        completed_at DATETIME NULL,
        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_student_lesson(student_id, lesson_id),
-       CONSTRAINT fk_progress_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_progress_lesson FOREIGN KEY(lesson_id) REFERENCES lessons(id)
+       CONSTRAINT fk_progress_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_progress_lesson FOREIGN KEY(lesson_id) REFERENCES lms_lessons(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Keep existing installations compatible: watch time is recorded before a lesson can complete.
@@ -1278,14 +1278,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lesson_progress ADD COLUMN watched_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER lesson_id',
+                            'ALTER TABLE lms_lesson_progress ADD COLUMN watched_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER lesson_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lesson_progress'
+                     AND TABLE_NAME = 'lms_lesson_progress'
                      AND COLUMN_NAME = 'watched_seconds'
        );
 
@@ -1302,14 +1302,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lesson_progress ADD COLUMN last_position_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER watched_seconds',
+                            'ALTER TABLE lms_lesson_progress ADD COLUMN last_position_seconds INT UNSIGNED NOT NULL DEFAULT 0 AFTER watched_seconds',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lesson_progress'
+                     AND TABLE_NAME = 'lms_lesson_progress'
                      AND COLUMN_NAME = 'last_position_seconds'
        );
 
@@ -1326,14 +1326,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE lesson_progress ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER completed_at',
+                            'ALTER TABLE lms_lesson_progress ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER completed_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'lesson_progress'
+                     AND TABLE_NAME = 'lms_lesson_progress'
                      AND COLUMN_NAME = 'updated_at'
        );
 
@@ -1345,7 +1345,7 @@ EXECUTE add_progress_updated_at_stmt;
 
 DEALLOCATE PREPARE add_progress_updated_at_stmt;
 
-CREATE TABLE IF NOT EXISTS notifications (
+CREATE TABLE IF NOT EXISTS lms_notifications (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        created_by BIGINT UNSIGNED NOT NULL,
        title VARCHAR(200) NOT NULL,
@@ -1353,32 +1353,32 @@ CREATE TABLE IF NOT EXISTS notifications (
        audience ENUM('all_students', 'selected_students') NOT NULL DEFAULT 'all_students',
        published_at DATETIME NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_notification_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       CONSTRAINT fk_notification_creator FOREIGN KEY(created_by) REFERENCES lms_users(id),
        INDEX idx_notification_published(published_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS notification_recipients (
+CREATE TABLE IF NOT EXISTS lms_notification_recipients (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        notification_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
        read_at DATETIME NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        UNIQUE KEY uq_notification_student(notification_id, student_id),
-       CONSTRAINT fk_recipient_notification FOREIGN KEY(notification_id) REFERENCES notifications(id),
-       CONSTRAINT fk_recipient_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_recipient_notification FOREIGN KEY(notification_id) REFERENCES lms_notifications(id),
+       CONSTRAINT fk_recipient_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
        INDEX idx_recipient_unread(student_id, read_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS notification_replies (
+CREATE TABLE IF NOT EXISTS lms_notification_replies (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        notification_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
        recipient_student_id BIGINT UNSIGNED NOT NULL,
        message TEXT NOT NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_reply_notification FOREIGN KEY(notification_id) REFERENCES notifications(id),
-       CONSTRAINT fk_reply_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES users(id),
+       CONSTRAINT fk_reply_notification FOREIGN KEY(notification_id) REFERENCES lms_notifications(id),
+       CONSTRAINT fk_reply_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES lms_users(id),
        INDEX idx_reply_notification(notification_id, created_at),
        INDEX idx_reply_thread(
               notification_id,
@@ -1395,14 +1395,14 @@ SET
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_replies'
+                     AND TABLE_NAME = 'lms_notification_replies'
                      AND COLUMN_NAME = 'recipient_student_id'
        );
 
 SET
        @reply_schema_sql = IF(
               @reply_recipient_column_exists = 0,
-              'ALTER TABLE notification_replies ADD COLUMN recipient_student_id BIGINT UNSIGNED NULL AFTER student_id',
+              'ALTER TABLE lms_notification_replies ADD COLUMN recipient_student_id BIGINT UNSIGNED NULL AFTER student_id',
               'SELECT 1'
        );
 
@@ -1415,14 +1415,14 @@ EXECUTE reply_schema_stmt;
 DEALLOCATE PREPARE reply_schema_stmt;
 
 UPDATE
-       notification_replies
+       lms_notification_replies
 SET
        recipient_student_id = student_id
 WHERE
        recipient_student_id IS NULL;
 
 ALTER TABLE
-       notification_replies
+       lms_notification_replies
 MODIFY
        recipient_student_id BIGINT UNSIGNED NOT NULL;
 
@@ -1434,14 +1434,14 @@ SET
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_replies'
+                     AND TABLE_NAME = 'lms_notification_replies'
                      AND INDEX_NAME = 'idx_reply_thread'
        );
 
 SET
        @reply_index_sql = IF(
               @reply_thread_index_exists = 0,
-              'CREATE INDEX idx_reply_thread ON notification_replies(notification_id,recipient_student_id,created_at)',
+              'CREATE INDEX idx_reply_thread ON lms_notification_replies(notification_id,recipient_student_id,created_at)',
               'SELECT 1'
        );
 
@@ -1461,14 +1461,14 @@ SET
                      information_schema.TABLE_CONSTRAINTS
               WHERE
                      CONSTRAINT_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notification_replies'
+                     AND TABLE_NAME = 'lms_notification_replies'
                      AND CONSTRAINT_NAME = 'fk_reply_recipient'
        );
 
 SET
        @reply_fk_sql = IF(
               @reply_recipient_fk_exists = 0,
-              'ALTER TABLE notification_replies ADD CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES users(id)',
+              'ALTER TABLE lms_notification_replies ADD CONSTRAINT fk_reply_recipient FOREIGN KEY(recipient_student_id) REFERENCES lms_users(id)',
               'SELECT 1'
        );
 
@@ -1480,7 +1480,7 @@ EXECUTE reply_fk_stmt;
 
 DEALLOCATE PREPARE reply_fk_stmt;
 
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE IF NOT EXISTS lms_audit_logs (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        actor_user_id BIGINT UNSIGNED NULL,
        action VARCHAR(100) NOT NULL,
@@ -1490,18 +1490,18 @@ CREATE TABLE IF NOT EXISTS audit_logs (
        user_agent VARCHAR(500) NULL,
        metadata JSON NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_audit_actor FOREIGN KEY(actor_user_id) REFERENCES users(id),
+       CONSTRAINT fk_audit_actor FOREIGN KEY(actor_user_id) REFERENCES lms_users(id),
        INDEX idx_audit_action(action, created_at),
        INDEX idx_audit_entity(entity_type, entity_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
--- Recover the plan for purchases made before payments.plan_code existed. The submission audit row
+-- Recover the plan for purchases made before lms_payments.plan_code existed. The submission audit row
 -- is the only place the checkout option was ever written down, so it is read back rather than
 -- guessed, and a payment the audit cannot explain stays NULL instead of inventing a live-class
 -- purchase. It runs here because this file creates the audit table after the payment section.
 UPDATE
-       payments p
-       JOIN audit_logs a ON a.entity_type = 'payment'
+       lms_payments p
+       JOIN lms_audit_logs a ON a.entity_type = 'payment'
        AND a.entity_id = p.id
        AND a.action = 'payment.submitted'
 SET
@@ -1518,21 +1518,21 @@ WHERE
 -- is the same rule PaymentController applies when it grants or renews access, so a student who
 -- upgraded from Recorded Only to Live + Recorded keeps the upgrade through a re-import.
 UPDATE
-       student_course_access sca
+       lms_student_course_access sca
        JOIN (
               SELECT
                      chosen.student_id,
                      chosen.course_id,
                      chosen.plan_code
               FROM
-                     payments chosen
+                     lms_payments chosen
                      JOIN (
                             SELECT
                                    student_id,
                                    course_id,
                                    MAX(id) AS latest_payment_id
                             FROM
-                                   payments
+                                   lms_payments
                             WHERE
                                    status = 'approved'
                             GROUP BY
@@ -1547,20 +1547,20 @@ WHERE
        sca.plan_code <> COALESCE(inherited.plan_code, 'recorded_only');
 
 -- Minimal sign-in audit: never store entered email, password, OTP, or credential material.
-CREATE TABLE IF NOT EXISTS login_events (
+CREATE TABLE IF NOT EXISTS lms_login_events (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        user_id BIGINT UNSIGNED NULL,
        event_type ENUM('success', 'failed', 'blocked') NOT NULL,
        ip_address VARCHAR(45) NULL,
        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_login_event_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE
+       CONSTRAINT fk_login_event_user FOREIGN KEY(user_id) REFERENCES lms_users(id) ON DELETE
        SET
               NULL,
               INDEX idx_login_event_user_time(user_id, created_at),
               INDEX idx_login_event_type_time(event_type, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS auth_rate_limits (
+CREATE TABLE IF NOT EXISTS lms_auth_rate_limits (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        action VARCHAR(40) NOT NULL,
        subject_hash CHAR(64) NOT NULL,
@@ -1568,16 +1568,16 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
        INDEX idx_rate_limit_lookup(action, subject_hash, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS app_settings (
+CREATE TABLE IF NOT EXISTS lms_app_settings (
        setting_key VARCHAR(100) PRIMARY KEY,
        setting_value VARCHAR(255) NOT NULL,
        updated_by BIGINT UNSIGNED NULL,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       CONSTRAINT fk_app_settings_updater FOREIGN KEY(updated_by) REFERENCES users(id)
+       CONSTRAINT fk_app_settings_updater FOREIGN KEY(updated_by) REFERENCES lms_users(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('otp_lifetime_seconds', '600'),
        ('otp_max_attempts', '5'),
@@ -1603,7 +1603,7 @@ VALUES
        (setting_key);
 
 -- One institution may publish several transfer destinations for student checkout.
-CREATE TABLE IF NOT EXISTS payment_accounts (
+CREATE TABLE IF NOT EXISTS lms_payment_accounts (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        account_title VARCHAR(150) NOT NULL DEFAULT '',
        bank_name VARCHAR(100) NOT NULL DEFAULT '',
@@ -1621,7 +1621,7 @@ CREATE TABLE IF NOT EXISTS payment_accounts (
 
 -- Preserve the original single-account settings when upgrading an existing installation.
 INSERT INTO
-       payment_accounts(
+       lms_payment_accounts(
               account_title,
               bank_name,
               account_number,
@@ -1688,7 +1688,7 @@ SELECT
               ''
        )
 FROM
-       app_settings
+       lms_app_settings
 HAVING
        (
               COALESCE(
@@ -1736,10 +1736,10 @@ HAVING
               SELECT
                      1
               FROM
-                     payment_accounts
+                     lms_payment_accounts
        );
 
-CREATE TABLE IF NOT EXISTS reviews (
+CREATE TABLE IF NOT EXISTS lms_reviews (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        reviewer_type ENUM('student', 'client') NOT NULL,
        full_name VARCHAR(150) NOT NULL,
@@ -1757,7 +1757,7 @@ CREATE TABLE IF NOT EXISTS reviews (
        INDEX idx_reviews_recent_ip(ip_address, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS contact_messages (
+CREATE TABLE IF NOT EXISTS lms_contact_messages (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        sender_name VARCHAR(150) NOT NULL,
        sender_email VARCHAR(190) NOT NULL,
@@ -1770,7 +1770,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 
 -- Seed the published Academy catalogue and its two delivery-mode prices.
 INSERT INTO
-       courses (
+       lms_courses (
               title,
               slug,
               category,
@@ -1829,13 +1829,13 @@ WHERE
               SELECT
                      1
               FROM
-                     courses existing
+                     lms_courses existing
               WHERE
                      existing.slug = seed.slug
        );
 
 INSERT INTO
-       course_pricing_options (
+       lms_course_pricing_options (
               course_id,
               option_code,
               display_label,
@@ -1891,21 +1891,21 @@ FROM
                      'Live + Recorded',
                      6000.00
        ) AS p
-       JOIN courses c ON c.slug = p.slug
+       JOIN lms_courses c ON c.slug = p.slug
 WHERE
        NOT EXISTS (
               SELECT
                      1
               FROM
-                     course_pricing_options existing
+                     lms_course_pricing_options existing
               WHERE
                      existing.course_id = c.id
                      AND existing.option_code = p.option_code
        );
 
--- Import the three client reviews recorded as already published in docs/CHANGELOG.md.
+-- Import the three client lms_reviews recorded as already published in docs/CHANGELOG.md.
 INSERT INTO
-       reviews (
+       lms_reviews (
               reviewer_type,
               full_name,
               context_label,
@@ -1950,7 +1950,7 @@ WHERE
               SELECT
                      1
               FROM
-                     reviews existing
+                     lms_reviews existing
               WHERE
                      existing.full_name = seed.full_name
        );
@@ -1961,14 +1961,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE courses ADD COLUMN image_path VARCHAR(500) NULL AFTER level_label',
+                            'ALTER TABLE lms_courses ADD COLUMN image_path VARCHAR(500) NULL AFTER level_label',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'courses'
+                     AND TABLE_NAME = 'lms_courses'
                      AND COLUMN_NAME = 'image_path'
        );
 
@@ -1981,7 +1981,7 @@ EXECUTE add_course_image_path_stmt;
 DEALLOCATE PREPARE add_course_image_path_stmt;
 
 -- Browser-based coding practice. Student code is never executed by the PHP server.
-CREATE TABLE IF NOT EXISTS coding_challenges (
+CREATE TABLE IF NOT EXISTS lms_coding_challenges (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        course_id BIGINT UNSIGNED NOT NULL,
        title VARCHAR(200) NOT NULL,
@@ -1994,12 +1994,12 @@ CREATE TABLE IF NOT EXISTS coding_challenges (
        created_by BIGINT UNSIGNED NOT NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       CONSTRAINT fk_coding_challenges_course FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
-       CONSTRAINT fk_coding_challenges_creator FOREIGN KEY(created_by) REFERENCES users(id),
+       CONSTRAINT fk_coding_challenges_course FOREIGN KEY(course_id) REFERENCES lms_courses(id) ON DELETE CASCADE,
+       CONSTRAINT fk_coding_challenges_creator FOREIGN KEY(created_by) REFERENCES lms_users(id),
        INDEX idx_coding_challenges_course(course_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS coding_challenge_attempts (
+CREATE TABLE IF NOT EXISTS lms_coding_challenge_attempts (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        challenge_id BIGINT UNSIGNED NOT NULL,
        student_id BIGINT UNSIGNED NOT NULL,
@@ -2009,14 +2009,14 @@ CREATE TABLE IF NOT EXISTS coding_challenge_attempts (
        reported_status ENUM('pass', 'fail') NOT NULL,
        test_results LONGTEXT NOT NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_coding_attempt_challenge FOREIGN KEY(challenge_id) REFERENCES coding_challenges(id) ON DELETE CASCADE,
-       CONSTRAINT fk_coding_attempt_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_coding_attempt_challenge FOREIGN KEY(challenge_id) REFERENCES lms_coding_challenges(id) ON DELETE CASCADE,
+       CONSTRAINT fk_coding_attempt_student FOREIGN KEY(student_id) REFERENCES lms_users(id) ON DELETE CASCADE,
        INDEX idx_coding_attempt_student(challenge_id, student_id, id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- Certificate management and public verification. One request row per student and course;
 -- the academy-issued public identifier stays NULL until an admin approves the request.
-CREATE TABLE IF NOT EXISTS certificates (
+CREATE TABLE IF NOT EXISTS lms_certificates (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        certificate_id VARCHAR(64) NULL,
        student_id BIGINT UNSIGNED NOT NULL,
@@ -2037,13 +2037,13 @@ CREATE TABLE IF NOT EXISTS certificates (
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_certificate_student_course(student_id, course_id),
        -- The public ID is an account reference, not a document reference: a student with two
-       -- certificates has them both under one number, so this is a lookup index, not a constraint.
+       -- lms_certificates has them both under one number, so this is a lookup index, not a constraint.
        INDEX idx_certificate_public_id(certificate_id),
-       CONSTRAINT fk_certificate_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_certificate_course FOREIGN KEY(course_id) REFERENCES courses(id),
-       CONSTRAINT fk_certificate_issuer FOREIGN KEY(issued_by) REFERENCES users(id),
-       CONSTRAINT fk_certificate_reviewer FOREIGN KEY(reviewed_by) REFERENCES users(id),
-       CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id),
+       CONSTRAINT fk_certificate_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_certificate_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
+       CONSTRAINT fk_certificate_issuer FOREIGN KEY(issued_by) REFERENCES lms_users(id),
+       CONSTRAINT fk_certificate_reviewer FOREIGN KEY(reviewed_by) REFERENCES lms_users(id),
+       CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES lms_users(id),
        INDEX idx_certificate_status(status, requested_at),
        INDEX idx_certificate_student(student_id, status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
@@ -2052,7 +2052,7 @@ CREATE TABLE IF NOT EXISTS certificates (
 -- The old certificate_id_prefix setting is gone for good: a certificate carries its owner's account
 -- ID, and that scheme is seeded with the account-reference section at the end of this file.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('certificate_available_days', '15') ON DUPLICATE KEY
 UPDATE
@@ -2062,7 +2062,7 @@ VALUES
 
 -- Student attendance. A successful student login opens one daily row in the pending state; the
 -- student must confirm presence before mark_deadline_at, otherwise the row is closed as absent.
-CREATE TABLE IF NOT EXISTS attendance_records (
+CREATE TABLE IF NOT EXISTS lms_attendance_records (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NULL,
@@ -2076,7 +2076,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
        login_ip VARCHAR(45) NULL,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_attendance_student_date(student_id, attendance_date),
-       CONSTRAINT fk_attendance_student FOREIGN KEY(student_id) REFERENCES users(id),
+       CONSTRAINT fk_attendance_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
        INDEX idx_attendance_date(attendance_date, status),
        INDEX idx_attendance_student_date(student_id, attendance_date),
        INDEX idx_attendance_pending(mark_deadline_at, status)
@@ -2089,14 +2089,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE attendance_records ADD COLUMN course_id BIGINT UNSIGNED NULL AFTER student_id',
+                            'ALTER TABLE lms_attendance_records ADD COLUMN course_id BIGINT UNSIGNED NULL AFTER student_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'attendance_records'
+                     AND TABLE_NAME = 'lms_attendance_records'
                      AND COLUMN_NAME = 'course_id'
        );
 
@@ -2113,14 +2113,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE attendance_records ADD COLUMN lesson_id BIGINT UNSIGNED NULL AFTER course_id',
+                            'ALTER TABLE lms_attendance_records ADD COLUMN lesson_id BIGINT UNSIGNED NULL AFTER course_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'attendance_records'
+                     AND TABLE_NAME = 'lms_attendance_records'
                      AND COLUMN_NAME = 'lesson_id'
        );
 
@@ -2137,14 +2137,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE attendance_records MODIFY first_login_at DATETIME NULL',
+                            'ALTER TABLE lms_attendance_records MODIFY first_login_at DATETIME NULL',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'attendance_records'
+                     AND TABLE_NAME = 'lms_attendance_records'
                      AND COLUMN_NAME = 'first_login_at'
                      AND IS_NULLABLE = 'NO'
        );
@@ -2162,14 +2162,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE attendance_records ADD INDEX idx_attendance_course_date(course_id,attendance_date)',
+                            'ALTER TABLE lms_attendance_records ADD INDEX idx_attendance_course_date(course_id,attendance_date)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'attendance_records'
+                     AND TABLE_NAME = 'lms_attendance_records'
                      AND INDEX_NAME = 'idx_attendance_course_date'
        );
 
@@ -2183,12 +2183,12 @@ DEALLOCATE PREPARE add_attendance_course_date_index_stmt;
 
 -- Reuse an old daily mark only when its date matches a scheduled live class the student could attend.
 UPDATE
-       attendance_records ar
-       JOIN lessons l ON DATE(l.meeting_at) = ar.attendance_date
+       lms_attendance_records ar
+       JOIN lms_lessons l ON DATE(l.meeting_at) = ar.attendance_date
        AND l.meeting_url IS NOT NULL
        AND l.meeting_url <> ''
-       JOIN course_modules cm ON cm.id = l.module_id
-       JOIN student_course_access sca ON sca.student_id = ar.student_id
+       JOIN lms_course_modules cm ON cm.id = l.module_id
+       JOIN lms_student_course_access sca ON sca.student_id = ar.student_id
        AND sca.course_id = cm.course_id
 SET
        ar.course_id = cm.course_id,
@@ -2204,7 +2204,7 @@ WHERE
 
 -- Attendance grace window is seeded once so an admin change survives a re-import.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('attendance_grace_minutes', '5') ON DUPLICATE KEY
 UPDATE
@@ -2214,7 +2214,7 @@ VALUES
 
 -- Share of a lesson video that must be watched before the lesson may be marked complete.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('lesson_watch_completion_percent', '90') ON DUPLICATE KEY
 UPDATE
@@ -2224,7 +2224,7 @@ VALUES
 
 -- Per-student, per-course grade matrix. Written by App\Services\CourseGrading and read by the
 -- student portals, the admin roster and certificate eligibility. Recompute upserts this row.
-CREATE TABLE IF NOT EXISTS course_grades (
+CREATE TABLE IF NOT EXISTS lms_course_grades (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        course_id BIGINT UNSIGNED NOT NULL,
@@ -2239,8 +2239,8 @@ CREATE TABLE IF NOT EXISTS course_grades (
        computed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
        UNIQUE KEY uq_course_grade_student_course(student_id, course_id),
-       CONSTRAINT fk_course_grade_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_course_grade_course FOREIGN KEY(course_id) REFERENCES courses(id),
+       CONSTRAINT fk_course_grade_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_course_grade_course FOREIGN KEY(course_id) REFERENCES lms_courses(id),
        INDEX idx_course_grade_course(course_id, overall_pct)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -2252,14 +2252,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE student_course_access MODIFY status ENUM(''active'',''revoked'',''completed'',''certified'') NOT NULL DEFAULT ''active''',
+                            'ALTER TABLE lms_student_course_access MODIFY status ENUM(''active'',''revoked'',''completed'',''certified'') NOT NULL DEFAULT ''active''',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'student_course_access'
+                     AND TABLE_NAME = 'lms_student_course_access'
                      AND COLUMN_NAME = 'status'
                      AND COLUMN_TYPE LIKE '%certified%'
        );
@@ -2279,14 +2279,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE certificates ADD COLUMN overall_percent DECIMAL(5,2) NULL AFTER admin_remarks, ADD COLUMN letter_grade VARCHAR(2) NULL AFTER overall_percent, ADD COLUMN attendance_percent DECIMAL(5,2) NULL AFTER letter_grade',
+                            'ALTER TABLE lms_certificates ADD COLUMN overall_percent DECIMAL(5,2) NULL AFTER admin_remarks, ADD COLUMN letter_grade VARCHAR(2) NULL AFTER overall_percent, ADD COLUMN attendance_percent DECIMAL(5,2) NULL AFTER letter_grade',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND COLUMN_NAME = 'overall_percent'
        );
 
@@ -2301,7 +2301,7 @@ DEALLOCATE PREPARE add_certificate_snapshot_stmt;
 -- Grading weights and certificate thresholds. Seeded once and never overwritten by a re-import,
 -- so admin adjustments survive. Weights are percentages of the overall course score.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('grade_weight_video', '30'),
        ('grade_weight_quiz', '28'),
@@ -2317,14 +2317,14 @@ VALUES
 
 -- Move the old default to the company-approved 60% pass mark without replacing an admin override.
 UPDATE
-       app_settings
+       lms_app_settings
 SET
        setting_value = '60'
 WHERE
        setting_key = 'certificate_min_grade_percent'
        AND setting_value = '50';
 
--- Automated in-app notifications need to say what they are about, so the reader can group
+-- Automated in-app lms_notifications need to say what they are about, so the reader can group
 -- them per workspace area and the sidebar can count unread items by category. Added in one
 -- guarded ALTER so a re-import of an existing database only runs it once.
 SET
@@ -2332,14 +2332,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE notifications ADD COLUMN category VARCHAR(40) NOT NULL DEFAULT ''announcement'' AFTER created_by, ADD COLUMN source_type VARCHAR(40) NULL AFTER audience, ADD COLUMN source_id BIGINT UNSIGNED NULL AFTER source_type, ADD COLUMN link VARCHAR(190) NULL AFTER source_id',
+                            'ALTER TABLE lms_notifications ADD COLUMN category VARCHAR(40) NOT NULL DEFAULT ''announcement'' AFTER created_by, ADD COLUMN source_type VARCHAR(40) NULL AFTER audience, ADD COLUMN source_id BIGINT UNSIGNED NULL AFTER source_type, ADD COLUMN link VARCHAR(190) NULL AFTER source_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notifications'
+                     AND TABLE_NAME = 'lms_notifications'
                      AND COLUMN_NAME = 'category'
        );
 
@@ -2356,14 +2356,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'CREATE INDEX idx_notification_category ON notifications(category, published_at)',
+                            'CREATE INDEX idx_notification_category ON lms_notifications(category, published_at)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notifications'
+                     AND TABLE_NAME = 'lms_notifications'
                      AND INDEX_NAME = 'idx_notification_category'
        );
 
@@ -2380,14 +2380,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'CREATE INDEX idx_notification_source ON notifications(source_type, source_id)',
+                            'CREATE INDEX idx_notification_source ON lms_notifications(source_type, source_id)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'notifications'
+                     AND TABLE_NAME = 'lms_notifications'
                      AND INDEX_NAME = 'idx_notification_source'
        );
 
@@ -2406,14 +2406,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE email_otps MODIFY COLUMN purpose ENUM(''verify_email'', ''reset_password'', ''change_email'') NOT NULL',
+                            'ALTER TABLE lms_email_otps MODIFY COLUMN purpose ENUM(''verify_email'', ''reset_password'', ''change_email'') NOT NULL',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'email_otps'
+                     AND TABLE_NAME = 'lms_email_otps'
                      AND COLUMN_NAME = 'purpose'
                      AND COLUMN_TYPE LIKE '%change_email%'
        );
@@ -2431,14 +2431,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE email_otps ADD COLUMN target_email VARCHAR(190) NULL AFTER purpose',
+                            'ALTER TABLE lms_email_otps ADD COLUMN target_email VARCHAR(190) NULL AFTER purpose',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'email_otps'
+                     AND TABLE_NAME = 'lms_email_otps'
                      AND COLUMN_NAME = 'target_email'
        );
 
@@ -2452,7 +2452,7 @@ DEALLOCATE PREPARE add_otp_target_email_stmt;
 
 -- Every automated email is recorded here so delivery problems are visible in the admin
 -- workspace instead of only in the PHP error log.
-CREATE TABLE IF NOT EXISTS email_logs (
+CREATE TABLE IF NOT EXISTS lms_email_logs (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        template_key VARCHAR(64) NOT NULL,
        recipient_email VARCHAR(190) NOT NULL,
@@ -2461,7 +2461,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
        error_message VARCHAR(255) NULL,
        related_user_id BIGINT UNSIGNED NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_email_logs_user FOREIGN KEY(related_user_id) REFERENCES users(id),
+       CONSTRAINT fk_email_logs_user FOREIGN KEY(related_user_id) REFERENCES lms_users(id),
        INDEX idx_email_logs_created(created_at, id),
        INDEX idx_email_logs_status(status, created_at),
        INDEX idx_email_logs_template(template_key)
@@ -2481,14 +2481,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE users ADD COLUMN account_reference VARCHAR(64) NULL AFTER role',
+                            'ALTER TABLE lms_users ADD COLUMN account_reference VARCHAR(64) NULL AFTER role',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'users'
+                     AND TABLE_NAME = 'lms_users'
                      AND COLUMN_NAME = 'account_reference'
        );
 
@@ -2505,14 +2505,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE users ADD UNIQUE KEY uq_users_account_reference(account_reference)',
+                            'ALTER TABLE lms_users ADD UNIQUE KEY uq_users_account_reference(account_reference)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'users'
+                     AND TABLE_NAME = 'lms_users'
                      AND INDEX_NAME = 'uq_users_account_reference'
        );
 
@@ -2532,14 +2532,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) > 0,
-                            'ALTER TABLE certificates DROP INDEX uq_certificate_public_id',
+                            'ALTER TABLE lms_certificates DROP INDEX uq_certificate_public_id',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND INDEX_NAME = 'uq_certificate_public_id'
        );
 
@@ -2556,14 +2556,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE certificates ADD INDEX idx_certificate_public_id(certificate_id)',
+                            'ALTER TABLE lms_certificates ADD INDEX idx_certificate_public_id(certificate_id)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.STATISTICS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND INDEX_NAME = 'idx_certificate_public_id'
        );
 
@@ -2578,7 +2578,7 @@ DEALLOCATE PREPARE add_certificate_public_index_stmt;
 -- The scheme the admin edits on their settings page. The prefix is the branding, the
 -- number is where the next student to register will start.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('student_id_prefix', 'TSG-CER'),
        ('student_id_next_number', '1') ON DUPLICATE KEY
@@ -2602,7 +2602,7 @@ SET
                             SELECT
                                    setting_value
                             FROM
-                                   app_settings
+                                   lms_app_settings
                             WHERE
                                    setting_key = 'student_id_prefix'
                      ),
@@ -2620,7 +2620,7 @@ SET
                                           SELECT
                                                  CAST(setting_value AS UNSIGNED)
                                           FROM
-                                                 app_settings
+                                                 lms_app_settings
                                           WHERE
                                                  setting_key = 'student_id_next_number'
                                    ),
@@ -2637,7 +2637,7 @@ SET
                                                  )
                                           )
                                    FROM
-                                          users
+                                          lms_users
                                    WHERE
                                           role = 'student'
                                           AND account_reference IS NOT NULL
@@ -2648,7 +2648,7 @@ SET
        );
 
 UPDATE
-       IGNORE users u
+       IGNORE lms_users u
        JOIN (
               SELECT
                      id,
@@ -2657,7 +2657,7 @@ UPDATE
                                    id
                      ) AS sequence_step
               FROM
-                     users
+                     lms_users
               WHERE
                      account_reference IS NULL
                      AND role = 'student'
@@ -2697,7 +2697,7 @@ SET
                                           )
                                    )
                             FROM
-                                   users
+                                   lms_users
                             WHERE
                                    role = 'admin'
                                    AND account_reference IS NOT NULL
@@ -2707,7 +2707,7 @@ SET
        );
 
 UPDATE
-       IGNORE users u
+       IGNORE lms_users u
        JOIN (
               SELECT
                      id,
@@ -2716,7 +2716,7 @@ UPDATE
                                    id
                      ) AS sequence_step
               FROM
-                     users
+                     lms_users
               WHERE
                      account_reference IS NULL
                      AND role = 'admin'
@@ -2746,7 +2746,7 @@ SET
                                           )
                                    )
                             FROM
-                                   users
+                                   lms_users
                             WHERE
                                    role = 'student'
                                    AND account_reference IS NOT NULL
@@ -2756,7 +2756,7 @@ SET
        );
 
 UPDATE
-       app_settings
+       lms_app_settings
 SET
        setting_value = CAST(
               CAST(
@@ -2771,9 +2771,9 @@ WHERE
 
 -- Nothing reads the per-certificate prefix any longer, so the row is retired rather than left
 -- behind looking like a setting that still does something. Certificates already issued keep the
--- number printed on them in certificates.certificate_id, so no document is affected by this.
+-- number printed on them in lms_certificates.certificate_id, so no document is affected by this.
 DELETE FROM
-       app_settings
+       lms_app_settings
 WHERE
        setting_key = 'certificate_id_prefix';
 
@@ -2787,7 +2787,7 @@ SET
 --   student_cleared_at / admin_cleared_at: when each side cleared the chat for themselves. Messages
 --   written at or before that stamp are hidden from that side only, so clearing a chat can never
 --   destroy the copy the other side still reads, and the next message brings the thread back.
-CREATE TABLE IF NOT EXISTS chat_threads (
+CREATE TABLE IF NOT EXISTS lms_chat_threads (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        student_seen_at DATETIME NULL,
@@ -2796,17 +2796,17 @@ CREATE TABLE IF NOT EXISTS chat_threads (
        admin_cleared_at DATETIME NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        UNIQUE KEY uq_chat_thread_student(student_id),
-       CONSTRAINT fk_chat_thread_student FOREIGN KEY(student_id) REFERENCES users(id)
+       CONSTRAINT fk_chat_thread_student FOREIGN KEY(student_id) REFERENCES lms_users(id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS chat_messages (
+CREATE TABLE IF NOT EXISTS lms_chat_messages (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        thread_id BIGINT UNSIGNED NOT NULL,
        sender_id BIGINT UNSIGNED NOT NULL,
        message TEXT NOT NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_chat_message_thread FOREIGN KEY(thread_id) REFERENCES chat_threads(id) ON DELETE CASCADE,
-       CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES users(id),
+       CONSTRAINT fk_chat_message_thread FOREIGN KEY(thread_id) REFERENCES lms_chat_threads(id) ON DELETE CASCADE,
+       CONSTRAINT fk_chat_message_sender FOREIGN KEY(sender_id) REFERENCES lms_users(id),
        INDEX idx_chat_messages_thread(thread_id, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -2817,14 +2817,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE chat_threads ADD COLUMN student_cleared_at DATETIME NULL AFTER admin_seen_at',
+                            'ALTER TABLE lms_chat_threads ADD COLUMN student_cleared_at DATETIME NULL AFTER admin_seen_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'chat_threads'
+                     AND TABLE_NAME = 'lms_chat_threads'
                      AND COLUMN_NAME = 'student_cleared_at'
        );
 
@@ -2841,14 +2841,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE chat_threads ADD COLUMN admin_cleared_at DATETIME NULL AFTER student_cleared_at',
+                            'ALTER TABLE lms_chat_threads ADD COLUMN admin_cleared_at DATETIME NULL AFTER student_cleared_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'chat_threads'
+                     AND TABLE_NAME = 'lms_chat_threads'
                      AND COLUMN_NAME = 'admin_cleared_at'
        );
 
@@ -2860,7 +2860,7 @@ EXECUTE add_thread_admin_cleared_at_stmt;
 
 DEALLOCATE PREPARE add_thread_admin_cleared_at_stmt;
 
-CREATE TABLE IF NOT EXISTS dashboard_tasks (
+CREATE TABLE IF NOT EXISTS lms_dashboard_tasks (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        user_id BIGINT UNSIGNED NOT NULL,
        title VARCHAR(240) NOT NULL,
@@ -2869,7 +2869,7 @@ CREATE TABLE IF NOT EXISTS dashboard_tasks (
        reminder_sent_at DATETIME NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-       CONSTRAINT fk_dashboard_task_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_dashboard_task_user FOREIGN KEY(user_id) REFERENCES lms_users(id) ON DELETE CASCADE,
        INDEX idx_dashboard_task_reminder(is_done, reminder_at, reminder_sent_at),
        INDEX idx_dashboard_task_owner(user_id, is_done, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
@@ -2878,17 +2878,17 @@ CREATE TABLE IF NOT EXISTS dashboard_tasks (
 -- student opens it, so the period boundaries are stored on the share itself. Only the metadata
 -- lives here: the PDF is rebuilt from these bounds when the student downloads it, which keeps
 -- the document scoped to that student's own records and leaves no file to clean up afterwards.
-CREATE TABLE IF NOT EXISTS report_shares (
+CREATE TABLE IF NOT EXISTS lms_report_shares (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
-       report_type ENUM('students', 'attendance', 'quizzes', 'assignments') NOT NULL,
+       report_type ENUM('students', 'attendance', 'lms_quizzes', 'lms_assignments') NOT NULL,
        period_key ENUM('weekly', 'monthly') NOT NULL,
        period_start DATETIME NOT NULL,
        period_end DATETIME NOT NULL,
        sent_by BIGINT UNSIGNED NOT NULL,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_report_share_student FOREIGN KEY(student_id) REFERENCES users(id),
-       CONSTRAINT fk_report_share_sender FOREIGN KEY(sent_by) REFERENCES users(id),
+       CONSTRAINT fk_report_share_student FOREIGN KEY(student_id) REFERENCES lms_users(id),
+       CONSTRAINT fk_report_share_sender FOREIGN KEY(sent_by) REFERENCES lms_users(id),
        INDEX idx_report_share_student(student_id, created_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -2901,7 +2901,7 @@ CREATE TABLE IF NOT EXISTS report_shares (
 -- pushed towards capture (fullscreen, picture-in-picture, download) - because a DOM
 -- watermark and a session registry are deterrents and traces, not DRM.
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS user_sessions (
+CREATE TABLE IF NOT EXISTS lms_user_sessions (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        user_id BIGINT UNSIGNED NOT NULL,
        session_hash CHAR(64) NOT NULL,
@@ -2918,7 +2918,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
               'idle'
        ) NULL,
        UNIQUE KEY uq_user_session_hash(session_hash),
-       CONSTRAINT fk_user_session_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_user_session_user FOREIGN KEY(user_id) REFERENCES lms_users(id) ON DELETE CASCADE,
        INDEX idx_user_session_active(user_id, revoked_at, last_seen_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -2927,7 +2927,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 -- attempt can never silently change a student's grade. A sign-in anomaly belongs to the
 -- account rather than to a recording, so the lesson reference is nullable and the desk prints
 -- those rows as "Account session" instead of inventing a lesson for them.
-CREATE TABLE IF NOT EXISTS lesson_view_events (
+CREATE TABLE IF NOT EXISTS lms_lesson_view_events (
        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
        student_id BIGINT UNSIGNED NOT NULL,
        lesson_id BIGINT UNSIGNED NULL,
@@ -2943,8 +2943,8 @@ CREATE TABLE IF NOT EXISTS lesson_view_events (
        ip_address VARCHAR(45) NULL,
        detail VARCHAR(255) NULL,
        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-       CONSTRAINT fk_view_event_student FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
-       CONSTRAINT fk_view_event_lesson FOREIGN KEY(lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+       CONSTRAINT fk_view_event_student FOREIGN KEY(student_id) REFERENCES lms_users(id) ON DELETE CASCADE,
+       CONSTRAINT fk_view_event_lesson FOREIGN KEY(lesson_id) REFERENCES lms_lessons(id) ON DELETE CASCADE,
        INDEX idx_view_event_created(created_at, id),
        INDEX idx_view_event_student(student_id, created_at),
        INDEX idx_view_event_lesson(lesson_id, created_at)
@@ -2955,7 +2955,7 @@ CREATE TABLE IF NOT EXISTS lesson_view_events (
 -- it is a setting rather than a constant because a student with a phone and a laptop is a
 -- real classroom fact, and the Academy has to be able to answer it without a code change.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('session_max_active', '1'),
        ('video_watermark_enabled', '1'),
@@ -2983,14 +2983,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE certificates ADD COLUMN file_type VARCHAR(8) NULL AFTER file_path',
+                            'ALTER TABLE lms_certificates ADD COLUMN file_type VARCHAR(8) NULL AFTER file_path',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND COLUMN_NAME = 'file_type'
        );
 
@@ -3008,14 +3008,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE certificates MODIFY status ENUM(''requested'',''issued'',''rejected'',''revoked'') NOT NULL DEFAULT ''requested'', ADD COLUMN revoked_by BIGINT UNSIGNED NULL AFTER reviewed_by, ADD COLUMN revoked_at DATETIME NULL AFTER expires_at, ADD COLUMN revoked_reason VARCHAR(1000) NULL AFTER revoked_at',
+                            'ALTER TABLE lms_certificates MODIFY status ENUM(''requested'',''issued'',''rejected'',''revoked'') NOT NULL DEFAULT ''requested'', ADD COLUMN revoked_by BIGINT UNSIGNED NULL AFTER reviewed_by, ADD COLUMN revoked_at DATETIME NULL AFTER expires_at, ADD COLUMN revoked_reason VARCHAR(1000) NULL AFTER revoked_at',
                             'SELECT 1'
                      )
               FROM
                      information_schema.COLUMNS
               WHERE
                      TABLE_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND COLUMN_NAME = 'revoked_at'
        );
 
@@ -3032,14 +3032,14 @@ SET
               SELECT
                      IF(
                             COUNT(*) = 0,
-                            'ALTER TABLE certificates ADD CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES users(id)',
+                            'ALTER TABLE lms_certificates ADD CONSTRAINT fk_certificate_revoked_by FOREIGN KEY(revoked_by) REFERENCES lms_users(id)',
                             'SELECT 1'
                      )
               FROM
                      information_schema.TABLE_CONSTRAINTS
               WHERE
                      CONSTRAINT_SCHEMA = DATABASE()
-                     AND TABLE_NAME = 'certificates'
+                     AND TABLE_NAME = 'lms_certificates'
                      AND CONSTRAINT_NAME = 'fk_certificate_revoked_by'
        );
 
@@ -3053,7 +3053,7 @@ DEALLOCATE PREPARE add_certificate_revoked_by_fk_stmt;
 
 -- Seeded once and never overwritten by a re-import, so an admin's chosen format survives.
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('student_id_include_year', '0') ON DUPLICATE KEY
 UPDATE
@@ -3072,7 +3072,7 @@ VALUES
 -- forward-only: importing this file never hides a video from anybody who can watch one today.
 -- ---------------------------------------------------------------------------
 INSERT INTO
-       app_settings(setting_key, setting_value)
+       lms_app_settings(setting_key, setting_value)
 VALUES
        ('video_lock_on_completion', '0') ON DUPLICATE KEY
 UPDATE

@@ -14,7 +14,7 @@ final class RateLimiter
     public function assertAllowed(string $action, array $subjects, int $limit, int $windowSeconds): void
     {
         $query = $this->db->prepare(
-            'SELECT COUNT(*) FROM auth_rate_limits WHERE action = ? AND subject_hash = ? AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)'
+            'SELECT COUNT(*) FROM lms_auth_rate_limits WHERE action = ? AND subject_hash = ? AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)'
         );
         foreach ($subjects as $subject) {
             $query->execute([$action, $this->hash((string) $subject), $windowSeconds]);
@@ -26,7 +26,7 @@ final class RateLimiter
 
     public function record(string $action, array $subjects): void
     {
-        $insert = $this->db->prepare('INSERT INTO auth_rate_limits (action, subject_hash, created_at) VALUES (?, ?, UTC_TIMESTAMP())');
+        $insert = $this->db->prepare('INSERT INTO lms_auth_rate_limits (action, subject_hash, created_at) VALUES (?, ?, UTC_TIMESTAMP())');
         foreach ($subjects as $subject) {
             $insert->execute([$action, $this->hash((string) $subject)]);
         }
@@ -34,7 +34,7 @@ final class RateLimiter
 
     public function clear(string $action, array $subjects): void
     {
-        $delete = $this->db->prepare('DELETE FROM auth_rate_limits WHERE action = ? AND subject_hash = ?');
+        $delete = $this->db->prepare('DELETE FROM lms_auth_rate_limits WHERE action = ? AND subject_hash = ?');
         foreach ($subjects as $subject) {
             $delete->execute([$action, $this->hash((string) $subject)]);
         }

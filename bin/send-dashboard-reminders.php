@@ -31,8 +31,8 @@ $failed = 0;
 try {
     $stmt = $db->query(
         'SELECT t.id, t.user_id, t.title, u.email, u.full_name
-         FROM dashboard_tasks t
-         JOIN users u ON u.id = t.user_id
+         FROM lms_dashboard_tasks t
+         JOIN lms_users u ON u.id = t.user_id
          WHERE t.is_done = 0 AND t.reminder_at IS NOT NULL
            AND t.reminder_at <= UTC_TIMESTAMP() AND t.reminder_sent_at IS NULL
          ORDER BY t.user_id, t.reminder_at, t.id'
@@ -47,7 +47,7 @@ try {
         if (!$mailer->sendDashboardTaskReminder($email, (string) $rows[0]['full_name'], count($titles), $titles)) { $failed++; continue; }
         $ids = array_map(static fn(array $row): int => (int) $row['id'], $rows);
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $update = $db->prepare("UPDATE dashboard_tasks SET reminder_sent_at = UTC_TIMESTAMP() WHERE is_done = 0 AND reminder_sent_at IS NULL AND id IN ($marks)");
+        $update = $db->prepare("UPDATE lms_dashboard_tasks SET reminder_sent_at = UTC_TIMESTAMP() WHERE is_done = 0 AND reminder_sent_at IS NULL AND id IN ($marks)");
         $update->execute($ids);
         $sent += $update->rowCount();
     }

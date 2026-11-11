@@ -140,14 +140,14 @@ $phrases = [
 $run = isset($options['run']) && is_string($options['run']) ? $options['run'] : '';
 if ($run !== '') {
     $assert(isset($phrases[$run]), 'Unknown purge target ' . $run . '.');
-    $find = $db->prepare('SELECT id FROM users WHERE email=? LIMIT 1');
+    $find = $db->prepare('SELECT id FROM lms_users WHERE email=? LIMIT 1');
     $find->execute([$adminEmail]);
     $adminId = (int) $find->fetchColumn();
     $assert($adminId > 0, 'The seeded admin is missing; run the parent first.');
     if (in_array($run, ['readall', 'clarchat'], true)) {
         // These are the student's own actions, so this child signs in as whichever student the parent
         // left standing and the unsafe variant is a request without a valid token.
-        $studentRow = $db->query("SELECT id,email FROM users WHERE role='student' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $studentRow = $db->query("SELECT id,email FROM lms_users WHERE role='student' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $studentSessionId = (int) ($studentRow['id'] ?? 0);
         $assert($studentSessionId > 0, 'No student account is left to act with; run the parent first.');
         $_SESSION = ['user' => ['id' => $studentSessionId, 'name' => 'Purge Smoke Reader', 'email' => (string) $studentRow['email'], 'role' => 'student']];
@@ -262,7 +262,7 @@ foreach ($tables as $table) {
         if ((int) ($exception->errorInfo[1] ?? 0) !== 1146) throw $exception;
     }
 }
-$db->exec('DELETE FROM users WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ",'purge-smoke-reader@example.test')");
+$db->exec('DELETE FROM lms_users WHERE email IN (' . $db->quote($adminEmail) . ',' . $db->quote($studentEmail) . ",'purge-smoke-reader@example.test')");
 
 $fileHash = bin2hex(random_bytes(24));
 $fileRelative = 'smoke-purge/' . $fileHash . '.txt';
@@ -281,27 +281,27 @@ $assert(is_file($uploadPath), 'The fixture upload could not be written to ' . $u
 $proofPath = '';
 
 try {
-    $insert = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,'active',UTC_TIMESTAMP())");
+    $insert = $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?,'active',UTC_TIMESTAMP())");
     $insert->execute(['Purge Smoke Admin', $adminEmail, 'unusable-hash', 'admin']);
     $adminId = (int) $db->lastInsertId();
     $insert->execute(['Purge Smoke Student', $studentEmail, 'unusable-hash', 'student']);
     $studentId = (int) $db->lastInsertId();
 
-    $db->prepare("INSERT INTO courses(title,slug,visibility,created_by) VALUES('Purge Smoke Course','purge-smoke-course','published',?)")
+    $db->prepare("INSERT INTO lms_courses(title,slug,visibility,created_by) VALUES('Purge Smoke Course','purge-smoke-course','published',?)")
         ->execute([$adminId]);
     $courseId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO course_modules(course_id,title) VALUES(?,?)')->execute([$courseId, 'Smoke module']);
+    $db->prepare('INSERT INTO lms_course_modules(course_id,title) VALUES(?,?)')->execute([$courseId, 'Smoke module']);
     $moduleId = (int) $db->lastInsertId();
-    $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")
+    $db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")
         ->execute([$studentId, $courseId, $adminId]);
 
-    $lessonInsert = $db->prepare("INSERT INTO lessons(module_id,title,body,status) VALUES(?,?,?,'published')");
+    $lessonInsert = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,status) VALUES(?,?,?,'published')");
     $lessonIds = [];
     foreach (['Lesson one', 'Lesson two', 'Lesson three'] as $title) {
         $lessonInsert->execute([$moduleId, $title, 'Body of ' . $title]);
         $lessonIds[] = (int) $db->lastInsertId();
     }
-    $progress = $db->prepare('INSERT INTO lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP())');
+    $progress = $db->prepare('INSERT INTO lms_lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP())');
     foreach ($lessonIds as $lessonId) {
         $progress->execute([$studentId, $lessonId]);
     }
@@ -309,25 +309,25 @@ try {
     // The two tables the video protection feature adds. One viewing report is deliberately filed with
     // no lesson behind it, because an account-level report is not about a recording and a lesson purge
     // has no claim on it.
-    $viewEvent = $db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,?,?,?,?)');
+    $viewEvent = $db->prepare('INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,?,?,?,?)');
     $viewEvent->execute([$studentId, $lessonIds[0], 'download_blocked', '127.0.0.1', 'Save video as']);
     $viewEvent->execute([$studentId, $lessonIds[1], 'context_menu', '127.0.0.1', 'Right click on the player']);
     $viewEvent->execute([$studentId, null, 'session_cap', '127.0.0.1', '1 older session(s) signed out by this sign-in.']);
-    $db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
+    $db->prepare('INSERT INTO lms_user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
         ->execute([$studentId, hash('sha256', 'purge-smoke-session'), '127.0.0.1', gmdate('Y-m-d H:i:s')]);
 
     $quizIds = [];
     foreach ([1 => 'Smoke quiz A', 2 => 'Smoke quiz B'] as $week => $title) {
-        $db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,?,?,'practice','released',?)")->execute([$courseId, $week, $title, $adminId]);
+        $db->prepare("INSERT INTO lms_quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,?,?,'practice','released',?)")->execute([$courseId, $week, $title, $adminId]);
         $quizIds[] = (int) $db->lastInsertId();
     }
     $questionIds = [];
     $optionIds = [];
     foreach ($quizIds as $quizId) {
-        $db->prepare('INSERT INTO quiz_questions(quiz_id,question_text,marks) VALUES(?,?,5)')->execute([$quizId, 'Which one is it?']);
+        $db->prepare('INSERT INTO lms_quiz_questions(quiz_id,question_text,marks) VALUES(?,?,5)')->execute([$quizId, 'Which one is it?']);
         $questionId = (int) $db->lastInsertId();
         $questionIds[] = $questionId;
-        $optionInsert = $db->prepare('INSERT INTO quiz_options(question_id,option_text,is_correct) VALUES(?,?,?)');
+        $optionInsert = $db->prepare('INSERT INTO lms_quiz_options(question_id,option_text,is_correct) VALUES(?,?,?)');
         $optionInsert->execute([$questionId, 'Right', 1]);
         $optionIds[] = (int) $db->lastInsertId();
         $optionInsert->execute([$questionId, 'Wrong', 0]);
@@ -335,32 +335,32 @@ try {
 
     $attemptIds = [];
     foreach ($quizIds as $index => $quizId) {
-        $db->prepare("INSERT INTO quiz_attempts(quiz_id,student_id,started_at,deadline_at,status,score,total_marks,percentage,result)
+        $db->prepare("INSERT INTO lms_quiz_attempts(quiz_id,student_id,started_at,deadline_at,status,score,total_marks,percentage,result)
             VALUES(?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP() + INTERVAL 10 MINUTE,'submitted',5,5,100,'pass')")->execute([$quizId, $studentId]);
         $attemptId = (int) $db->lastInsertId();
         $attemptIds[] = $attemptId;
-        $db->prepare('INSERT INTO quiz_answers(attempt_id,question_id,selected_option_id,awarded_marks) VALUES(?,?,?,?)')
+        $db->prepare('INSERT INTO lms_quiz_answers(attempt_id,question_id,selected_option_id,awarded_marks) VALUES(?,?,?,?)')
             ->execute([$attemptId, $questionIds[$index], $optionIds[$index], 5]);
-        $db->prepare("INSERT INTO quiz_retake_approvals(quiz_id,student_id,request_status,student_requested_at) VALUES(?,?,'pending',UTC_TIMESTAMP())")
+        $db->prepare("INSERT INTO lms_quiz_retake_approvals(quiz_id,student_id,request_status,student_requested_at) VALUES(?,?,'pending',UTC_TIMESTAMP())")
             ->execute([$quizId, $studentId]);
     }
 
-    $assignmentInsert = $db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)");
+    $assignmentInsert = $db->prepare("INSERT INTO lms_assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)");
     $assignmentIds = [];
     foreach (['Smoke assignment one', 'Smoke assignment two'] as $title) {
         $assignmentInsert->execute([$courseId, $title, $adminId]);
         $assignmentIds[] = (int) $db->lastInsertId();
     }
-    $submissionInsert = $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
+    $submissionInsert = $db->prepare("INSERT INTO lms_assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
         VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())");
     $submissionInsert->execute([$assignmentIds[0], $studentId, 'Written answer only', null]);
     $submissionInsert->execute([$assignmentIds[1], $studentId, 'Answer with a file', $fileRelative]);
 
-    $notification = $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,source_type,source_id,link,published_at)
+    $notification = $db->prepare("INSERT INTO lms_notifications(created_by,category,title,body,audience,source_type,source_id,link,published_at)
         VALUES(?,'lesson','Lesson one published','Body','selected_students','lesson',?,NULL,UTC_TIMESTAMP())");
     $notification->execute([$adminId, $lessonIds[0]]);
     $notificationId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+    $db->prepare('INSERT INTO lms_notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
         ->execute([$notificationId, $studentId]);
 
     /* ------------------------------------------------------------------- assertions */
@@ -394,7 +394,7 @@ try {
     $assert(str_contains($output, 'FLASH|Deleted 2 assignment(s) and 2 submission(s)'), 'Assignment purge reported: ' . trim($output));
     $assert($count('assignments') === 0 && $count('assignment_submissions') === 0, 'Assignment rows survived the purge.');
     $assert(!is_file($uploadPath), 'The stored submission file was left behind by the assignment purge.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='assignment.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the assignment purge.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='assignment.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the assignment purge.');
 
     $output = $invoke('lessons');
     $assert(str_contains($output, 'FLASH|Deleted 3 lesson(s) and 3 progress record(s)'), 'Lesson purge reported: ' . trim($output));
@@ -402,17 +402,17 @@ try {
     // A removed lesson takes the reports filed against it. The account-level row has no lesson behind
     // it, so it is not the lesson purge's to take - and the audit row has to say how many went.
     $assert($count('lesson_view_events') === 1, 'The lesson purge left a viewing report of its own lessons behind, or took one that was not about a lesson: ' . $count('lesson_view_events') . ' row(s) left.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='lesson.bulk_deleted' AND JSON_EXTRACT(metadata,'$.view_events_deleted')=2")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='lesson.bulk_deleted' AND JSON_EXTRACT(metadata,'$.view_events_deleted')=2")->fetchColumn() === 1,
         'The lesson purge audit row does not count the two viewing reports it removed.');
     $assert($badgeCheck() === 0, 'The lessons badge still counts a notification for a purged lesson.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='lesson.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the lesson purge.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='lesson.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the lesson purge.');
 
     $output = $invoke('quizzes');
     $assert(str_contains($output, 'FLASH|Deleted 2 quiz(s), 2 question(s) and 2 attempt record(s)'), 'Quiz purge reported: ' . trim($output));
     foreach (['quiz_answers', 'quiz_attempts', 'quiz_questions', 'quizzes', 'quiz_retake_approvals'] as $table) {
         $assert($count($table) === 0, $table . ' still holds rows after the quiz purge.');
     }
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='quiz.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the quiz purge.');
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='quiz.bulk_deleted'")->fetchColumn() === 1, 'No audit row for the quiz purge.');
 
     // Repeating a purge on an empty workspace must say so instead of failing.
     $output = $invoke('quizzes');
@@ -421,14 +421,14 @@ try {
     /* --------------------------------------------- quiz creation flash timing */
     $output = $invoke('quizcreate', false, 0, $courseId);
     $assert(str_contains($output, 'FLASH|none'), 'Creating an assessment should not show a success flash: ' . trim($output));
-    $quizLookup = $db->prepare('SELECT id FROM quizzes WHERE title=?');
+    $quizLookup = $db->prepare('SELECT id FROM lms_quizzes WHERE title=?');
     $quizLookup->execute(['Flash timing smoke quiz']);
     $flashQuizId = (int) $quizLookup->fetchColumn();
     $assert($flashQuizId > 0, 'The quiz creation smoke fixture was not saved.');
 
     $output = $invoke('quizquestion', false, $flashQuizId);
     $assert(str_contains($output, 'FLASH|none'), 'Adding an individual question should not show a success flash: ' . trim($output));
-    $seedQuestion = $db->prepare('INSERT INTO quiz_questions(quiz_id,question_text,marks,sort_order) VALUES(?,?,1,?)');
+    $seedQuestion = $db->prepare('INSERT INTO lms_quiz_questions(quiz_id,question_text,marks,sort_order) VALUES(?,?,1,?)');
     for ($order = 2; $order <= 4; $order++) {
         $seedQuestion->execute([$flashQuizId, 'Seeded question ' . $order, $order]);
     }
@@ -436,11 +436,11 @@ try {
     $output = $invoke('quizquestion', false, $flashQuizId);
     $assert(str_contains($output, 'FLASH|Assessment and all 5 questions saved successfully.'),
         'The last configured question should show the completion flash: ' . trim($output));
-    $assert((int) $db->query('SELECT COUNT(*) FROM quiz_questions WHERE quiz_id=' . $flashQuizId)->fetchColumn() === 5,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_quiz_questions WHERE quiz_id=' . $flashQuizId)->fetchColumn() === 5,
         'The completion flash appeared before the configured question count was reached.');
-    $db->exec('DELETE FROM quiz_options WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id=' . $flashQuizId . ')');
-    $db->exec('DELETE FROM quiz_questions WHERE quiz_id=' . $flashQuizId);
-    $db->exec('DELETE FROM quizzes WHERE id=' . $flashQuizId);
+    $db->exec('DELETE FROM lms_quiz_options WHERE question_id IN (SELECT id FROM lms_quiz_questions WHERE quiz_id=' . $flashQuizId . ')');
+    $db->exec('DELETE FROM lms_quiz_questions WHERE quiz_id=' . $flashQuizId);
+    $db->exec('DELETE FROM lms_quizzes WHERE id=' . $flashQuizId);
 
     /* ------------------------------------------------- the student directory purge */
     // A second round of student-owned records, because the content purges above already cleared
@@ -448,38 +448,38 @@ try {
     $proofHash = bin2hex(random_bytes(24));
     $proofPath = $uploadDir . '/' . $proofHash . '.txt';
     file_put_contents($proofPath, 'Work that has to disappear with the account.');
-    $db->prepare("INSERT INTO assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")
+    $db->prepare("INSERT INTO lms_assignments(course_id,title,instructions,max_marks,status,created_by) VALUES(?,?,'Brief',100,'published',?)")
         ->execute([$courseId, 'Post-purge assignment', $adminId]);
     $lateAssignmentId = (int) $db->lastInsertId();
-    $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
+    $db->prepare("INSERT INTO lms_assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
         VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $studentId, 'Uploaded work', 'smoke-purge/' . $proofHash . '.txt']);
-    $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
+    $db->prepare("INSERT INTO lms_payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
         VALUES(?,?,25000,'PKR','PURGE-SMOKE-1','approved',?,UTC_TIMESTAMP())")->execute([$studentId, $courseId, $adminId]);
     $paymentId = (int) $db->lastInsertId();
-    $db->prepare("INSERT INTO certificates(student_id,course_id,status) VALUES(?,?,'requested')")->execute([$studentId, $courseId]);
-    $db->prepare("INSERT INTO course_grades(student_id,course_id,overall_pct,letter_grade) VALUES(?,?,92.50,'A+')
+    $db->prepare("INSERT INTO lms_certificates(student_id,course_id,status) VALUES(?,?,'requested')")->execute([$studentId, $courseId]);
+    $db->prepare("INSERT INTO lms_course_grades(student_id,course_id,overall_pct,letter_grade) VALUES(?,?,92.50,'A+')
         ON DUPLICATE KEY UPDATE overall_pct=92.50, letter_grade='A+'")->execute([$studentId, $courseId]);
-    $db->prepare("INSERT INTO attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at)
+    $db->prepare("INSERT INTO lms_attendance_records(student_id,attendance_date,status,first_login_at,mark_deadline_at)
         VALUES(?,?,'present',UTC_TIMESTAMP(),UTC_TIMESTAMP())")->execute([$studentId, date('Y-m-d')]);
-    $db->prepare("INSERT INTO email_otps(user_id,purpose,otp_hash,expires_at) VALUES(?, 'verify_email','not-a-real-hash',UTC_TIMESTAMP() + INTERVAL 10 MINUTE)")->execute([$studentId]);
-    $db->prepare("INSERT INTO login_events(user_id,event_type,ip_address) VALUES(?, 'success','127.0.0.1')")->execute([$studentId]);
-    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+    $db->prepare("INSERT INTO lms_email_otps(user_id,purpose,otp_hash,expires_at) VALUES(?, 'verify_email','not-a-real-hash',UTC_TIMESTAMP() + INTERVAL 10 MINUTE)")->execute([$studentId]);
+    $db->prepare("INSERT INTO lms_login_events(user_id,event_type,ip_address) VALUES(?, 'success','127.0.0.1')")->execute([$studentId]);
+    $db->prepare("INSERT INTO lms_email_logs(template_key,recipient_email,subject,status,related_user_id)
         VALUES('registration.student',?,'Welcome to the academy','sent',?)")->execute([$studentEmail, $studentId]);
-    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,source_type,source_id,published_at)
+    $db->prepare("INSERT INTO lms_notifications(created_by,category,title,body,audience,source_type,source_id,published_at)
         VALUES(?,'payment','Payment approval requested','Body','selected_students','payment',?,UTC_TIMESTAMP())")->execute([$adminId, $paymentId]);
     $paymentNotificationId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')->execute([$paymentNotificationId, $studentId]);
-    $db->prepare("INSERT INTO notifications(created_by,title,body,audience,category,published_at)
+    $db->prepare('INSERT INTO lms_notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')->execute([$paymentNotificationId, $studentId]);
+    $db->prepare("INSERT INTO lms_notifications(created_by,title,body,audience,category,published_at)
         VALUES(?,?,?,'all_students','announcement',UTC_TIMESTAMP())")->execute([$adminId, 'Kept announcement', 'Body']);
     // The account is signed in while it is removed, and one viewing report is still on file from the
     // lesson round above - both belong to the account and leave with it.
-    $db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
+    $db->prepare('INSERT INTO lms_user_sessions(user_id,session_hash,ip_address,created_at,last_seen_at) VALUES(?,?,?,?,UTC_TIMESTAMP())')
         ->execute([$studentId, hash('sha256', 'purge-smoke-session-two'), '127.0.0.1', gmdate('Y-m-d H:i:s')]);
-    $db->prepare("INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,NULL,'seek_ahead','127.0.0.1','A head start at the last heartbeat')")->execute([$studentId]);
+    $db->prepare("INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,ip_address,detail) VALUES(?,NULL,'seek_ahead','127.0.0.1','A head start at the last heartbeat')")->execute([$studentId]);
     // A report the desk shared with the student: report_shares holds a plain foreign key back at
     // users on both sides, and this is the row that used to block the whole account delete with
     // an FK 1451 until the purge learned about it.
-    $db->prepare("INSERT INTO report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
+    $db->prepare("INSERT INTO lms_report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
         VALUES(?,?,'monthly',UTC_TIMESTAMP() - INTERVAL 30 DAY,UTC_TIMESTAMP(),?)")->execute([$studentId, 'students', $adminId]);
 
     $assert($count('payments') === 1 && $count('certificates') === 1
@@ -495,7 +495,7 @@ try {
     $assert(str_contains($output, 'sessions, chats and certificates'), 'The student purge does not say it took the account\'s sessions and chats with it: ' . trim($output));
     $assert(str_contains($output, '1 uploaded file(s) were removed'), 'Student purge did not report the removed submission file: ' . trim($output));
     $assert(!is_file($proofPath), 'The stored submission file survived the student purge.');
-    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
+    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM lms_users')->fetchColumn() === 'admin',
         'The student purge must leave the admin account and remove every student.');
     foreach (['assignment_submissions', 'attendance_records', 'certificates', 'course_grades', 'email_otps', 'login_events',
         'notification_recipients', 'payments', 'quiz_retake_approvals', 'report_shares', 'student_course_access',
@@ -506,16 +506,16 @@ try {
     }
     // Course content belongs to the academy, not to the removed accounts, and stays.
     $assert($count('courses') === 1 && $count('assignments') === 1, 'The student purge deleted course content.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE actor_user_id=" . $studentId)->fetchColumn() === 0,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE actor_user_id=" . $studentId)->fetchColumn() === 0,
         'Audit rows of a deleted account survived the purge.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='student.bulk_deleted'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='student.bulk_deleted'")->fetchColumn() === 1,
         'No audit row for the student purge.');
-    $logRow = $db->query('SELECT related_user_id FROM email_logs')->fetch();
+    $logRow = $db->query('SELECT related_user_id FROM lms_email_logs')->fetch();
     $assert($logRow !== false && $logRow['related_user_id'] === null,
         'The delivery log has to keep its rows and drop only the link to the deleted account.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE source_type='payment'")->fetchColumn() === 0,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE source_type='payment'")->fetchColumn() === 0,
         'A notification still points at a payment that no longer exists.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
         'The student purge deleted an announcement it had no claim on.');
 
     $output = $invoke('students');
@@ -525,22 +525,22 @@ try {
     // A fresh test student with the full graph a real account gathers - enrolment, payment,
     // certificate, a shared report and an uploaded file - plus a burned-ahead ID counter, so the
     // Clear All Data button has something to clear and a wrong number to correct.
-    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Rejoin',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-499')")
+    $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Rejoin',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-499')")
         ->execute(['purge-smoke-rejoin@example.test']);
     $rejoinId = (int) $db->lastInsertId();
-    $db->prepare("INSERT INTO student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")->execute([$rejoinId, $courseId, $adminId]);
-    $db->prepare("INSERT INTO payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
+    $db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,granted_by) VALUES(?,?,'active',?)")->execute([$rejoinId, $courseId, $adminId]);
+    $db->prepare("INSERT INTO lms_payments(student_id,course_id,amount,currency,transaction_reference,status,reviewed_by,reviewed_at)
         VALUES(?,?,12000,'PKR','PURGE-SMOKE-2','approved',?,UTC_TIMESTAMP())")->execute([$rejoinId, $courseId, $adminId]);
-    $db->prepare("INSERT INTO certificates(student_id,course_id,status,certificate_id) VALUES(?,?,'issued',?)")->execute([$rejoinId, $courseId, 'TSG-CER-499']);
-    $db->prepare("INSERT INTO report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
+    $db->prepare("INSERT INTO lms_certificates(student_id,course_id,status,certificate_id) VALUES(?,?,'issued',?)")->execute([$rejoinId, $courseId, 'TSG-CER-499']);
+    $db->prepare("INSERT INTO lms_report_shares(student_id,report_type,period_key,period_start,period_end,sent_by)
         VALUES(?,?,'weekly',UTC_TIMESTAMP() - INTERVAL 7 DAY,UTC_TIMESTAMP(),?)")->execute([$rejoinId, 'attendance', $adminId]);
     $lateProofHash = bin2hex(random_bytes(24));
     $lateProofPath = $uploadDir . '/' . $lateProofHash . '.txt';
     file_put_contents($lateProofPath, 'Work that has to disappear with the wipe.');
-    $db->prepare("INSERT INTO assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
+    $db->prepare("INSERT INTO lms_assignment_submissions(assignment_id,student_id,submission_text,file_path,status,submitted_at)
         VALUES(?,?,?,?,'submitted',UTC_TIMESTAMP())")->execute([$lateAssignmentId, $rejoinId, 'Wipe me', 'smoke-purge/' . $lateProofHash . '.txt']);
     // The settings row only exists once some page has saved the scheme; the upsert makes sure it is there.
-    $db->prepare("INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES('student_id_next_number','500',?) ON DUPLICATE KEY UPDATE setting_value='500'")
+    $db->prepare("INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES('student_id_next_number','500',?) ON DUPLICATE KEY UPDATE setting_value='500'")
         ->execute([$adminId]);
 
     $assert($count('users') === 2 && $count('payments') === 1 && $count('certificates') === 1 && $count('report_shares') === 1,
@@ -558,13 +558,13 @@ try {
     foreach (['assignment_submissions', 'certificates', 'payments', 'report_shares', 'student_course_access'] as $table) {
         $assert($count($table) === 0, $table . ' still holds rows after the Clear All Data wipe.');
     }
-    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM users')->fetchColumn() === 'admin',
+    $assert($count('users') === 1 && (string) $db->query('SELECT role FROM lms_users')->fetchColumn() === 'admin',
         'The wipe must leave exactly the admin account standing.');
     // What a fresh launch needs survives: courses, content and the configured scheme.
     $assert($count('courses') === 1 && $count('assignments') === 1, 'The wipe deleted course content it has no claim on.');
-    $assert((string) $db->query("SELECT setting_value FROM app_settings WHERE setting_key='student_id_next_number'")->fetchColumn() === '1',
+    $assert((string) $db->query("SELECT setting_value FROM lms_app_settings WHERE setting_key='student_id_next_number'")->fetchColumn() === '1',
         'The ID counter did not restart from the saved scheme after the wipe.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='system.data_cleared'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='system.data_cleared'")->fetchColumn() === 1,
         'No audit row for the Clear All Data wipe.');
 
     $output = $invoke('cleardata');
@@ -573,11 +573,11 @@ try {
     /* ----------------------------------------------------- the ID counter re-arm */
     // One student keeps an ID while the counter is walked back: the reset may move the counter but
     // must never delete the account, rewrite its ID, or hand out a serial somebody already holds.
-    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Keeper',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-007')")
+    $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at,account_reference) VALUES('Purge Smoke Keeper',?,'unusable-hash','student','active',UTC_TIMESTAMP(),'TSG-CER-007')")
         ->execute(['purge-smoke-keeper@example.test']);
     $keeperId = (int) $db->lastInsertId();
-    $counter = static fn(): string => (string) $db->query("SELECT setting_value FROM app_settings WHERE setting_key='student_id_next_number'")->fetchColumn();
-    $db->prepare("UPDATE app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
+    $counter = static fn(): string => (string) $db->query("SELECT setting_value FROM lms_app_settings WHERE setting_key='student_id_next_number'")->fetchColumn();
+    $db->prepare("UPDATE lms_app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
 
     $output = $invoke('resetcounter', true);
     $assert(str_contains($output, 'FLASH|') && str_contains($output, 'confirmation phrase'), 'The Reset ID Counter button accepted a wrong phrase: ' . trim($output));
@@ -595,22 +595,22 @@ try {
     }
     $assert($issuedIds === ['TSG-CER-005', 'TSG-CER-006', 'TSG-CER-008'],
         'The re-armed sequence did not skip the serial the keeper still holds: ' . implode(', ', $issuedIds));
-    $assert((string) $db->query('SELECT account_reference FROM users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
+    $assert((string) $db->query('SELECT account_reference FROM lms_users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
         'The walking sequence overwrote the existing account\'s ID.');
 
     // No serial typed: resume after the highest ID the current scheme still has on it.
-    $db->prepare("UPDATE app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
+    $db->prepare("UPDATE lms_app_settings SET setting_value='900' WHERE setting_key='student_id_next_number'")->execute();
     $output = $invoke('resetcounter');
     $assert(str_contains($output, 'FLASH|ID counter reset') && str_contains($output, 'TSG-CER-008'), 'A blank reset did not resume after the highest ID in use: ' . trim($output));
     $assert($counter() === '8', 'The blank reset parked the counter at ' . $counter() . ' instead of after TSG-CER-007.');
-    $assert($count('users') === 2 && (string) $db->query('SELECT account_reference FROM users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
+    $assert($count('users') === 2 && (string) $db->query('SELECT account_reference FROM lms_users WHERE id=' . $keeperId)->fetchColumn() === 'TSG-CER-007',
         'The counter reset touched an existing account or its ID.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='account.id_counter_reset'")->fetchColumn() === 2,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='account.id_counter_reset'")->fetchColumn() === 2,
         'The two accepted counter resets did not both leave an audit row.');
 
     // The wipe rounds below expect an empty directory and a fresh counter, exactly like a launch.
-    $db->exec('DELETE FROM users WHERE id=' . $keeperId);
-    $db->prepare("UPDATE app_settings SET setting_value='1' WHERE setting_key='student_id_next_number'")->execute();
+    $db->exec('DELETE FROM lms_users WHERE id=' . $keeperId);
+    $db->prepare("UPDATE lms_app_settings SET setting_value='1' WHERE setting_key='student_id_next_number'")->execute();
 
     /* --------------------------------------------------- the recent activity report */
     $output = $invoke('emaillog', true);
@@ -620,7 +620,7 @@ try {
     $output = $invoke('emaillog');
     $assert(str_contains($output, 'FLASH|Cleared 1 e-mail delivery record(s)'), 'Delivery log clear reported: ' . trim($output));
     $assert($count('email_logs') === 0, 'email_logs still holds rows after Clear activity.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='email_log.cleared'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='email_log.cleared'")->fetchColumn() === 1,
         'No audit row for the delivery log clear.');
 
     $output = $invoke('emaillog');
@@ -631,13 +631,13 @@ try {
     // notices refiled under the surviving announcement are exactly what the inbox shortcut is for.
     // A forged request has to leave that state alone.
     $readerEmail = 'purge-smoke-reader@example.test';
-    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Purge Smoke Reader',?,'unusable-hash','student','active',UTC_TIMESTAMP())")
+    $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Purge Smoke Reader',?,'unusable-hash','student','active',UTC_TIMESTAMP())")
         ->execute([$readerEmail]);
     $readerId = (int) $db->lastInsertId();
-    $keptId = (int) $db->query("SELECT id FROM notifications WHERE title='Kept announcement'")->fetchColumn();
-    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+    $keptId = (int) $db->query("SELECT id FROM lms_notifications WHERE title='Kept announcement'")->fetchColumn();
+    $db->prepare('INSERT INTO lms_notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
         ->execute([$keptId, $readerId]);
-    $unread = static fn(): int => (int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE read_at IS NULL')->fetchColumn();
+    $unread = static fn(): int => (int) $db->query('SELECT COUNT(*) FROM lms_notification_recipients WHERE read_at IS NULL')->fetchColumn();
     $output = $invoke('readall', true);
     $assert(str_contains($output, 'FLASH|Your session expired'), 'The Mark all read shortcut accepted a request without a valid token: ' . trim($output));
     $assert($unread() === 1, 'An unauthenticated request marked the inbox read anyway.');
@@ -645,7 +645,7 @@ try {
     $output = $invoke('readall');
     $assert(str_contains($output, 'FLASH|Marked 1 notification(s) as read.'), 'Mark all read reported: ' . trim($output));
     $assert($unread() === 0, 'A badge counter survived Mark all read.');
-    $assert((string) $db->query('SELECT read_at FROM notification_recipients')->fetchColumn() !== '',
+    $assert((string) $db->query('SELECT read_at FROM lms_notification_recipients')->fetchColumn() !== '',
         'The recipient row was stamped but the counter says otherwise; the badge would keep counting it.');
 
     /* -------------------------------------------------- the two sides clearing one chat */
@@ -656,14 +656,14 @@ try {
     $threadId = $chats->studentThread($readerId);
     // Messages are written a full minute apart and the marks are moved to whole minutes, so the reopen
     // below measures the rule rather than the second a request happened to land in.
-    $messageInsert = $db->prepare('INSERT INTO chat_messages(thread_id,sender_id,message,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL ? MINUTE)');
+    $messageInsert = $db->prepare('INSERT INTO lms_chat_messages(thread_id,sender_id,message,created_at) VALUES(?,?,?,UTC_TIMESTAMP() - INTERVAL ? MINUTE)');
     $messageInsert->execute([$threadId, $readerId, 'Is the replay available?', 30]);
     $messageInsert->execute([$threadId, $adminId, 'Yes, it is posted under the lesson.', 20]);
     $assert(count($chats->messages($threadId, 'student')) === 2 && count($chats->messages($threadId, 'admin')) === 2,
         'Both sides read both seeded messages.');
     $assert($chats->unreadCount($readerId) === 1 && $chats->waitingCount() === 0,
         'The Academy answer is unread for the student, and an answered thread is not waiting for the desk.');
-    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+    $db->prepare("INSERT INTO lms_email_logs(template_key,recipient_email,subject,status,related_user_id)
         VALUES('notification.lesson',?,'A new lesson is open','sent',?)")->execute([$readerEmail, $readerId]);
 
     $output = $invoke('clarchat', true, $threadId);
@@ -690,7 +690,7 @@ try {
     $assert($chats->adminThreadCount() === 1, 'Clearing the desk deleted the thread itself, so the student could not write again.');
     $assert($count('chat_messages') === 2 && $chats->messages($threadId, 'student') === [],
         'The desk clear moved the student\'s own view of the conversation.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.cleared'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='chat.cleared'")->fetchColumn() === 1,
         'The desk clear left no audit row.');
 
     // A second clear has nothing left to hide, and has to say so instead of reporting a number.
@@ -698,7 +698,7 @@ try {
     $assert(str_contains($output, 'FLASH|This chat has nothing to clear.'), 'An already cleared chat reported: ' . trim($output));
 
     // The rule that makes a clear safe: a message newer than the mark brings the thread back on its own.
-    $db->exec('UPDATE chat_threads SET student_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE, admin_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE WHERE id=' . $threadId);
+    $db->exec('UPDATE lms_chat_threads SET student_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE, admin_cleared_at = UTC_TIMESTAMP() - INTERVAL 10 MINUTE WHERE id=' . $threadId);
     $messageInsert->execute([$threadId, $readerId, 'One more question, please.', 5]);
     $backOnDesk = $chats->adminThreads();
     $assert(count($backOnDesk) === 1 && (int) ($backOnDesk[0]['id'] ?? 0) === $threadId && ChatService::awaitsReply($backOnDesk[0]),
@@ -722,7 +722,7 @@ try {
         'The delete left a message on one side of the conversation.');
     $assert($chats->adminThreadCount() === 1 && $chats->studentThread($readerId) === $threadId,
         'The thread row has to outlive its messages, or the student would be sent to a dead link.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='chat.messages_deleted'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='chat.messages_deleted'")->fetchColumn() === 1,
         'No audit row for the conversation delete.');
 
     $output = $invoke('admdeletechat', false, $threadId, $readerId);
@@ -733,20 +733,20 @@ try {
     // One automated update of the report's own, with a recipient row and a private reply under it.
     // The chat round above no longer seeds notifications, and a report round should not depend on
     // another section's fixtures anyway: it has to bring its own generated activity.
-    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
+    $db->prepare("INSERT INTO lms_notifications(created_by,category,title,body,audience,published_at)
         VALUES(?,'lesson','Lesson replay opened','A new lesson is open for you.','selected_students',UTC_TIMESTAMP())")->execute([$adminId]);
     $automatedId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+    $db->prepare('INSERT INTO lms_notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
         ->execute([$automatedId, $readerId]);
-    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    $db->prepare('INSERT INTO lms_notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
         ->execute([$automatedId, $readerId, $adminId, 'Is the replay on the lesson page?']);
     // Both generated tables go together here, and nothing an admin published by hand may go with
     // them - so the numbers are read back from the database rather than assumed, and the surviving
     // announcement is checked by name.
     $automatedSql = "category <> 'announcement' AND category <> '' AND category IS NOT NULL";
-    $expectedAutomated = (int) $db->query('SELECT COUNT(*) FROM notifications WHERE ' . $automatedSql)->fetchColumn();
-    $expectedRecipients = (int) $db->query('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE n.' . $automatedSql)->fetchColumn();
-    $expectedReplies = (int) $db->query('SELECT COUNT(*) FROM notification_replies r JOIN notifications n ON n.id = r.notification_id WHERE n.' . $automatedSql)->fetchColumn();
+    $expectedAutomated = (int) $db->query('SELECT COUNT(*) FROM lms_notifications WHERE ' . $automatedSql)->fetchColumn();
+    $expectedRecipients = (int) $db->query('SELECT COUNT(*) FROM lms_notification_recipients nr JOIN lms_notifications n ON n.id = nr.notification_id WHERE n.' . $automatedSql)->fetchColumn();
+    $expectedReplies = (int) $db->query('SELECT COUNT(*) FROM lms_notification_replies r JOIN lms_notifications n ON n.id = r.notification_id WHERE n.' . $automatedSql)->fetchColumn();
     $expectedEmails = $count('email_logs');
     $expectedTotal = $count('notifications');
     $expectedFlash = sprintf(
@@ -760,57 +760,57 @@ try {
 
     $output = $invoke('activity');
     $assert(str_contains($output, 'FLASH|' . $expectedFlash), 'Clear recent activity reported: ' . trim($output));
-    $assert((int) $db->query('SELECT COUNT(*) FROM notifications WHERE ' . $automatedSql)->fetchColumn() === 0,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_notifications WHERE ' . $automatedSql)->fetchColumn() === 0,
         'Automated updates survived the activity clear.');
     $assert($count('email_logs') === 0 && $count('notification_replies') === 0, 'The activity clear left the log or the replies behind.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
         'The activity clear deleted an announcement it has no claim on.');
     // Clearing the activity report has no claim on a private conversation: the thread above stays
     // standing with its messages already deleted by the desk's own action.
     $assert($count('chat_threads') === 1 && $count('chat_messages') === 0,
         'The activity clear reached into the chat tables it has no claim on.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='activity.cleared'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='activity.cleared'")->fetchColumn() === 1,
         'No audit row for the activity clear.');
 
     $output = $invoke('activity');
     $assert(str_contains($output, 'FLASH|Recent activity was already empty.'), 'An empty activity report said: ' . trim($output));
 
     /* -------------------------------------------- automated updates card shortcut */
-    $db->prepare("INSERT INTO notifications(created_by,category,title,body,audience,published_at)
+    $db->prepare("INSERT INTO lms_notifications(created_by,category,title,body,audience,published_at)
         VALUES(?,'grade','New grade posted','A new grade is available.','selected_students',UTC_TIMESTAMP())")->execute([$adminId]);
     $quickUpdateId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
+    $db->prepare('INSERT INTO lms_notification_recipients(notification_id,student_id,read_at) VALUES(?,?,NULL)')
         ->execute([$quickUpdateId, $readerId]);
-    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    $db->prepare('INSERT INTO lms_notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
         ->execute([$quickUpdateId, $readerId, $adminId, 'Thanks for the update.']);
-    $db->prepare("INSERT INTO email_logs(template_key,recipient_email,subject,status,related_user_id)
+    $db->prepare("INSERT INTO lms_email_logs(template_key,recipient_email,subject,status,related_user_id)
         VALUES('grade.posted',?,'New grade posted','sent',?)")->execute([$studentEmail, $readerId]);
     $quickEmailCount = $count('email_logs');
 
     $output = $invoke('automated', true);
     $assert(str_contains($output, 'FLASH|') && !str_contains($output, 'cleared'),
         'The automated-update shortcut rejected a request without a valid CSRF token: ' . trim($output));
-    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 1,
         'A request without a valid CSRF token deleted the automated update.');
 
     $output = $invoke('automated');
     $assert(str_contains($output, 'FLASH|Cleared 1 automated update(s) with 1 recipient record(s) and 1 private reply/replies. Email logs and published announcements were left untouched.'),
         'The automated-update shortcut reported: ' . trim($output));
-    $assert((int) $db->query("SELECT COUNT(*) FROM notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 0
-        && (int) $db->query('SELECT COUNT(*) FROM notification_recipients WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0
-        && (int) $db->query('SELECT COUNT(*) FROM notification_replies WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE id=" . $quickUpdateId)->fetchColumn() === 0
+        && (int) $db->query('SELECT COUNT(*) FROM lms_notification_recipients WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0
+        && (int) $db->query('SELECT COUNT(*) FROM lms_notification_replies WHERE notification_id=' . $quickUpdateId)->fetchColumn() === 0,
         'The automated-update shortcut left notification records behind.');
     $assert($count('email_logs') === $quickEmailCount
-        && (int) $db->query("SELECT COUNT(*) FROM notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
+        && (int) $db->query("SELECT COUNT(*) FROM lms_notifications WHERE title='Kept announcement'")->fetchColumn() === 1,
         'The automated-update shortcut cleared email logs or a published announcement.');
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='activity.updates_cleared'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='activity.updates_cleared'")->fetchColumn() === 1,
         'No audit row for the automated-update shortcut.');
-    $db->exec("DELETE FROM email_logs WHERE template_key='grade.posted'");
+    $db->exec("DELETE FROM lms_email_logs WHERE template_key='grade.posted'");
 
     /* ----------------------------------------------------- the announcement board */
     // A private reply filed under the surviving announcement, so the board purge is proven to take
     // the child rows with it instead of stranding a foreign key.
-    $db->prepare('INSERT INTO notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
+    $db->prepare('INSERT INTO lms_notification_replies(notification_id,student_id,recipient_student_id,message) VALUES(?,?,?,?)')
         ->execute([$keptId, $readerId, $readerId, 'A question about the announcement.']);
 
     $output = $invoke('announcements', true);
@@ -822,7 +822,7 @@ try {
     foreach (['notifications', 'notification_recipients', 'notification_replies'] as $table) {
         $assert($count($table) === 0, $table . ' still holds rows after the announcement board purge.');
     }
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action='announcement.bulk_deleted'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action='announcement.bulk_deleted'")->fetchColumn() === 1,
         'No audit row for the announcement board purge.');
 
     $output = $invoke('announcements');

@@ -41,14 +41,14 @@ final class AuthService
 
         try {
             $this->db->beginTransaction();
-            $stmt = $this->db->prepare("INSERT INTO users (full_name, email, password_hash, role, status) VALUES (?, ?, ?, 'student', 'pending')");
+            $stmt = $this->db->prepare("INSERT INTO lms_users (full_name, email, password_hash, role, status) VALUES (?, ?, ?, 'student', 'pending')");
             $stmt->execute([$name, strtolower($email), password_hash($password, PASSWORD_DEFAULT)]);
             $userId = (int) $this->db->lastInsertId();
             // The ID is issued with the account rather than derived later: it is what the
             // welcome email, the receipt and eventually the certificate all quote, and the
             // student verifies their certificate with it.
             $reference = AccountIdentity::issue($this->db);
-            $this->db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
+            $this->db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
             AccountIdentity::remember($userId, $reference);
             $code = $this->issueOtp($userId, 'verify_email');
             $this->db->commit();
@@ -76,7 +76,7 @@ final class AuthService
         $subjects = $this->emailIpSubjects($email);
         $this->limiter->assertAllowed('otp_resend', $subjects, $this->setting('otp_resends_per_window', 3), $this->setting('otp_resend_window_minutes', 15) * 60);
         $this->limiter->record('otp_resend', $subjects);
-        $query = $this->db->prepare("SELECT id, full_name FROM users WHERE email = ? AND role = 'student' AND status = 'pending' LIMIT 1");
+        $query = $this->db->prepare("SELECT id, full_name FROM lms_users WHERE email = ? AND role = 'student' AND status = 'pending' LIMIT 1");
         $query->execute([$email]);
         $account = $query->fetch();
         if (!$account) return false;
@@ -89,7 +89,7 @@ final class AuthService
     public function resendSecondsRemaining(string $email, string $purpose = 'verify_email'): int
     {
         $email = strtolower(trim($email));
-        $stmt = $this->db->prepare('SELECT eo.created_at FROM email_otps eo JOIN users u ON u.id=eo.user_id WHERE u.email=? AND eo.purpose=? ORDER BY eo.id DESC LIMIT 1');
+        $stmt = $this->db->prepare('SELECT eo.created_at FROM lms_email_otps eo JOIN lms_users u ON u.id=eo.user_id WHERE u.email=? AND eo.purpose=? ORDER BY eo.id DESC LIMIT 1');
         $stmt->execute([$email, $purpose]);
         $created = $stmt->fetchColumn();
         if (!$created) return 0;
@@ -111,7 +111,7 @@ final class AuthService
         } catch (RuntimeException $exception) {
             $studentId = null;
             try {
-                $blockedAccount = $this->db->prepare("SELECT id FROM users WHERE email = ? AND role = 'student' LIMIT 1");
+                $blockedAccount = $this->db->prepare("SELECT id FROM lms_users WHERE email = ? AND role = 'student' LIMIT 1");
                 $blockedAccount->execute([$email]);
                 $studentId = $blockedAccount->fetchColumn();
                 $studentId = $studentId === false ? null : (int) $studentId;
@@ -121,7 +121,7 @@ final class AuthService
             $this->recordLoginEvent($studentId, 'blocked');
             throw $exception;
         }
-        $query = $this->db->prepare('SELECT id, full_name, email, password_hash, role, status, email_verified_at FROM users WHERE email = ? LIMIT 1');
+        $query = $this->db->prepare('SELECT id, full_name, email, password_hash, role, status, email_verified_at FROM lms_users WHERE email = ? LIMIT 1');
         $query->execute([$email]);
         $user = $query->fetch();
         $hash = $user['password_hash'] ?? password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
@@ -132,7 +132,7 @@ final class AuthService
             throw new RuntimeException('Email or password is incorrect.');
         }
         $this->limiter->clear('login_fail', $subjects);
-        $this->db->prepare('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$user['id']]);
+        $this->db->prepare('UPDATE lms_users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$user['id']]);
         if ($user['role'] === 'student') {
             $this->recordLoginEvent((int) $user['id'], 'success');
             $this->openAttendanceSession((int) $user['id']);
@@ -155,7 +155,7 @@ final class AuthService
     private function recordLoginEvent(?int $userId, string $eventType): void
     {
         try {
-            $stmt = $this->db->prepare('INSERT INTO login_events (user_id, event_type, ip_address, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP())');
+            $stmt = $this->db->prepare('INSERT INTO lms_login_events (user_id, event_type, ip_address, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP())');
             $ip = filter_var($_SERVER['REMOTE_ADDR'] ?? '', FILTER_VALIDATE_IP) ? $_SERVER['REMOTE_ADDR'] : null;
             $stmt->execute([$userId, $eventType, $ip]);
         } catch (PDOException $exception) {
@@ -170,7 +170,7 @@ final class AuthService
         $subjects = $this->emailIpSubjects($email);
         $this->limiter->assertAllowed('reset_request', $subjects, $this->setting('password_reset_max_attempts', 3), $this->setting('password_reset_window_minutes', 15) * 60);
         $this->limiter->record('reset_request', $subjects);
-        $query = $this->db->prepare("SELECT id, full_name FROM users WHERE email = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
+        $query = $this->db->prepare("SELECT id, full_name FROM lms_users WHERE email = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
         $query->execute([$email]);
         $account = $query->fetch();
         if (!$account) return false;
@@ -204,7 +204,7 @@ final class AuthService
         if (mb_strlen($name) < 2 || mb_strlen($name) > 150) {
             throw new RuntimeException('Enter a name between 2 and 150 characters.');
         }
-        $stmt = $this->db->prepare('UPDATE users SET full_name = ? WHERE id = ?');
+        $stmt = $this->db->prepare('UPDATE lms_users SET full_name = ? WHERE id = ?');
         $stmt->execute([$name, (int) $user['id']]);
         if ($stmt->rowCount() !== 1) throw new RuntimeException('Your name could not be saved. Reload the page and try again.');
         $this->recordProfileAudit((int) $user['id'], 'profile.name_changed');
@@ -220,14 +220,14 @@ final class AuthService
         if (hash_equals($currentPassword, $newPassword)) {
             throw new RuntimeException('Choose a new password that is different from your current one.');
         }
-        $stmt = $this->db->prepare('SELECT password_hash FROM users WHERE id = ? AND status = \'active\' LIMIT 1');
+        $stmt = $this->db->prepare('SELECT password_hash FROM lms_users WHERE id = ? AND status = \'active\' LIMIT 1');
         $stmt->execute([(int) $user['id']]);
         $hash = (string) ($stmt->fetchColumn() ?: '');
         if ($hash === '' || !password_verify($currentPassword, $hash)) {
             $this->limiter->record('password_change_failed', ['user:' . (int) $user['id']]);
             throw new RuntimeException('Your current password is incorrect.');
         }
-        $this->db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int) $user['id']]);
+        $this->db->prepare('UPDATE lms_users SET password_hash = ? WHERE id = ?')->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int) $user['id']]);
         $this->limiter->clear('password_change_failed', ['user:' . (int) $user['id']]);
         $this->recordProfileAudit((int) $user['id'], 'profile.password_changed');
         // Every other device holding this account is signed out. The one that has just proved it
@@ -244,7 +244,7 @@ final class AuthService
     {
         if ($userId < 1) return null;
         try {
-            $stmt = $this->db->prepare("SELECT target_email FROM email_otps WHERE user_id = ? AND purpose = 'change_email' AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() AND target_email IS NOT NULL ORDER BY id DESC LIMIT 1");
+            $stmt = $this->db->prepare("SELECT target_email FROM lms_email_otps WHERE user_id = ? AND purpose = 'change_email' AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() AND target_email IS NOT NULL ORDER BY id DESC LIMIT 1");
             $stmt->execute([$userId]);
             $pending = $stmt->fetchColumn();
         } catch (\Throwable $exception) {
@@ -267,7 +267,7 @@ final class AuthService
         if ($newEmail === $current) {
             throw new RuntimeException('That is already the email address on your account.');
         }
-        $stmt = $this->db->prepare('SELECT password_hash FROM users WHERE id = ? AND status = \'active\' LIMIT 1');
+        $stmt = $this->db->prepare('SELECT password_hash FROM lms_users WHERE id = ? AND status = \'active\' LIMIT 1');
         $stmt->execute([(int) $user['id']]);
         $hash = (string) ($stmt->fetchColumn() ?: '');
         if ($hash === '' || !password_verify($currentPassword, $hash)) {
@@ -276,7 +276,7 @@ final class AuthService
         $subjects = $this->emailIpSubjects($current);
         $this->limiter->assertAllowed('email_change', $subjects, $this->setting('otp_resends_per_window', 3), $this->setting('otp_resend_window_minutes', 15) * 60);
         $this->limiter->record('email_change', $subjects);
-        $taken = $this->db->prepare('SELECT 1 FROM users WHERE email = ? LIMIT 1');
+        $taken = $this->db->prepare('SELECT 1 FROM lms_users WHERE email = ? LIMIT 1');
         $taken->execute([$newEmail]);
         if ($taken->fetchColumn()) {
             throw new RuntimeException('That email address is already in use. Contact support if it belongs to you.');
@@ -299,7 +299,7 @@ final class AuthService
         }
         $this->db->beginTransaction();
         try {
-            $locked = $this->db->prepare('SELECT email FROM users WHERE id = ? LIMIT 1 FOR UPDATE');
+            $locked = $this->db->prepare('SELECT email FROM lms_users WHERE id = ? LIMIT 1 FOR UPDATE');
             $locked->execute([$userId]);
             $current = strtolower((string) ($locked->fetchColumn() ?: ''));
             if ($current === '') throw new RuntimeException('Your account could not be loaded. Sign in again and try once more.');
@@ -308,13 +308,13 @@ final class AuthService
                 throw new RuntimeException('The code is invalid or expired.');
             }
             if ($newEmail === $current) throw new RuntimeException('That email address is already on your account.');
-            $taken = $this->db->prepare('SELECT 1 FROM users WHERE email = ? AND id <> ? LIMIT 1');
+            $taken = $this->db->prepare('SELECT 1 FROM lms_users WHERE email = ? AND id <> ? LIMIT 1');
             $taken->execute([$newEmail, $userId]);
             if ($taken->fetchColumn()) {
                 $this->db->commit();
                 throw new RuntimeException('That email address was taken while your change was pending.');
             }
-            $this->db->prepare('UPDATE users SET email = ? WHERE id = ?')->execute([$newEmail, $userId]);
+            $this->db->prepare('UPDATE lms_users SET email = ? WHERE id = ?')->execute([$newEmail, $userId]);
             $this->db->commit();
         } catch (\Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -327,9 +327,9 @@ final class AuthService
     private function issueOtp(int $userId, string $purpose, ?string $targetEmail = null): string
     {
         $code = (string) random_int(100000, 999999);
-        $this->db->prepare('UPDATE email_otps SET consumed_at = UTC_TIMESTAMP() WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL')->execute([$userId, $purpose]);
+        $this->db->prepare('UPDATE lms_email_otps SET consumed_at = UTC_TIMESTAMP() WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL')->execute([$userId, $purpose]);
         $lifetime = $this->setting('otp_lifetime_seconds', 600);
-        $stmt = $this->db->prepare('INSERT INTO email_otps (user_id, purpose, target_email, otp_hash, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND))');
+        $stmt = $this->db->prepare('INSERT INTO lms_email_otps (user_id, purpose, target_email, otp_hash, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND))');
         $stmt->execute([$userId, $purpose, $targetEmail, password_hash($code, PASSWORD_DEFAULT), $lifetime]);
         return $code;
     }
@@ -339,7 +339,7 @@ final class AuthService
         $email = strtolower(trim($email));
         $this->db->beginTransaction();
         try {
-            $userQuery = $this->db->prepare('SELECT id FROM users WHERE email = ? LIMIT 1 FOR UPDATE');
+            $userQuery = $this->db->prepare('SELECT id FROM lms_users WHERE email = ? LIMIT 1 FOR UPDATE');
             $userQuery->execute([$email]);
             $userId = (int) $userQuery->fetchColumn();
             if (!$userId) throw new RuntimeException('The code is invalid or expired.');
@@ -350,10 +350,10 @@ final class AuthService
                 throw new RuntimeException('The code is invalid or expired.');
             }
             if ($activate) {
-                $this->db->prepare("UPDATE users SET email_verified_at = UTC_TIMESTAMP(), status = 'active' WHERE id = ?")->execute([$userId]);
+                $this->db->prepare("UPDATE lms_users SET email_verified_at = UTC_TIMESTAMP(), status = 'active' WHERE id = ?")->execute([$userId]);
             }
             if ($newPasswordHash !== null) {
-                $this->db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$newPasswordHash, $userId]);
+                $this->db->prepare('UPDATE lms_users SET password_hash = ? WHERE id = ?')->execute([$newPasswordHash, $userId]);
             }
             $this->db->commit();
             return $userId;
@@ -371,17 +371,17 @@ final class AuthService
     private function consumeOtp(int $userId, string $code, string $purpose): bool
     {
         if ($userId < 1 || !preg_match('/^\d{6}$/', $code)) return false;
-        $otpQuery = $this->db->prepare('SELECT id, otp_hash, attempts FROM email_otps WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() ORDER BY id DESC LIMIT 1 FOR UPDATE');
+        $otpQuery = $this->db->prepare('SELECT id, otp_hash, attempts FROM lms_email_otps WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() ORDER BY id DESC LIMIT 1 FOR UPDATE');
         $otpQuery->execute([$userId, $purpose]);
         $otp = $otpQuery->fetch();
         $maxAttempts = $this->setting('otp_max_attempts', 5);
         if (!$otp || (int) $otp['attempts'] >= $maxAttempts || !password_verify($code, (string) $otp['otp_hash'])) {
             if ($otp) {
-                $this->db->prepare('UPDATE email_otps SET attempts = attempts + 1, consumed_at = IF(attempts + 1 >= ?, UTC_TIMESTAMP(), consumed_at) WHERE id = ?')->execute([$maxAttempts, $otp['id']]);
+                $this->db->prepare('UPDATE lms_email_otps SET attempts = attempts + 1, consumed_at = IF(attempts + 1 >= ?, UTC_TIMESTAMP(), consumed_at) WHERE id = ?')->execute([$maxAttempts, $otp['id']]);
             }
             return false;
         }
-        $this->db->prepare('UPDATE email_otps SET consumed_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$otp['id']]);
+        $this->db->prepare('UPDATE lms_email_otps SET consumed_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$otp['id']]);
         return true;
     }
 
@@ -392,7 +392,7 @@ final class AuthService
     private function recordProfileAudit(int $userId, string $action): void
     {
         try {
-            $this->db->prepare("INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, metadata) VALUES (?, ?, 'user', ?, JSON_OBJECT('via', 'account_settings'))")
+            $this->db->prepare("INSERT INTO lms_audit_logs (actor_user_id, action, entity_type, entity_id, metadata) VALUES (?, ?, 'user', ?, JSON_OBJECT('via', 'account_settings'))")
                 ->execute([$userId, $action, $userId]);
         } catch (\Throwable $exception) {
             error_log('[AUTH] Profile audit entry could not be recorded: ' . $action);
@@ -401,7 +401,7 @@ final class AuthService
 
     private function assertOtpCooldown(int $userId, string $purpose): void
     {
-        $stmt = $this->db->prepare('SELECT created_at FROM email_otps WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1');
+        $stmt = $this->db->prepare('SELECT created_at FROM lms_email_otps WHERE user_id = ? AND purpose = ? ORDER BY id DESC LIMIT 1');
         $stmt->execute([$userId, $purpose]);
         $created = $stmt->fetchColumn();
         if ($created && strtotime((string) $created . ' UTC') > time() - $this->resendCooldownSeconds()) {
@@ -423,7 +423,7 @@ final class AuthService
     private function setting(string $key, int $fallback): int
     {
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([$key]);
             $value = $stmt->fetchColumn();
             return $value !== false && ctype_digit((string) $value) ? max(1, (int) $value) : $fallback;

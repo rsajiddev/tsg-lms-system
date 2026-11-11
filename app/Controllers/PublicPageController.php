@@ -75,7 +75,7 @@ final class PublicPageController
             $limiter->assertAllowed('contact', [$ip], 5, 3600);
             $limiter->record('contact', [$ip]);
 
-            $save = $connection->prepare('INSERT INTO contact_messages (sender_name,sender_email,phone,subject,message,submitted_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
+            $save = $connection->prepare('INSERT INTO lms_contact_messages (sender_name,sender_email,phone,subject,message,submitted_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
             $save->execute([$values['name'], $values['email'], $values['phone'], $values['subject'], $values['message']]);
 
             $delivered = (new MailService($connection))->sendContactReceived([
@@ -146,13 +146,13 @@ final class PublicPageController
                 "SELECT c.id, c.title, c.slug, c.category, $imageColumn, c.short_description,
                         c.description, c.duration_label, COALESCE(p.currency, c.currency) AS currency,
                         p.recorded_price, p.live_price
-                 FROM courses c
+                 FROM lms_courses c
                  LEFT JOIN (
                     SELECT course_id,
                            MAX(CASE WHEN option_code = 'recorded_only' THEN price END) AS recorded_price,
                            MAX(CASE WHEN option_code = 'live_recorded' THEN price END) AS live_price,
                            MAX(currency) AS currency
-                    FROM course_pricing_options GROUP BY course_id
+                    FROM lms_course_pricing_options GROUP BY course_id
                  ) p ON p.course_id = c.id
                  WHERE c.visibility = 'published'
                  ORDER BY c.created_at DESC, c.id DESC"
@@ -188,13 +188,13 @@ final class PublicPageController
                     c.description, c.duration_label, c.level_label, c.currency,
                     COALESCE(p.currency, c.currency) AS pricing_currency,
                     p.recorded_price, p.live_price
-             FROM courses c
+             FROM lms_courses c
              LEFT JOIN (
                 SELECT course_id,
                        MAX(CASE WHEN option_code = 'recorded_only' THEN price END) AS recorded_price,
                        MAX(CASE WHEN option_code = 'live_recorded' THEN price END) AS live_price,
                        MAX(currency) AS currency
-                FROM course_pricing_options GROUP BY course_id
+                FROM lms_course_pricing_options GROUP BY course_id
              ) p ON p.course_id = c.id
              WHERE c.slug = ? AND c.visibility = 'published'
              LIMIT 1"
@@ -210,8 +210,8 @@ final class PublicPageController
         $curriculumStatement = $db->prepare(
             "SELECT cm.id AS module_id, cm.title AS module_title,
                     l.id AS lesson_id, l.title AS lesson_title
-             FROM course_modules cm
-             LEFT JOIN lessons l ON l.module_id = cm.id AND l.status = 'published'
+             FROM lms_course_modules cm
+             LEFT JOIN lms_lessons l ON l.module_id = cm.id AND l.status = 'published'
              WHERE cm.course_id = ?
              ORDER BY cm.sort_order ASC, cm.id ASC, l.sort_order ASC, l.id ASC"
         );
@@ -238,7 +238,7 @@ final class PublicPageController
     private function courseImageColumnAvailable(): bool
     {
         try {
-            Database::connection()->query('SELECT image_path FROM courses LIMIT 0');
+            Database::connection()->query('SELECT image_path FROM lms_courses LIMIT 0');
             return true;
         } catch (PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054) return false;

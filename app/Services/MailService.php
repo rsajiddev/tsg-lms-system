@@ -329,7 +329,7 @@ final class MailService
     {
         try {
             $db = $this->db();
-            $db->prepare('INSERT INTO email_logs(template_key,recipient_email,subject,status,error_message,related_user_id) VALUES(?,?,?,?,?,?)')
+            $db->prepare('INSERT INTO lms_email_logs(template_key,recipient_email,subject,status,error_message,related_user_id) VALUES(?,?,?,?,?,?)')
                 ->execute([substr($template, 0, 64), substr($this->oneLine($to), 0, 190), substr($this->oneLine($subject), 0, 200), $status, $error !== '' ? substr($error, 0, 255) : null, $relatedUserId !== null && $relatedUserId > 0 ? $relatedUserId : null]);
         } catch (\Throwable $exception) {
             error_log('[MAIL] email_logs write failed (' . $exception::class . ').');

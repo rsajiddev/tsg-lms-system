@@ -69,7 +69,7 @@ namespace {
         $db = Database::connection();
         $role = ($options['role'] ?? 'admin') === 'student' ? 'student' : 'admin';
         $who = ($options['role'] ?? 'admin') === 'student' ? $studentEmail : $adminEmail;
-        $stmt = $db->prepare('SELECT id, full_name, email, role FROM users WHERE email = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, full_name, email, role FROM lms_users WHERE email = ? LIMIT 1');
         $stmt->execute([$who]);
         $account = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
         // The middleware calls session_regenerate_id() when it turns an intruder away, and that
@@ -144,27 +144,27 @@ namespace {
         'The Admin ID form posts to a path the router does not know.');
 
     // Fixtures are replaced rather than accumulated, so a rerun sees the same starting point.
-    $db->exec('DELETE FROM audit_logs WHERE action LIKE \'account.%\'');
+    $db->exec('DELETE FROM lms_audit_logs WHERE action LIKE \'account.%\'');
     foreach ([$adminEmail, $studentEmail, $secondStudentEmail] as $email) {
-        $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
+        $stmt = $db->prepare('SELECT id FROM lms_users WHERE email = ?');
         $stmt->execute([$email]);
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $leftover) {
-            $db->exec('DELETE FROM certificates WHERE student_id = ' . (int) $leftover);
+            $db->exec('DELETE FROM lms_certificates WHERE student_id = ' . (int) $leftover);
             // A run that died mid-way can leave the scheme settings pointing at a fixture account.
-            $db->exec('UPDATE app_settings SET updated_by = NULL WHERE updated_by = ' . (int) $leftover);
+            $db->exec('UPDATE lms_app_settings SET updated_by = NULL WHERE updated_by = ' . (int) $leftover);
         }
-        $db->exec('DELETE FROM users WHERE email = ' . $db->quote((string) $email));
+        $db->exec('DELETE FROM lms_users WHERE email = ' . $db->quote((string) $email));
     }
-    $insert = $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?, 'unusable-hash',?,'active',UTC_TIMESTAMP())");
+    $insert = $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?, 'unusable-hash',?,'active',UTC_TIMESTAMP())");
     $insert->execute(['Identity Smoke Admin', $adminEmail, 'admin']);
     $adminId = (int) $db->lastInsertId();
     $insert->execute(['Identity Smoke Student', $studentEmail, 'student']);
     $studentId = (int) $db->lastInsertId();
     $insert->execute(['Identity Smoke Second', $secondStudentEmail, 'student']);
     $secondStudentId = (int) $db->lastInsertId();
-    $db->exec("INSERT INTO courses(title,slug,visibility,created_by) VALUES('Identity Smoke Course','identity-smoke-course','published'," . $adminId . ")");
+    $db->exec("INSERT INTO lms_courses(title,slug,visibility,created_by) VALUES('Identity Smoke Course','identity-smoke-course','published'," . $adminId . ")");
     $courseId = (int) $db->lastInsertId();
-    $certificate = $db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at) VALUES(?,?,?,'issued',UTC_TIMESTAMP())");
+    $certificate = $db->prepare("INSERT INTO lms_certificates(certificate_id,student_id,course_id,status,issued_at) VALUES(?,?,?,'issued',UTC_TIMESTAMP())");
     $certificate->execute(['TSG-OLD-001', $studentId, $courseId]);
     $certificate->execute(['TSG-OLD-002', $secondStudentId, $courseId]);
 
@@ -176,13 +176,13 @@ namespace {
         return ['call' => substr($output, 0, $pipe), 'flash' => $body['flash'] ?? null, 'error' => $body['error'] ?? null];
     };
     $stored = static function (int $id) use ($db): string {
-        return (string) $db->query('SELECT account_reference FROM users WHERE id = ' . $id)->fetchColumn();
+        return (string) $db->query('SELECT account_reference FROM lms_users WHERE id = ' . $id)->fetchColumn();
     };
     $certificateId = static function (int $studentId) use ($db): string {
-        return (string) $db->query('SELECT certificate_id FROM certificates WHERE student_id = ' . $studentId)->fetchColumn();
+        return (string) $db->query('SELECT certificate_id FROM lms_certificates WHERE student_id = ' . $studentId)->fetchColumn();
     };
     $setting = static function (string $key) use ($db): string {
-        return (string) $db->query('SELECT setting_value FROM app_settings WHERE setting_key = ' . $db->quote($key))->fetchColumn();
+        return (string) $db->query('SELECT setting_value FROM lms_app_settings WHERE setting_key = ' . $db->quote($key))->fetchColumn();
     };
 
     echo "\n-- saving the scheme renumbers the roll\n";
@@ -192,7 +192,7 @@ namespace {
         'Saving the scheme failed: ' . json_encode($result));
     $assert($scheme['prefix'] === 'TSG-POST', 'The prefix was saved upper-cased as TSG-POST.', 'The saved prefix is ' . $scheme['prefix'] . '.');
     // The two fixture students are the newest on the roll, so they land at the end of the run.
-    $total = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn();
+    $total = (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role = 'student'")->fetchColumn();
     $assert($stored($studentId) === AccountIdentity::format('TSG-POST', 5 + $total - 2) && $stored($secondStudentId) === AccountIdentity::format('TSG-POST', 5 + $total - 1),
         'Both students were renumbered from the number the admin typed, oldest first.',
         'Reissuing left them at ' . $stored($studentId) . ' and ' . $stored($secondStudentId) . '.');
@@ -203,7 +203,7 @@ namespace {
         'The counter is at ' . $setting('student_id_next_number') . ' instead of ' . (5 + $total) . '.');
     $assert(stripos((string) $result['flash'], 're-numbered') !== false, 'The flash reports how many students were re-numbered.',
         'The success flash does not mention the re-numbering: ' . json_encode($result['flash']));
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action = 'account.identity_scheme_updated'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action = 'account.identity_scheme_updated'")->fetchColumn() === 1,
         'The audit trail records who changed the scheme.', 'No audit row was written for the scheme change.');
 
     echo "\n-- a stale form does not write anything\n";
@@ -221,7 +221,7 @@ namespace {
         'The admin ID came out as ' . $stored($adminId) . '.');
     $assert($result['error'] === null && stripos((string) $result['flash'], 'TSG-ADM-POST') !== false,
         'The confirmation flash names the new ID back to the admin.', 'No usable confirmation: ' . json_encode($result));
-    $assert((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action = 'account.id_updated'")->fetchColumn() === 1,
+    $assert((int) $db->query("SELECT COUNT(*) FROM lms_audit_logs WHERE action = 'account.id_updated'")->fetchColumn() === 1,
         'The ID change is audited with the account it belongs to.', 'The admin ID change was not audited.');
     $result = $run('--call=save-admin-id --reference=' . $stored($studentId));
     $assert($stored($adminId) === 'TSG-ADM-POST' && stripos((string) $result['error'], 'unique') !== false,
@@ -247,13 +247,13 @@ namespace {
 
     echo "\n";
     if ($failures === []) {
-        $db->exec('DELETE FROM certificates WHERE course_id = ' . $courseId);
-        $db->exec('DELETE FROM courses WHERE id = ' . $courseId);
-        $db->exec('DELETE FROM audit_logs WHERE action LIKE \'account.%\'');
+        $db->exec('DELETE FROM lms_certificates WHERE course_id = ' . $courseId);
+        $db->exec('DELETE FROM lms_courses WHERE id = ' . $courseId);
+        $db->exec('DELETE FROM lms_audit_logs WHERE action LIKE \'account.%\'');
         // The scheme settings remember which admin saved them, and that FK is the last thing
         // holding the fixture accounts in place.
-        $db->exec('UPDATE app_settings SET updated_by = NULL WHERE updated_by IN (' . $adminId . ',' . $studentId . ',' . $secondStudentId . ')');
-        $db->exec('DELETE FROM users WHERE id IN (' . $adminId . ',' . $studentId . ',' . $secondStudentId . ')');
+        $db->exec('UPDATE lms_app_settings SET updated_by = NULL WHERE updated_by IN (' . $adminId . ',' . $studentId . ',' . $secondStudentId . ')');
+        $db->exec('DELETE FROM lms_users WHERE id IN (' . $adminId . ',' . $studentId . ',' . $secondStudentId . ')');
         echo "fixtures cleared\n";
     }
     if (($options['drop'] ?? '0') === '1') {

@@ -97,7 +97,7 @@ final class ChatController {
         to tell the administrator their desk still holds the conversation. */
     private function audit(int $adminId,string $action,int $threadId,int $count): void {
         try {
-            Database::connection()->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,?,'chat_thread',JSON_OBJECT('thread_id',?,'messages',?))")
+            Database::connection()->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,?,'chat_thread',JSON_OBJECT('thread_id',?,'messages',?))")
                 ->execute([$adminId,$action,$threadId,$count]);
         } catch (\Throwable $exception) {
             error_log('[CHATS] '.$action.' was not audited: '.$exception->getMessage());

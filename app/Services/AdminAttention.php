@@ -65,16 +65,16 @@ final class AdminAttention
             // Newest message wins, and only among the ones the desk can still see: a conversation an
             // administrator cleared is left out, because a badge that outlives the list it counts is
             // only noise. The student's next message brings the thread and the number back together.
-            'messages' => "SELECT COUNT(*) FROM chat_threads t JOIN chat_messages m ON m.id=(SELECT cm.id FROM chat_messages cm WHERE cm.thread_id=t.id AND (t.admin_cleared_at IS NULL OR cm.created_at>t.admin_cleared_at) ORDER BY cm.created_at DESC,cm.id DESC LIMIT 1) WHERE m.sender_id=t.student_id",
-            'certificates' => "SELECT COUNT(*) FROM certificates WHERE status = 'requested'",
-            'assignments' => "SELECT COUNT(*) FROM assignment_submissions WHERE status = 'submitted'",
+            'messages' => "SELECT COUNT(*) FROM lms_chat_threads t JOIN lms_chat_messages m ON m.id=(SELECT cm.id FROM lms_chat_messages cm WHERE cm.thread_id=t.id AND (t.admin_cleared_at IS NULL OR cm.created_at>t.admin_cleared_at) ORDER BY cm.created_at DESC,cm.id DESC LIMIT 1) WHERE m.sender_id=t.student_id",
+            'certificates' => "SELECT COUNT(*) FROM lms_certificates WHERE status = 'requested'",
+            'assignments' => "SELECT COUNT(*) FROM lms_assignment_submissions WHERE status = 'submitted'",
             // A finished attempt with no result is one the automatic grading could not settle, and
             // a retake request sits on the same desk until an administrator decides it.
-            'quizzes' => "SELECT (SELECT COUNT(*) FROM quiz_retake_approvals WHERE request_status = 'pending')
-                + (SELECT COUNT(*) FROM quiz_attempts WHERE status <> 'in_progress'
+            'quizzes' => "SELECT (SELECT COUNT(*) FROM lms_quiz_retake_approvals WHERE request_status = 'pending')
+                + (SELECT COUNT(*) FROM lms_quiz_attempts WHERE status <> 'in_progress'
                        AND submitted_at IS NOT NULL AND result IS NULL)",
-            'payments' => "SELECT COUNT(*) FROM payments WHERE status = 'pending'",
-            'reviews' => "SELECT COUNT(*) FROM reviews WHERE status = 'pending'",
+            'payments' => "SELECT COUNT(*) FROM lms_payments WHERE status = 'pending'",
+            'reviews' => "SELECT COUNT(*) FROM lms_reviews WHERE status = 'pending'",
         ];
     }
 }

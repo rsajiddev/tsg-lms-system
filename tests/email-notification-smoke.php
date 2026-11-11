@@ -188,13 +188,13 @@ try {
         // Publishing with no actor of its own falls back to the senior admin, so a database that
         // has never had one - a scratch schema straight from the migration - needs an admin before
         // the fan-out can be asked for anything at all.
-        $seniorAdmin = (int) ($db->query("SELECT id FROM users WHERE role = 'admin' AND status = 'active' AND email_verified_at IS NOT NULL ORDER BY id LIMIT 1")->fetchColumn() ?: 0);
+        $seniorAdmin = (int) ($db->query("SELECT id FROM lms_users WHERE role = 'admin' AND status = 'active' AND email_verified_at IS NOT NULL ORDER BY id LIMIT 1")->fetchColumn() ?: 0);
         if ($seniorAdmin === 0) {
-            $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Notification Smoke Admin',?, 'unusable-hash','admin','active', UTC_TIMESTAMP())")
+            $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES('Notification Smoke Admin',?, 'unusable-hash','admin','active', UTC_TIMESTAMP())")
                 ->execute(['mail-smoke-admin-' . bin2hex(random_bytes(6)) . '@example.test']);
             $adminId = (int) $db->lastInsertId();
         }
-        $db->prepare("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?, 'active', UTC_TIMESTAMP())")
+        $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at) VALUES(?,?,?,?, 'active', UTC_TIMESTAMP())")
             ->execute(['Notification Smoke Test', 'mail-smoke-' . bin2hex(random_bytes(6)) . '@example.test', 'unusable-hash', 'student']);
         $studentId = (int) $db->lastInsertId();
         $service = new NotificationService($db);
@@ -217,9 +217,9 @@ try {
         $assert($service->unreadTotal($studentId) >= count($cases), 'The unread total does not match the fan-out.');
 
         // Re-publishing the same source within the coalescing window must refresh, not stack up.
-        $before = (int) $db->query('SELECT COUNT(*) FROM notifications WHERE source_type = \'lesson\'')->fetchColumn();
+        $before = (int) $db->query('SELECT COUNT(*) FROM lms_notifications WHERE source_type = \'lesson\'')->fetchColumn();
         $service->notifyStudents([$studentId], NotificationService::LESSON, 'Smoke lesson', 'Updated body', 'lesson', 902, '/smoke', 0);
-        $after = (int) $db->query('SELECT COUNT(*) FROM notifications WHERE source_type = \'lesson\'')->fetchColumn();
+        $after = (int) $db->query('SELECT COUNT(*) FROM lms_notifications WHERE source_type = \'lesson\'')->fetchColumn();
         $assert($after === $before, 'A repeated lesson update created a second notification instead of refreshing it.');
 
         $assert($service->forgetSource('lesson', [902]) === 1, 'forgetSource() did not retire the lesson notification.');
@@ -228,16 +228,16 @@ try {
         echo "notifications: 6 categories badge correctly, coalesce and purge work\n";
     } finally {
         if ($studentId > 0) {
-            $db->prepare('DELETE FROM notification_recipients WHERE student_id=?')->execute([$studentId]);
+            $db->prepare('DELETE FROM lms_notification_recipients WHERE student_id=?')->execute([$studentId]);
         }
-        $db->prepare('DELETE FROM notifications WHERE source_id IN (901,902,903,904,905,906) AND title LIKE ?')->execute(['Smoke %']);
+        $db->prepare('DELETE FROM lms_notifications WHERE source_id IN (901,902,903,904,905,906) AND title LIKE ?')->execute(['Smoke %']);
         // The accounts answer foreign keys of their own, so they go last - the admin holds the
         // notifications it just published until those rows are gone.
         if ($studentId > 0) {
-            $db->prepare('DELETE FROM users WHERE id=?')->execute([$studentId]);
+            $db->prepare('DELETE FROM lms_users WHERE id=?')->execute([$studentId]);
         }
         if ($adminId > 0) {
-            $db->prepare('DELETE FROM users WHERE id=?')->execute([$adminId]);
+            $db->prepare('DELETE FROM lms_users WHERE id=?')->execute([$adminId]);
         }
     }
 } catch (Throwable $exception) {

@@ -22,20 +22,20 @@ if (mb_strlen($name) < 2 || mb_strlen($name) > 150) {
     exit(2);
 }
 $db = \App\Core\Database::connection();
-$existing = $db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+$existing = $db->query("SELECT COUNT(*) FROM lms_users WHERE role = 'admin'")->fetchColumn();
 if ((int) $existing > 0) {
     fwrite(STDERR, "An admin already exists. Use the approved account recovery process.\n");
     exit(1);
 }
 $email = strtolower($argv[2]);
 $password = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-$stmt = $db->prepare("INSERT INTO users (full_name, email, password_hash, role, email_verified_at, status) VALUES (?, ?, ?, 'admin', UTC_TIMESTAMP(), 'active')");
+$stmt = $db->prepare("INSERT INTO lms_users (full_name, email, password_hash, role, email_verified_at, status) VALUES (?, ?, ?, 'admin', UTC_TIMESTAMP(), 'active')");
 $stmt->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT)]);
 $adminId = (int) $db->lastInsertId();
 // This script only ever provisions the very first admin, so the ID is fixed; every admin after
 // that is created inside the workspace, where the admin types the ID themselves.
-$db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')
+$db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')
     ->execute([\App\Services\AccountIdentity::derived(1, 'admin'), $adminId]);
-$audit = $db->prepare("INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, metadata) VALUES (?, 'admin.provisioned', 'user', ?, JSON_OBJECT('method', 'cli'))");
+$audit = $db->prepare("INSERT INTO lms_audit_logs (actor_user_id, action, entity_type, entity_id, metadata) VALUES (?, 'admin.provisioned', 'user', ?, JSON_OBJECT('method', 'cli'))");
 $audit->execute([$adminId, $adminId]);
 fwrite(STDOUT, "Admin account created. Save this one-time password securely; it will not be shown again:\n{$password}\n");

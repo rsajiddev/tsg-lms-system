@@ -36,10 +36,10 @@ if ($dashboardArea && $dashboardRole === 'admin') {
             // Chats counts on its own: an unread conversation is a message the Academy wrote since
             // the student last opened that thread, which is not the same thing as unread news.
             $navBadge['chats'] = (new \App\Services\ChatService($navDb))->unreadCount($navStudentId);
-            $stmt = $navDb->prepare("SELECT COUNT(*) FROM assignments a JOIN student_course_access sca ON sca.course_id=a.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE a.status='published' AND NOT EXISTS (SELECT 1 FROM assignment_submissions s WHERE s.assignment_id=a.id AND s.student_id=?)");
+            $stmt = $navDb->prepare("SELECT COUNT(*) FROM lms_assignments a JOIN lms_student_course_access sca ON sca.course_id=a.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE a.status='published' AND NOT EXISTS (SELECT 1 FROM lms_assignment_submissions s WHERE s.assignment_id=a.id AND s.student_id=?)");
             $stmt->execute([$navStudentId, $navStudentId]);
             $navBadge['assignments'] = max((int)($navBadge['assignments'] ?? 0), (int)$stmt->fetchColumn());
-            $stmt = $navDb->prepare("SELECT COUNT(*) FROM quizzes q JOIN student_course_access sca ON sca.course_id=q.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE q.status='released' AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) AND NOT EXISTS (SELECT 1 FROM quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?)");
+            $stmt = $navDb->prepare("SELECT COUNT(*) FROM lms_quizzes q JOIN lms_student_course_access sca ON sca.course_id=q.course_id AND sca.student_id=? AND sca.status IN ('active','completed','certified') AND (sca.expires_at IS NULL OR sca.expires_at>UTC_TIMESTAMP()) WHERE q.status='released' AND (q.unlock_at IS NULL OR q.unlock_at<=UTC_TIMESTAMP()) AND (q.close_at IS NULL OR q.close_at>UTC_TIMESTAMP()) AND NOT EXISTS (SELECT 1 FROM lms_quiz_attempts qa WHERE qa.quiz_id=q.id AND qa.student_id=?)");
             $stmt->execute([$navStudentId, $navStudentId]);
             $navBadge['quizzes'] = max((int)($navBadge['quizzes'] ?? 0), (int)$stmt->fetchColumn());
         } catch (\Throwable $exception) {

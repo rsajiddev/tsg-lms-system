@@ -36,7 +36,7 @@ final class HomeController
         try {
             $connection = Database::connection();
             $recent = $connection->prepare(
-                'SELECT COUNT(*) FROM reviews WHERE ip_address = ? AND created_at > (NOW() - INTERVAL 10 MINUTE)'
+                'SELECT COUNT(*) FROM lms_reviews WHERE ip_address = ? AND created_at > (NOW() - INTERVAL 10 MINUTE)'
             );
             $recent->execute([$_SERVER['REMOTE_ADDR'] ?? '']);
             if ((int) $recent->fetchColumn() >= 5) {
@@ -44,7 +44,7 @@ final class HomeController
                 return;
             }
             $statement = $connection->prepare(
-                "INSERT INTO reviews (reviewer_type, full_name, context_label, rating, content, status, ip_address)
+                "INSERT INTO lms_reviews (reviewer_type, full_name, context_label, rating, content, status, ip_address)
                  VALUES (?, ?, ?, ?, ?, 'pending', ?)"
             );
             $statement->execute([
@@ -92,13 +92,13 @@ final class HomeController
             $courses = Database::connection()->query(
                 "SELECT c.id, c.title, c.short_description, c.duration_label, c.category, $imageColumn,
                         p.recorded_price, p.live_price, COALESCE(p.currency, c.currency) AS currency
-                 FROM courses c
+                 FROM lms_courses c
                  LEFT JOIN (
                     SELECT course_id,
                            MAX(CASE WHEN option_code = 'recorded_only' THEN price END) AS recorded_price,
                            MAX(CASE WHEN option_code = 'live_recorded' THEN price END) AS live_price,
                            MAX(currency) AS currency
-                    FROM course_pricing_options GROUP BY course_id
+                    FROM lms_course_pricing_options GROUP BY course_id
                  ) p ON p.course_id = c.id
                  WHERE c.visibility = 'published'
                  ORDER BY c.created_at DESC, c.id DESC LIMIT 3"
@@ -111,7 +111,7 @@ final class HomeController
         try {
             $reviews = Database::connection()->query(
                 "SELECT reviewer_type, full_name, context_label, rating, content
-                 FROM reviews WHERE status = 'approved'
+                 FROM lms_reviews WHERE status = 'approved'
                  ORDER BY created_at DESC, id DESC LIMIT 6"
             )->fetchAll();
         } catch (\PDOException | \RuntimeException $exception) {
@@ -132,7 +132,7 @@ final class HomeController
     private function courseImageColumnAvailable(): bool
     {
         try {
-            Database::connection()->query('SELECT image_path FROM courses LIMIT 0');
+            Database::connection()->query('SELECT image_path FROM lms_courses LIMIT 0');
             return true;
         } catch (\PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054) return false;

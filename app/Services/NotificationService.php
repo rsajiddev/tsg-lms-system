@@ -90,7 +90,7 @@ final class NotificationService
     ): int {
         if ($courseId < 1 || $sourceId < 1) return 0;
         try {
-            $stmt = $this->db->prepare("SELECT student_id FROM student_course_access WHERE course_id = ? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())");
+            $stmt = $this->db->prepare("SELECT student_id FROM lms_student_course_access WHERE course_id = ? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())");
             $stmt->execute([$courseId]);
             $studentIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
         } catch (\Throwable $exception) {
@@ -141,7 +141,7 @@ final class NotificationService
         $counts = array_fill_keys(array_keys(self::AREAS), 0);
         if ($studentId < 1) return $counts;
         try {
-            $stmt = $this->db->prepare('SELECT n.category, n.link, COUNT(*) AS total FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL GROUP BY n.category, n.link');
+            $stmt = $this->db->prepare('SELECT n.category, n.link, COUNT(*) AS total FROM lms_notification_recipients nr JOIN lms_notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL GROUP BY n.category, n.link');
             $stmt->execute([$studentId]);
             foreach ($stmt->fetchAll() as $row) {
                 $area = self::areaFor((string) $row['category'], isset($row['link']) ? (string) $row['link'] : null);
@@ -162,7 +162,7 @@ final class NotificationService
     {
         if ($studentId < 1 || $area === '' || !array_key_exists($area, self::AREAS)) return 0;
         try {
-            $stmt = $this->db->prepare('SELECT n.id, n.category, n.link FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL');
+            $stmt = $this->db->prepare('SELECT n.id, n.category, n.link FROM lms_notification_recipients nr JOIN lms_notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL');
             $stmt->execute([$studentId]);
             $ids = [];
             foreach ($stmt->fetchAll() as $row) {
@@ -171,7 +171,7 @@ final class NotificationService
             }
             if ($ids === []) return 0;
             $marks = implode(',', array_fill(0, count($ids), '?'));
-            $this->db->prepare('UPDATE notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ? AND read_at IS NULL AND notification_id IN (' . $marks . ')')
+            $this->db->prepare('UPDATE lms_notification_recipients SET read_at = UTC_TIMESTAMP() WHERE student_id = ? AND read_at IS NULL AND notification_id IN (' . $marks . ')')
                 ->execute(array_merge([$studentId], $ids));
             return count($ids);
         } catch (\Throwable $exception) {
@@ -230,7 +230,7 @@ final class NotificationService
     {
         if ($studentId < 1) return 0;
         try {
-            $stmt = $this->db->prepare('SELECT COUNT(*) FROM notification_recipients nr JOIN notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL');
+            $stmt = $this->db->prepare('SELECT COUNT(*) FROM lms_notification_recipients nr JOIN lms_notifications n ON n.id = nr.notification_id WHERE nr.student_id = ? AND nr.read_at IS NULL AND n.published_at IS NOT NULL');
             $stmt->execute([$studentId]);
             return (int) $stmt->fetchColumn();
         } catch (\Throwable $exception) {
@@ -247,19 +247,19 @@ final class NotificationService
         if ($sourceType === '') return 0;
         try {
             if ($sourceIds === []) {
-                $stmt = $this->db->prepare('SELECT id FROM notifications WHERE source_type = ?');
+                $stmt = $this->db->prepare('SELECT id FROM lms_notifications WHERE source_type = ?');
                 $stmt->execute([$sourceType]);
             } else {
                 $marks = implode(',', array_fill(0, count($sourceIds), '?'));
-                $stmt = $this->db->prepare('SELECT id FROM notifications WHERE source_type = ? AND source_id IN (' . $marks . ')');
+                $stmt = $this->db->prepare('SELECT id FROM lms_notifications WHERE source_type = ? AND source_id IN (' . $marks . ')');
                 $stmt->execute(array_merge([$sourceType], array_map('intval', $sourceIds)));
             }
             $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
             if ($ids === []) return 0;
             $deleteMarks = implode(',', array_fill(0, count($ids), '?'));
-            $this->db->prepare('DELETE FROM notification_replies WHERE notification_id IN (' . $deleteMarks . ')')->execute($ids);
-            $this->db->prepare('DELETE FROM notification_recipients WHERE notification_id IN (' . $deleteMarks . ')')->execute($ids);
-            $this->db->prepare('DELETE FROM notifications WHERE id IN (' . $deleteMarks . ')')->execute($ids);
+            $this->db->prepare('DELETE FROM lms_notification_replies WHERE notification_id IN (' . $deleteMarks . ')')->execute($ids);
+            $this->db->prepare('DELETE FROM lms_notification_recipients WHERE notification_id IN (' . $deleteMarks . ')')->execute($ids);
+            $this->db->prepare('DELETE FROM lms_notifications WHERE id IN (' . $deleteMarks . ')')->execute($ids);
             return count($ids);
         } catch (\Throwable $exception) {
             return 0;
@@ -294,19 +294,19 @@ final class NotificationService
             $this->db->beginTransaction();
             $existing = null;
             if ($sourceType !== '' && $sourceId > 0) {
-                $lookup = $this->db->prepare('SELECT id FROM notifications WHERE source_type = ? AND source_id = ? AND category = ? AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ' . self::COALESCE_MINUTES . ' MINUTE) ORDER BY id DESC LIMIT 1');
+                $lookup = $this->db->prepare('SELECT id FROM lms_notifications WHERE source_type = ? AND source_id = ? AND category = ? AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ' . self::COALESCE_MINUTES . ' MINUTE) ORDER BY id DESC LIMIT 1');
                 $lookup->execute([$sourceType, $sourceId, $category]);
                 $existing = (int) ($lookup->fetchColumn() ?: 0);
             }
             if ($existing > 0) {
-                $this->db->prepare('UPDATE notifications SET title = ?, body = ?, published_at = UTC_TIMESTAMP(), created_by = ? WHERE id = ?')->execute([$title, $body, $actor, $existing]);
+                $this->db->prepare('UPDATE lms_notifications SET title = ?, body = ?, published_at = UTC_TIMESTAMP(), created_by = ? WHERE id = ?')->execute([$title, $body, $actor, $existing]);
                 // The content changed again, so the item is worth reading a second time.
-                $this->db->prepare('UPDATE notification_recipients SET read_at = NULL WHERE notification_id = ?')->execute([$existing]);
+                $this->db->prepare('UPDATE lms_notification_recipients SET read_at = NULL WHERE notification_id = ?')->execute([$existing]);
                 $this->addRecipients($existing, $studentIds, $allStudents);
                 $this->db->commit();
                 return $existing;
             }
-            $insert = $this->db->prepare('INSERT INTO notifications(created_by, category, title, body, audience, source_type, source_id, link, published_at) VALUES(?,?,?,?,?,?,?,?,UTC_TIMESTAMP())');
+            $insert = $this->db->prepare('INSERT INTO lms_notifications(created_by, category, title, body, audience, source_type, source_id, link, published_at) VALUES(?,?,?,?,?,?,?,?,UTC_TIMESTAMP())');
             $insert->execute([$actor, $category, $title, $body, $allStudents ? 'all_students' : 'selected_students', $sourceType !== '' ? $sourceType : null, $sourceId > 0 ? $sourceId : null, $link]);
             $notificationId = (int) $this->db->lastInsertId();
             $this->addRecipients($notificationId, $studentIds, $allStudents);
@@ -324,12 +324,12 @@ final class NotificationService
     {
         $scope = "u.role = 'student' AND u.status = 'active' AND u.email_verified_at IS NOT NULL";
         if ($allStudents) {
-            $this->db->prepare('INSERT INTO notification_recipients(notification_id, student_id) SELECT ?, u.id FROM users u WHERE ' . $scope . ' AND NOT EXISTS (SELECT 1 FROM notification_recipients nr WHERE nr.notification_id = ? AND nr.student_id = u.id)')
+            $this->db->prepare('INSERT INTO lms_notification_recipients(notification_id, student_id) SELECT ?, u.id FROM lms_users u WHERE ' . $scope . ' AND NOT EXISTS (SELECT 1 FROM lms_notification_recipients nr WHERE nr.notification_id = ? AND nr.student_id = u.id)')
                 ->execute([$notificationId, $notificationId]);
             return;
         }
         $marks = implode(',', array_fill(0, count($studentIds), '?'));
-        $stmt = $this->db->prepare('INSERT INTO notification_recipients(notification_id, student_id) SELECT ?, u.id FROM users u WHERE u.id IN (' . $marks . ') AND ' . $scope . ' AND NOT EXISTS (SELECT 1 FROM notification_recipients nr WHERE nr.notification_id = ? AND nr.student_id = u.id)');
+        $stmt = $this->db->prepare('INSERT INTO lms_notification_recipients(notification_id, student_id) SELECT ?, u.id FROM lms_users u WHERE u.id IN (' . $marks . ') AND ' . $scope . ' AND NOT EXISTS (SELECT 1 FROM lms_notification_recipients nr WHERE nr.notification_id = ? AND nr.student_id = u.id)');
         $stmt->execute(array_merge([$notificationId], $studentIds, [$notificationId]));
     }
 
@@ -338,7 +338,7 @@ final class NotificationService
     {
         if ($actorId > 0) return $actorId;
         try {
-            $stmt = $this->db->query("SELECT id FROM users WHERE role = 'admin' AND status = 'active' AND email_verified_at IS NOT NULL ORDER BY id LIMIT 1");
+            $stmt = $this->db->query("SELECT id FROM lms_users WHERE role = 'admin' AND status = 'active' AND email_verified_at IS NOT NULL ORDER BY id LIMIT 1");
             return (int) ($stmt->fetchColumn() ?: 0);
         } catch (\Throwable $exception) {
             return 0;

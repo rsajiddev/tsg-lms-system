@@ -17,7 +17,7 @@ use RuntimeException;
  * Course-bound enrolment checkout.
  *
  * The academy sells through a manual bank transfer, so an account has to exist before a payment
- * row can: payments.student_id is a NOT NULL key into users, and the receipt, the notification,
+ * row can: payments.student_id is a NOT NULL key into lms_users, and the receipt, the notification,
  * the access grant and the certificate are all quoted against that account. What must not happen
  * is the journey losing the course the visitor came for, which is what the old sign-in detour
  * did — the chosen course was dropped at /login and the student met an empty dashboard.
@@ -218,13 +218,13 @@ final class EnrolmentController
             $statement = Database::connection()->prepare(
                 "SELECT c.id, c.title, c.slug, c.category, c.duration_label, c.short_description,
                         COALESCE(p.currency, c.currency) AS currency, p.recorded_price, p.live_price
-                 FROM courses c
+                 FROM lms_courses c
                  JOIN (
                     SELECT course_id,
                            MAX(CASE WHEN option_code = 'recorded_only' AND price > 0 THEN price END) AS recorded_price,
                            MAX(CASE WHEN option_code = 'live_recorded' AND price > 0 THEN price END) AS live_price,
                            MAX(currency) AS currency
-                    FROM course_pricing_options
+                    FROM lms_course_pricing_options
                     GROUP BY course_id
                  ) p ON p.course_id = c.id
                  WHERE c.slug = ? AND c.visibility = 'published'
@@ -281,7 +281,7 @@ final class EnrolmentController
     {
         try {
             $statement = Database::connection()->prepare(
-                "SELECT id, full_name, email, role FROM users
+                "SELECT id, full_name, email, role FROM lms_users
                  WHERE email = ? AND role = 'student' AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1"
             );
             $statement->execute([strtolower(trim($email))]);

@@ -57,8 +57,8 @@ final class LessonMedia
             $stmt = $this->db->prepare(
                 "SELECT COUNT(*) FROM information_schema.COLUMNS
                  WHERE TABLE_SCHEMA = DATABASE()
-                      AND ((TABLE_NAME = 'lessons' AND COLUMN_NAME IN ('video_url', 'video_provider', 'video_duration_seconds'))
-                           OR (TABLE_NAME = 'lesson_progress' AND COLUMN_NAME IN ('watched_seconds', 'last_position_seconds')))"
+                      AND ((TABLE_NAME = 'lms_lessons' AND COLUMN_NAME IN ('video_url', 'video_provider', 'video_duration_seconds'))
+                           OR (TABLE_NAME = 'lms_lesson_progress' AND COLUMN_NAME IN ('watched_seconds', 'last_position_seconds')))"
             );
             $stmt->execute();
             $this->schemaAvailable = (int) $stmt->fetchColumn() >= 5;
@@ -76,7 +76,7 @@ final class LessonMedia
         }
         $stored = 0;
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::WATCH_KEY]);
             $stored = (int) $stmt->fetchColumn();
         } catch (\PDOException $exception) {
@@ -257,7 +257,7 @@ final class LessonMedia
             return $this->decorate($media, $progress);
         }
         try {
-            $stmt = $this->db->prepare('SELECT video_url, video_provider, video_duration_seconds FROM lessons WHERE id = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT video_url, video_provider, video_duration_seconds FROM lms_lessons WHERE id = ? LIMIT 1');
             $stmt->execute([$lessonId]);
             $row = $stmt->fetch();
             if ($row !== false) {
@@ -268,7 +268,7 @@ final class LessonMedia
                     'duration' => $row['video_duration_seconds'] === null ? null : (int) $row['video_duration_seconds'],
                 ];
             }
-            $stmt = $this->db->prepare('SELECT watched_seconds, last_position_seconds, completed_at FROM lesson_progress WHERE student_id = ? AND lesson_id = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT watched_seconds, last_position_seconds, completed_at FROM lms_lesson_progress WHERE student_id = ? AND lesson_id = ? LIMIT 1');
             $stmt->execute([$studentId, $lessonId]);
             $row = $stmt->fetch();
             if ($row !== false) {
@@ -314,7 +314,7 @@ final class LessonMedia
         $wasCompleted = (bool) $state['completed'];
         try {
             $this->db->beginTransaction();
-            $stmt = $this->db->prepare('SELECT watched_seconds, last_position_seconds, completed_at, TIMESTAMPDIFF(SECOND, updated_at, UTC_TIMESTAMP()) AS ping_gap FROM lesson_progress WHERE student_id = ? AND lesson_id = ? FOR UPDATE');
+            $stmt = $this->db->prepare('SELECT watched_seconds, last_position_seconds, completed_at, TIMESTAMPDIFF(SECOND, updated_at, UTC_TIMESTAMP()) AS ping_gap FROM lms_lesson_progress WHERE student_id = ? AND lesson_id = ? FOR UPDATE');
             $stmt->execute([$studentId, $lessonId]);
             $row = $stmt->fetch();
             $watched = (int) ($row['watched_seconds'] ?? 0);
@@ -332,10 +332,10 @@ final class LessonMedia
             $metRule = $duration !== null && $required > 0 && $watched >= $required;
             $stamp = gmdate('Y-m-d H:i:s');
             if ($row === false) {
-                $stmt = $this->db->prepare('INSERT INTO lesson_progress(student_id, lesson_id, watched_seconds, last_position_seconds, completed_at, updated_at) VALUES(?,?,?,?,?,?)');
+                $stmt = $this->db->prepare('INSERT INTO lms_lesson_progress(student_id, lesson_id, watched_seconds, last_position_seconds, completed_at, updated_at) VALUES(?,?,?,?,?,?)');
                 $stmt->execute([$studentId, $lessonId, $watched, $position, $metRule ? $stamp : null, $stamp]);
             } else {
-                $stmt = $this->db->prepare('UPDATE lesson_progress SET watched_seconds = ?, last_position_seconds = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE student_id = ? AND lesson_id = ?');
+                $stmt = $this->db->prepare('UPDATE lms_lesson_progress SET watched_seconds = ?, last_position_seconds = ?, completed_at = COALESCE(completed_at, ?), updated_at = ? WHERE student_id = ? AND lesson_id = ?');
                 $stmt->execute([$watched, $position, $metRule ? $stamp : null, $stamp, $studentId, $lessonId]);
             }
             $this->db->commit();

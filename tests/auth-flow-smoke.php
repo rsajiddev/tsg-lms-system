@@ -250,7 +250,7 @@ namespace {
         $registration = $auth->register($name, $email, 'Correct Horse Battery 9!');
         $assert($registration === ['created' => true, 'mail' => true],
             'Registration reports the account and the mail separately instead of collapsing both into one boolean.');
-        $userQuery = $db->prepare('SELECT id, status, email_verified_at FROM users WHERE email = ?');
+        $userQuery = $db->prepare('SELECT id, status, email_verified_at FROM lms_users WHERE email = ?');
         $userQuery->execute([$email]);
         $user = $userQuery->fetch();
         $assert(is_array($user) && $user['status'] === 'pending' && $user['email_verified_at'] === null, 'Registration must create a pending student.');
@@ -309,7 +309,7 @@ namespace {
         $assert($duplicate === ['created' => false, 'mail' => false], 'Duplicate registration must report no account and no mail.');
         $assert(count($delivered()) === $mailCount, 'Duplicate registration must not send another OTP.');
 
-        $logs = $db->query("SELECT template_key, status, related_user_id FROM email_logs WHERE recipient_email IN (" . $db->quote($email) . ",'academy@example.test') ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
+        $logs = $db->query("SELECT template_key, status, related_user_id FROM lms_email_logs WHERE recipient_email IN (" . $db->quote($email) . ",'academy@example.test') ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
         $assert(count($logs) >= 4, 'Every delivered message must leave an email_logs row; saw ' . count($logs) . '.');
         $assert(!in_array('failed', array_column($logs, 'status'), true), 'email_logs recorded a failed delivery.');
         // Even the HR and developer copies of a student's event belong to that student in the
@@ -331,7 +331,7 @@ namespace {
         // discriminating check, lifetime and cooldown deliberately set apart, lives in
         // enrol-flow-smoke.php, which owns a scratch database and can pick both numbers.
         $rowOf = static function (string $key) use ($db) {
-            $statement = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+            $statement = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ?');
             $statement->execute([$key]);
             $value = $statement->fetchColumn();
             return $value === false ? null : (int) $value;
@@ -378,10 +378,10 @@ namespace {
                     if ((int) ($exception->errorInfo[1] ?? 0) !== 1146) throw $exception;
                 }
             }
-            $db->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+            $db->prepare('DELETE FROM lms_users WHERE id = ?')->execute([$userId]);
         }
         $hashes = [hash('sha256', 'email:' . strtolower($email)), hash('sha256', 'ip:' . $_SERVER['REMOTE_ADDR'])];
-        $cleanup = $db->prepare('DELETE FROM auth_rate_limits WHERE subject_hash = ?');
+        $cleanup = $db->prepare('DELETE FROM lms_auth_rate_limits WHERE subject_hash = ?');
         foreach ($hashes as $hash) $cleanup->execute([$hash]);
         @unlink($outFile);
         @unlink($logFile);

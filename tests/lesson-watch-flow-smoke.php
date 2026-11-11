@@ -47,30 +47,30 @@ namespace {
     }
 
     /* Pin the watch requirement so the expected thresholds below are deterministic. */
-    $stored = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+    $stored = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ?');
     $stored->execute([$percentKey]);
     $found = $stored->fetchColumn();
     $previousPercent = $found === false ? null : (string) $found;
-    $db->prepare('INSERT INTO app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+    $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
         ->execute([$percentKey, '50']);
     $media = new \App\Services\LessonMedia($db);
     $assert($media->watchPercent() === 50, 'The stored watch percentage must be read back.');
     $assert($media->requiredSeconds(200) === 100, 'Half of a 200 second video must require 100 seconds.');
     $assert($media->requiredSeconds(null) === 0, 'An unknown length must disable the rule.');
 
-    $db->prepare("INSERT INTO users(full_name,email,password_hash,role,email_verified_at,status) VALUES(?,?,?,?,UTC_TIMESTAMP(),'active')")
+    $db->prepare("INSERT INTO lms_users(full_name,email,password_hash,role,email_verified_at,status) VALUES(?,?,?,?,UTC_TIMESTAMP(),'active')")
         ->execute(['Lesson Watch Smoke ' . $token, 'lesson-watch-' . $token . '@example.test', password_hash('Smoke Test 1!', PASSWORD_BCRYPT), 'student']);
     $ids['student'] = (int) $db->lastInsertId();
 
-    $db->prepare("INSERT INTO courses(title,slug,visibility,duration_label) VALUES(?,?,?,?)")
+    $db->prepare("INSERT INTO lms_courses(title,slug,visibility,duration_label) VALUES(?,?,?,?)")
         ->execute(['Lesson Watch Smoke Course ' . $token, 'lesson-watch-smoke-' . $token, 'published', '4 weeks']);
     $ids['course'] = (int) $db->lastInsertId();
 
-    $db->prepare('INSERT INTO course_modules(course_id,title,sort_order) VALUES(?,?,1)')
+    $db->prepare('INSERT INTO lms_course_modules(course_id,title,sort_order) VALUES(?,?,1)')
         ->execute([$ids['course'], 'Smoke module']);
     $ids['module'] = (int) $db->lastInsertId();
 
-    $insertLesson = $db->prepare('INSERT INTO lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,?,1,\'published\')');
+    $insertLesson = $db->prepare('INSERT INTO lms_lessons(module_id,title,body,video_url,video_provider,video_duration_seconds,sort_order,status) VALUES(?,?,?,?,?,?,1,\'published\')');
     $seedLesson = static function (string $title, ?string $url, ?int $duration) use ($insertLesson, $db, $ids): int {
         $insertLesson->execute([$ids['module'], $title, 'Smoke lesson body', $url, \App\Services\LessonMedia::detectProvider($url), $duration]);
         return (int) $db->lastInsertId();
@@ -81,7 +81,7 @@ namespace {
     $ids['lessons'] = [$trackedLesson, $untimedLesson, $plainLesson];
 
     $rewind = static function (int $studentId, int $lessonId, int $seconds) use ($db): void {
-        $db->prepare('UPDATE lesson_progress SET updated_at = UTC_TIMESTAMP() - INTERVAL ? SECOND WHERE student_id = ? AND lesson_id = ?')
+        $db->prepare('UPDATE lms_lesson_progress SET updated_at = UTC_TIMESTAMP() - INTERVAL ? SECOND WHERE student_id = ? AND lesson_id = ?')
             ->execute([$seconds, $studentId, $lessonId]);
     };
 
@@ -91,7 +91,7 @@ namespace {
         $assert($state['has_video'] === false && $state['rule_applies'] === false, 'A lesson without a video must stay manually completable.');
         $assert($media->record($ids['student'], $plainLesson, 120)['watched'] === 0, 'A video-less heartbeat must credit nothing.');
         $assert($media->completionBlock($ids['student'], $plainLesson) === null, 'A video-less lesson must not be blocked.');
-        $assert($db->query('SELECT COUNT(*) FROM lesson_progress WHERE lesson_id = ' . $plainLesson)->fetchColumn() == 0, 'A video-less heartbeat must not store progress.');
+        $assert($db->query('SELECT COUNT(*) FROM lms_lesson_progress WHERE lesson_id = ' . $plainLesson)->fetchColumn() == 0, 'A video-less heartbeat must not store progress.');
 
         /* Embeds are played in the page but cannot expose the playhead. */
         $state = $media->state($ids['student'], $untimedLesson);
@@ -137,7 +137,7 @@ namespace {
         $state = $media->record($ids['student'], $trackedLesson, 175);
         $assert($state['watched'] === 100, 'The threshold-crossing heartbeat must still be credited.');
         $assert($state['completed'] === true && $state['just_completed'] === true, 'Crossing the watch threshold must complete the lesson server side.');
-        $verify = $db->prepare('SELECT completed_at, watched_seconds FROM lesson_progress WHERE student_id = ? AND lesson_id = ?');
+        $verify = $db->prepare('SELECT completed_at, watched_seconds FROM lms_lesson_progress WHERE student_id = ? AND lesson_id = ?');
         $verify->execute([$ids['student'], $trackedLesson]);
         $row = $verify->fetch();
         $assert($row !== false && $row['completed_at'] !== null && (int) $row['watched_seconds'] === 100, 'The stored row must carry the completion stamp certificates rely on.');
@@ -153,7 +153,7 @@ namespace {
         $assert($state['ratio'] <= 100.0, 'Watch progress must never be reported above the video length.');
 
         /* The percentage is clamped, so a bad setting cannot disable the rule silently. */
-        $db->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?')->execute(['7', $percentKey]);
+        $db->prepare('UPDATE lms_app_settings SET setting_value = ? WHERE setting_key = ?')->execute(['7', $percentKey]);
         $assert((new \App\Services\LessonMedia($db))->watchPercent() === 90, 'An out-of-range percentage must fall back to the default.');
 
         echo "Lesson watch smoke checks passed: provider and embed detection, duration parsing, video-less and untimed fallbacks, "
@@ -177,17 +177,17 @@ namespace {
         /* The shared setting is restored first, because it outlives this run whichever delete an */
         /* old local database happens to block.                                                    */
         if ($previousPercent === null) {
-            $deleteOwnedRows('DELETE FROM app_settings WHERE setting_key = ?', [$percentKey]);
+            $deleteOwnedRows('DELETE FROM lms_app_settings WHERE setting_key = ?', [$percentKey]);
         } else {
-            $deleteOwnedRows('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?', [$previousPercent, $percentKey]);
+            $deleteOwnedRows('UPDATE lms_app_settings SET setting_value = ? WHERE setting_key = ?', [$previousPercent, $percentKey]);
         }
         if ($ids['lessons'] !== []) {
             $placeholders = implode(',', array_fill(0, count($ids['lessons']), '?'));
-            $deleteOwnedRows('DELETE FROM lesson_progress WHERE lesson_id IN (' . $placeholders . ')', $ids['lessons']);
-            $deleteOwnedRows('DELETE FROM lessons WHERE id IN (' . $placeholders . ')', $ids['lessons']);
+            $deleteOwnedRows('DELETE FROM lms_lesson_progress WHERE lesson_id IN (' . $placeholders . ')', $ids['lessons']);
+            $deleteOwnedRows('DELETE FROM lms_lessons WHERE id IN (' . $placeholders . ')', $ids['lessons']);
         }
-        if ($ids['module'] > 0) $deleteOwnedRows('DELETE FROM course_modules WHERE id = ?', [$ids['module']]);
-        if ($ids['course'] > 0) $deleteOwnedRows('DELETE FROM courses WHERE id = ?', [$ids['course']]);
-        if ($ids['student'] > 0) $deleteOwnedRows('DELETE FROM users WHERE id = ?', [$ids['student']]);
+        if ($ids['module'] > 0) $deleteOwnedRows('DELETE FROM lms_course_modules WHERE id = ?', [$ids['module']]);
+        if ($ids['course'] > 0) $deleteOwnedRows('DELETE FROM lms_courses WHERE id = ?', [$ids['course']]);
+        if ($ids['student'] > 0) $deleteOwnedRows('DELETE FROM lms_users WHERE id = ?', [$ids['student']]);
     }
 }

@@ -95,37 +95,37 @@ $studentEmail = 'verify-smoke-student@example.test';
 $courseOne = 'verify-smoke-full-stack';
 $courseTwo = 'verify-smoke-graphic-design';
 $courseThree = 'verify-smoke-revoked';
-$existingStudentIds = "(SELECT id FROM users WHERE email = " . $db->quote($studentEmail) . ')';
-$db->exec('DELETE FROM notification_replies WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . '))');
-$db->exec('DELETE FROM notification_recipients WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . '))');
-$db->exec('DELETE FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id IN ' . $existingStudentIds . ')');
-$db->exec('DELETE FROM audit_logs WHERE actor_user_id IN ' . $existingStudentIds . " AND action = 'certificate.requested'");
-$db->exec('DELETE FROM email_logs WHERE related_user_id IN ' . $existingStudentIds . " AND template_key = 'certificate.requested'");
-$db->exec('DELETE FROM certificates WHERE student_id IN (SELECT id FROM users WHERE email = ' . $db->quote($studentEmail) . ')');
-$db->exec('DELETE FROM course_grades WHERE student_id IN ' . $existingStudentIds);
-$db->exec('DELETE FROM attendance_records WHERE student_id IN ' . $existingStudentIds);
-$db->exec('DELETE FROM student_course_access WHERE student_id IN ' . $existingStudentIds);
-$db->exec('DELETE FROM lesson_progress WHERE student_id IN ' . $existingStudentIds);
-$db->exec('DELETE FROM quizzes WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
-$db->exec('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
-$db->exec('DELETE FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
-$db->exec('DELETE FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
-$db->exec('DELETE FROM users WHERE email = ' . $db->quote($studentEmail));
-$db->exec("INSERT INTO users(full_name,email,password_hash,role,status,email_verified_at,account_reference)
+$existingStudentIds = "(SELECT id FROM lms_users WHERE email = " . $db->quote($studentEmail) . ')';
+$db->exec('DELETE FROM lms_notification_replies WHERE notification_id IN (SELECT id FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id IN ' . $existingStudentIds . '))');
+$db->exec('DELETE FROM lms_notification_recipients WHERE notification_id IN (SELECT id FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id IN ' . $existingStudentIds . '))');
+$db->exec('DELETE FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id IN ' . $existingStudentIds . ')');
+$db->exec('DELETE FROM lms_audit_logs WHERE actor_user_id IN ' . $existingStudentIds . " AND action = 'certificate.requested'");
+$db->exec('DELETE FROM lms_email_logs WHERE related_user_id IN ' . $existingStudentIds . " AND template_key = 'certificate.requested'");
+$db->exec('DELETE FROM lms_certificates WHERE student_id IN (SELECT id FROM lms_users WHERE email = ' . $db->quote($studentEmail) . ')');
+$db->exec('DELETE FROM lms_course_grades WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM lms_attendance_records WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM lms_student_course_access WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM lms_lesson_progress WHERE student_id IN ' . $existingStudentIds);
+$db->exec('DELETE FROM lms_quizzes WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lms_lessons WHERE module_id IN (SELECT id FROM lms_course_modules WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
+$db->exec('DELETE FROM lms_course_modules WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
+$db->exec('DELETE FROM lms_users WHERE email = ' . $db->quote($studentEmail));
+$db->exec("INSERT INTO lms_users(full_name,email,password_hash,role,status,email_verified_at,account_reference)
     VALUES('Verify Smoke Student','" . $studentEmail . "','unusable-hash','student','active',UTC_TIMESTAMP(),NULL)");
 $studentId = (int) $db->lastInsertId();
-$courseInsert = $db->prepare("INSERT INTO courses(title,slug,visibility,created_by,duration_label,level_label) VALUES(?,?,'published',?,?,?)");
+$courseInsert = $db->prepare("INSERT INTO lms_courses(title,slug,visibility,created_by,duration_label,level_label) VALUES(?,?,'published',?,?,?)");
 $courseInsert->execute(['Verify Smoke Full Stack', $courseOne, $studentId, '12 weeks', 'Beginner']);
 $firstCourseId = (int) $db->lastInsertId();
 $courseInsert->execute(['Verify Smoke Graphic Design', $courseTwo, $studentId, '8 weeks', 'All levels']);
 $secondCourseId = (int) $db->lastInsertId();
 $courseInsert->execute(['Verify Smoke Revoked', $courseThree, $studentId, '4 weeks', 'Beginner']);
 $thirdCourseId = (int) $db->lastInsertId();
-$db->prepare("INSERT INTO student_course_access(student_id,course_id,status,plan_code,granted_by) VALUES(?,?,'completed','live_recorded',?), (?,?,'completed','recorded_only',?)")
+$db->prepare("INSERT INTO lms_student_course_access(student_id,course_id,status,plan_code,granted_by) VALUES(?,?,'completed','live_recorded',?), (?,?,'completed','recorded_only',?)")
     ->execute([$studentId, $firstCourseId, $studentId, $studentId, $secondCourseId, $studentId]);
-$moduleInsert = $db->prepare('INSERT INTO course_modules(course_id,title) VALUES(?,?)');
-$lessonInsert = $db->prepare("INSERT INTO lessons(module_id,title,body,status) VALUES(?,?,'Completed lesson','published')");
-$progressInsert = $db->prepare('INSERT INTO lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP())');
+$moduleInsert = $db->prepare('INSERT INTO lms_course_modules(course_id,title) VALUES(?,?)');
+$lessonInsert = $db->prepare("INSERT INTO lms_lessons(module_id,title,body,status) VALUES(?,?,'Completed lesson','published')");
+$progressInsert = $db->prepare('INSERT INTO lms_lesson_progress(student_id,lesson_id,completed_at) VALUES(?,?,UTC_TIMESTAMP())');
 $firstLessonId = 0;
 foreach ([[$firstCourseId, 'Live course'], [$secondCourseId, 'Recorded course']] as [$courseId, $label]) {
     $moduleInsert->execute([$courseId, $label . ' module']);
@@ -135,7 +135,7 @@ foreach ([[$firstCourseId, 'Live course'], [$secondCourseId, 'Recorded course']]
     $progressInsert->execute([$studentId, $lessonId]);
     if ($courseId === $firstCourseId) $firstLessonId = $lessonId;
 }
-$db->prepare("INSERT INTO attendance_records(student_id,course_id,lesson_id,attendance_date,status,first_login_at,mark_deadline_at,closed_at)
+$db->prepare("INSERT INTO lms_attendance_records(student_id,course_id,lesson_id,attendance_date,status,first_login_at,mark_deadline_at,closed_at)
     VALUES(?,?,?,UTC_DATE(),'absent',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE),UTC_TIMESTAMP())")
     ->execute([$studentId, $firstCourseId, $firstLessonId]);
 
@@ -174,13 +174,13 @@ try {
     $requestError = $exception->getMessage();
 }
 $assert(str_contains($requestError, 'Attendance is 0%')
-    && (int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
+    && (int) $db->query('SELECT COUNT(*) FROM lms_certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
     'The official request handler blocks a Live + Recorded student below the attendance threshold.',
     'The official request handler did not block the ineligible Live + Recorded request.');
 
-$db->prepare("UPDATE attendance_records SET status='present', marked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND lesson_id=?")
+$db->prepare("UPDATE lms_attendance_records SET status='present', marked_at=UTC_TIMESTAMP() WHERE student_id=? AND course_id=? AND lesson_id=?")
     ->execute([$studentId, $firstCourseId, $firstLessonId]);
-$db->prepare("INSERT INTO quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,99,'Low grade eligibility check','lesson','released',?)")
+$db->prepare("INSERT INTO lms_quizzes(course_id,week_number,title,quiz_type,status,created_by) VALUES(?,99,'Low grade eligibility check','lesson','released',?)")
     ->execute([$firstCourseId, $studentId]);
 $lowGradeRequestError = '';
 try {
@@ -193,10 +193,10 @@ try {
     $lowGradeRequestError = $exception->getMessage();
 }
 $assert(str_contains($lowGradeRequestError, 'Overall grade is 51.72%')
-    && (int) $db->query('SELECT COUNT(*) FROM certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
+    && (int) $db->query('SELECT COUNT(*) FROM lms_certificates WHERE student_id = ' . $studentId)->fetchColumn() === 0,
     'The official request handler blocks a fully attended student below the 60% grade threshold.',
     'The official request handler did not block the ineligible low-grade request.');
-$db->prepare('DELETE FROM quizzes WHERE course_id=? AND week_number=99')->execute([$firstCourseId]);
+$db->prepare('DELETE FROM lms_quizzes WHERE course_id=? AND week_number=99')->execute([$firstCourseId]);
 $requestCode = 'define("BASE_PATH", ' . var_export(BASE_PATH, true) . ');'
     . 'foreach (' . var_export([
         '/app/Core/Env.php',
@@ -237,7 +237,7 @@ fclose($pipes[2]);
 $requestExitCode = proc_close($process);
 if ($previousMailUsername === false) putenv('MAIL_USERNAME'); else putenv('MAIL_USERNAME=' . $previousMailUsername);
 if ($previousMailPassword === false) putenv('MAIL_PASSWORD'); else putenv('MAIL_PASSWORD=' . $previousMailPassword);
-$requestedCertificate = $db->query('SELECT id, status, overall_percent, attendance_percent FROM certificates WHERE student_id = ' . $studentId . ' AND course_id = ' . $firstCourseId)->fetch();
+$requestedCertificate = $db->query('SELECT id, status, overall_percent, attendance_percent FROM lms_certificates WHERE student_id = ' . $studentId . ' AND course_id = ' . $firstCourseId)->fetch();
 $assert($requestExitCode === 0 && is_array($requestedCertificate)
     && $requestedCertificate['status'] === 'requested'
     && (float) $requestedCertificate['overall_percent'] >= 60
@@ -246,14 +246,14 @@ $assert($requestExitCode === 0 && is_array($requestedCertificate)
     'The eligible official request failed: ' . trim((string) $requestStdout . ' ' . $requestStderr));
 
 // One certificate is live, one has expired, and one was revoked.
-$db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,file_path)
+$db->prepare("INSERT INTO lms_certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,file_path)
     VALUES(?,?,?,'issued',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 15 DAY),CONCAT('certificates/', REPEAT('ab', 24), '.jpg'))
     ON DUPLICATE KEY UPDATE certificate_id=VALUES(certificate_id),status='issued',issued_at=VALUES(issued_at),expires_at=VALUES(expires_at),file_path=VALUES(file_path)")
     ->execute([$accountReference, $studentId, $firstCourseId]);
-$db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at)
+$db->prepare("INSERT INTO lms_certificates(certificate_id,student_id,course_id,status,issued_at,expires_at)
     VALUES(?,?,?,'issued',UTC_TIMESTAMP(),DATE_SUB(UTC_TIMESTAMP(),INTERVAL 5 DAY))")
     ->execute([$accountReference, $studentId, $secondCourseId]);
-$db->prepare("INSERT INTO certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,revoked_by,revoked_at,revoked_reason)
+$db->prepare("INSERT INTO lms_certificates(certificate_id,student_id,course_id,status,issued_at,expires_at,revoked_by,revoked_at,revoked_reason)
     VALUES(?,?,?,'revoked',UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 15 DAY),?,UTC_TIMESTAMP(),'Smoke test revocation')")
     ->execute([$accountReference, $studentId, $thirdCourseId, $studentId]);
 
@@ -295,21 +295,21 @@ $assert(str_contains($render('TSG_CER_001'), 'Certificate not found'),
     'Malformed IDs do not return a certificate.', 'A malformed ID unexpectedly returned a record.');
 
 echo "\n";
-$db->exec('DELETE FROM notification_replies WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . '))');
-$db->exec('DELETE FROM notification_recipients WHERE notification_id IN (SELECT id FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . '))');
-$db->exec('DELETE FROM notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM certificates WHERE student_id = ' . $studentId . ')');
-$db->exec("DELETE FROM audit_logs WHERE actor_user_id = {$studentId} AND action = 'certificate.requested'");
-$db->exec("DELETE FROM email_logs WHERE related_user_id = {$studentId} AND template_key = 'certificate.requested'");
-$db->exec('DELETE FROM certificates WHERE student_id = ' . $studentId);
-$db->exec('DELETE FROM course_grades WHERE student_id = ' . $studentId);
-$db->exec('DELETE FROM attendance_records WHERE student_id = ' . $studentId);
-$db->exec('DELETE FROM student_course_access WHERE student_id = ' . $studentId);
-$db->exec('DELETE FROM lesson_progress WHERE student_id = ' . $studentId);
-$db->exec('DELETE FROM quizzes WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
-$db->exec('DELETE FROM lessons WHERE module_id IN (SELECT id FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
-$db->exec('DELETE FROM course_modules WHERE course_id IN (SELECT id FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
-$db->exec('DELETE FROM courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
-$db->exec('DELETE FROM users WHERE id = ' . $studentId);
+$db->exec('DELETE FROM lms_notification_replies WHERE notification_id IN (SELECT id FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id = ' . $studentId . '))');
+$db->exec('DELETE FROM lms_notification_recipients WHERE notification_id IN (SELECT id FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id = ' . $studentId . '))');
+$db->exec('DELETE FROM lms_notifications WHERE source_type = \'certificate_request\' AND source_id IN (SELECT id FROM lms_certificates WHERE student_id = ' . $studentId . ')');
+$db->exec("DELETE FROM lms_audit_logs WHERE actor_user_id = {$studentId} AND action = 'certificate.requested'");
+$db->exec("DELETE FROM lms_email_logs WHERE related_user_id = {$studentId} AND template_key = 'certificate.requested'");
+$db->exec('DELETE FROM lms_certificates WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lms_course_grades WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lms_attendance_records WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lms_student_course_access WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lms_lesson_progress WHERE student_id = ' . $studentId);
+$db->exec('DELETE FROM lms_quizzes WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lms_lessons WHERE module_id IN (SELECT id FROM lms_course_modules WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')))');
+$db->exec('DELETE FROM lms_course_modules WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . '))');
+$db->exec('DELETE FROM lms_courses WHERE slug IN (' . $db->quote($courseOne) . ',' . $db->quote($courseTwo) . ',' . $db->quote($courseThree) . ')');
+$db->exec('DELETE FROM lms_users WHERE id = ' . $studentId);
 if (($options['drop'] ?? '0') === '1') {
     shell_exec($mysql . ' ' . $credentials . ' -e ' . escapeshellarg('DROP DATABASE IF EXISTS `' . $dbName . '`'));
     echo 'dropped ' . $dbName . "\n";

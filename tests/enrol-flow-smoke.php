@@ -189,13 +189,13 @@ $noticeIds = [];
 
 // A run that died part way leaves a payment behind, and a payment pins both the account and the
 // course to it - so the rows that would block the fixtures are cleared before the fixtures are written.
-$db->exec('DELETE FROM payments WHERE student_id IN (SELECT id FROM users WHERE email = ' . $db->quote($enrolEmail) . ')');
-$db->exec("DELETE FROM payments WHERE course_id IN (SELECT id FROM courses WHERE slug IN (" . $slugs . '))');
-$db->exec("DELETE FROM courses WHERE slug IN (" . $slugs . ")");
-$db->exec('DELETE FROM users WHERE email = ' . $db->quote($enrolEmail));
+$db->exec('DELETE FROM lms_payments WHERE student_id IN (SELECT id FROM lms_users WHERE email = ' . $db->quote($enrolEmail) . ')');
+$db->exec("DELETE FROM lms_payments WHERE course_id IN (SELECT id FROM lms_courses WHERE slug IN (" . $slugs . '))');
+$db->exec("DELETE FROM lms_courses WHERE slug IN (" . $slugs . ")");
+$db->exec('DELETE FROM lms_users WHERE email = ' . $db->quote($enrolEmail));
 
 // created_by is nullable and pointing at a real admin would only make the cleanup longer.
-$insertCourse = $db->prepare("INSERT INTO courses(title,slug,visibility,currency,short_description) VALUES(?,?,?,'PKR','Fixture course used by the enrolment journey test.')");
+$insertCourse = $db->prepare("INSERT INTO lms_courses(title,slug,visibility,currency,short_description) VALUES(?,?,?,'PKR','Fixture course used by the enrolment journey test.')");
 $insertCourse->execute(['Enrol Smoke Open Course', $slugLive, 'published']);
 $courseId = (int) $db->lastInsertId();
 $insertCourse->execute(['Enrol Smoke Draft Course', $slugDraft, 'draft']);
@@ -204,7 +204,7 @@ $insertCourse->execute(['Enrol Smoke Unpriced Course', $slugFree, 'published']);
 $freeCourseId = (int) $db->lastInsertId();
 $insertCourse->execute(['Enrol Smoke Other Course', $slugOther, 'published']);
 $otherCourseId = (int) $db->lastInsertId();
-$insertOption = $db->prepare("INSERT INTO course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,'PKR')");
+$insertOption = $db->prepare("INSERT INTO lms_course_pricing_options(course_id,option_code,display_label,price,currency) VALUES(?,?,?,?,'PKR')");
 $insertOption->execute([$courseId, 'recorded_only', 'Recorded Only', 24000]);
 $insertOption->execute([$courseId, 'live_recorded', 'Live + Recorded', 39000]);
 $insertOption->execute([$draftCourseId, 'recorded_only', 'Recorded Only', 24000]);
@@ -215,7 +215,7 @@ $insertOption->execute([$freeCourseId, 'recorded_only', 'Recorded Only', 0]);
 
 // Written rather than updated: a scratch database that was bootstrapped before this key existed
 // would otherwise silently keep the service fallback and the countdown check would prove nothing.
-$putSetting = $db->prepare("INSERT INTO app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+$putSetting = $db->prepare("INSERT INTO lms_app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
 $settings = [
     'otp_lifetime_seconds' => '600',
     'otp_resend_cooldown_seconds' => '40',
@@ -347,7 +347,7 @@ try {
     $assert(!str_contains($tampered['body'], 'We could not open a new account'),
         'An address that was free is not reported as taken.',
         'The card claims the address already has an account when it did not.');
-    $student = $db->query('SELECT id, status, email_verified_at FROM users WHERE email = ' . $db->quote($enrolEmail))->fetch(PDO::FETCH_ASSOC);
+    $student = $db->query('SELECT id, status, email_verified_at FROM lms_users WHERE email = ' . $db->quote($enrolEmail))->fetch(PDO::FETCH_ASSOC);
     $assert(is_array($student) && $student['status'] === 'pending' && $student['email_verified_at'] === null,
         'The account exists and stays locked until the code is confirmed.',
         'Registration did not leave a pending, unverified student: ' . json_encode($student));
@@ -395,16 +395,16 @@ try {
     $assert($wrongCode['status'] === 200 && str_contains($wrongCode['body'], 'invalid or expired'),
         'A wrong code re-renders the card and does not activate the account.',
         'A wrong code was not reported on the card (status ' . $wrongCode['status'] . ').');
-    $assert(!(bool) $db->query('SELECT 1 FROM users WHERE email = ' . $db->quote($enrolEmail) . " AND status = 'active'")->fetchColumn(),
+    $assert(!(bool) $db->query('SELECT 1 FROM lms_users WHERE email = ' . $db->quote($enrolEmail) . " AND status = 'active'")->fetchColumn(),
         'A rejected code leaves the account pending.',
         'A wrong code activated the account.');
-    $retryable = (bool) $db->query("SELECT consumed_at IS NULL FROM email_otps WHERE user_id = " . $studentId . " ORDER BY id DESC LIMIT 1")->fetchColumn();
+    $retryable = (bool) $db->query("SELECT consumed_at IS NULL FROM lms_email_otps WHERE user_id = " . $studentId . " ORDER BY id DESC LIMIT 1")->fetchColumn();
     $assert($retryable, 'The issued code is still unconsumed, so one typo does not cost a new OTP.',
         'The wrong attempt burned the live code.');
 
     // A known code through the same hash the service verifies against, so the path under test is the
     // real one; delivery itself belongs to auth-flow-smoke.php.
-    $db->prepare("UPDATE email_otps SET otp_hash = ?, attempts = 0, consumed_at = NULL, expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 600 SECOND) WHERE user_id = ? AND purpose = 'verify_email'")
+    $db->prepare("UPDATE lms_email_otps SET otp_hash = ?, attempts = 0, consumed_at = NULL, expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 600 SECOND) WHERE user_id = ? AND purpose = 'verify_email'")
         ->execute([password_hash('246810', PASSWORD_DEFAULT), $studentId]);
     $verified = $open('POST', '/enrol/verify', [
         '_csrf' => $csrfOf($wrongCode['body']),
@@ -416,7 +416,7 @@ try {
         'Confirming the code goes to the payment step for the course the session holds, not the one that was posted.',
         'Verification answered ' . $verified['status'] . ' with Location ' . json_encode($verified['location'])
             . ' (session course ' . $courseId . ', posted course ' . $otherCourseId . ').');
-    $active = $db->query('SELECT status, email_verified_at FROM users WHERE id = ' . $studentId)->fetch(PDO::FETCH_ASSOC);
+    $active = $db->query('SELECT status, email_verified_at FROM lms_users WHERE id = ' . $studentId)->fetch(PDO::FETCH_ASSOC);
     $assert((string) ($active['status'] ?? '') === 'active' && ($active['email_verified_at'] ?? null) !== null,
         'The confirmed account is active.',
         'The account was not activated by the confirmed code: ' . json_encode($active));
@@ -445,11 +445,11 @@ try {
     // A scratch database that was bootstrapped before the column arrived would report a missing plan
     // for a reason that has nothing to do with this journey, so the schema is topped up the same
     // guarded way the app's own migration does it.
-    $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
+    $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lms_payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
     if ($planColumn === 0) {
         shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' < '
             . escapeshellarg(BASE_PATH . '/database/migrations/001_initial_schema.sql'));
-        $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
+        $planColumn = (int) $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lms_payments' AND COLUMN_NAME = 'plan_code'")->fetchColumn();
         echo 're-imported the schema into ' . $dbName . " to add payments.plan_code\n";
     }
     $assert($planColumn === 1, 'The scratch database holds the column the journey writes the plan into.',
@@ -468,7 +468,7 @@ try {
     ], 'payment_proof');
     $assert($bought['status'] === 302, 'The finished checkout answers with a redirect back to the step, as every other form does.',
         'The payment POST answered ' . $bought['status'] . ' instead of redirecting.');
-    $row = $db->prepare('SELECT id,plan_code,status,amount,currency FROM payments WHERE student_id = ? AND course_id = ?');
+    $row = $db->prepare('SELECT id,plan_code,status,amount,currency FROM lms_payments WHERE student_id = ? AND course_id = ?');
     $row->execute([$studentId, $courseId]);
     $written = $row->fetch(PDO::FETCH_ASSOC) ?: [];
     $journeyPaymentId = (int) ($written['id'] ?? 0);
@@ -492,26 +492,26 @@ try {
             'The blocked checkout left ' . json_encode($written) . ' behind.');
         echo "  NOTE " . $proofFolder . " belongs to another account, so this journey could not finish its upload from the command line. Step 1 of README \"Testing live class links\" shows it in a browser.\n";
     }
-    $expectedPayments = (int) $db->query('SELECT COUNT(*) FROM payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
+    $expectedPayments = (int) $db->query('SELECT COUNT(*) FROM lms_payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
     $forged = $open('POST', '/payments', [
         '_csrf' => $csrfOf($open('GET', '/payments/new?course_id=' . $courseId)['body']),
         'course_id' => (string) $courseId,
         'option_code' => 'gold_plan',
         'transaction_reference' => 'GOLD-' . bin2hex(random_bytes(4)),
     ], 'payment_proof');
-    $afterForgery = (int) $db->query('SELECT COUNT(*) FROM payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
+    $afterForgery = (int) $db->query('SELECT COUNT(*) FROM lms_payments WHERE student_id = ' . (int) $studentId)->fetchColumn();
     $assert($forged['status'] === 302 && $afterForgery === $expectedPayments,
         'An option nobody sells is refused, and the journey does not invent a plan for it.',
         'A forged learning option left ' . $afterForgery . ' payment row(s) where ' . $expectedPayments . ' were before.');
 
     echo "\n-- a course withdrawn between steps stops the journey\n";
-    $db->exec('UPDATE courses SET visibility = \'draft\' WHERE id = ' . $courseId);
+    $db->exec('UPDATE lms_courses SET visibility = \'draft\' WHERE id = ' . $courseId);
     $freshVisitor();
     $withdrawn = $open('GET', '/enrol/' . $slugLive);
     $assert($withdrawn['status'] === 302 && (string) $withdrawn['location'] === $appUrl . '/courses',
         'A course unpublished mid-checkout sends the visitor back to the catalogue.',
         'An unpublished course still served a checkout card (status ' . $withdrawn['status'] . ').');
-    $db->exec('UPDATE courses SET visibility = \'published\' WHERE id = ' . $courseId);
+    $db->exec('UPDATE lms_courses SET visibility = \'published\' WHERE id = ' . $courseId);
     $reopened = $open('GET', '/enrol/' . $slugLive);
     $assert($reopened['status'] === 200,
         'Republished, the same link opens the account step again.',
@@ -580,7 +580,7 @@ try {
     $assert($reject['status'] === 419,
         'The enrolment form answers a forged token with 419 like every other form in the app.',
         'A forged enrolment post answered ' . $reject['status'] . '.');
-    $assert(!(bool) $db->query("SELECT 1 FROM users WHERE full_name = 'Ghost Student'")->fetchColumn(),
+    $assert(!(bool) $db->query("SELECT 1 FROM lms_users WHERE full_name = 'Ghost Student'")->fetchColumn(),
         'No account was created behind the rejected token.',
         'A rejected enrolment still created a user.');
 
@@ -598,7 +598,7 @@ try {
         && !str_contains($duplicate['body'], 'A six-digit code is on its way'),
         'The wording offers both possibilities instead of confirming that an account exists.',
         'The duplicate response confirms that the address has an account.');
-    $assert((int) $db->query('SELECT COUNT(*) FROM users WHERE email = ' . $db->quote($enrolEmail))->fetchColumn() === 1,
+    $assert((int) $db->query('SELECT COUNT(*) FROM lms_users WHERE email = ' . $db->quote($enrolEmail))->fetchColumn() === 1,
         'One account per address after a rejected duplicate.',
         'The duplicate attempt created a second row for the address.');
 } catch (Throwable $exception) {
@@ -608,33 +608,33 @@ try {
     proc_terminate($server);
     proc_close($server);
     foreach ($settings as $key => $unused) {
-        $restore = $db->prepare("INSERT INTO app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        $restore = $db->prepare("INSERT INTO lms_app_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
         $fallback = ['otp_lifetime_seconds' => '600', 'otp_resend_cooldown_seconds' => '60', 'register_max_attempts' => '5', 'login_max_attempts' => '5'];
         $restore->execute([$key, $fallback[$key]]);
     }
     if ($studentId > 0) {
         // The journey's own checkout writes a payment, and a payment holds both the account and the
         // course it was bought for - so it has to go before either of them can.
-        $heldProof = $db->prepare('SELECT payment_proof_path FROM payments WHERE student_id = ?');
+        $heldProof = $db->prepare('SELECT payment_proof_path FROM lms_payments WHERE student_id = ?');
         $heldProof->execute([$studentId]);
         foreach ($heldProof->fetchAll(PDO::FETCH_COLUMN) ?: [] as $storedProof) {
             if ($storedProof !== null) @unlink(BASE_PATH . '/storage/uploads/private/' . (string) $storedProof);
         }
         // Read before the recipients go, because the notice itself is only reachable through them.
-        $heldNotices = $db->prepare('SELECT notification_id FROM notification_recipients WHERE student_id = ?');
+        $heldNotices = $db->prepare('SELECT notification_id FROM lms_notification_recipients WHERE student_id = ?');
         $heldNotices->execute([$studentId]);
         $noticeIds = array_map('intval', $heldNotices->fetchAll(PDO::FETCH_COLUMN) ?: []);
         foreach ([
-            'DELETE FROM payments WHERE student_id = ?',
+            'DELETE FROM lms_payments WHERE student_id = ?',
             // Submitting a payment leaves an audit row and two inbox notices behind, all of them
             // pointing back at the account the cleanup is about to remove.
-            'DELETE FROM audit_logs WHERE actor_user_id = ?',
-            'DELETE FROM notification_recipients WHERE student_id = ?',
-            'DELETE FROM email_otps WHERE user_id = ?',
-            'DELETE FROM email_logs WHERE related_user_id = ?',
-            'DELETE FROM login_events WHERE user_id = ?',
-            'DELETE FROM attendance_records WHERE student_id = ?',
-            'DELETE FROM users WHERE id = ?',
+            'DELETE FROM lms_audit_logs WHERE actor_user_id = ?',
+            'DELETE FROM lms_notification_recipients WHERE student_id = ?',
+            'DELETE FROM lms_email_otps WHERE user_id = ?',
+            'DELETE FROM lms_email_logs WHERE related_user_id = ?',
+            'DELETE FROM lms_login_events WHERE user_id = ?',
+            'DELETE FROM lms_attendance_records WHERE student_id = ?',
+            'DELETE FROM lms_users WHERE id = ?',
         ] as $sql) {
             try {
                 $db->prepare($sql)->execute([$studentId]);
@@ -647,10 +647,10 @@ try {
     if ($noticeIds !== []) {
         // A notice with no reader left is nothing but a row, and the board a later run counts should
         // not be carrying the ones this journey raised.
-        $db->exec('DELETE FROM notifications WHERE id IN (' . implode(',', $noticeIds) . ')');
+        $db->exec('DELETE FROM lms_notifications WHERE id IN (' . implode(',', $noticeIds) . ')');
     }
-    $db->exec('DELETE FROM courses WHERE slug IN (' . $slugs . ')');
-    $cleanup = $db->prepare('DELETE FROM auth_rate_limits WHERE subject_hash = ?');
+    $db->exec('DELETE FROM lms_courses WHERE slug IN (' . $slugs . ')');
+    $cleanup = $db->prepare('DELETE FROM lms_auth_rate_limits WHERE subject_hash = ?');
     foreach ([hash('sha256', 'email:' . $enrolEmail), hash('sha256', 'ip:127.0.0.1')] as $hash) $cleanup->execute([$hash]);
     if ($failures !== [] && is_file($serverLog)) {
         // The app logs what PHP's server could not render, which is the part a status code hides.

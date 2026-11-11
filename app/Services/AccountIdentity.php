@@ -92,7 +92,7 @@ final class AccountIdentity
         $next = 1;
         $includeYear = false;
         try {
-            $stmt = $db->prepare('SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)');
+            $stmt = $db->prepare('SELECT setting_key, setting_value FROM lms_app_settings WHERE setting_key IN (?, ?, ?)');
             $stmt->execute([self::PREFIX_KEY, self::NEXT_KEY, self::INCLUDE_YEAR_KEY]);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 if ((string) $row['setting_key'] === self::PREFIX_KEY) $prefix = (string) $row['setting_value'];
@@ -130,13 +130,13 @@ final class AccountIdentity
         try {
             $scheme = self::scheme($db);
             $year = $scheme['include_year'] ? (int) gmdate('Y') : null;
-            $db->prepare('INSERT IGNORE INTO app_settings(setting_key, setting_value) VALUES(?, ?)')
+            $db->prepare('INSERT IGNORE INTO lms_app_settings(setting_key, setting_value) VALUES(?, ?)')
                 ->execute([self::NEXT_KEY, (string) $scheme['next']]);
-            $lock = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? FOR UPDATE');
+            $lock = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? FOR UPDATE');
             $lock->execute([self::NEXT_KEY]);
             $sequence = max(1, (int) $lock->fetchColumn());
 
-            $taken = $db->prepare('SELECT 1 FROM users WHERE account_reference = ? LIMIT 1');
+            $taken = $db->prepare('SELECT 1 FROM lms_users WHERE account_reference = ? LIMIT 1');
             $reference = '';
             for (; $sequence <= self::MAX_SEQUENCE; $sequence++) {
                 $candidate = self::format($scheme['prefix'], $sequence, $year);
@@ -145,7 +145,7 @@ final class AccountIdentity
             }
             if ($reference === '') throw new RuntimeException('The student ID sequence is exhausted.');
 
-            $db->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?')
+            $db->prepare('UPDATE lms_app_settings SET setting_value = ? WHERE setting_key = ?')
                 ->execute([(string) ($sequence + 1), self::NEXT_KEY]);
             if (!$joined) $db->commit();
             return $reference;
@@ -162,7 +162,7 @@ final class AccountIdentity
         if (isset(self::$references[$userId])) return self::$references[$userId];
         $stored = '';
         try {
-            $stmt = Database::connection()->prepare('SELECT account_reference FROM users WHERE id = ? LIMIT 1');
+            $stmt = Database::connection()->prepare('SELECT account_reference FROM lms_users WHERE id = ? LIMIT 1');
             $stmt->execute([$userId]);
             $stored = trim((string) $stmt->fetchColumn());
         } catch (\PDOException $exception) {
@@ -185,7 +185,7 @@ final class AccountIdentity
     public static function ensure(PDO $db, int $userId): string
     {
         if ($userId < 1) return '—';
-        $stmt = $db->prepare('SELECT account_reference, role FROM users WHERE id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT account_reference, role FROM lms_users WHERE id = ? LIMIT 1');
         $stmt->execute([$userId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row)) return '—';
@@ -202,7 +202,7 @@ final class AccountIdentity
         } else {
             $reference = self::issue($db);
         }
-        $db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
+        $db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
         self::remember($userId, $reference);
         return $reference;
     }
@@ -233,7 +233,7 @@ final class AccountIdentity
         if ($start < 1 || $start > self::MAX_SEQUENCE) {
             throw new RuntimeException('The starting number must be between 1 and ' . self::MAX_SEQUENCE . '.');
         }
-        $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+        $upsert = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
         $upsert->execute([self::PREFIX_KEY, $prefix, $actorId]);
         $upsert->execute([self::NEXT_KEY, (string) $start, $actorId]);
         // A caller that does not name the year switch (the account settings page) leaves it exactly
@@ -248,7 +248,7 @@ final class AccountIdentity
     public static function countStudents(PDO $db): int
     {
         try {
-            return (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn();
+            return (int) $db->query("SELECT COUNT(*) FROM lms_users WHERE role = 'student'")->fetchColumn();
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') throw $exception;
             return 0;
@@ -273,14 +273,14 @@ final class AccountIdentity
         $joined = $db->inTransaction();
         if (!$joined) $db->beginTransaction();
         try {
-            $students = $db->query("SELECT id FROM users WHERE role = 'student' ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
-            $db->exec("UPDATE users SET account_reference = NULL WHERE role = 'student' AND account_reference IS NOT NULL");
+            $students = $db->query("SELECT id FROM lms_users WHERE role = 'student' ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $db->exec("UPDATE lms_users SET account_reference = NULL WHERE role = 'student' AND account_reference IS NOT NULL");
 
-            $take = $db->prepare('UPDATE users SET account_reference = ? WHERE id = ?');
+            $take = $db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?');
             // Only documents that already carry a number follow the account. A request still
             // waiting for review is issued under whatever ID is current when it gets approved.
-            $carry = $db->prepare('UPDATE certificates SET certificate_id = ? WHERE student_id = ? AND certificate_id IS NOT NULL');
-            $clash = $db->prepare('SELECT 1 FROM users WHERE account_reference = ? LIMIT 1');
+            $carry = $db->prepare('UPDATE lms_certificates SET certificate_id = ? WHERE student_id = ? AND certificate_id IS NOT NULL');
+            $clash = $db->prepare('SELECT 1 FROM lms_users WHERE account_reference = ? LIMIT 1');
             $sequence = $scheme['next'];
             $issued = 0;
             $certificates = 0;
@@ -302,7 +302,7 @@ final class AccountIdentity
                 $issued++;
                 self::remember($studentId, $candidate);
             }
-            $db->prepare('UPDATE app_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?')
+            $db->prepare('UPDATE lms_app_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?')
                 ->execute([(string) $sequence, $actorId, self::NEXT_KEY]);
             if (!$joined) $db->commit();
             return ['students' => $issued, 'certificates' => $certificates];
@@ -320,16 +320,16 @@ final class AccountIdentity
     {
         if ($userId < 1) throw new RuntimeException('That account does not exist yet.');
         $reference = self::cleanReference($rawReference);
-        $stmt = $db->prepare('SELECT account_reference FROM users WHERE id = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT account_reference FROM lms_users WHERE id = ? LIMIT 1');
         $stmt->execute([$userId]);
         $current = trim((string) $stmt->fetchColumn());
         if ($current === $reference) return $reference;
         if (self::isTaken($db, $reference, $userId)) {
             throw new RuntimeException($reference . ' is already the ID of another account. Every ID has to be unique.');
         }
-        $db->prepare('UPDATE users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
+        $db->prepare('UPDATE lms_users SET account_reference = ? WHERE id = ?')->execute([$reference, $userId]);
         // A document already printed with the old number would otherwise stop verifying.
-        $db->prepare('UPDATE certificates SET certificate_id = ? WHERE student_id = ? AND certificate_id IS NOT NULL')->execute([$reference, $userId]);
+        $db->prepare('UPDATE lms_certificates SET certificate_id = ? WHERE student_id = ? AND certificate_id IS NOT NULL')->execute([$reference, $userId]);
         self::remember($userId, $reference);
         return $reference;
     }
@@ -343,7 +343,7 @@ final class AccountIdentity
     /** True when another account already answers to this ID. */
     public static function isTaken(PDO $db, string $reference, int $exceptUserId = 0): bool
     {
-        $stmt = $db->prepare('SELECT 1 FROM users WHERE account_reference = ? AND id <> ? LIMIT 1');
+        $stmt = $db->prepare('SELECT 1 FROM lms_users WHERE account_reference = ? AND id <> ? LIMIT 1');
         $stmt->execute([$reference, $exceptUserId]);
         return (bool) $stmt->fetch();
     }

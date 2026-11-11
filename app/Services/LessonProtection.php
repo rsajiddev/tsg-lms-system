@@ -92,7 +92,7 @@ final class LessonProtection
             return $this->schemaAvailable;
         }
         try {
-            $this->db->query('SELECT 1 FROM lesson_view_events LIMIT 0');
+            $this->db->query('SELECT 1 FROM lms_lesson_view_events LIMIT 0');
             $this->schemaAvailable = true;
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') {
@@ -110,7 +110,7 @@ final class LessonProtection
         }
         $stored = '';
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::WATERMARK_KEY]);
             $stored = trim((string) $stmt->fetchColumn());
         } catch (\PDOException $exception) {
@@ -137,7 +137,7 @@ final class LessonProtection
         }
         $stored = '';
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::LOCK_ON_COMPLETION_KEY]);
             $stored = trim((string) $stmt->fetchColumn());
         } catch (\PDOException $exception) {
@@ -150,7 +150,7 @@ final class LessonProtection
     {
         $stored = 0;
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::RETENTION_KEY]);
             $stored = (int) $stmt->fetchColumn();
         } catch (\PDOException $exception) {
@@ -235,7 +235,7 @@ final class LessonProtection
             }
         }
         try {
-            $stmt = $this->db->prepare('INSERT INTO lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())');
+            $stmt = $this->db->prepare('INSERT INTO lms_lesson_view_events(student_id,lesson_id,event_type,ip_address,detail,created_at) VALUES(?,?,?,?,?,UTC_TIMESTAMP())');
             $stmt->execute([$studentId, $lessonId && $lessonId > 0 ? $lessonId : null, $event, SessionRegistry::clientIp(), $detail]);
             return true;
         } catch (\PDOException $exception) {
@@ -257,11 +257,11 @@ final class LessonProtection
         $sql = 'SELECT e.id, e.event_type, e.detail, e.ip_address, e.created_at,
                        u.full_name AS student_name, COALESCE(NULLIF(u.account_reference, \'\'), \'—\') AS student_reference,
                        l.title AS lesson_title, c.title AS course_title
-                FROM lesson_view_events e
-                JOIN users u ON u.id = e.student_id
-                LEFT JOIN lessons l ON l.id = e.lesson_id
-                LEFT JOIN course_modules cm ON cm.id = l.module_id
-                LEFT JOIN courses c ON c.id = cm.course_id';
+                FROM lms_lesson_view_events e
+                JOIN lms_users u ON u.id = e.student_id
+                LEFT JOIN lms_lessons l ON l.id = e.lesson_id
+                LEFT JOIN lms_course_modules cm ON cm.id = l.module_id
+                LEFT JOIN lms_courses c ON c.id = cm.course_id';
         $params = [];
         if ($studentId > 0) {
             $sql .= ' WHERE e.student_id = ?';
@@ -284,7 +284,7 @@ final class LessonProtection
             return 0;
         }
         try {
-            return (int) $this->db->query('SELECT COUNT(*) FROM lesson_view_events')->fetchColumn();
+            return (int) $this->db->query('SELECT COUNT(*) FROM lms_lesson_view_events')->fetchColumn();
         } catch (\PDOException $exception) {
             return 0;
         }
@@ -296,7 +296,7 @@ final class LessonProtection
             return 0;
         }
         try {
-            return (int) $this->db->exec('DELETE FROM lesson_view_events');
+            return (int) $this->db->exec('DELETE FROM lms_lesson_view_events');
         } catch (\PDOException $exception) {
             error_log('[VIDEO PROTECTION] Log clear failed: ' . $exception->getMessage());
             return 0;
@@ -313,7 +313,7 @@ final class LessonProtection
             return 0;
         }
         try {
-            $stmt = $this->db->prepare('DELETE FROM lesson_view_events WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)');
+            $stmt = $this->db->prepare('DELETE FROM lms_lesson_view_events WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)');
             $stmt->execute([$this->retentionDays()]);
             return $stmt->rowCount();
         } catch (\PDOException $exception) {

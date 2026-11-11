@@ -149,7 +149,7 @@ final class AccountController
             $scheme = AccountIdentity::saveScheme($db, $prefix, (int) $start, (int) $admin['id']);
             $tally = $reissue ? AccountIdentity::reissueStudents($db, (int) $admin['id']) : ['students' => 0, 'certificates' => 0];
             $next = $reissue ? AccountIdentity::scheme($db)['next'] : $scheme['next'];
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'account.identity_scheme_updated','app_settings',?)")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'account.identity_scheme_updated','app_settings',?)")
                 ->execute([(int) $admin['id'], json_encode(['prefix' => $scheme['prefix'], 'start' => (int) $start, 'reissued_students' => $tally['students'], 'reissued_certificates' => $tally['certificates']], JSON_THROW_ON_ERROR)]);
             $db->commit();
         } catch (\Throwable $exception) {
@@ -174,7 +174,7 @@ final class AccountController
             $db = Database::connection();
             $before = AccountIdentity::reference((int) $admin['id'], 'admin');
             $reference = AccountIdentity::setReference($db, (int) $admin['id'], (string) ($_POST['account_reference'] ?? ''));
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
                 ->execute([(int) $admin['id'], 'account.id_updated', 'user', (int) $admin['id'], json_encode(['from' => $before, 'to' => $reference], JSON_THROW_ON_ERROR)]);
             $_SESSION['_flash'] = $before === $reference
                 ? 'Your Admin ID is still ' . $reference . ' - nothing needed changing.'
@@ -196,7 +196,7 @@ final class AccountController
         $lifetime = $auth->otpLifetimeSeconds();
         $account = [];
         try {
-            $stmt = Database::connection()->prepare('SELECT created_at, last_login_at FROM users WHERE id = ? LIMIT 1');
+            $stmt = Database::connection()->prepare('SELECT created_at, last_login_at FROM lms_users WHERE id = ? LIMIT 1');
             $stmt->execute([(int) $user['id']]);
             $account = $stmt->fetch() ?: [];
         } catch (\Throwable $exception) {

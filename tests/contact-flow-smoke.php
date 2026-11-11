@@ -157,7 +157,7 @@ $assert = static function (bool $condition, string $message) use (&$failures): v
 // A fresh scratch schema so the email_logs write has a home, imported once before any child runs.
 shell_exec($mysql . ' ' . $credentials . ' -e ' . escapeshellarg('CREATE DATABASE IF NOT EXISTS `' . $dbName . '`'));
 shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' < ' . escapeshellarg(BASE_PATH . '/database/migrations/001_initial_schema.sql'));
-shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' -e ' . escapeshellarg("DELETE FROM email_logs WHERE template_key LIKE 'contact.%'"));
+shell_exec($mysql . ' ' . $credentials . ' ' . escapeshellarg($dbName) . ' -e ' . escapeshellarg("DELETE FROM lms_email_logs WHERE template_key LIKE 'contact.%'"));
 
 // Reserve a free port, bring the catcher up, then wait until it announces it is listening.
 $probe = @stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
@@ -220,8 +220,8 @@ try {
         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
         \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
     ]);
-    $logs = $pdo->query("SELECT template_key, status FROM email_logs WHERE template_key LIKE 'contact.%' ORDER BY id")->fetchAll();
-    $savedMessages = $pdo->query('SELECT sender_name,sender_email,phone,subject,message FROM contact_messages ORDER BY id DESC LIMIT 1')->fetchAll();
+    $logs = $pdo->query("SELECT template_key, status FROM lms_email_logs WHERE template_key LIKE 'contact.%' ORDER BY id")->fetchAll();
+    $savedMessages = $pdo->query('SELECT sender_name,sender_email,phone,subject,message FROM lms_contact_messages ORDER BY id DESC LIMIT 1')->fetchAll();
 } catch (\Throwable $exception) {
     $assert(false, 'Contact submission records could be read: ' . $exception->getMessage());
 }

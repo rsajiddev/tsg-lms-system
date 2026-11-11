@@ -61,7 +61,7 @@ final class SessionRegistry
             return $this->schemaAvailable;
         }
         try {
-            $this->db->query('SELECT 1 FROM user_sessions LIMIT 0');
+            $this->db->query('SELECT 1 FROM lms_user_sessions LIMIT 0');
             $this->schemaAvailable = true;
         } catch (\PDOException $exception) {
             if ((string) $exception->getCode() !== '42S02') {
@@ -79,7 +79,7 @@ final class SessionRegistry
         }
         $stored = 0;
         try {
-            $stmt = $this->db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ? LIMIT 1');
             $stmt->execute([self::MAX_ACTIVE_KEY]);
             $stored = (int) $stmt->fetchColumn();
         } catch (\PDOException $exception) {
@@ -119,15 +119,15 @@ final class SessionRegistry
         try {
             $this->db->beginTransaction();
             // Re-registering the id you are already using must revive it, not collide with it.
-            $stmt = $this->db->prepare('INSERT INTO user_sessions(user_id,session_hash,ip_address,user_agent_hash,created_at,last_seen_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),ip_address=VALUES(ip_address),user_agent_hash=VALUES(user_agent_hash),last_seen_at=VALUES(last_seen_at),revoked_at=NULL,revoked_reason=NULL');
+            $stmt = $this->db->prepare('INSERT INTO lms_user_sessions(user_id,session_hash,ip_address,user_agent_hash,created_at,last_seen_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),ip_address=VALUES(ip_address),user_agent_hash=VALUES(user_agent_hash),last_seen_at=VALUES(last_seen_at),revoked_at=NULL,revoked_reason=NULL');
             $stmt->execute([$userId, $hash, $ip, self::agentHash(), $now, $now]);
 
             // Idle rows are closed here rather than by a scheduler this environment does not have.
-            $this->db->prepare('UPDATE user_sessions SET revoked_at=?,revoked_reason=? WHERE user_id=? AND revoked_at IS NULL AND last_seen_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? MINUTE)')
+            $this->db->prepare('UPDATE lms_user_sessions SET revoked_at=?,revoked_reason=? WHERE user_id=? AND revoked_at IS NULL AND last_seen_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? MINUTE)')
                 ->execute([$now, 'idle', $userId, self::IDLE_MINUTES]);
 
             // Other live sessions from a different address are worth a look even if the cap allows them.
-            $peers = $this->db->prepare('SELECT ip_address FROM user_sessions WHERE user_id=? AND revoked_at IS NULL AND session_hash<>?');
+            $peers = $this->db->prepare('SELECT ip_address FROM lms_user_sessions WHERE user_id=? AND revoked_at IS NULL AND session_hash<>?');
             $peers->execute([$userId, $hash]);
             foreach ($peers->fetchAll(PDO::FETCH_COLUMN) as $peerIp) {
                 if (is_string($peerIp) && $peerIp !== '' && $peerIp !== $ip) {
@@ -136,14 +136,14 @@ final class SessionRegistry
                 }
             }
 
-            $active = $this->db->prepare('SELECT id FROM user_sessions WHERE user_id=? AND revoked_at IS NULL ORDER BY last_seen_at DESC,id DESC FOR UPDATE');
+            $active = $this->db->prepare('SELECT id FROM lms_user_sessions WHERE user_id=? AND revoked_at IS NULL ORDER BY last_seen_at DESC,id DESC FOR UPDATE');
             $active->execute([$userId]);
             $ids = array_map('intval', $active->fetchAll(PDO::FETCH_COLUMN));
             $keep = $this->maxActive();
             if (count($ids) > $keep) {
                 $losers = array_slice($ids, $keep);
                 $in = implode(',', array_fill_keys(range(0, count($losers) - 1), '?'));
-                $this->db->prepare("UPDATE user_sessions SET revoked_at=?,revoked_reason='superseded' WHERE id IN ($in)")
+                $this->db->prepare("UPDATE lms_user_sessions SET revoked_at=?,revoked_reason='superseded' WHERE id IN ($in)")
                     ->execute(array_merge([$now], $losers));
                 $result['evicted'] = count($losers);
             }
@@ -198,7 +198,7 @@ final class SessionRegistry
             return self::$verdicts[$memo];
         }
         try {
-            $stmt = $this->db->prepare('SELECT user_id, revoked_at, last_seen_at FROM user_sessions WHERE session_hash = ? LIMIT 1');
+            $stmt = $this->db->prepare('SELECT user_id, revoked_at, last_seen_at FROM lms_user_sessions WHERE session_hash = ? LIMIT 1');
             $stmt->execute([$hash]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row === false) {
@@ -213,7 +213,7 @@ final class SessionRegistry
             }
             $gap = time() - (int) strtotime((string) $row['last_seen_at'] . ' UTC');
             if ($gap > self::TOUCH_SECONDS) {
-                $this->db->prepare('UPDATE user_sessions SET last_seen_at = UTC_TIMESTAMP() WHERE session_hash = ?')
+                $this->db->prepare('UPDATE lms_user_sessions SET last_seen_at = UTC_TIMESTAMP() WHERE session_hash = ?')
                     ->execute([$hash]);
             }
             return self::$verdicts[$memo] = 'ok';
@@ -231,7 +231,7 @@ final class SessionRegistry
             return;
         }
         try {
-            $this->db->prepare('UPDATE user_sessions SET revoked_at=UTC_TIMESTAMP(),revoked_reason=? WHERE session_hash=?')
+            $this->db->prepare('UPDATE lms_user_sessions SET revoked_at=UTC_TIMESTAMP(),revoked_reason=? WHERE session_hash=?')
                 ->execute([$reason, $hash]);
         } catch (\PDOException $exception) {
             error_log('[SESSIONS] Logout revoke failed: ' . $exception->getMessage());
@@ -254,7 +254,7 @@ final class SessionRegistry
         }
         $hash = $this->currentHash();
         try {
-            $stmt = $this->db->prepare('UPDATE user_sessions SET revoked_at=UTC_TIMESTAMP(),revoked_reason=? WHERE user_id=? AND revoked_at IS NULL AND session_hash<>?');
+            $stmt = $this->db->prepare('UPDATE lms_user_sessions SET revoked_at=UTC_TIMESTAMP(),revoked_reason=? WHERE user_id=? AND revoked_at IS NULL AND session_hash<>?');
             $stmt->execute([$reason, $userId, $keepCurrent ? $hash : '']);
             $closed = $stmt->rowCount();
             return ['closed' => $closed, 'kept' => $keepCurrent && $hash !== ''];
@@ -271,7 +271,7 @@ final class SessionRegistry
             return [];
         }
         try {
-            $stmt = $this->db->prepare('SELECT id,ip_address,user_agent_hash,created_at,last_seen_at FROM user_sessions WHERE user_id=? AND revoked_at IS NULL ORDER BY last_seen_at DESC,id DESC LIMIT 50');
+            $stmt = $this->db->prepare('SELECT id,ip_address,user_agent_hash,created_at,last_seen_at FROM lms_user_sessions WHERE user_id=? AND revoked_at IS NULL ORDER BY last_seen_at DESC,id DESC LIMIT 50');
             $stmt->execute([$userId]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $exception) {

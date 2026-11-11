@@ -22,7 +22,7 @@ final class AuthMiddleware
             header('Location: ' . rtrim((require BASE_PATH . '/config/app.php')['url'], '/') . '/login');
             exit;
         }
-        $stmt = Database::connection()->prepare("SELECT id, full_name, email, role FROM users WHERE id = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
+        $stmt = Database::connection()->prepare("SELECT id, full_name, email, role FROM lms_users WHERE id = ? AND status = 'active' AND email_verified_at IS NOT NULL LIMIT 1");
         $stmt->execute([(int) ($user['id'] ?? 0)]);
         $fresh = $stmt->fetch();
         if (!$fresh) {
@@ -54,10 +54,10 @@ final class AuthMiddleware
         $_SESSION['user'] = ['id' => (int) $fresh['id'], 'name' => $fresh['full_name'], 'email' => $fresh['email'], 'role' => $fresh['role']];
         if ($role === 'student' && !self::isPaymentRoute()) {
             $db = Database::connection();
-            $access = $db->prepare("SELECT 1 FROM student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
+            $access = $db->prepare("SELECT 1 FROM lms_student_course_access WHERE student_id=? AND status IN ('active','completed','certified') AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1");
             $access->execute([(int) $fresh['id']]);
             if (!$access->fetchColumn()) {
-                $pending = $db->prepare("SELECT course_id FROM payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
+                $pending = $db->prepare("SELECT course_id FROM lms_payments WHERE student_id=? AND status='pending' ORDER BY created_at DESC, id DESC LIMIT 1");
                 $pending->execute([(int) $fresh['id']]);
                 $courseId = (int) ($pending->fetchColumn() ?: 0);
                 $baseUrl = rtrim((require BASE_PATH . '/config/app.php')['url'], '/');

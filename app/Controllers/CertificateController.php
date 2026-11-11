@@ -72,13 +72,13 @@ final class CertificateController
         $db = Database::connection();
         $access = $db->prepare(
             "SELECT c.id, c.title,
-                    (SELECT COUNT(*) FROM course_modules cm JOIN lessons l ON l.module_id = cm.id
+                    (SELECT COUNT(*) FROM lms_course_modules cm JOIN lms_lessons l ON l.module_id = cm.id
                      WHERE cm.course_id = c.id AND l.status = 'published') AS lesson_count,
-                    (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
-                     JOIN course_modules cm ON cm.id = l.module_id
+                    (SELECT COUNT(*) FROM lms_lesson_progress lp JOIN lms_lessons l ON l.id = lp.lesson_id
+                     JOIN lms_course_modules cm ON cm.id = l.module_id
                      WHERE lp.student_id = ? AND cm.course_id = c.id AND lp.completed_at IS NOT NULL) AS completed_lessons
-             FROM student_course_access sca
-             JOIN courses c ON c.id = sca.course_id
+             FROM lms_student_course_access sca
+             JOIN lms_courses c ON c.id = sca.course_id
              WHERE sca.student_id = ? AND sca.course_id = ? AND sca.status IN ('active','completed','certified')
                    AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
              LIMIT 1"
@@ -101,7 +101,7 @@ final class CertificateController
             'attendance' => $eligibility['attendance'] === null ? null : round($eligibility['attendance'], 2),
         ];
 
-        $existing = $db->prepare('SELECT id, status FROM certificates WHERE student_id = ? AND course_id = ? LIMIT 1');
+        $existing = $db->prepare('SELECT id, status FROM lms_certificates WHERE student_id = ? AND course_id = ? LIMIT 1');
         $existing->execute([$studentId, $courseId]);
         $row = $existing->fetch();
         if (is_array($row) && in_array((string) $row['status'], ['requested', 'issued'], true)) {
@@ -111,16 +111,16 @@ final class CertificateController
         }
 
         if (is_array($row)) {
-            $db->prepare("UPDATE certificates SET status = 'requested', student_remarks = ?, admin_remarks = NULL, overall_percent = ?, letter_grade = ?, attendance_percent = ?, requested_at = UTC_TIMESTAMP() WHERE id = ?")
+            $db->prepare("UPDATE lms_certificates SET status = 'requested', student_remarks = ?, admin_remarks = NULL, overall_percent = ?, letter_grade = ?, attendance_percent = ?, requested_at = UTC_TIMESTAMP() WHERE id = ?")
                 ->execute([$remarks !== '' ? $remarks : null, $snapshot['overall'], $snapshot['letter'], $snapshot['attendance'], (int) $row['id']]);
             $certificateId = (int) $row['id'];
         } else {
-            $db->prepare("INSERT INTO certificates(student_id, course_id, status, student_remarks, overall_percent, letter_grade, attendance_percent, requested_at) VALUES(?,?,'requested',?,?,?,?,UTC_TIMESTAMP())")
+            $db->prepare("INSERT INTO lms_certificates(student_id, course_id, status, student_remarks, overall_percent, letter_grade, attendance_percent, requested_at) VALUES(?,?,'requested',?,?,?,?,UTC_TIMESTAMP())")
                 ->execute([$studentId, $courseId, $remarks !== '' ? $remarks : null, $snapshot['overall'], $snapshot['letter'], $snapshot['attendance']]);
             $certificateId = (int) $db->lastInsertId();
         }
 
-        $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
+        $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)")
             ->execute([$studentId, 'certificate.requested', 'certificate', $certificateId, json_encode(['course_id' => $courseId], JSON_THROW_ON_ERROR)]);
 
         (new MailService($db))->sendCertificateRequest([
@@ -182,9 +182,9 @@ final class CertificateController
                         SUM(cert.status = 'issued' AND cert.expires_at IS NOT NULL AND cert.expires_at <= UTC_TIMESTAMP()) AS expired,
                         SUM(cert.status = 'rejected') AS rejected,
                         SUM(cert.status = 'revoked') AS revoked
-                 FROM certificates cert
-                 JOIN users u ON u.id = cert.student_id
-                 JOIN courses c ON c.id = cert.course_id" . $clause
+                 FROM lms_certificates cert
+                 JOIN lms_users u ON u.id = cert.student_id
+                 JOIN lms_courses c ON c.id = cert.course_id" . $clause
             );
             $summary->execute($params);
             foreach ((array) ($summary->fetch() ?: []) as $key => $value) {
@@ -216,11 +216,11 @@ final class CertificateController
                         u.full_name AS student_name, u.email AS student_email,
                         c.title AS course_title, c.duration_label, c.level_label,
                         reviewer.full_name AS reviewed_by_name, revoker.full_name AS revoked_by_name
-                 FROM certificates cert
-                 JOIN users u ON u.id = cert.student_id
-                 JOIN courses c ON c.id = cert.course_id
-                 LEFT JOIN users reviewer ON reviewer.id = cert.reviewed_by
-                 LEFT JOIN users revoker ON revoker.id = cert.revoked_by{$filterClause}
+                 FROM lms_certificates cert
+                 JOIN lms_users u ON u.id = cert.student_id
+                 JOIN lms_courses c ON c.id = cert.course_id
+                 LEFT JOIN lms_users reviewer ON reviewer.id = cert.reviewed_by
+                 LEFT JOIN lms_users revoker ON revoker.id = cert.revoked_by{$filterClause}
                  ORDER BY cert.status = 'requested' DESC, cert.requested_at DESC, cert.id DESC
                  LIMIT 200"
             );
@@ -298,12 +298,12 @@ final class CertificateController
         $db = Database::connection();
         $db->beginTransaction();
         try {
-            $upsert = $db->prepare('INSERT INTO app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
+            $upsert = $db->prepare('INSERT INTO lms_app_settings(setting_key,setting_value,updated_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by)');
             $upsert->execute([self::DAYS_KEY, (string) (int) $rawDays, (int) $admin['id']]);
             if ($postsFormat) {
                 AccountIdentity::saveScheme($db, $prefix, (int) $rawStart, (int) $admin['id'], $includeYear);
             }
-            $db->prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',?)")
+            $db->prepare("INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,metadata) VALUES(?,'certificate.settings_updated','app_settings',?)")
                 ->execute([(int) $admin['id'], json_encode(['days' => (int) $rawDays, 'format_updated' => $postsFormat, 'prefix' => $postsFormat ? $prefix : null, 'include_year' => $postsFormat ? $includeYear : null, 'start' => $postsFormat ? (int) $rawStart : null], JSON_THROW_ON_ERROR)]);
             $db->commit();
             $_SESSION['_flash'] = 'Certificate settings saved.';
@@ -353,9 +353,9 @@ final class CertificateController
         $db = Database::connection();
         $stmt = $db->prepare(
             'SELECT cert.id, cert.status, cert.course_id, cert.student_id, cert.file_path, u.full_name, u.email, c.title AS course_title
-             FROM certificates cert
-             JOIN users u ON u.id = cert.student_id
-             JOIN courses c ON c.id = cert.course_id
+             FROM lms_certificates cert
+             JOIN lms_users u ON u.id = cert.student_id
+             JOIN lms_courses c ON c.id = cert.course_id
              WHERE cert.id = ? LIMIT 1'
         );
         $stmt->execute([$certificateRowId]);
@@ -373,7 +373,7 @@ final class CertificateController
         $publicId = AccountIdentity::ensure($db, (int) $certificate['student_id']);
 
         $update = $db->prepare(
-            "UPDATE certificates
+            "UPDATE lms_certificates
              SET certificate_id = ?, status = 'issued', admin_remarks = ?, file_path = ?, file_type = ?,
                  issued_by = ?, reviewed_by = ?, issued_at = UTC_TIMESTAMP(),
                  expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY), notified_at = NULL,
@@ -397,10 +397,10 @@ final class CertificateController
         if ($wasRevoked && $previousFile !== '') $this->removeStoredCertificateFile($previousFile);
 
         // Issuing lifts the enrollment to certified so the student portal and roster reflect it.
-        $db->prepare("UPDATE student_course_access SET status = 'certified' WHERE student_id = ? AND course_id = ? AND status IN ('active','completed')")
+        $db->prepare("UPDATE lms_student_course_access SET status = 'certified' WHERE student_id = ? AND course_id = ? AND status IN ('active','completed')")
             ->execute([(int) $certificate['student_id'], (int) $certificate['course_id']]);
 
-        $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
+        $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
             ->execute([(int) $admin['id'], $wasRevoked ? 'certificate.reissued' : 'certificate.issued', 'certificate', $certificateRowId, json_encode(['certificate_id' => $publicId, 'valid_days' => $days], JSON_THROW_ON_ERROR)]);
 
         $notified = (new MailService($db))->sendCertificateIssued([
@@ -414,7 +414,7 @@ final class CertificateController
             'verify_url' => $this->verifyUrl($publicId),
         ]);
         if ($notified) {
-            $db->prepare('UPDATE certificates SET notified_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$certificateRowId]);
+            $db->prepare('UPDATE lms_certificates SET notified_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$certificateRowId]);
         }
         // The badge has to light up even when the email could not be delivered.
         (new NotificationService($db))->notifyStudents(
@@ -461,9 +461,9 @@ final class CertificateController
             $stmt = $db->prepare(
                 'SELECT cert.student_id, cert.course_id, cert.certificate_id, cert.status,
                         u.full_name, u.email, c.title AS course_title
-                 FROM certificates cert
-                 JOIN users u ON u.id = cert.student_id
-                 JOIN courses c ON c.id = cert.course_id
+                 FROM lms_certificates cert
+                 JOIN lms_users u ON u.id = cert.student_id
+                 JOIN lms_courses c ON c.id = cert.course_id
                  WHERE cert.id = ? FOR UPDATE'
             );
             $stmt->execute([$certificateRowId]);
@@ -474,16 +474,16 @@ final class CertificateController
             }
 
             $update = $db->prepare(
-                "UPDATE certificates
+                "UPDATE lms_certificates
                  SET status = 'revoked', revoked_by = ?, revoked_at = UTC_TIMESTAMP(), revoked_reason = ?, reviewed_by = ?
                  WHERE id = ? AND status = 'issued'"
             );
             $update->execute([(int) $admin['id'], $reason, (int) $admin['id'], $certificateRowId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('The certificate could not be revoked. Reload the page and try again.');
 
-            $db->prepare("UPDATE student_course_access SET status = 'completed' WHERE student_id = ? AND course_id = ? AND status = 'certified'")
+            $db->prepare("UPDATE lms_student_course_access SET status = 'completed' WHERE student_id = ? AND course_id = ? AND status = 'certified'")
                 ->execute([(int) $certificate['student_id'], (int) $certificate['course_id']]);
-            $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
+            $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES(?,?,?,?,?)')
                 ->execute([
                     (int) $admin['id'],
                     'certificate.revoked',
@@ -546,18 +546,18 @@ final class CertificateController
         $db = Database::connection();
         $find = $db->prepare(
             'SELECT cert.student_id, cert.course_id, u.full_name, u.email, c.title AS course_title
-             FROM certificates cert
-             JOIN users u ON u.id = cert.student_id
-             JOIN courses c ON c.id = cert.course_id
+             FROM lms_certificates cert
+             JOIN lms_users u ON u.id = cert.student_id
+             JOIN lms_courses c ON c.id = cert.course_id
              WHERE cert.id = ? LIMIT 1'
         );
         $find->execute([$certificateRowId]);
         $certificate = $find->fetch();
-        $stmt = $db->prepare("UPDATE certificates SET status = 'rejected', admin_remarks = ?, reviewed_by = ? WHERE id = ? AND status = 'requested'");
+        $stmt = $db->prepare("UPDATE lms_certificates SET status = 'rejected', admin_remarks = ?, reviewed_by = ? WHERE id = ? AND status = 'requested'");
         $stmt->execute([$remarks, (int) $admin['id'], $certificateRowId]);
         if ($stmt->rowCount() !== 1) throw new RuntimeException('Only pending requests can be rejected.');
 
-        $db->prepare('INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'certificate\',?)')
+        $db->prepare('INSERT INTO lms_audit_logs(actor_user_id,action,entity_type,entity_id) VALUES(?,?,\'certificate\',?)')
             ->execute([(int) $admin['id'], 'certificate.rejected', $certificateRowId]);
 
         // A rejection needs an action from the student, so it must reach them twice over.
@@ -612,9 +612,9 @@ final class CertificateController
                                     LOWER(SUBSTRING_INDEX(cert.file_path, '.', -1)) AS file_ext,
                                     u.full_name AS student_name, u.account_reference AS student_id,
                                     c.title AS course_title, c.duration_label, c.level_label
-                         FROM certificates cert
-                         JOIN users u ON u.id = cert.student_id
-                         JOIN courses c ON c.id = cert.course_id
+                         FROM lms_certificates cert
+                         JOIN lms_users u ON u.id = cert.student_id
+                         JOIN lms_courses c ON c.id = cert.course_id
                          WHERE cert.certificate_id = ? AND cert.status IN ('issued', 'revoked')
                          ORDER BY cert.status = 'revoked',
                                   (cert.expires_at IS NOT NULL AND cert.expires_at <= UTC_TIMESTAMP()), cert.issued_at DESC"
@@ -663,7 +663,7 @@ final class CertificateController
         }
 
         $courseId = filter_var($_GET['course_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
-        $sql = "SELECT certificate_id, file_path FROM certificates
+        $sql = "SELECT certificate_id, file_path FROM lms_certificates
                  WHERE certificate_id = ? AND status = 'issued' AND file_path IS NOT NULL
                        AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())";
         $params = [$rawId];
@@ -747,7 +747,7 @@ final class CertificateController
     {
         $days = self::DEFAULT_DAYS;
         try {
-            $statement = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+            $statement = $db->prepare('SELECT setting_value FROM lms_app_settings WHERE setting_key = ?');
             $statement->execute([self::DAYS_KEY]);
             $stored = $statement->fetchColumn();
             if ($stored !== false) $days = (int) $stored;
@@ -831,7 +831,7 @@ final class CertificateController
     private function certificateSnapshotAvailable(PDO $db): bool
     {
         try {
-            $db->query('SELECT overall_percent FROM certificates LIMIT 0');
+            $db->query('SELECT overall_percent FROM lms_certificates LIMIT 0');
             return true;
         } catch (\PDOException $exception) {
             if (($exception->errorInfo[1] ?? null) === 1054 || (string) $exception->getCode() === '42S02') return false;

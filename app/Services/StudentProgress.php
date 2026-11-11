@@ -100,7 +100,7 @@ final class StudentProgress
     {
         $reference = $this->columnExists('users', 'account_reference') ? 'account_reference' : 'NULL';
         try {
-            $stmt = $this->db->prepare("SELECT full_name, email, $reference AS account_reference FROM users WHERE id = ? LIMIT 1");
+            $stmt = $this->db->prepare("SELECT full_name, email, $reference AS account_reference FROM lms_users WHERE id = ? LIMIT 1");
             $stmt->execute([$studentId]);
             $row = $stmt->fetch();
         } catch (\PDOException $exception) {
@@ -121,8 +121,8 @@ final class StudentProgress
             $stmt = $this->db->prepare(
                 "SELECT c.id AS course_id, c.title, c.level_label, c.duration_label,
                         sca.status AS access_status, sca.granted_at, sca.expires_at
-                 FROM student_course_access sca
-                 JOIN courses c ON c.id = sca.course_id
+                 FROM lms_student_course_access sca
+                 JOIN lms_courses c ON c.id = sca.course_id
                  WHERE sca.student_id = ? AND sca.status IN ('active','completed','certified')
                        AND (sca.expires_at IS NULL OR sca.expires_at > UTC_TIMESTAMP())
                  ORDER BY c.title ASC"
@@ -189,9 +189,9 @@ final class StudentProgress
             $stmt = $this->db->prepare(
                 "SELECT cm.id AS module_id, cm.title AS module_title, cm.sort_order,
                         l.id AS lesson_id, lp.completed_at, $watchColumns
-                 FROM course_modules cm
-                 LEFT JOIN lessons l ON l.module_id = cm.id AND l.status = 'published'
-                 LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
+                 FROM lms_course_modules cm
+                 LEFT JOIN lms_lessons l ON l.module_id = cm.id AND l.status = 'published'
+                 LEFT JOIN lms_lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
                  WHERE cm.course_id = ?
                  ORDER BY cm.sort_order ASC, cm.id ASC, l.sort_order ASC, l.id ASC"
             );
@@ -271,11 +271,11 @@ final class StudentProgress
         try {
             $stmt = $this->db->prepare(
                 "SELECT q.id, q.title, $typeSelect, q.pass_mark_percent,
-                        (SELECT MAX(qa.percentage) FROM quiz_attempts qa
+                        (SELECT MAX(qa.percentage) FROM lms_quiz_attempts qa
                          WHERE qa.quiz_id = q.id AND qa.student_id = ? AND qa.status <> 'in_progress' AND qa.percentage IS NOT NULL) AS best,
-                        (SELECT COUNT(*) FROM quiz_attempts qa
+                        (SELECT COUNT(*) FROM lms_quiz_attempts qa
                          WHERE qa.quiz_id = q.id AND qa.student_id = ? AND qa.status <> 'in_progress') AS attempts
-                 FROM quizzes q
+                 FROM lms_quizzes q
                  WHERE q.course_id = ? AND q.status IN ('released','closed')
                  ORDER BY q.week_number ASC, q.id ASC"
             );
@@ -358,11 +358,11 @@ final class StudentProgress
         try {
             $stmt = $this->db->prepare(
                 "SELECT a.id, a.title, $typeSelect,
-                        (SELECT MAX(s.marks_awarded) FROM assignment_submissions s
+                        (SELECT MAX(s.marks_awarded) FROM lms_assignment_submissions s
                          WHERE s.assignment_id = a.id AND s.student_id = ? AND s.status = 'reviewed' AND s.marks_awarded IS NOT NULL) AS awarded,
-                        (SELECT COUNT(*) FROM assignment_submissions s
+                        (SELECT COUNT(*) FROM lms_assignment_submissions s
                          WHERE s.assignment_id = a.id AND s.student_id = ?) AS submissions
-                 FROM assignments a
+                 FROM lms_assignments a
                  WHERE a.course_id = ? AND a.status IN ('published','closed')
                  ORDER BY a.week_number ASC, a.id ASC"
             );
@@ -426,7 +426,7 @@ final class StudentProgress
         try {
             $stmt = $this->db->prepare(
                 "SELECT status, certificate_id, expires_at, file_path, revoked_reason, $fileType
-                 FROM certificates WHERE student_id = ? AND course_id = ? LIMIT 1"
+                 FROM lms_certificates WHERE student_id = ? AND course_id = ? LIMIT 1"
             );
             $stmt->execute([$studentId, $courseId]);
             $row = $stmt->fetch();
